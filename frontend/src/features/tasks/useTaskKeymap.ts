@@ -2,9 +2,8 @@
 // §9). One feature's keymap, not a general-purpose registry (YAGNI) — the
 // reference implementation for the single-letter-shortcuts-must-not-fire-
 // while-editing problem is `features/cds-admin/review/use-review-
-// controller.ts`. `⌥↑`/`⌥↓` (Today reorder) is P9, cut from this phase; `n`
-// (focus quick-add) is already bound inside `QuickAddBar.tsx` and is
-// deliberately not re-bound here.
+// controller.ts`. `n` (focus quick-add) is already bound inside
+// `QuickAddBar.tsx` and is deliberately not re-bound here.
 import { useEffect } from "react";
 
 import { schedulerOptions } from "@/features/tasks/task-config";
@@ -16,6 +15,10 @@ export type TaskKeymapHandlers = {
   onNavigateView: (view: TaskKeymapView) => void;
   onOpenSearch: () => void;
   onOpenTask: (taskId: string) => void;
+  /** `⌥↑`/`⌥↓` — Today's manual reorder (plan P9, spec §9). Only fires when
+   * the focused row is actually reorderable (TasksLayout's handler is a
+   * no-op off Today, since `todayGroups.main` won't contain the id). */
+  onReorder: (taskId: string, direction: -1 | 1) => void;
   onSchedule: (
     taskId: string,
     field: "when_on" | "deadline_on",
@@ -132,6 +135,18 @@ export function useTaskKeymap(handlers: TaskKeymapHandlers) {
       }
 
       if (isEditingSurface(event.target)) {
+        return;
+      }
+
+      // `⌥↑`/`⌥↓` — spec §9's Today reorder, checked ahead of the plain
+      // arrow-key row-focus movement below since it's the same two keys
+      // with a modifier.
+      if (event.altKey && (event.key === "ArrowUp" || event.key === "ArrowDown")) {
+        const taskId = focusedTaskId();
+        if (taskId) {
+          event.preventDefault();
+          handlers.onReorder(taskId, event.key === "ArrowUp" ? -1 : 1);
+        }
         return;
       }
 

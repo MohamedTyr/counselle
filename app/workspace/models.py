@@ -292,6 +292,11 @@ class Task(_Model):
     flagged: bool = False
     created_by_actor: Actor = "student"
     last_actor: Actor = "student"
+    #: Today's manual order (tasks-redesign spec §6.1, plan decision D4).
+    #: NULL means "never explicitly reordered" — see migrations/
+    #: 0020_task_sort_order.sql for why this is nullable unlike Activity/
+    #: Honor's NOT NULL sort_order.
+    sort_order: int | None = None
 
 
 class TaskCreate(_Model):

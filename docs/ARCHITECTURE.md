@@ -868,6 +868,20 @@ API model and UI. Public Common App resources confirm the activities count and
 activity field caps; the UI wording stays generic where live first-year form
 access is required to verify exact active-cycle wording.
 
+A task carries two independent dates rather than one: **when** the student plans
+to work on it, and **deadline**, the external date something is actually due (an
+application deadline the task inherits, an essay's submission date). The two are
+never conflated — a task can have either, both, or neither, and a deadline it
+inherits from its application is surfaced as distinct from a deadline set on the
+task itself, so an inherited date is never reported as the task's own. A task's
+lifecycle collapses to open/done rather than a multi-value status. Every task also
+records, in two columns, whether Counselle or the student created it and which of
+the two last touched it — the same "did the agent touch this" question the actor
+columns answer on tasks, workspace-wide, applies without a join against
+`counselle.workspace_changes`. The agent's task tools speak the same vocabulary as
+the API and UI: the same two date fields, the same open/done state, and the same
+flag concept a student can set on a task to mark it out for themselves.
+
 ### 31.0 Historical MVP2 frontend
 
 The notes below describe the shipped MVP2 LibreChat clone and remain here as

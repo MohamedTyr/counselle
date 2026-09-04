@@ -147,6 +147,7 @@ export type Task = {
   flagged: boolean;
   created_by_actor: "student" | "counselle";
   last_actor: "student" | "counselle";
+  sort_order: number | null;
 };
 
 export type TaskCreate = {

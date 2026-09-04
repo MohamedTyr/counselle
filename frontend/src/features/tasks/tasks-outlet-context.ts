@@ -27,6 +27,9 @@ export type TasksOutletContext = {
     value: string | null,
   ) => void;
   onToggleFlag: (taskId: string) => void;
+  /** Today's manual reorder (plan P9, spec §6.1) — commits a full new id
+   * order for the main list, from either the drag grip or `⌥↑/↓`. */
+  onReorderToday: (ids: string[]) => void;
 };
 
 export function useTasksOutletContext() {

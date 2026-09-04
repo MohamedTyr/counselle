@@ -78,6 +78,30 @@ function compareTodayOrder(referenceDate: Date) {
   };
 }
 
+/**
+ * plan P9 — Today's manual order (spec §6.1, plan decision D4): `sort_order`
+ * is primary, nulls last, when set; a task the student never reordered
+ * falls straight through to `compareTodayOrder`. When *no* task in the list
+ * has been reordered this is byte-identical to `compareTodayOrder` alone —
+ * every comparison hits the `undefined`/`undefined` case below and defers.
+ * Only `main` uses this; `dueSoon` is not manually reorderable (design doc
+ * §3.10.2 — the grip lives in Today's main list only).
+ */
+function compareTodayMainOrder(referenceDate: Date) {
+  const fallback = compareTodayOrder(referenceDate);
+  return (a: Task, b: Task): number => {
+    const aOrder = a.sort_order;
+    const bOrder = b.sort_order;
+    if (aOrder === undefined && bOrder === undefined) {
+      return fallback(a, b);
+    }
+    if ((aOrder === undefined) !== (bOrder === undefined)) {
+      return aOrder === undefined ? 1 : -1;
+    }
+    return aOrder! - bOrder!;
+  };
+}
+
 // ---- Today (spec §6.1, design §2.5/§2.6) -------------------------------
 
 export type TodayGroups = {
@@ -131,7 +155,7 @@ export function getTodayGroups(
 
   const order = compareTodayOrder(referenceDate);
   return {
-    main: [...main].sort(order),
+    main: [...main].sort(compareTodayMainOrder(referenceDate)),
     dueSoon: [...dueSoon].sort(order),
   };
 }

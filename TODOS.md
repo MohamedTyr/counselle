@@ -1,5 +1,11 @@
 # TODOS
 
+## Tasks redesign: drop the retired columns and export `reminder_at` first
+- **What:** a follow-up migration to drop `counselle.tasks.status`, `priority`, `category`, `assignee`, `needs_input`, `due_at`, `planned_for`, and `reminder_at` — all kept for one release by migration `0019_tasks_redesign.sql` alongside the new `when_on`/`deadline_on`/`done_at`/`flagged`/`created_by_actor`/`last_actor` columns. Before dropping `reminder_at` specifically, export its values first — spec §10 promises the export and no code path writes or reads `reminder_at` anymore (D6, `plans/tasks-redesign-plan.md` §1), so the column is currently pure historical data with no application consumer.
+- **Why:** the redesigned Tasks page (`when`/`deadline`/`flagged`/`done` vocabulary, both in the UI and in the agent tools) has fully replaced the old status/priority/category/assignee model; `status`/`completed_at` are only still written because `app/workspace/service_applications.py`'s progress rollup reads `status = 'done'` — that rollup needs to move to `done_at` before the column can go. Keeping eight dead columns around past one release is exactly the config/schema debt this project avoids.
+- **Context (start here):** `migrations/0019_tasks_redesign.sql` (the header comment lists every survivor and why); `app/workspace/service_tasks.py` (the `done_at` ↔ `status` sync); `app/workspace/service_applications.py` (the progress rollup that still reads `status`); `plans/tasks-redesign-plan.md` §1 row D6 and P1.1.
+- *(Logged from the tasks redesign, P8.4, 2026-09-04.)*
+
 ## Identify the owner of `cds_deploy_export` / `cds_deploy_seed`
 - **What:** two schemas exist on the live database (`cds_deploy_export`, `cds_deploy_seed`) that appear in no migration in either this repo or the retired `counselle-data-pipeline` repo. They contain static snapshot tables and are correctly inaccessible to `counselle_ro`, but nobody on this project knows what writes them.
 - **Why:** an undocumented schema on a production database is a liability — it could be dead, or it could be a deploy-tooling dependency nobody's tracked.

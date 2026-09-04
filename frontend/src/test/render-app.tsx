@@ -134,6 +134,7 @@ export const workspaceTaskFixture: Task = {
   flagged: false,
   created_by_actor: "student",
   last_actor: "student",
+  sort_order: null,
 };
 
 export const workspaceEssayFixture: EssaySummary = {
@@ -362,11 +363,22 @@ export function createWorkspaceFetchPreset(
           deadline_on: body.deadline_on ?? null,
           done_at: body.done_at ?? null,
           flagged: body.flagged ?? false,
+          sort_order: null,
         };
         tasks = [task, ...tasks];
         return jsonResponse(task);
       }
 
+      return jsonResponse(tasks);
+    }
+    if (url.endsWith("/v1/tasks/order") && init?.method === "PUT") {
+      const body = JSON.parse(String(init.body ?? "{}")) as { ids: string[] };
+      const order = new Map(body.ids.map((id, index) => [id, index]));
+      tasks = tasks.map((task) =>
+        order.has(task.id)
+          ? { ...task, sort_order: order.get(task.id) ?? task.sort_order }
+          : task,
+      );
       return jsonResponse(tasks);
     }
     if (url.includes("/v1/tasks/")) {

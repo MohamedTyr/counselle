@@ -5,7 +5,7 @@
 // flag, hover-revealed affordances, row states, responsive) and §4 (the
 // completion motion) exactly. Every colour used below is on the §9.1
 // permitted list.
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type DragEvent } from "react";
 import { motion, useReducedMotion } from "motion/react";
 import { CalendarPlus, CircleAlert, Flag, GripVertical, Sparkles } from "lucide-react";
 
@@ -22,6 +22,19 @@ import {
 } from "@/features/tasks/task-dates";
 import { cn } from "@/lib/utils";
 
+/**
+ * Today-only manual reorder wiring (plan P9, design doc §3.10.2). Presence
+ * of this prop is what shows the grip; the three DnD callbacks are
+ * `useTaskReorder`'s `startDrag`/`dragOverTask`/`drop`/`endDrag`, already
+ * bound to this row's own `task.id` by the caller (TodayView).
+ */
+export type TaskRowReorderHandlers = {
+  onDragStart: () => void;
+  onDragOverRow: () => void;
+  onDrop: () => void;
+  onDragEnd: () => void;
+};
+
 export type TaskRowProps = {
   task: Task;
   applicationsById: ReadonlyMap<string, ApplicationView>;
@@ -29,7 +42,7 @@ export type TaskRowProps = {
   /** Which meta the surrounding group already states — suppressed per §3.2. */
   suppress?: { label?: boolean; when?: boolean };
   isSelected: boolean;
-  showReorderGrip?: boolean; // Today only, P9
+  reorder?: TaskRowReorderHandlers;
   /**
    * Render the schedule affordance at rest instead of on hover. Only the two
    * groups that exist to say "this needs a when" set it — Today's "Due soon"
@@ -120,7 +133,7 @@ export function TaskRow({
   essaysById,
   suppress = {},
   isSelected,
-  showReorderGrip = false,
+  reorder,
   scheduleAffordanceAtRest = false,
   onOpen,
   onComplete,
@@ -142,6 +155,11 @@ export function TaskRow({
   const [exitDurationMs, setExitDurationMs] = useState(ROW_EXIT_MS);
   const [syncedIsDone, setSyncedIsDone] = useState(isDone);
   const timeoutsRef = useRef<number[]>([]);
+
+  // DESIGN.md §17.5 — "armed by pointerdown on a grip handle only." The row
+  // is only `draggable` for the brief window between that pointerdown and
+  // the drag ending, so a click anywhere else on the row never starts one.
+  const [dragArmed, setDragArmed] = useState(false);
 
   // An externally-driven done-state change (toggled from the detail panel,
   // or on first mount) syncs instantly — the timeline below only runs for a
@@ -209,26 +227,55 @@ export function TaskRow({
       data-selected={isSelected || undefined}
       data-slot="task-row"
       data-task-id={task.id}
+      draggable={reorder ? dragArmed : undefined}
       exit={{ opacity: 0, transition: { duration: 0 } }}
       layout="position"
+      onDragEnd={
+        reorder
+          ? () => {
+              setDragArmed(false);
+              reorder.onDragEnd();
+            }
+          : undefined
+      }
+      onDragOver={
+        reorder
+          ? (event: DragEvent<HTMLLIElement>) => {
+              event.preventDefault();
+              reorder.onDragOverRow();
+            }
+          : undefined
+      }
+      onDragStart={reorder ? () => reorder.onDragStart() : undefined}
+      onDrop={
+        reorder
+          ? (event: DragEvent<HTMLLIElement>) => {
+              event.preventDefault();
+              reorder.onDrop();
+            }
+          : undefined
+      }
       transition={{
         layout: shouldReduceMotion ? { duration: 0 } : SIBLING_SPRING,
         opacity: { duration: exitDurationMs / 1000, ease: "easeOut" },
       }}
     >
-      {showReorderGrip && (
-        // P9 wires the actual pointerdown-armed drag and the ⌥↑/↓ keyboard
-        // path (design doc §3.10.2) against its own props; this phase only
-        // renders the affordance's reserved presence, so it stays
-        // non-interactive rather than shipping a button with no handler.
+      {reorder && (
+        // design doc §3.10.2 — the grip lives in the *list container's*
+        // 16px gutter (the `<ul>` takes `pl-4`), not the row: `-left-4`
+        // pulls it back into that gutter instead of the row's own content
+        // box, so the row's own geometry — and the 36px spine — never
+        // changes. DESIGN.md §17.5 — armed by pointerdown only.
         <span
           aria-hidden="true"
           className={cn(
-            "absolute top-1/2 left-0 hidden -translate-y-1/2 items-center justify-center text-[var(--ink-faint)] opacity-0",
+            "absolute top-1/2 -left-4 hidden -translate-y-1/2 cursor-grab items-center justify-center text-[var(--ink-faint)] opacity-0",
+            "active:cursor-grabbing",
             "transition-[opacity] duration-150 ease-out motion-reduce:transition-none",
             "group-hover/row:opacity-100 group-focus-within/row:opacity-100",
             "pointer-coarse:hidden md:flex",
           )}
+          onPointerDown={() => setDragArmed(true)}
         >
           <GripVertical className="size-3.5" />
         </span>

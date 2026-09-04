@@ -1,5 +1,6 @@
 // spec §6.1, design doc §2.5/§2.6. Renders the hoisted `todayGroups` from
 // `TasksLayout` — no query of its own (P6.1's MUST).
+import { useMemo } from "react";
 import { ArrowRight, CalendarCheck, CheckCheck } from "lucide-react";
 import { Link } from "react-router";
 
@@ -12,11 +13,13 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
+import type { Task } from "@/domain/task";
 import { PlanWithCounselleButton } from "@/features/tasks/task-actions";
 import { buildTasksDraftPrompt } from "@/features/tasks/task-plan-prompt";
 import { TaskGroupHeader } from "@/features/tasks/TasksLayout";
 import { useTasksOutletContext } from "@/features/tasks/tasks-outlet-context";
 import { TaskRow } from "@/features/tasks/TaskRow";
+import { useTaskReorder } from "@/features/tasks/useTaskReorder";
 import { getNowDate } from "@/lib/time";
 
 export function TodayView() {
@@ -28,12 +31,27 @@ export function TodayView() {
     hasCompletedTodayPlan,
     onComplete,
     onOpenTask,
+    onReorderToday,
     onSchedule,
     onToggleFlag,
     todayGroups,
   } = useTasksOutletContext();
 
   const { main, dueSoon } = todayGroups;
+
+  // Today's manual reorder (plan P9, design doc §3.10.2): `main` is already
+  // in its authoritative order (sort_order-first per task-filters.ts); this
+  // hook only tracks the *live* order while a drag is in progress, and
+  // commits the id list on drop.
+  const mainIds = useMemo(() => main.map((task) => task.id), [main]);
+  const mainById = useMemo(
+    () => new Map(main.map((task) => [task.id, task])),
+    [main],
+  );
+  const reorder = useTaskReorder(mainIds, onReorderToday);
+  const orderedMain = reorder.order
+    .map((id) => mainById.get(id))
+    .filter((task): task is Task => Boolean(task));
 
   if (main.length === 0 && dueSoon.length === 0) {
     return hasCompletedTodayPlan ? (
@@ -94,8 +112,8 @@ export function TodayView() {
   return (
     <div className="flex flex-col">
       {main.length > 0 && (
-        <ul className="-mx-2 flex flex-col" role="list">
-          {main.map((task) => (
+        <ul className="-mx-2 flex flex-col pl-4" role="list">
+          {orderedMain.map((task) => (
             <TaskRow
               applicationsById={applicationsById}
               essaysById={essaysById}
@@ -105,6 +123,12 @@ export function TodayView() {
               onOpen={onOpenTask}
               onSchedule={onSchedule}
               onToggleFlag={onToggleFlag}
+              reorder={{
+                onDragEnd: reorder.endDrag,
+                onDragOverRow: () => reorder.dragOverTask(task.id),
+                onDragStart: () => reorder.startDrag(task.id),
+                onDrop: reorder.drop,
+              }}
               suppress={{ when: true }}
               task={task}
             />
@@ -136,7 +160,7 @@ export function TodayView() {
 
       {doneThisWeekCount > 0 && (
         <Link
-          className="mt-6 inline-flex w-fit items-center gap-1 rounded-sm pl-[var(--task-row-spine)] text-[13px] text-[var(--ink-faint)] outline-none hover:text-[var(--ink-secondary)] focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--canvas)]"
+          className="mt-6 inline-flex w-fit items-center gap-1 rounded-sm pl-[var(--task-row-spine)] text-chrome text-[var(--ink-faint)] outline-none hover:text-[var(--ink-secondary)] focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--canvas)]"
           to="/app/tasks/logbook"
         >
           {doneThisWeekCount} done this week

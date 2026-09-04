@@ -107,6 +107,59 @@ describe.each(TIMEZONES)("getTodayGroups under TZ=%s", (tz) => {
       unflaggedNoDeadline.id,
     ]);
   });
+
+  // plan P9, spec §6.1: sort_order is the primary key for main, nulls last.
+  it("orders main by sort_order first when any task has been manually reordered", () => {
+    vi.stubEnv("TZ", tz);
+    const referenceDate = localMidnight(2026, 9, 4);
+    // Deliberately flagged so the old comparator would rank it first —
+    // sort_order must win anyway.
+    const flaggedButLast = makeTask({
+      when_on: "2026-09-04",
+      flagged: true,
+      sort_order: 2,
+    });
+    const unflaggedFirst = makeTask({ when_on: "2026-09-04", sort_order: 0 });
+    const unflaggedSecond = makeTask({ when_on: "2026-09-04", sort_order: 1 });
+    const neverReordered = makeTask({ when_on: "2026-09-04" });
+
+    const groups = getTodayGroups(
+      [flaggedButLast, unflaggedFirst, unflaggedSecond, neverReordered],
+      referenceDate,
+    );
+
+    expect(groups.main.map((task) => task.id)).toEqual([
+      unflaggedFirst.id,
+      unflaggedSecond.id,
+      flaggedButLast.id,
+      neverReordered.id,
+    ]);
+  });
+
+  it("keeps the existing flagged/deadline/created_at order exactly when no task has sort_order set", () => {
+    vi.stubEnv("TZ", tz);
+    const referenceDate = localMidnight(2026, 9, 4);
+    const unflaggedNoDeadline = makeTask({
+      when_on: "2026-09-04",
+      created_at: "2026-01-01T00:00:00Z",
+    });
+    const unflaggedSoonDeadline = makeTask({
+      when_on: "2026-09-04",
+      deadline_on: "2026-09-05",
+    });
+    const flagged = makeTask({ when_on: "2026-09-04", flagged: true });
+
+    const groups = getTodayGroups(
+      [unflaggedNoDeadline, unflaggedSoonDeadline, flagged],
+      referenceDate,
+    );
+
+    expect(groups.main.map((task) => task.id)).toEqual([
+      flagged.id,
+      unflaggedSoonDeadline.id,
+      unflaggedNoDeadline.id,
+    ]);
+  });
 });
 
 describe.each(TIMEZONES)("getUpcomingGroups under TZ=%s", (tz) => {

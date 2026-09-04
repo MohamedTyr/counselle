@@ -27,3 +27,7 @@ export function archiveTask(taskId: string) {
 export function restoreTask(taskId: string) {
   return requestJson<Task>(`/tasks/${taskId}/restore`, { method: "POST" });
 }
+
+export function reorderTasks(ids: string[]) {
+  return requestJson<Task[]>("/tasks/order", jsonRequestInit("PUT", { ids }));
+}

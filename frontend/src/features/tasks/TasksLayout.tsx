@@ -21,6 +21,7 @@ import {
   useArchiveTask,
   useCompleteTask,
   useEssays,
+  useReorderTasks,
   useRestoreTask,
   useTasks,
   useScheduleTask,
@@ -154,7 +155,7 @@ export function TaskGroupHeader({
     >
       <span
         className={cn(
-          "text-[13px] font-medium",
+          "text-chrome font-medium",
           variant === "unplanned-deadlines"
             ? "text-[var(--ink-secondary)]"
             : "text-[var(--ink)]",
@@ -162,7 +163,7 @@ export function TaskGroupHeader({
       >
         {label}
       </span>
-      <span className="ml-2 text-[13px] text-[var(--ink-faint)] tabular-nums">{count}</span>
+      <span className="ml-2 text-chrome text-[var(--ink-faint)] tabular-nums">{count}</span>
     </div>
   );
 }
@@ -182,6 +183,7 @@ export function TasksLayout() {
   const toggleFlagMutation = useToggleFlag();
   const archiveTaskMutation = useArchiveTask();
   const restoreTaskMutation = useRestoreTask();
+  const reorderTasksMutation = useReorderTasks();
   const undoableAction = useUndoableAction();
 
   const [searchParams, setSearchParams] = useSearchParams();
@@ -336,6 +338,29 @@ export function TasksLayout() {
     return Boolean(tasks.find((task) => task.id === taskId)?.done_at);
   }
 
+  // Today's manual reorder (plan P9, spec §6.1/§9). Both the drag grip
+  // (TodayView's `useTaskReorder`) and `⌥↑/↓` funnel through here so there
+  // is exactly one place that calls the mutation.
+  function handleReorderToday(ids: string[]) {
+    reorderTasksMutation.mutate(ids);
+  }
+
+  function handleReorderTodayByKey(taskId: string, direction: -1 | 1) {
+    const ids = todayGroups.main.map((task) => task.id);
+    const index = ids.indexOf(taskId);
+    if (index === -1) {
+      return;
+    }
+    const nextIndex = Math.min(Math.max(index + direction, 0), ids.length - 1);
+    if (nextIndex === index) {
+      return;
+    }
+    const reordered = [...ids];
+    reordered.splice(index, 1);
+    reordered.splice(nextIndex, 0, taskId);
+    handleReorderToday(reordered);
+  }
+
   const quickAddDefaults: QuickAddDefaults =
     view === "today" ? { when_on: getDateKey(referenceDate) } : {};
 
@@ -368,6 +393,7 @@ export function TasksLayout() {
     onNavigateView: (nextView: TaskKeymapView) => navigate(`/app/tasks/${nextView}`),
     onOpenSearch: () => setSearchOpen(true),
     onOpenTask: openTask,
+    onReorder: handleReorderTodayByKey,
     onSchedule: handleSchedule,
     onToggleFlag: handleToggleFlag,
     onUndo: undoableAction.undo,
@@ -385,6 +411,7 @@ export function TasksLayout() {
     logbookGroups,
     onComplete: handleComplete,
     onOpenTask: openTask,
+    onReorderToday: handleReorderToday,
     onSchedule: handleSchedule,
     onToggleFlag: handleToggleFlag,
     tasks,

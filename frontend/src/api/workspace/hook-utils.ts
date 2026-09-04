@@ -114,6 +114,7 @@ export function tempTask(input: TaskCreate): Task {
     flagged: input.flagged ?? false,
     created_by_actor: "student",
     last_actor: "student",
+    sort_order: null,
   };
 }
 

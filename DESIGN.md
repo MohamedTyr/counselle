@@ -1013,19 +1013,27 @@ invitation to reintroduce the blue.
 
 Each of these was wrong once, in a specific way that is written down at the site.
 
-**Tasks** (`features/tasks/task-config.ts`)
-- Status — `waiting: warning`, `done: success`, `todo`/`doing`: **secondary**.
-  Two of four are tinted and that is the point: Waiting is amber because something is
-  blocked on a *person*; Done is leaf because that is the moment worth marking.
-  `doing` was blue.
-- Priority — `high: error`, `med`/`low`: **secondary**. Priority is an *ordered* scale,
-  so only its alarm end earns a hue. It used to be error/warning/success, which put
-  `low` in the same green as `done` and `med` in the same amber as `waiting`, one column
-  away in the same row.
-- Category — all seven share one `--label-*` chip. They were seven hue-coded triads;
-  four of the design system's hues existed for these chips alone.
-- Assignee — both **secondary**. "Assigned to Counselle" was drawing the done green;
-  it is not a completed task.
+**Tasks** (`features/tasks/task-config.ts`) — the task model was rewritten (a task is
+now open/done via `done_at`, with two dates — `when_on`/`deadline_on` — a `flagged`
+boolean, and a derived label; `status`/`priority`/`category`/`assignee` no longer
+drive any UI). **No `Badge` variant appears in the task list body at all** — zero
+status badges, zero priority badges, zero category chips. Two deliberate refinements
+of the old mapping below, cross-checked in full against this section in
+`plans/tasks-redesign-design.md` §9.4:
+- **The flag is `--brand` (wine), not `--danger-fg` (error).** `flagged` is the
+  student's own mark on the task, the same claim `--brand` already makes for "the
+  current selection" — and keeping it out of red is what lets red mean exactly one
+  thing on the page: a date the world has already passed.
+- **The deadline is plain text, not a badge: amber (`--warning-fg`) at ≤2 days out,
+  red (`--danger-fg`) once overdue, nothing beyond 7 days or when absent.** Not the
+  old 14-day error-badge threshold — fourteen days of red in a forty-row list is why
+  the previous board read as an alarm; two days of amber and an ink-only overdue
+  state let red mean "already missed" and nothing softer.
+
+The old mapping (status → `waiting: warning`/`done: success`/`todo`,`doing:
+secondary`; priority → `high: error`/`med`,`low: secondary`; category → one shared
+`--label-*` chip; assignee → both `secondary`) is retired along with the columns
+that drove it.
 
 **Schools** (`features/schools/schools-config.ts`)
 - `Accepted`/`Enrolled`/`Submitted`: success · `Rejected`: error ·
@@ -1336,7 +1344,7 @@ Ranked. Each is small; none is speculative.
 | 2 | **Motion constants are copy-pasted** — `[0.22,1,0.36,1]` in 4 files, two spring presets in 2 files each. Extract `lib/motion.ts`. | tasks, activities, essays, onboarding |
 | 3 | **No duration/easing tokens** — the scale is real but every value is a literal | app-wide |
 | 4 | **`bg-info` is a dead class.** `EssayEditorHeader.tsx:16` maps `Drafting` to `bg-info`, but `--color-info` was deleted — the dot renders with no fill. | essays |
-| 5 | **Three routes bypass `PageContainer`** and have drifted (`pr-8 pl-6 md:pr-10`) | Essays, Schools, Tasks |
+| 5 | ~~Three routes bypass `PageContainer` and have drifted (`pr-8 pl-6 md:pr-10`)~~ **Closed for Tasks** — `TasksLayout.tsx` now renders through `PageContainer`. Essays and Schools are unchanged. | Essays, Schools |
 | 6 | **`RouteSurface` is a third header shape** (`h-14`, `text-base`, `px-5`) | /app/calendar |
 | 7 | **Reduced-motion gaps on spinners** — `spinner.tsx:12`, `sonner.tsx:24`, `AgentRunView.tsx:42`, `ChatMessage.tsx:67` | app-wide |
 | 8 | **Two dropdown-menu implementations** — `ui/menu.tsx` (Base UI, aliased as `DropdownMenu*`, 3 importers) and `ui/dropdown-menu.tsx` (Radix, 10 importers). Same import name, different library. | ui |
@@ -1344,14 +1352,14 @@ Ranked. Each is small; none is speculative.
 | 10 | **Ten unused `ai-elements` files** with zero importers | components/ai-elements |
 | 11 | **Disabled opacity split** 50 vs 64 | ui |
 | 12 | **Focus ring width split** 2px vs 3px on form controls | ui |
-| 13 | **`text-[13px]` scattered** in 22 places; promote to a `text-chrome` token | app-wide |
+| 13 | **`text-[13px]` scattered** in 22 places; promote to a `text-chrome` token. **Partially closed:** `--text-chrome` (`theme.css`) now exists and Tasks uses it in its five sites (group headers, scheduler rows, hint chips, nudge, footer). The other sites app-wide still need the sweep. | app-wide |
 | 14 | **Colour-only urgent deadline badge** | `school-cells.tsx` |
 | 15 | **No `aria-busy`** on streaming regions | ai-chat |
 | 16 | **Popup chrome copy-pasted** across `menu`/`popover`/`select` | ui |
-| 17 | **`zIndex: 2147483647`** off the `--z-*` scale | `useTaskDrag.ts:110` |
+| 17 | ~~`zIndex: 2147483647` off the `--z-*` scale~~ **Closed** — `useTaskDrag.ts` is deleted; the tasks redesign has no drag code. | ~~`useTaskDrag.ts:110`~~ |
 | 18 | **Duplicated constants** — `UNDO_WINDOW_MS`, `MIN/MAX_CYCLE_YEAR`, `86_400_000` | activities, schools, tasks |
-| 19 | **`dayDiff <= 6` vs `<= 7`** — two definitions of "this week" in one feature | tasks |
-| 20 | **No undo on task bulk delete** | tasks |
+| 19 | ~~`dayDiff <= 6` vs `<= 7` — two definitions of "this week" in one feature~~ **Closed** — one `getDeadlineState` in `task-dates.ts` (`<= 7` for "normal", `<= 2` for "due soon") is now the single definition; the second copy is gone. | ~~tasks~~ |
+| 20 | ~~No undo on task bulk delete~~ **Moot** — bulk actions and multi-select are deleted; there is no bulk delete to undo. | ~~tasks~~ |
 | 21 | **Two colour literals** — `AppSidebar.tsx:164`, `number-field.tsx:141` | shell, ui |
 | 22 | **Dead tokens** — `--essay-library-card-hover`, `--essay-editor-toolbar-border` | essay.css |
 | 23 | **`transition-all` in 4 files** — violates rule 29; name the properties instead | `sidebar.tsx`, `accordion.tsx`, `meter.tsx`, `sheet.tsx` |

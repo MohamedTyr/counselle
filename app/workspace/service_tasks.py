@@ -403,6 +403,71 @@ async def restore_task(
     return task
 
 
+#: Advisory-lock namespace tag for the tasks-reorder lock below. Distinct
+#: from ``_ACTIVITY_LOCK_SQL``'s ``0`` and ``_HONOR_LOCK_SQL``'s ``1``
+#: (app/workspace/service_activities.py) — a future fourth advisory-lock
+#: caller should pick a different constant.
+_TASK_REORDER_LOCK_SQL = """
+    SELECT pg_advisory_xact_lock(hashtextextended($1::text, 2))
+"""
+
+
+async def reorder_tasks(
+    app_pool: asyncpg.Pool,
+    event_bus: WorkspaceEventBus,
+    *,
+    user_id: UUID,
+    actor: Actor,
+    ids: list[UUID],
+) -> list[Task]:
+    """Set ``sort_order`` by index for the given tasks (tasks-redesign spec
+    §6.1, plan decision D4 — Today's manual order).
+
+    Unlike ``reorder_activities``/``reorder_honors``, which always reorder
+    the caller's *entire* active set and reject a partial id list, ``ids``
+    here is deliberately allowed to be a subset: Today is one filtered view
+    over the same ``tasks`` table Upcoming/Anytime/Logbook also read, so
+    "all active tasks" is never "all of Today." Each id is still verified to
+    be an active task owned by ``user_id`` before it is touched. Returns the
+    user's full active task list (mirroring ``list_tasks``'s shape) so the
+    single ``workspaceKeys.tasks.list()`` cache entry the frontend keeps
+    stays authoritative once this settles, rather than being clobbered down
+    to just the reordered subset.
+    """
+    if len(set(ids)) != len(ids):
+        raise WorkspaceValidationError("ordered ids must be unique")
+    events: list[ChangeEvent] = []
+    async with app_pool.acquire() as conn, conn.transaction():
+        await conn.execute(_TASK_REORDER_LOCK_SQL, str(user_id))
+        for index, task_id in enumerate(ids):
+            row = await conn.fetchrow(
+                """
+                UPDATE counselle.tasks
+                SET sort_order = $3, updated_at = now()
+                WHERE id = $1 AND user_id = $2 AND archived_at IS NULL
+                RETURNING *
+                """,
+                task_id,
+                user_id,
+                index,
+            )
+            if row is None:
+                raise WorkspaceNotFoundError()
+            task = Task.model_validate(dict(row))
+            events.append(await _record_task_change(conn, user_id, actor, task, "updated"))
+        rows = await conn.fetch(
+            """
+            SELECT *
+            FROM counselle.tasks
+            WHERE user_id = $1 AND archived_at IS NULL
+            ORDER BY created_at
+            """,
+            user_id,
+        )
+    publish_events(event_bus, user_id, events)
+    return [Task.model_validate(dict(row)) for row in rows]
+
+
 async def bulk_archive(
     app_pool: asyncpg.Pool,
     event_bus: WorkspaceEventBus,

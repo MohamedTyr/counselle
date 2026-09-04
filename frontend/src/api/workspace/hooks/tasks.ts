@@ -7,6 +7,7 @@ import {
   type Snapshot,
   type TempSnapshot,
   uniqueIds,
+  useReorderList,
 } from "@/api/workspace/hooks/shared";
 import { workspaceKeys } from "@/api/workspace/keys";
 import {
@@ -21,6 +22,7 @@ import {
   archiveTask,
   createTask,
   listTasks,
+  reorderTasks,
   restoreTask,
   updateTask,
 } from "@/api/workspace/tasks";
@@ -262,4 +264,15 @@ export function useRestoreTask() {
       invalidateApplicationDetail(context.client, task?.application_id);
     },
   });
+}
+
+/**
+ * Today's manual reorder (plan P9, spec §6.1). `ids` is Today's visible
+ * subset, not the whole active-task set — `reorder_tasks` on the backend
+ * returns the user's full task list precisely so this settles the one
+ * `workspaceKeys.tasks.list()` cache entry back to something authoritative
+ * instead of shrinking it to just the reordered rows.
+ */
+export function useReorderTasks() {
+  return useReorderList(workspaceKeys.tasks.list(), reorderTasks);
 }

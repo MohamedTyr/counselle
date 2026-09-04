@@ -33,6 +33,7 @@ export type Task = {
   flagged: boolean;
   created_by_actor: "student" | "counselle";
   last_actor: "student" | "counselle";
+  sort_order?: number;
 };
 
 function undefinedIfNull<T>(value: T | null | undefined): T | undefined {
@@ -64,6 +65,7 @@ export function taskFromApi(task: ApiTask): Task {
     flagged: task.flagged,
     created_by_actor: task.created_by_actor,
     last_actor: task.last_actor,
+    sort_order: undefinedIfNull(task.sort_order),
   };
 }
 
