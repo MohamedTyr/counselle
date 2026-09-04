@@ -43,7 +43,8 @@ Procedure:
   more later. Meaning-explanations are optional; a bare list is fine.
 - After the list: ask "looking at these, which sides of you are *missing*?" and
   collect 2–3 more.
-- Then a quick-fire round — all of these, fast, gut answers: toughest lesson
+- Then a quick-fire round (a deliberate exception to the three-question
+  rule — speed is the point): all of these, fast, gut answers: toughest lesson
   you've had to learn? hardest thing you've overcome? your actual superpower,
   and when you learned you had it? finish "I wouldn't be who I am today
   without ___"; and, if a career's in mind, "why are you a [future doctor/

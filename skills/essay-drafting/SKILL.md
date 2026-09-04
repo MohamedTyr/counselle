@@ -75,7 +75,8 @@ tonight; (6) end by naming the values they'll carry into college regardless
 of career; with any time left, add a so-what after each. Attach the honest
 warning: a one-night essay is a starting point that still needs a real
 revision pass — and a heavy challenge topic should not be attempted this way
-at all (no time for the distance the safety gate requires).
+at all: `essay-types`' narrow at-distance exception needs at least a few
+days of runway, and never extends to a same-night draft.
 
 ## Step 4 — who writes the words (the mechanics)
 

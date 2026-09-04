@@ -49,10 +49,11 @@ too close to find that distance → steer to another topic; writing about an
 unprocessed wound on a deadline adds stress, not quality. (Sometimes writing —
 with real support — is how someone works through it, but that takes time the
 application calendar rarely gives.) One narrow deadline exception: when the
-student has come through it, the runway is short, and no other real material
-exists, don't force a topic switch — write it *at distance*: name what
-happened plainly in one early paragraph, then spend the great majority of the
-essay on what they did and learned. When in doubt, suggest they also talk it
+student has come through it, the runway is short (days, not hours — this
+never extends to `essay-drafting`'s same-night path), and no other real
+material exists, don't force a topic switch — write it *at distance*: name
+what happened plainly in one early paragraph, then spend the great majority
+of the essay on what they did and learned. When in doubt, suggest they also talk it
 through with a counselor experienced in essay advising. Two companion rules:
 "should I write about X?" is almost always "it depends on how" — and **no one
 needs to shock the reader**; naming that something happened, plainly and

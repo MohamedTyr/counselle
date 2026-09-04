@@ -511,6 +511,18 @@ def test_user_catalog_contains_only_opted_in_metadata_in_name_order() -> None:
     )
 
 
+def test_public_essay_trio_fits_selected_skill_body_budget() -> None:
+    """The three public essay skills must remain co-selectable.
+
+    Their combined bodies sit close to MAX_SELECTED_SKILL_BODY_CHARS; growing
+    any of them past the budget would silently break selecting all three.
+    """
+    mod = _fresh_skills()
+    trio = ["essay-brainstorm", "essay-drafting", "essay-revision"]
+
+    assert mod.validate_selected_skills(trio) == trio
+
+
 def test_response_mode_catalog_is_ordered_browser_safe_and_has_one_default() -> None:
     mod = _fresh_skills()
 

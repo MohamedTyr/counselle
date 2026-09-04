@@ -122,6 +122,8 @@ squeamishness, is why these rules exist.
 
 Mechanics: `edit_essay` applies edits directly — keep them small, targeted,
 independent, and announced (`essay-revision` carries the suggestion rules).
+An edit may cut, reorder, or restore the student's own words; new prose in
+your register goes in a message as a candidate, never into the document.
 
 ## Ownership
 
