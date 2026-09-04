@@ -1,38 +1,37 @@
-import type { BadgeProps } from "@/components/ui/badge";
-import type {
-  TaskAssignee,
-  TaskCategory,
-  TaskPriority,
-  TaskStatus,
-} from "@/domain/task";
-import type { AllTaskColumn, TodayColumn } from "@/features/tasks/task-types";
+import { addDays, getDateKey } from "@/features/tasks/task-dates";
+import type { ApplicationView, EssaySummary } from "@/api/workspace/types";
+import type { Task, TaskCategory } from "@/domain/task";
 
-export const selectionDragThreshold = 5;
-export const emptyTaskIdSet: ReadonlySet<string> = new Set();
+/*
+ * Two declared divergences from DESIGN.md §14.2 (plans/tasks-redesign-plan.md
+ * §1, argued in plans/tasks-redesign-design.md §3.8 and §3.9). Both are
+ * accepted. Do not "fix" them back to DESIGN.md's generic mapping.
+ *
+ * 1. THE FLAG IS `--brand` (WINE), NOT `--danger-fg` (RED). DESIGN.md §14.2
+ *    maps `priority: high → error`. Here `flagged` is not a state of the
+ *    task — it is the student's own mark on it, which is the same claim
+ *    `--brand` already makes for "the current selection," and keeping it out
+ *    of red is what lets red mean exactly one thing on this page: a date the
+ *    world has already passed. See TaskRow's flag glyph (design doc §3.9).
+ *
+ * 2. DEADLINE URGENCY IS AMBER AT ≤2 DAYS AND RED WHEN OVERDUE, NOT RED AT
+ *    ≤14 DAYS. Fourteen days of red in a forty-row list is why the current
+ *    board reads as an alarm. See `getDeadlineState` in task-dates.ts and
+ *    TaskRow's deadline chip (design doc §3.8).
+ *
+ * Neither divergence is represented as a colour value in this file — colours
+ * live in CSS (task.css / theme.css). These are the mapping decisions only.
+ */
 
-export const todayColumns: TodayColumn[] = [
-  {
-    id: "todo",
-    title: "Later Today",
-    description: "Queued for today, not active yet.",
-  },
-  {
-    id: "doing",
-    title: "Doing Now",
-    description: "Keep this lane to one or two tasks.",
-  },
-  {
-    id: "waiting",
-    title: "Waiting",
-    description: "Paused on a person, portal, or answer.",
-  },
-  {
-    id: "done",
-    title: "Done",
-    description: "Completed today. Keep the receipt visible.",
-  },
-];
-
+/*
+ * Derived label (spec §2.3). Exactly one label per row, computed at render
+ * time — never stored, never picked from a category enum in the UI.
+ *
+ * The `category` column stays in the schema for agent use only (P1.2), so a
+ * task the student created still has a category value (defaulted to
+ * "other"). "other" is the UI's "no category was meaningfully set" state, so
+ * it is treated as absent rather than shown as a label.
+ */
 export const categoryLabel: Record<TaskCategory, string> = {
   essay: "Essay",
   lor: "LOR",
@@ -43,140 +42,102 @@ export const categoryLabel: Record<TaskCategory, string> = {
   interview: "Interview",
 };
 
-export const priorityLabel: Record<TaskPriority, string> = {
-  low: "Low",
-  med: "Med",
-  high: "High",
+export function getDerivedLabel(
+  task: Task,
+  applicationsById: ReadonlyMap<string, ApplicationView>,
+  essaysById: ReadonlyMap<string, EssaySummary>,
+): string | undefined {
+  if (task.essay_id) {
+    const essay = essaysById.get(task.essay_id);
+    return essay?.school_name ? `Essay · ${essay.school_name}` : "Essay";
+  }
+
+  if (task.application_id) {
+    const application = applicationsById.get(task.application_id);
+    if (application) {
+      return application.school_name;
+    }
+  }
+
+  if (task.category !== "other") {
+    return categoryLabel[task.category];
+  }
+
+  return undefined;
+}
+
+/*
+ * Scheduler popover rows (design doc §6.2, spec §5). Single column, six
+ * rows, in this exact order. `resolveDate` is undefined for "Pick a date…"
+ * because it opens the calendar rather than resolving a value directly;
+ * "Anytime" resolves to `null`, the scheduler's clear sentinel.
+ */
+export type SchedulerOptionId =
+  | "today"
+  | "tomorrow"
+  | "weekend"
+  | "nextWeek"
+  | "pickDate"
+  | "anytime";
+
+export type SchedulerOption = {
+  id: SchedulerOptionId;
+  label: string;
+  /** "No deadline" when the popover is editing `deadline_on` (spec §5). */
+  deadlineLabel?: string;
+  shortcutKey: string;
+  resolveDate?: (referenceDate: Date) => string | null;
 };
 
-export const prioritySortRank: Record<TaskPriority, number> = {
-  high: 0,
-  med: 1,
-  low: 2,
-};
+function daysUntilWeekday(referenceDate: Date, targetWeekday: number): number {
+  const day = referenceDate.getDay();
+  return (targetWeekday - day + 7) % 7;
+}
 
-export const statusLabel: Record<TaskStatus, string> = {
-  todo: "Todo",
-  doing: "Doing Now",
-  waiting: "Waiting",
-  done: "Done",
-};
-
-export const assigneeLabel: Record<TaskAssignee, string> = {
-  student: "Student",
-  counselle: "Counselle",
-};
-
-export const statusOptions = [
-  { label: statusLabel.todo, value: "todo" },
-  { label: statusLabel.doing, value: "doing" },
-  { label: statusLabel.waiting, value: "waiting" },
-  { label: statusLabel.done, value: "done" },
-] as const;
-
-export const categoryOptions = [
-  { label: categoryLabel.essay, value: "essay" },
-  { label: categoryLabel.lor, value: "lor" },
-  { label: categoryLabel.aid, value: "aid" },
-  { label: categoryLabel.research, value: "research" },
-  { label: categoryLabel.form, value: "form" },
-  { label: categoryLabel.interview, value: "interview" },
-  { label: categoryLabel.other, value: "other" },
-] as const;
-
-export const priorityOptions = [
-  { label: priorityLabel.low, value: "low" },
-  { label: priorityLabel.med, value: "med" },
-  { label: priorityLabel.high, value: "high" },
-] as const;
-
-export const assigneeOptions = [
-  { label: assigneeLabel.student, value: "student" },
-  { label: assigneeLabel.counselle, value: "counselle" },
-] as const;
-
-export const allTaskColumns: AllTaskColumn[] = [
-  { id: "task", label: "Task", width: 310 },
-  { id: "status", label: "Status", width: 118 },
-  { id: "category", label: "Type", width: 104 },
-  { id: "priority", label: "Priority", width: 94 },
-  { id: "workDate", label: "Work date", width: 108 },
-  { id: "dueDate", label: "Due date", width: 104 },
-  { id: "reminder", label: "Reminder", width: 106 },
+export const schedulerOptions: SchedulerOption[] = [
+  {
+    id: "today",
+    label: "Today",
+    shortcutKey: "t",
+    resolveDate: (referenceDate) => getDateKey(referenceDate),
+  },
+  {
+    id: "tomorrow",
+    label: "Tomorrow",
+    shortcutKey: "m",
+    resolveDate: (referenceDate) => getDateKey(addDays(referenceDate, 1)),
+  },
+  {
+    id: "weekend",
+    label: "This weekend",
+    shortcutKey: "w",
+    // The upcoming Saturday (0 days out if today already is one). Sunday is
+    // still technically "the weekend," but spec §5 doesn't define that edge
+    // case, so this rolls a Sunday forward to next Saturday rather than back.
+    resolveDate: (referenceDate) =>
+      getDateKey(addDays(referenceDate, daysUntilWeekday(referenceDate, 6))),
+  },
+  {
+    id: "nextWeek",
+    label: "Next week",
+    shortcutKey: "k",
+    // The Monday that starts next week, never this week's (today's Monday
+    // resolves 7 days out, not 0).
+    resolveDate: (referenceDate) =>
+      getDateKey(
+        addDays(referenceDate, daysUntilWeekday(referenceDate, 1) || 7),
+      ),
+  },
+  {
+    id: "pickDate",
+    label: "Pick a date…",
+    shortcutKey: "p",
+  },
+  {
+    id: "anytime",
+    label: "Anytime",
+    deadlineLabel: "No deadline",
+    shortcutKey: "a",
+    resolveDate: () => null,
+  },
 ];
-export const allTasksTableWidth = allTaskColumns.reduce(
-  (totalWidth, column) => totalWidth + column.width,
-  0,
-);
-
-export const booleanOptions = [
-  { label: "No", value: "false" },
-  { label: "Yes", value: "true" },
-] as const;
-
-export const laneThemeClass: Record<TaskStatus, string> = {
-  todo: "[--lane-surface:var(--task-todo-surface)] [--lane-header:var(--task-todo-header)] [--lane-card:var(--task-todo-card)] [--lane-card-hover:var(--task-todo-card-hover)] [--lane-border:var(--task-todo-border)] [--lane-card-border:var(--task-todo-card-border)] [--lane-muted:var(--task-todo-muted)] [--lane-pill-bg:var(--task-todo-pill-bg)] [--lane-pill-fg:var(--task-todo-pill-fg)] [--lane-dot:var(--task-todo-dot)] [--lane-drop-surface:var(--task-todo-drop-surface)] [--lane-drop-border:var(--task-todo-drop-border)]",
-  doing:
-    "[--lane-surface:var(--task-doing-surface)] [--lane-header:var(--task-doing-header)] [--lane-card:var(--task-doing-card)] [--lane-card-hover:var(--task-doing-card-hover)] [--lane-border:var(--task-doing-border)] [--lane-card-border:var(--task-doing-card-border)] [--lane-muted:var(--task-doing-muted)] [--lane-pill-bg:var(--task-doing-pill-bg)] [--lane-pill-fg:var(--task-doing-pill-fg)] [--lane-dot:var(--task-doing-dot)] [--lane-drop-surface:var(--task-doing-drop-surface)] [--lane-drop-border:var(--task-doing-drop-border)]",
-  waiting:
-    "[--lane-surface:var(--task-waiting-surface)] [--lane-header:var(--task-waiting-header)] [--lane-card:var(--task-waiting-card)] [--lane-card-hover:var(--task-waiting-card-hover)] [--lane-border:var(--task-waiting-border)] [--lane-card-border:var(--task-waiting-card-border)] [--lane-muted:var(--task-waiting-muted)] [--lane-pill-bg:var(--task-waiting-pill-bg)] [--lane-pill-fg:var(--task-waiting-pill-fg)] [--lane-dot:var(--task-waiting-dot)] [--lane-drop-surface:var(--task-waiting-drop-surface)] [--lane-drop-border:var(--task-waiting-drop-border)]",
-  done: "[--lane-surface:var(--task-done-surface)] [--lane-header:var(--task-done-header)] [--lane-card:var(--task-done-card)] [--lane-card-hover:var(--task-done-card-hover)] [--lane-border:var(--task-done-border)] [--lane-card-border:var(--task-done-card-border)] [--lane-muted:var(--task-done-muted)] [--lane-pill-bg:var(--task-done-pill-bg)] [--lane-pill-fg:var(--task-done-pill-fg)] [--lane-dot:var(--task-done-dot)] [--lane-drop-surface:var(--task-done-drop-surface)] [--lane-drop-border:var(--task-done-drop-border)]",
-};
-
-type BadgeVariant = NonNullable<BadgeProps["variant"]>;
-
-/*
- * Priority is an ORDERED scale, so only its alarm end earns a hue. It used
- * to be error / warning / success, which put `low` in the same green as
- * `done` — a low-priority task reading as a finished one — and put `med` in
- * the same amber as `waiting`, one column away in the same table row. High
- * is the only priority that changes what you do next; the other two are the
- * neutral label chip and are told apart by their word.
- */
-export const priorityBadgeVariant: Record<TaskPriority, BadgeVariant> = {
-  high: "error",
-  low: "secondary",
-  med: "secondary",
-};
-
-/*
- * Two of four statuses are tinted, and that is the point: Waiting is amber
- * because something is blocked on a person, Done is leaf because that is the
- * moment worth marking. Todo and Doing are the ordinary states of a task.
- * `doing` was blue before the palette pass — see the --info note in
- * primitives.css for why the ordinary state stopped getting a colour.
- */
-export const statusBadgeVariant: Record<TaskStatus, BadgeVariant> = {
-  doing: "secondary",
-  done: "success",
-  todo: "secondary",
-  waiting: "warning",
-};
-
-/*
- * One chip, seven categories. These were seven hue-coded triads (plum,
- * mauve, amber, teal, slate, blue, grey) until the palette pass; four of
- * those hues existed in the whole design system for these chips alone. A
- * category is a label, not a state — every one of them now draws --label-*
- * through its own task.css token. The per-category keys stay so a future
- * category is still a one-line addition here.
- */
-const CATEGORY_CHIP =
-  "border-[color:var(--label-border)] bg-[color:var(--label-surface)] text-[color:var(--label-ink)]";
-
-export const categoryChipClass: Record<TaskCategory, string> = {
-  aid: CATEGORY_CHIP,
-  essay: CATEGORY_CHIP,
-  form: CATEGORY_CHIP,
-  interview: CATEGORY_CHIP,
-  lor: CATEGORY_CHIP,
-  other: CATEGORY_CHIP,
-  research: CATEGORY_CHIP,
-};
-
-/* "Assigned to Counselle" is not a completed task. It was drawing the done
- * green, which is the one colour in this system that should mean finished. */
-export const assigneeBadgeVariant: Record<TaskAssignee, BadgeVariant> = {
-  counselle: "secondary",
-  student: "secondary",
-};
