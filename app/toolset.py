@@ -43,6 +43,7 @@ from app.tool_specs import build_tool_specs, gateable_tool_names
 from config.settings import load_yaml_asset, serialize_db_child_environment
 from domain.events import StepDetail
 from domain.specs import SourceConfig
+from domain.surface import Surface
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent
 
@@ -90,6 +91,13 @@ def make_tool_deps(settings: Any, catalog: Any) -> ToolDeps:
 # ---------------------------------------------------------------------------
 
 
+#: The two metric-heavy DB tools the essay surface does not get. The MCP
+#: toolset is one object covering all four server-side tools, so these cannot
+#: be left unmounted the way a Tavily tool is (ADR 0013) — the denial instead
+#: happens here, in code, before the DB round-trip, and never in the prompt.
+ESSAY_SURFACE_DENIED_MCP_TOOLS: frozenset[str] = frozenset({"get_domain", "query_database"})
+
+
 async def annotate_mcp_result(
     ctx: RunContext[Any], call_tool: CallToolFunc, name: str, args: dict[str, Any]
 ) -> ToolResult:
@@ -99,7 +107,24 @@ async def annotate_mcp_result(
     graph state each node execution (notes §7), never captured in this
     module-level closure. Runs without a registry on deps (or with non-dict
     results) pass through untouched.
+
+    The same per-run deps carry the turn's :class:`~domain.surface.Surface`, so
+    this one hook is also where the essay surface's DB-tool denial lands.
     """
+    if name in ESSAY_SURFACE_DENIED_MCP_TOOLS and (
+        getattr(ctx.deps, "surface", Surface.CHAT) is Surface.ESSAY
+    ):
+        # counselle_db.server's own tool-error shape — the one the model
+        # already knows how to read; not a second error envelope.
+        return {
+            "error": "tool_error",
+            "root_cause": f"{name} is not available while working on an essay.",
+            "safe_retry": (
+                "Use resolve_school or get_school_profile for school identity. "
+                "Common Data Set metrics belong in the main chat."
+            ),
+            "stop_condition": "Do not retry this tool on this surface.",
+        }
     result = await call_tool(name, args)
     middleware = getattr(ctx.deps, "tool_overflow", None)
     if not isinstance(middleware, ToolMiddlewareContext):

@@ -374,6 +374,11 @@ class Settings(BaseSettings):
     # decompress to gigabytes or pathologically stall the shared thread pool
     # (decompression-bomb DoS). Bounded the same way as the summary model call.
     document_extraction_timeout_s: float = 8.0
+    # Ceiling on the essay markdown inlined into the essay-surface system prompt
+    # (Surface.ESSAY). ~1,300 words — generous headroom over any real essay
+    # limit, so it only bites on a pasted-in outlier; past it the prompt says
+    # the text is truncated and points the model at read_essay.
+    essay_context_max_chars: int = Field(default=8_000, gt=0)
 
     # --- CDS admin pipeline (plan §E) ---
     # In-process asyncio poller kill switch — all queue state lives in

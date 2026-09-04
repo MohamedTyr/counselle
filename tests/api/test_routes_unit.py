@@ -32,6 +32,7 @@ from api.routes import system as system_routes
 from app import transcript as transcript_mod
 from app.run_handle import RunHandleStore
 from app.turns import TurnRegistry
+from domain.surface import Surface
 from tests.api.conftest import TEST_USER_ID, _test_user
 
 # Fake session rows in these unit tests are owned by the override's test user.
@@ -91,6 +92,7 @@ def make_test_app(
         usage_accounting=True,
         model_prices={},
         agent_tool_result_max_chars=8_000,
+        essay_context_max_chars=8_000,
         agent_mcp_read_timeout_s=60.0,
         agent_max_model_requests=80,
         agent_max_total_tokens=2_000_000,
@@ -1377,3 +1379,56 @@ async def test_409_does_not_overwrite_source_config_or_title() -> None:
         finally:
             gate.set()
             await registry.cancel(session_id)
+
+
+# ---------------------------------------------------------------------------
+# _parse_surface_request: the essay-panel route boundary
+# ---------------------------------------------------------------------------
+
+_ESSAY_ID = "11111111-2222-3333-4444-555555555555"
+
+
+def _parse(body: dict[str, Any], *, max_selection_chars: int = 8) -> Any:
+    return session_routes._parse_surface_request(
+        session_routes.MessageBody(text="hi", **body),
+        max_selection_chars=max_selection_chars,
+    )
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        {"surface": "essays"},  # unknown surface value
+        {"surface": "essay"},  # essay_context required iff surface == essay
+        {"surface": "essay", "essay_context": "nope"},  # not a dict
+        {"surface": "essay", "essay_context": {}},  # no essay_id
+        {"surface": "essay", "essay_context": {"essay_id": "not-a-uuid"}},
+        {"surface": "essay", "essay_context": {"essay_id": _ESSAY_ID, "selection": 7}},
+        {"surface": "essay", "essay_context": {"essay_id": _ESSAY_ID, "selection": "x" * 9}},
+        # Anti-smuggling: essay state may never ride a chat turn, explicit or default.
+        {"essay_context": {"essay_id": _ESSAY_ID}},
+        {"surface": "chat", "essay_context": {"essay_id": _ESSAY_ID}},
+    ],
+)
+def test_parse_surface_request_rejects_malformed_or_smuggled_essay_context(
+    body: dict[str, Any],
+) -> None:
+    """This is the only validation the essay-panel input gets before it becomes
+    turn state, so every shape here must fail closed (the route's 422) rather
+    than start a turn on unchecked values."""
+    assert _parse(body) is None
+
+
+def test_parse_surface_request_flattens_a_valid_essay_turn() -> None:
+    assert _parse(
+        {
+            "surface": "essay",
+            "essay_context": {"essay_id": _ESSAY_ID, "selection": "my opener"},
+        },
+        max_selection_chars=8_000,
+    ) == (Surface.ESSAY, _ESSAY_ID, "my opener")
+
+
+def test_parse_surface_request_defaults_an_ordinary_turn_to_chat() -> None:
+    assert _parse({}) == (Surface.CHAT, None, None)
+    assert _parse({"surface": "chat"}) == (Surface.CHAT, None, None)

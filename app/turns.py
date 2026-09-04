@@ -73,6 +73,7 @@ from app.usage import enrich_usage_event, log_turn_complete
 from domain.events import Event, ev_done, ev_error, ev_user_message
 from domain.response_mode import ResponseMode
 from domain.specs import SourceConfig
+from domain.surface import Surface
 
 logger = logging.getLogger(__name__)
 
@@ -246,6 +247,11 @@ class _Turn:
     response_mode: ResponseMode = ResponseMode.QUICK
     model_setting: str = ""
     response_mode_inherited: bool = False
+    # Which UI surface asked for this turn, plus the essay it is about (essay
+    # surface only). Pass-through to run_turn — flat scalars, per plan C2.
+    surface: Surface = Surface.CHAT
+    essay_id: str | None = None
+    essay_selection: str | None = None
     task: asyncio.Task[None] | None = None
     trace_id: str = ""
     ids: dict[str, Any] | None = None  # {message_id, user_message_id} from meta
@@ -355,6 +361,9 @@ class TurnRegistry:
         selected_skills: Sequence[str] = (),
         response_mode: ResponseMode | None = None,
         session_response_mode: ResponseMode = ResponseMode.QUICK,
+        surface: Surface = Surface.CHAT,
+        essay_id: str | None = None,
+        essay_selection: str | None = None,
     ) -> AsyncIterator[tuple[Event, int]]:
         """Claim the session, spawn the detached turn, return an attach handle.
 
@@ -417,6 +426,9 @@ class TurnRegistry:
             user_id=user_id,
             selected_skills=selected,
             buffer=buffer,
+            surface=surface,
+            essay_id=essay_id,
+            essay_selection=essay_selection,
         )
         handle_store = getattr(self._deps, "run_handles", None)
         if handle_store is not None:
@@ -761,6 +773,10 @@ class TurnRegistry:
                     }
                     if turn.selected_skills_inherited:
                         run_kwargs["selected_skills_inherited"] = True
+                    if turn.surface is not Surface.CHAT:
+                        run_kwargs["surface"] = turn.surface
+                        run_kwargs["essay_id"] = turn.essay_id
+                        run_kwargs["essay_selection"] = turn.essay_selection
                     events = cast(
                         "AsyncGenerator[Event, None]",
                         self._run_turn(
