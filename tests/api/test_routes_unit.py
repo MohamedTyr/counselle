@@ -1038,9 +1038,24 @@ def test_config_exposes_only_public_skills_and_selection_limit_without_live_db()
             "description": "Plan affordability, financial aid, FAFSA/CSS, and scholarships.",
         },
         {
+            "name": "essay-drafting",
+            "display_name": "Essay drafting",
+            "description": "Turn a prompt and your raw material into a real first draft.",
+        },
+        {
             "name": "essay-fit",
             "display_name": "Essay fit",
             "description": "Find real school-specific details for essays and fit.",
+        },
+        {
+            "name": "essay-revision",
+            "display_name": "Essay revision",
+            "description": "Tighten, cut, restructure, and strengthen a draft you already have.",
+        },
+        {
+            "name": "essay-voice",
+            "display_name": "Essay voice",
+            "description": "Keep the essay sounding like you, not like a polished stranger.",
         },
         {
             "name": "major-and-fit",
