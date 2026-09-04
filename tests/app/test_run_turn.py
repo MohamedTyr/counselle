@@ -968,7 +968,7 @@ async def test_essay_surface_mounts_exactly_its_tool_profile(
 ) -> None:
     from app.workspace.changes import WorkspaceEventBus
 
-    async def fake_essay_context(deps: Any, ids: dict[str, Any], max_chars: int) -> str:
+    def fake_essay_context(essay: Any, ids: dict[str, Any], max_chars: int) -> str:
         return "## The essay you're working on\n\nStub essay."
 
     # The only stub: the essay row read. Everything else — the real
@@ -1037,7 +1037,7 @@ async def test_essay_surface_survives_a_clarify_continuation(
 
     context_calls: list[dict[str, Any]] = []
 
-    async def fake_essay_context(deps: Any, ids: dict[str, Any], max_chars: int) -> str:
+    def fake_essay_context(essay: Any, ids: dict[str, Any], max_chars: int) -> str:
         context_calls.append(ids)
         return "## The essay you're working on\n\nStub essay."
 

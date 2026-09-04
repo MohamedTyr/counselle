@@ -486,6 +486,16 @@ async def post_message(
     if parsed_surface is None:
         return _invalid_request(trace_id, "Invalid essay panel request.")  # type: ignore[return-value]
     surface, essay_id, essay_selection = parsed_surface
+    # Plan §7.2: the session row's own essay_id is authoritative for which essay
+    # this thread belongs to. Without this, a client bug (a stale session id held
+    # across an essay-panel route change) would silently queue essay A's
+    # suggestions onto essay B, leaving no trace in either transcript. Fails
+    # closed: a main-chat session (essay_id NULL) never accepts an essay turn.
+    session_essay_id = row.get("essay_id")
+    if surface is Surface.ESSAY and (
+        session_essay_id is None or str(session_essay_id) != essay_id
+    ):
+        return _invalid_request(trace_id, "That essay doesn't match this chat.")  # type: ignore[return-value]
     replace_message_id = (
         _valid_short_string(body.replace_message_id, max_length=64)
         if body.replace_message_id is not None

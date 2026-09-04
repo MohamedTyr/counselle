@@ -168,3 +168,133 @@ async def test_workspace_sse_replay_returns_route_events(
 
         assert event.id == str(max_id)
         assert event.event in {"task.created", "essay.created", "application.created"}
+
+
+def _doc(text: str) -> dict[str, Any]:
+    return {
+        "type": "doc",
+        "content": [{"type": "paragraph", "content": [{"type": "text", "text": text}]}],
+    }
+
+
+async def _essay_with_suggestion(
+    runtime: Any, user: UserDB, text: str, old_text: str, new_text: str
+) -> tuple[Any, str]:
+    """Create an essay carrying one pending suggestion, straight through the services."""
+    from app.workspace.changes import WorkspaceEventBus
+    from app.workspace.models import EssayCreate
+    from app.workspace.service_essays import append_suggestions, create_essay
+
+    essay = await create_essay(
+        runtime.app_pool,
+        runtime.deps.catalog,
+        WorkspaceEventBus(),
+        user_id=user.id,
+        actor="student",
+        data=EssayCreate(title="Draft", content=_doc(text)),
+    )
+    suggestion_id = str(uuid4())
+    await append_suggestions(
+        runtime.app_pool,
+        WorkspaceEventBus(),
+        user_id=user.id,
+        actor="counselle",
+        essay_id=essay.id,
+        suggestions=[
+            {
+                "id": suggestion_id,
+                "old_text": old_text,
+                "new_text": new_text,
+                "old_text_plain": old_text,
+                "new_text_plain": new_text,
+                "rationale": "tightens the line",
+                "actor": "counselle",
+                "created_at": "2026-09-04T12:00:00+00:00",
+                "essay_version_at_creation": essay.updated_at.isoformat(),
+                "turn_message_id": str(uuid4()),
+            }
+        ],
+    )
+    return essay, suggestion_id
+
+
+async def test_accept_suggestion_routes_return_essay_applied_and_skipped(
+    test_runtime: Any,
+    workspace_user: UserDB,
+) -> None:
+    import httpx
+
+    app = _workspace_live_app(test_runtime, workspace_user)
+    essay, suggestion_id = await _essay_with_suggestion(
+        test_runtime, workspace_user, "The board hissed.", "hissed", "hissed back"
+    )
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        accepted = await client.post(
+            f"/v1/essays/{essay.id}/suggestions/{suggestion_id}/accept"
+        )
+        assert accepted.status_code == 200, accepted.text
+        assert accepted.json()["suggestions"] == []
+
+        # Already resolved: suggestions are removed, never tombstoned.
+        again = await client.post(f"/v1/essays/{essay.id}/suggestions/{suggestion_id}/accept")
+        assert again.status_code == 404, again.text
+
+        batch = await client.post(f"/v1/essays/{essay.id}/suggestions/reject-all")
+        assert batch.status_code == 200, batch.text
+        assert set(batch.json()) == {"essay", "applied", "skipped"}
+        assert batch.json() == {
+            "essay": batch.json()["essay"],
+            "applied": 0,
+            "skipped": [],
+        }
+
+
+async def test_accepting_a_stale_suggestion_over_http_is_422(
+    test_runtime: Any,
+    workspace_user: UserDB,
+) -> None:
+    """422, not 409 — ``map_workspace_errors`` reserves 409 for "already active"."""
+    import httpx
+
+    app = _workspace_live_app(test_runtime, workspace_user)
+    essay, suggestion_id = await _essay_with_suggestion(
+        test_runtime, workspace_user, "The board hissed.", "hissed", "hissed back"
+    )
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        typed = await client.patch(
+            f"/v1/essays/{essay.id}", json={"content": _doc("The panel murmured.")}
+        )
+        assert typed.status_code == 200, typed.text
+
+        stale = await client.post(f"/v1/essays/{essay.id}/suggestions/{suggestion_id}/accept")
+        assert stale.status_code == 422, stale.text
+
+        unchanged = await client.get(f"/v1/essays/{essay.id}")
+        assert unchanged.json()["content"] == _doc("The panel murmured.")
+        assert [s["id"] for s in unchanged.json()["suggestions"]] == [suggestion_id]
+
+
+async def test_essay_session_route_is_idempotent_and_scoped(
+    test_runtime: Any,
+    workspace_user: UserDB,
+) -> None:
+    import httpx
+
+    app = _workspace_live_app(test_runtime, workspace_user)
+    essay, _ = await _essay_with_suggestion(
+        test_runtime, workspace_user, "The board hissed.", "hissed", "hissed back"
+    )
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        first = await client.post(f"/v1/essays/{essay.id}/session")
+        assert first.status_code == 200, first.text
+        second = await client.post(f"/v1/essays/{essay.id}/session")
+        assert second.json()["session_id"] == first.json()["session_id"]
+
+        missing = await client.post(f"/v1/essays/{uuid4()}/session")
+        assert missing.status_code == 404, missing.text

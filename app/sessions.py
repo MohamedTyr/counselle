@@ -16,14 +16,27 @@ from uuid import UUID, uuid4
 
 import asyncpg
 
+from app.workspace.models import WorkspaceNotFoundError
 from domain.response_mode import ResponseMode
 
 _INSERT_SQL = """
 INSERT INTO counselle.sessions (session_id, source_config, title, user_id, response_mode)
 VALUES ($1, $2, $3, $4, $5)
 """
+_INSERT_ESSAY_SESSION_SQL = """
+INSERT INTO counselle.sessions (session_id, source_config, user_id, essay_id, response_mode)
+SELECT $1, $2, $3, e.id, $5
+FROM counselle.essays e
+WHERE e.id = $4 AND e.user_id = $3 AND e.archived_at IS NULL
+ON CONFLICT (essay_id) WHERE essay_id IS NOT NULL DO NOTHING
+RETURNING session_id
+"""
+_SELECT_ESSAY_SESSION_SQL = """
+SELECT session_id FROM counselle.sessions WHERE essay_id = $1 AND user_id = $2
+"""
 _SELECT_SQL = """
-SELECT session_id, user_id, title, source_config, created_at, updated_at, response_mode
+SELECT session_id, user_id, title, source_config, created_at, updated_at, response_mode,
+       essay_id
 FROM counselle.sessions
 WHERE session_id = $1
 """
@@ -70,6 +83,43 @@ async def create_session(
             _INSERT_SQL, session_id, source_config, title, user_id, response_mode.value
         )
     return session_id
+
+
+async def get_or_create_essay_session(
+    pool: asyncpg.Pool,
+    *,
+    user_id: str,
+    essay_id: UUID,
+    source_config: dict[str, Any],
+    response_mode: ResponseMode = ResponseMode.QUICK,
+) -> str:
+    """The one durable chat session for this essay, creating it if absent.
+
+    ``sessions_essay_id_idx`` (migration 0020) is a partial UNIQUE index, so
+    the insert is the concurrency guard: two first-opens of the same essay
+    race into ON CONFLICT, and the loser reads the winner's row instead of
+    creating a second thread.
+
+    Ownership is enforced here rather than assumed: the insert selects the
+    essay row under ``user_id``, so an essay that is not this student's (or is
+    archived, or gone) inserts nothing and matches nothing, and the caller
+    gets :class:`WorkspaceNotFoundError` — never a thread attached to someone
+    else's essay.
+    """
+    async with pool.acquire() as conn:
+        session_id = await conn.fetchval(
+            _INSERT_ESSAY_SESSION_SQL,
+            str(uuid4()),
+            source_config,
+            user_id,
+            essay_id,
+            response_mode.value,
+        )
+        if session_id is None:
+            session_id = await conn.fetchval(_SELECT_ESSAY_SESSION_SQL, essay_id, user_id)
+    if session_id is None:
+        raise WorkspaceNotFoundError()
+    return str(session_id)
 
 
 async def get_session(pool: asyncpg.Pool, session_id: str) -> dict[str, Any] | None:
@@ -159,13 +209,17 @@ async def list_sessions(
 ) -> list[dict[str, Any]]:
     """User-scoped chat list, keyset-paginated on ``(updated_at DESC, session_id DESC)``.
 
+    An essay's own panel thread (``essay_id IS NOT NULL``, plan Part 0 C6) is
+    excluded: it belongs to the essay, is reached from the editor, and would
+    otherwise clutter the chat list with one untitled row per essay.
+
     ``q`` filters by ``title ILIKE '%q%'`` (NULL titles excluded from search).
     ``cursor`` is an opaque encoding of the last row's ``(updated_at, session_id)``;
     a garbage cursor degrades to the first page. ``limit`` is capped at
     :data:`_MAX_LIST_LIMIT`. Parameterized only.
     """
     capped = max(1, min(limit, _MAX_LIST_LIMIT))
-    where = ["user_id = $1"]
+    where = ["user_id = $1", "essay_id IS NULL"]
     args: list[Any] = [user_id]
 
     if q:

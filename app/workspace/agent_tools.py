@@ -91,6 +91,7 @@ from app.workspace.agent_tools_shared import (
     ACTIVE_STATUSES,
     PRIORITY_ORDER,
     ToolCtx,
+    WriteMode,
     active_workspace_links,
     link_targets,
     render_task_row,
@@ -128,6 +129,9 @@ def build_workspace_tools(
     workspace_events: WorkspaceEventBus,
     user_id: UUID,
     tool_overflow: ToolMiddlewareContext | None,
+    *,
+    write_mode: WriteMode = "direct",
+    turn_message_id: str | None = None,
 ) -> list[Tool[Any]]:
     """Build the per-run workspace tools bound to one authenticated turn.
 
@@ -141,6 +145,12 @@ def build_workspace_tools(
     tools (plans/user-profile-and-memory.md Part E): ``update_profile``,
     ``view_documents``, ``read_document`` (student documents, not essays),
     ``remember``, ``update_memory``, ``forget``.
+
+    ``write_mode`` decides where this turn's essay content writes land —
+    committed content (``direct``, the default and the only chat-surface mode)
+    or reviewable suggestions (``suggest``, the essay panel). It is a per-turn
+    property, so it is fixed here at tool-construction time rather than being
+    something a tool call can choose.
     """
     ctx = ToolCtx(
         app_pool=app_pool,
@@ -148,6 +158,8 @@ def build_workspace_tools(
         workspace_events=workspace_events,
         user_id=user_id,
         tool_overflow=tool_overflow,
+        write_mode=write_mode,
+        turn_message_id=turn_message_id,
     )
     return [
         _make_view_tasks_tool(ctx),

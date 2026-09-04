@@ -94,7 +94,8 @@ from app.toolset import GATEABLE_TOOLS, build_tools, make_tool_deps
 from app.turn_persistence import partial_messages, resolve_offset
 from app.viz_placement import StreamingVizMarkerStripper
 from app.workspace.agent_tools import build_workspace_tools
-from app.workspace.models import WorkspaceNotFoundError
+from app.workspace.agent_tools_shared import WriteMode
+from app.workspace.models import Essay, WorkspaceNotFoundError
 from app.workspace.service_essays import get_essay
 from config.settings import get_settings, load_yaml_asset
 from domain.clarification import ClarifyDraftV2
@@ -769,24 +770,33 @@ _ESSAY_SURFACE_WORKSPACE_TOOLS: frozenset[str] = frozenset(
 )
 
 
-async def _essay_context_block(deps: GraphDeps, ids: dict[str, Any], max_chars: int) -> str:
-    """The essay-surface prompt's ``essay_context`` slot for this turn.
+async def _load_turn_essay(deps: GraphDeps, ids: dict[str, Any]) -> Essay | None:
+    """The essay this turn is about, read once at turn start.
 
     Reuses ``service_essays.get_essay`` — the same ``WHERE user_id = $1`` read
     ``read_essay``/``edit_essay`` already run, so ownership is enforced by the
-    service, never by anything the model or the client supplied.
+    service, never by anything the model or the client supplied. ``None`` when
+    it is deleted, archived, or not this student's: ``get_essay`` draws no
+    distinction between those, and neither may we.
     """
     user_id, essay_id = ids.get("user_id"), ids.get("essay_id")
     if not (user_id and essay_id and deps.app_pool):
-        return ESSAY_CONTEXT_UNAVAILABLE
+        return None
     try:
-        essay = await get_essay(
+        return await get_essay(
             deps.app_pool, deps.catalog, user_id=UUID(str(user_id)), essay_id=UUID(str(essay_id))
         )
     except WorkspaceNotFoundError:
-        # Deleted, archived, or not this student's essay — get_essay draws no
-        # distinction between those, and neither may we. The turn continues
-        # under the unavailable block instead of dying as a generic error.
+        return None
+
+
+def _essay_context_block(essay: Essay | None, ids: dict[str, Any], max_chars: int) -> str:
+    """The essay-surface prompt's ``essay_context`` slot for this turn.
+
+    An unreadable essay degrades to the unavailable block — the turn continues
+    and can still answer, instead of dying as a generic error.
+    """
+    if essay is None:
         return ESSAY_CONTEXT_UNAVAILABLE
     selection = ids.get("essay_selection")
     return render_essay_context(
@@ -794,6 +804,23 @@ async def _essay_context_block(deps: GraphDeps, ids: dict[str, Any], max_chars: 
         selection=str(selection) if selection else None,
         max_chars=max_chars,
     )
+
+
+def _write_mode(surface: Surface, essay: Essay | None) -> WriteMode:
+    """How this turn's content writes land (plan Part 1 §5.2).
+
+    The essay panel proposes rather than writes — every change is reviewable —
+    with one exception: an essay that is still empty when the turn starts has
+    nothing to review a first draft against, so that draft is committed
+    directly. The chat surface is unchanged and always writes directly.
+
+    A property of the turn's *starting* state, not of which tool gets called:
+    "a full draft into an empty essay" is a one-time event, and the next turn
+    re-evaluates against the content this one produced.
+    """
+    if surface is not Surface.ESSAY:
+        return "direct"
+    return "direct" if essay is not None and essay.word_count == 0 else "suggest"
 
 
 async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
@@ -840,6 +867,11 @@ async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
     # prompt and narrows the tool profile. Read before tool assembly — ADR
     # 0013 gates at construction, never after.
     surface = _surface_from_ids(ids)
+    # Read the panel's essay once, before tool assembly: it decides both the
+    # write mode the content tools are built with and the prompt's essay block,
+    # and one read keeps those two from disagreeing about the same turn.
+    turn_essay = await _load_turn_essay(deps, ids) if surface is Surface.ESSAY else None
+    write_mode = _write_mode(surface, turn_essay)
 
     # --- assemble the toolset (ADR 0013: disabled sources never constructed) ---
     tool_deps = getattr(deps, "tool_deps", None) or make_tool_deps(settings, deps.catalog)
@@ -871,6 +903,8 @@ async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
             workspace_events,
             UUID(user_id),
             tool_overflow,
+            write_mode=write_mode,
+            turn_message_id=message_id,
         )
         if surface is Surface.ESSAY:
             workspace_tools = [
@@ -916,7 +950,7 @@ async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
         base_instructions = build_essay_system_prompt(
             state["temporal"]["context"],
             student_context,
-            await _essay_context_block(deps, ids, settings.essay_context_max_chars),
+            _essay_context_block(turn_essay, ids, settings.essay_context_max_chars),
         )
     else:
         base_instructions = build_system_prompt(
