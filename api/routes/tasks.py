@@ -5,35 +5,22 @@ from __future__ import annotations
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Request, Response
-from pydantic import BaseModel, Field
 
 from api.auth import current_active_user
 from api.deps import require_json
 from api.ratelimit import workspace_write_rate_limit
 from api.routes.workspace_common import map_workspace_errors, runtime_parts
 from api.users_db import UserDB
-from app.workspace.models import TaskCreate, TaskPatch, TaskStatus
+from app.workspace.models import TaskCreate, TaskPatch
 from app.workspace.service_tasks import (
     archive_task,
-    bulk_archive,
-    bulk_update_status,
     create_task,
     list_tasks,
     restore_task,
     update_task,
 )
-from app.workspace_mutation_receipts import BATCH_ITEMS_MAX
 
 router = APIRouter(tags=["workspace"])
-
-
-class BulkStatusBody(BaseModel):
-    ids: list[UUID] = Field(max_length=BATCH_ITEMS_MAX)
-    status: TaskStatus
-
-
-class BulkArchiveBody(BaseModel):
-    ids: list[UUID] = Field(max_length=BATCH_ITEMS_MAX)
 
 
 @router.get("/tasks")
@@ -121,44 +108,5 @@ async def restore_task_route(
     return await map_workspace_errors(
         lambda: restore_task(
             app_pool, event_bus, user_id=user.id, actor="student", task_id=task_id
-        )
-    )
-
-
-@router.post(
-    "/tasks/bulk-status",
-    dependencies=[Depends(require_json), Depends(workspace_write_rate_limit)],
-)
-async def bulk_status_route(
-    body: BulkStatusBody,
-    request: Request,
-    user: UserDB = Depends(current_active_user),
-) -> object:
-    app_pool, _, event_bus = runtime_parts(request)
-    return await map_workspace_errors(
-        lambda: bulk_update_status(
-            app_pool,
-            event_bus,
-            user_id=user.id,
-            actor="student",
-            ids=body.ids,
-            status=body.status,
-        )
-    )
-
-
-@router.post(
-    "/tasks/bulk-archive",
-    dependencies=[Depends(require_json), Depends(workspace_write_rate_limit)],
-)
-async def bulk_archive_route(
-    body: BulkArchiveBody,
-    request: Request,
-    user: UserDB = Depends(current_active_user),
-) -> object:
-    app_pool, _, event_bus = runtime_parts(request)
-    return await map_workspace_errors(
-        lambda: bulk_archive(
-            app_pool, event_bus, user_id=user.id, actor="student", ids=body.ids
         )
     )

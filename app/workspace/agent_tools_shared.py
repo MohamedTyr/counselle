@@ -20,14 +20,11 @@ from app.tool_middleware import ToolMiddlewareContext
 from app.workspace.changes import WorkspaceEventBus
 from app.workspace.models import (
     ApplicationView,
-    Assignee,
     EssayStatus,
     EssaySummary,
     EssayType,
     Task,
     TaskCategory,
-    TaskPriority,
-    TaskStatus,
 )
 from app.workspace.service_activities import ACTIVITY_CAP, HONOR_CAP
 from app.workspace.service_applications import list_applications
@@ -39,8 +36,6 @@ LINK_TARGET_CAP = 30
 BATCH_MIN = 1
 BATCH_MAX = 20
 DUPLICATE_SIMILARITY_THRESHOLD = 0.6
-ACTIVE_STATUSES: list[TaskStatus] = ["todo", "doing", "waiting"]
-PRIORITY_ORDER = {"high": 0, "med": 1, "low": 2}
 
 # Mirrors ``frontend/src/domain/activity.ts``. Confirm the Common App
 # vocabulary against the live form each admissions cycle before changing it.
@@ -107,16 +102,12 @@ LINK_RECOVERY = (
 class TaskDraft(BaseModel):
     """One task to create in a ``create_tasks`` batch."""
 
-    title: str
+    title: str = Field(min_length=1)
     notes: str | None = None
-    status: TaskStatus = "todo"
     category: TaskCategory = "other"
-    priority: TaskPriority = "med"
-    assignee: Assignee = "student"
-    needs_input: bool = False
-    due: str | None = None
-    planned_for: str | None = None
-    reminder: str | None = None
+    flagged: bool = False
+    when: str | None = None
+    deadline: str | None = None
     application_id: str | None = None
     essay_id: str | None = None
     requirement_kind: str | None = Field(
@@ -325,10 +316,6 @@ def essay_name(essay_id: UUID | None, essays: list[EssaySummary]) -> str | None:
     return next((essay.title for essay in essays if essay.id == essay_id), None)
 
 
-def _fmt_date(value: datetime | None) -> str | None:
-    return value.date().isoformat() if value is not None else None
-
-
 def _truncate(text: str | None) -> str | None:
     if text is None:
         return None
@@ -340,34 +327,38 @@ def render_task_row(
     *,
     app_name: str | None,
     essay_name: str | None,
-    include_completed: bool = False,
+    inherited_deadline: date | None = None,
     state: str | None = None,
 ) -> dict[str, Any]:
-    """One task row, fixed key order, null/default-false fields omitted (Part A)."""
+    """One task row, fixed key order, null/default-false fields omitted (Part A).
+
+    ``inherited_deadline`` is the parent application's deadline, rendered as
+    ``deadline_inherited`` only when the task has no ``deadline_on`` of its
+    own (spec §2.4). Never reported as the task's own deadline — that
+    distinction is an honesty requirement.
+    """
     row: dict[str, Any] = {
         "id": str(task.id),
         "title": task.title,
-        "status": task.status,
         "category": task.category,
-        "priority": task.priority,
-        "assignee": task.assignee,
     }
-    if task.needs_input:
-        row["needs_input"] = True
+    if task.flagged:
+        row["flagged"] = True
+    if task.when_on is not None:
+        row["when"] = task.when_on.isoformat()
+    if task.deadline_on is not None:
+        row["deadline"] = task.deadline_on.isoformat()
+    elif inherited_deadline is not None:
+        row["deadline_inherited"] = inherited_deadline.isoformat()
     for key, value in (
-        ("due", _fmt_date(task.due_at)),
-        ("planned", _fmt_date(task.planned_for)),
-        ("reminder", _fmt_date(task.reminder_at)),
         ("app", app_name),
         ("essay", essay_name),
         ("notes", _truncate(task.notes)),
     ):
         if value is not None:
             row[key] = value
-    if include_completed:
-        completed = _fmt_date(task.completed_at)
-        if completed is not None:
-            row["completed"] = completed
+    if task.done_at is not None:
+        row["done"] = True
     if state is not None:
         row["state"] = state
     return row

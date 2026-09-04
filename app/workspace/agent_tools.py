@@ -27,7 +27,7 @@ mount site already has ``deps.catalog`` in scope.
 
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from typing import Any, Literal
 from uuid import UUID
 
@@ -87,16 +87,6 @@ from app.workspace.agent_tools_schools_mutations import (
     make_restore_school_tool,
     make_update_school_tool,
 )
-from app.workspace.agent_tools_shared import (
-    ACTIVE_STATUSES,
-    PRIORITY_ORDER,
-    ToolCtx,
-    active_workspace_links,
-    link_targets,
-    render_task_row,
-    today,
-    try_uuid,
-)
 
 #: Re-exported so callers can do ``from app.workspace.agent_tools import ActivityDraft``.
 from app.workspace.agent_tools_shared import ActivityDraft as ActivityDraft  # noqa: E402
@@ -109,13 +99,20 @@ from app.workspace.agent_tools_shared import HonorDraft as HonorDraft  # noqa: E
 
 #: Re-exported so callers can do ``from app.workspace.agent_tools import TaskDraft``.
 from app.workspace.agent_tools_shared import TaskDraft as TaskDraft  # noqa: E402
+from app.workspace.agent_tools_shared import (
+    ToolCtx,
+    active_workspace_links,
+    link_targets,
+    render_task_row,
+    today,
+    try_uuid,
+)
 from app.workspace.changes import WorkspaceEventBus
 from app.workspace.models import (
     ApplicationView,
     Task,
     TaskBoardCounts,
     TaskSearchHit,
-    TaskStatus,
 )
 from counselle_db.catalog import Catalog
 
@@ -199,7 +196,7 @@ def build_workspace_tools(
 
 def _make_view_tasks_tool(ctx: ToolCtx) -> Tool[Any]:
     async def view_tasks(
-        status: Literal["active", "todo", "doing", "waiting", "done", "all"] = "active",
+        status: Literal["open", "done", "all"] = "open",
         application_id: str | None = None,
         essay_id: str | None = None,
         done_within_days: int = 30,
@@ -207,10 +204,11 @@ def _make_view_tasks_tool(ctx: ToolCtx) -> Tool[Any]:
     ) -> dict[str, Any]:
         """View the student's task board — the shared workspace you and the student both see.
 
-        Defaults to the active working set (todo, doing, waiting), sorted by urgency:
-        earliest due date first (undated last), then priority high to low. Call this
-        before discussing, creating, or changing tasks — it returns current task ids,
-        and every mutation tool requires an id echoed from here or from search_tasks.
+        Defaults to the open working set, sorted by urgency: flagged first, then
+        earliest "when" date (undated last), then earliest deadline, then oldest
+        first. Call this before discussing, creating, or changing tasks — it
+        returns current task ids, and every mutation tool requires an id echoed
+        from here or from search_tasks.
 
         The result also lists link_targets: the active applications and essays
         (id · name) that tasks can link to. Use those exact ids for application_id /
@@ -221,8 +219,7 @@ def _make_view_tasks_tool(ctx: ToolCtx) -> Tool[Any]:
         here — search_tasks finds them.
 
         Args:
-            status: Which slice to show. "active" (default) = todo + doing + waiting;
-                a single status name; or "all" = active plus done.
+            status: Which slice to show. "open" (default), "done", or "all".
             application_id: Only tasks linked to this application (exact id from
                 link_targets).
             essay_id: Only tasks linked to this essay (exact id from link_targets).
@@ -239,25 +236,27 @@ def _make_view_tasks_tool(ctx: ToolCtx) -> Tool[Any]:
     return Tool(view_tasks, takes_ctx=False)
 
 
-def _statuses_for(status: str) -> list[TaskStatus] | None:
-    if status == "active":
-        return list(ACTIVE_STATUSES)
-    if status == "all":
-        return None
-    return [status]  # type: ignore[list-item]
+def _done_filter_for(status: str) -> bool | None:
+    if status == "open":
+        return False
+    if status == "done":
+        return True
+    return None
 
 
 def _sort_tasks(tasks: list[Task], status: str) -> list[Task]:
     if status == "done":
         return sorted(
-            tasks, key=lambda t: t.completed_at or datetime.min.replace(tzinfo=UTC), reverse=True
+            tasks, key=lambda t: t.done_at or datetime.min.replace(tzinfo=UTC), reverse=True
         )
     return sorted(
         tasks,
         key=lambda t: (
-            t.due_at is None,
-            t.due_at or datetime.max.replace(tzinfo=UTC),
-            PRIORITY_ORDER.get(t.priority, 3),
+            not t.flagged,
+            t.when_on is None,
+            t.when_on or date.max,
+            t.deadline_on is None,
+            t.deadline_on or date.max,
             t.created_at,
         ),
     )
@@ -312,6 +311,7 @@ async def _view_tasks_impl(
     apps, essays = await active_workspace_links(ctx)
     app_names = {app.id: app.school_name for app in apps}
     essay_names = {essay.id: essay.title for essay in essays}
+    app_deadlines = {app.id: app.deadline for app in apps}
     targets = link_targets(apps, essays)
 
     app_filter = try_uuid(application_id) if application_id else None
@@ -320,7 +320,7 @@ async def _view_tasks_impl(
         essay_id is not None and essay_filter is None
     )
 
-    statuses = _statuses_for(status)
+    done_filter = _done_filter_for(status)
     completed_after = (
         datetime.now(UTC) - timedelta(days=done_within_days) if status == "done" else None
     )
@@ -331,7 +331,7 @@ async def _view_tasks_impl(
         else await service_tasks.list_tasks(
             ctx.app_pool,
             user_id=ctx.user_id,
-            statuses=statuses,
+            done=done_filter,
             application_id=app_filter,
             essay_id=essay_filter,
             completed_after=completed_after,
@@ -344,7 +344,9 @@ async def _view_tasks_impl(
             task,
             app_name=app_names.get(task.application_id) if task.application_id else None,
             essay_name=essay_names.get(task.essay_id) if task.essay_id else None,
-            include_completed=task.status == "done",
+            inherited_deadline=(
+                app_deadlines.get(task.application_id) if task.application_id else None
+            ),
         )
         for task in tasks[:limit]
     ]
@@ -357,7 +359,7 @@ async def _view_tasks_impl(
             or "that filter"
         )
         elsewhere = await service_tasks.list_tasks(
-            ctx.app_pool, user_id=ctx.user_id, statuses=statuses, completed_after=completed_after
+            ctx.app_pool, user_id=ctx.user_id, done=done_filter, completed_after=completed_after
         )
         elsewhere_total = len(elsewhere)
         footer = (
@@ -382,7 +384,7 @@ async def _view_tasks_impl(
             "tasks": [],
             "link_targets": targets,
         }
-        if status in ("active", "all"):
+        if status in ("open", "all"):
             payload["footer"] = _empty_board_footer(apps)
         return payload
 

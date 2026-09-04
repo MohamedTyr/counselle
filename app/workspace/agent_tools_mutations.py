@@ -7,6 +7,7 @@ file-size convention — see that module's docstring for the full picture and
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
@@ -33,16 +34,13 @@ from app.workspace.agent_tools_shared import (
     resolve_link,
     stale_task_error,
     try_uuid,
-    validate_date_field,
+    validate_date_only,
 )
 from app.workspace.models import (
-    Assignee,
     Task,
     TaskCategory,
     TaskCreate,
     TaskPatch,
-    TaskPriority,
-    TaskStatus,
     WorkspaceNotFoundError,
     WorkspaceValidationError,
 )
@@ -81,8 +79,11 @@ def make_create_tasks_tool(ctx: ToolCtx) -> Tool[Any]:
 
         Link each task to its application and/or essay whenever one clearly applies,
         using exact ids from view_tasks link_targets — linked tasks appear on that
-        application's page. Defaults per task: status "todo", category "other",
-        priority "med", assignee "student".
+        application's page. Defaults per task: category "other", flagged false.
+        "when" is the day the student plans to work on it; "deadline" is an
+        external date — if the task is linked to an application, an unset
+        deadline inherits that application's deadline for display (never write
+        it here, just leave deadline unset).
 
         Args:
             tasks: The tasks to create, 1-20 per call.
@@ -102,14 +103,10 @@ def _draft_to_task_create(draft: TaskDraft, parsed: dict[str, Any]) -> TaskCreat
         essay_id=parsed["essay_id"],
         requirement_kind=draft.requirement_kind,
         notes=draft.notes,
-        status=draft.status,
         category=draft.category,
-        priority=draft.priority,
-        assignee=draft.assignee,
-        needs_input=draft.needs_input,
-        due_at=parsed["due_at"],
-        planned_for=parsed["planned_for"],
-        reminder_at=parsed["reminder_at"],
+        flagged=draft.flagged,
+        when_on=parsed["when_on"],
+        deadline_on=parsed["deadline_on"],
     )
 
 
@@ -123,25 +120,20 @@ def _parse_draft(
     essay_uuid, essay_error = resolve_link(draft.essay_id, "essay_id", active_essay_ids)
     if essay_error:
         return None, (index, essay_error)
-    for field, value in (("due", draft.due), ("planned_for", draft.planned_for),
-                          ("reminder", draft.reminder)):
-        if value is not None:
-            _, date_error = validate_date_field(value, field)
-            if date_error:
-                return None, (index, date_error)
-    due_at = validate_date_field(draft.due, "due")[0] if draft.due else None
-    planned_at = (
-        validate_date_field(draft.planned_for, "planned_for")[0] if draft.planned_for else None
-    )
-    reminder_at = (
-        validate_date_field(draft.reminder, "reminder")[0] if draft.reminder else None
-    )
+    when_on, deadline_on = None, None
+    if draft.when is not None:
+        when_on, date_error = validate_date_only(draft.when, "when")
+        if date_error:
+            return None, (index, date_error)
+    if draft.deadline is not None:
+        deadline_on, date_error = validate_date_only(draft.deadline, "deadline")
+        if date_error:
+            return None, (index, date_error)
     return {
         "application_id": app_uuid,
         "essay_id": essay_uuid,
-        "due_at": due_at,
-        "planned_for": planned_at,
-        "reminder_at": reminder_at,
+        "when_on": when_on,
+        "deadline_on": deadline_on,
     }, None
 
 
@@ -253,14 +245,11 @@ def make_update_task_tool(ctx: ToolCtx) -> Tool[Any]:
         task_id: str,
         title: str | None = None,
         notes: str | None = None,
-        status: TaskStatus | None = None,
         category: TaskCategory | None = None,
-        priority: TaskPriority | None = None,
-        assignee: Assignee | None = None,
-        needs_input: bool | None = None,
-        due: str | None = None,
-        planned_for: str | None = None,
-        reminder: str | None = None,
+        flagged: bool | None = None,
+        when: str | None = None,
+        deadline: str | None = None,
+        done: bool | None = None,
         application_id: str | None = None,
         essay_id: str | None = None,
     ) -> dict[str, Any]:
@@ -268,27 +257,27 @@ def make_update_task_tool(ctx: ToolCtx) -> Tool[Any]:
         untouched.
 
         task_id must be an exact id echoed from a view_tasks or search_tasks result
-        in this conversation — never construct or guess an id. Typical moves: status
-        "doing" when work starts, "done" when finished (completion time is recorded
-        automatically — use this instead of archiving finished work), priority or due
-        changes, flipping needs_input, or linking the task to an application/essay
-        using ids from view_tasks link_targets.
+        in this conversation — never construct or guess an id. Typical moves:
+        done=true when finished (completion time is recorded automatically — use
+        this instead of archiving finished work), when/deadline changes, flipping
+        flagged, or linking the task to an application/essay using ids from
+        view_tasks link_targets.
 
         To CLEAR an optional field, pass the string "clear" for that field
-        (clearable: notes, due, planned_for, reminder, application_id, essay_id).
+        (clearable: notes, when, deadline, application_id, essay_id).
 
         Args:
             task_id: The task's id, echoed exactly from a prior result.
             title: New title.
             notes: New notes, or "clear" to remove them.
-            status: New status ("todo", "doing", "waiting", "done").
             category: New category.
-            priority: New priority ("low", "med", "high").
-            assignee: Who owns the work next ("student" or "counselle").
-            needs_input: Whether this is blocked on the student telling you something.
-            due: New due date as YYYY-MM-DD, or "clear" to remove it.
-            planned_for: New planned-for date as YYYY-MM-DD, or "clear" to remove it.
-            reminder: New reminder date as YYYY-MM-DD, or "clear" to remove it.
+            flagged: The student's own priority mark.
+            when: New "when" date (the day the student plans to work on it) as
+                YYYY-MM-DD, or "clear" to remove it.
+            deadline: New deadline date as YYYY-MM-DD, or "clear" to remove it —
+                clearing returns the task to inheriting its linked application's
+                deadline for display (spec §2.4), it does not delete anything.
+            done: True to mark finished (sets completion time), False to reopen.
             application_id: Link to this application (exact id from link_targets),
                 or "clear" to unlink.
             essay_id: Link to this essay (exact id from link_targets), or "clear" to
@@ -299,14 +288,11 @@ def make_update_task_tool(ctx: ToolCtx) -> Tool[Any]:
             task_id,
             title=title,
             notes=notes,
-            status=status,
             category=category,
-            priority=priority,
-            assignee=assignee,
-            needs_input=needs_input,
-            due=due,
-            planned_for=planned_for,
-            reminder=reminder,
+            flagged=flagged,
+            when=when,
+            deadline=deadline,
+            done=done,
             application_id=application_id,
             essay_id=essay_id,
         )
@@ -320,14 +306,11 @@ _SUMMARY_ROW_KEYS = {
     "application_id": "app",
     "essay_id": "essay",
     "notes": "notes",
-    "status": "status",
     "category": "category",
-    "priority": "priority",
-    "assignee": "assignee",
-    "needs_input": "needs_input",
-    "due_at": "due",
-    "planned_for": "planned",
-    "reminder_at": "reminder",
+    "flagged": "flagged",
+    "when_on": "when",
+    "deadline_on": "deadline",
+    "done_at": "done",
 }
 
 
@@ -337,7 +320,7 @@ def _change_summary(title: str, patch: dict[str, Any], row: dict[str, Any]) -> s
         if key not in patch:
             continue
         raw = patch[key]
-        if key == "needs_input":
+        if key in ("flagged", "done_at"):
             value: Any = "true" if raw else "false"
         elif raw is None:
             value = "cleared"
@@ -351,16 +334,15 @@ def _build_task_patch(
     fields: dict[str, Any], active_app_ids: set[UUID], active_essay_ids: set[UUID]
 ) -> tuple[dict[str, Any], dict[str, Any] | None]:
     patch: dict[str, Any] = {}
-    for key in ("title", "notes", "status", "category", "priority", "assignee", "needs_input"):
+    for key in ("title", "notes", "category", "flagged"):
         value = fields.get(key)
         if value is None:
             continue
         patch[key] = None if (key == "notes" and value == "clear") else value
 
     for patch_key, param_key in (
-        ("due_at", "due"),
-        ("planned_for", "planned_for"),
-        ("reminder_at", "reminder"),
+        ("when_on", "when"),
+        ("deadline_on", "deadline"),
     ):
         value = fields.get(param_key)
         if value is None:
@@ -368,10 +350,14 @@ def _build_task_patch(
         if value == "clear":
             patch[patch_key] = None
             continue
-        parsed, date_err = validate_date_field(value, param_key)
+        parsed, date_err = validate_date_only(value, param_key)
         if date_err:
             return {}, error(date_err, retryable=True, recovery=DATE_RECOVERY)
         patch[patch_key] = parsed
+
+    done = fields.get("done")
+    if done is not None:
+        patch["done_at"] = datetime.now(UTC) if done else None
 
     for patch_key, ids in (
         ("application_id", active_app_ids),
@@ -424,26 +410,34 @@ def _task_changes(
         )
     if "notes" in patch_kwargs:
         changes.append(change("notes", "clear" if patch_kwargs["notes"] is None else "state_only"))
-    for field_key in ("status", "category", "priority", "assignee"):
-        if field_key in patch_kwargs:
-            changes.append(
-                change(
-                    field_key,
-                    "replace",
-                    before=enum_value(str(getattr(before, field_key))),
-                    after=enum_value(str(patch_kwargs[field_key])),
-                )
-            )
-    if "needs_input" in patch_kwargs:
+    if "category" in patch_kwargs:
         changes.append(
             change(
-                "needs_input",
+                "category",
                 "replace",
-                before=boolean_value(bool(before.needs_input)),
-                after=boolean_value(bool(patch_kwargs["needs_input"])),
+                before=enum_value(str(before.category)),
+                after=enum_value(str(patch_kwargs["category"])),
             )
         )
-    for field_key in ("due_at", "planned_for", "reminder_at"):
+    if "flagged" in patch_kwargs:
+        changes.append(
+            change(
+                "flagged",
+                "replace",
+                before=boolean_value(bool(before.flagged)),
+                after=boolean_value(bool(patch_kwargs["flagged"])),
+            )
+        )
+    if "done_at" in patch_kwargs:
+        changes.append(
+            change(
+                "done_at",
+                "replace",
+                before=boolean_value(before.done_at is not None),
+                after=boolean_value(patch_kwargs["done_at"] is not None),
+            )
+        )
+    for field_key in ("when_on", "deadline_on"):
         if field_key in patch_kwargs:
             after_raw = patch_kwargs[field_key]
             before_raw = getattr(before, field_key)
@@ -504,7 +498,6 @@ async def _update_task_impl(ctx: ToolCtx, task_id: str, **fields: Any) -> dict[s
         task,
         app_name=app_name,
         essay_name=essay_display_name,
-        include_completed=task.status == "done",
     )
     payload: dict[str, Any] = {
         "status": "ok",
@@ -751,7 +744,6 @@ async def _restore_task_impl(ctx: ToolCtx, task_id: str) -> dict[str, Any]:
         task,
         app_name=app_name,
         essay_name=essay_display_name,
-        include_completed=task.status == "done",
     )
     payload: dict[str, Any] = {
         "status": "ok",

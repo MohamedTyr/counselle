@@ -113,9 +113,12 @@ async def test_add_school_list_complete_task_rollup_moves(
         assert created_task.status_code == 201, created_task.text
         task_id = created_task.json()["id"]
 
-        completed = await client.patch(f"/v1/tasks/{task_id}", json={"status": "done"})
+        completed = await client.patch(
+            f"/v1/tasks/{task_id}", json={"done_at": "2027-01-01T00:00:00Z"}
+        )
         assert completed.status_code == 200
         assert completed.json()["status"] == "done"
+        assert completed.json()["done_at"] is not None
 
         moved = await client.get("/v1/applications")
         assert moved.status_code == 200

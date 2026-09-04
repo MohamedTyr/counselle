@@ -58,7 +58,6 @@ from app.workspace.service_essays import (
 from app.workspace.service_tasks import (
     archive_task,
     bulk_archive,
-    bulk_update_status,
     create_task,
     list_tasks,
     restore_task,
@@ -811,14 +810,6 @@ async def test_task_bulk_ops_are_owned_and_logged(
             task_id=own_tasks[0].id,
             data=TaskPatch(status="done"),
         )
-    changed = await bulk_update_status(
-        app_pool,
-        WorkspaceEventBus(),
-        user_id=user_id,
-        actor="student",
-        ids=[own_tasks[0].id, other_task_id],
-        status="done",
-    )
     archived = await bulk_archive(
         app_pool,
         WorkspaceEventBus(),
@@ -827,14 +818,91 @@ async def test_task_bulk_ops_are_owned_and_logged(
         ids=[own_tasks[0].id, own_tasks[1].id, other_task_id],
     )
 
-    assert [task.id for task in changed] == [own_tasks[0].id]
     assert set(archived) == {own_tasks[0].id, own_tasks[1].id}
-    # user_id: application.created + 2x task.created + 1x bulk task.updated
-    # + 2x bulk task.archived = 6.
-    assert await _change_count(app_pool, user_id) == 6
+    # user_id: application.created + 2x task.created + 2x bulk task.archived = 5.
+    assert await _change_count(app_pool, user_id) == 5
     # other_user_id: application.created + 1x task.created = 2.
     assert await _change_count(app_pool, other_user_id) == 2
     assert other_result.application.id
+
+
+async def test_task_done_at_bridges_status_and_completed_at(
+    app_pool: asyncpg.Pool,
+    make_user: Callable[[], Awaitable[UUID]],
+) -> None:
+    """The done_at column is the tasks-redesign source of truth (spec §2.5),
+
+    but service_applications.py's progress rollup still reads the legacy
+    status/completed_at columns for one release (migration 0019 header) — so
+    patching done_at must keep both pairs coherent in both directions.
+    """
+    user_id = await make_user()
+    task = await create_task(
+        app_pool,
+        WorkspaceEventBus(),
+        user_id=user_id,
+        actor="student",
+        data=TaskCreate(title="Request transcript"),
+    )
+    assert task.status == "todo"
+    assert task.completed_at is None
+
+    done_at = datetime(2027, 1, 2, tzinfo=UTC)
+    completed, _before = await update_task(
+        app_pool,
+        WorkspaceEventBus(),
+        user_id=user_id,
+        actor="student",
+        task_id=task.id,
+        data=TaskPatch(done_at=done_at),
+    )
+    assert completed.done_at == done_at
+    assert completed.status == "done"
+    assert completed.completed_at == done_at
+
+    reopened, _before = await update_task(
+        app_pool,
+        WorkspaceEventBus(),
+        user_id=user_id,
+        actor="student",
+        task_id=task.id,
+        data=TaskPatch(done_at=None),
+    )
+    assert reopened.done_at is None
+    assert reopened.status == "todo"
+    assert reopened.completed_at is None
+
+
+async def test_task_actor_attribution_tracks_creator_and_last_editor(
+    app_pool: asyncpg.Pool,
+    make_user: Callable[[], Awaitable[UUID]],
+) -> None:
+    """created_by_actor/last_actor answer "did Counselle create or touch this"
+
+    without joining counselle.workspace_changes (spec §7.1/§8.3) — an honesty
+    claim, so it gets a hard test per CLAUDE.md principle 3.
+    """
+    user_id = await make_user()
+    task = await create_task(
+        app_pool,
+        WorkspaceEventBus(),
+        user_id=user_id,
+        actor="counselle",
+        data=TaskCreate(title="Draft outreach email"),
+    )
+    assert task.created_by_actor == "counselle"
+    assert task.last_actor == "counselle"
+
+    updated, _before = await update_task(
+        app_pool,
+        WorkspaceEventBus(),
+        user_id=user_id,
+        actor="student",
+        task_id=task.id,
+        data=TaskPatch(title="Draft outreach email to Ms. Lee"),
+    )
+    assert updated.last_actor == "student"
+    assert updated.created_by_actor == "counselle"
 
 
 async def test_activity_lifecycle_cap_and_ownership(
