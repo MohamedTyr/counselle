@@ -856,6 +856,20 @@ Use the `loading` prop on `Button`. It sets `aria-disabled` rather than `disable
 the label stays announceable), sets `data-loading`, makes the label transparent, and
 overlays a `Spinner` — the label's width is preserved so the button does not resize.
 
+It looks like §11.5: `data-loading:opacity-64` is the same fade as the disabled state, and
+`data-loading:cursor-not-allowed` keeps the 1:1 cursor pairing of §11.7. What it
+deliberately does **not** carry is `pointer-events-none` — the busy button stays
+hoverable and focusable, so its tooltip still opens and the focus ring still lands on it.
+
+Native `disabled` is the wrong tool here because it **ejects DOM focus to `<body>`**: a
+keyboard student resolving one tracked change at a time would restart Tab from the top of
+the page after every accept. The busy button stays focusable; `Button` refuses the
+activation instead, with `preventDefault` so a busy submit button cannot post its form
+again. **The one thing that behaviour does not cover is implicit submission** — Enter in a
+field reaches the form directly, and a disabled default button used to block it. Any form
+whose submit button uses `loading` needs its own re-entry guard in the submit handler
+(`LoginRoute`, `RegisterRoute`, `ChatSessionActions`, `onboarding-setup` all have one).
+
 ### 11.7 Cursors
 
 `cursor-pointer` on real click targets · `cursor-default` explicitly reset on menu and
@@ -1212,12 +1226,72 @@ typing near a pending change would resolve it by accident — and an accidental 
 silent. `Mod+Enter` accepts, `Mod+Backspace` rejects, `Alt+.`/`Alt+,` move between
 pending changes.
 
+**Accept and Reject are peers.** `ResolveButtons`
+(`features/essays/suggestions/ResolveButtons.tsx`) is the one component that renders the
+pair, used by both the hover popover and every row of the pending-changes bar — the two
+places are not merely shaped alike, they carry the same rule about how a student's own
+writing may be rewritten. Both buttons are `variant="outline"`; a bordered Accept beside
+a ghost Reject reads as a recommendation, and the essay is not improved by default. The
+same component owns the busy lock (`aria-disabled` plus `opacity-64`, never native
+`disabled` — §11.6) and the accessible name: a row's control is `Accept: Replace good →
+unforgettable`, never a sixth button called "Accept".
+
+**Nothing bulk before the list is open.** The pending-changes bar is collapsed by
+default, and its "Accept all"/"Reject all" only exist once it is expanded. Collapsed, the
+loudest control in the editor was an Accept-all a student met before seeing a single one
+of the changes it applies.
+
+**A short change carries its context.** Under 12 characters the trimmed preview is not a
+description of anything — `Replace , → ;` says a semicolon belongs somewhere in a
+650-word essay — so `suggestion-preview.ts` appends a quoted window of the student's own
+text around the change point. That window is presentation only, from the `_plain` fields,
+same as the trim.
+
+**Outdated changes sink, and keep their text.** Rows are ordered by document position so
+a student working top-to-bottom is not bounced around their own essay, and stale rows
+sort last because they are the only ones that cannot be acted on. A stale row says
+"Outdated" in the verb slot and keeps its preview at `--essay-suggestion-stale-ink`;
+replacing the preview with the status would hide what the row was ever about. Its one
+control is Dismiss, which rejects that single change — a rejection cannot fail, and
+Reject-all would take the pending proposals with it. The list is capped at `max-h-64` and
+scrolls: eight pending changes is an ordinary revision pass, and an uncapped list of them
+pushes the essay it annotates off the bottom of the screen.
+
+### 15.6.1 The essay chat panel
+
+Docked at **1280px and up** (`PANEL_DOCK_BREAKPOINT_PX` in `EssayEditorRoute.tsx`), where
+it takes its 380px out of the row and the document reflows into what is left. **Below
+that it covers the document instead of splitting it.** Both halves are measured, not
+assumed: reserving 380px at 1024px leaves a 276px sheet of paper and a measure of
+eighteen characters a line, and an overlay that only covers *part* of the prose slices
+every line mid-sentence and reads as a rendering bug. Covered, the scroll column is
+`inert` — content nobody can see is content nobody should be able to Tab into. The panel
+is never a `Sheet`: it is non-modal by design, because the student keeps editing the
+essay and accepting changes while it is open.
+
+The paper's and the bar's padding steps are **container queries on the scroll column**
+(`@container/essay-canvas`, one scale in `essay-paper-inset.ts`, shared by both so a row
+label starts where the sentence it describes starts). Viewport steps were the bug: a
+`lg:px-16` keyed off the window kept paying 64px margins on a sheet of paper that no
+longer had the room.
+
+Opening animates the panel's **width** over 200ms `ease-out` — the accordion carve-out of
+§12.1 rule 2, so the paper follows it frame for frame. The paper's own `layoutId` gets
+`layoutDependency={layoutId}`, which pins its 420ms shared-element curve to the card →
+editor transition it exists for; without it a panel toggle fired a route transition's
+animation on one edge while the bar resized on the next frame.
+
 ### 15.7 Composer
 
 `rounded-2xl` panel, `min-h-28`, focus-within border swap plus a 30% ring. Chip toolbar
 with an explicit internal rhythm (`10px | icon 16 | 6px | label | 4px | chevron 14 | 8px`).
 Enter submits, Shift+Enter newlines, IME composition is respected, and the skill picker
 intercepts keys first. The send button toggles to a stop square while streaming.
+
+The essay panel's **selection chip** sits *above* the textarea, not in the chip toolbar
+below it: what the student highlighted is the subject of the sentence they are about to
+write, not a third preference beside "Sources". It is a `Badge` with a `TextQuote` icon
+and a bespoke clear button, which therefore carries §11.8's coarse-pointer block by hand.
 
 ---
 

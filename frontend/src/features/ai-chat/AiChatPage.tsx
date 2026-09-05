@@ -6,7 +6,11 @@ import {
   BUILT_IN_RESPONSE_MODE_OPTIONS,
   normalizeResponseModeSelection,
 } from "@/api/chat/response-mode";
-import type { ChatTransport, ClarifySpec } from "@/api/chat/types";
+import type {
+  ChatTransport,
+  ClarifySpec,
+  EssayTurnContext,
+} from "@/api/chat/types";
 import {
   deriveHistoricalModeSkill,
   findCounselingMode,
@@ -18,6 +22,7 @@ import { cn } from "@/lib/utils";
 import { ChatComposer } from "./components/ChatComposer";
 import { ChatMessages } from "./components/ChatMessages";
 import type { ClarifyWidgetAnswer } from "./components/clarify/types";
+import { EssayPanelEmpty } from "./components/EssayPanelEmpty";
 import type { MessageSourcesPayload } from "./components/MessageSources";
 import { SourcesRail } from "./components/SourcesRail";
 import type { ChatMessage, FeedbackRating } from "./model";
@@ -26,6 +31,13 @@ import { useChatSession } from "./useChatSession";
 import type { InitialTurn } from "./AiChatRoute";
 
 const EMPTY_SKILL_MODES = [] as const;
+
+/**
+ * Which surface this chat is rendered on. `"essay-panel"` is the same chat in
+ * a ~380px column beside an essay — not a variant of the conversation, only of
+ * the chrome around it.
+ */
+export type AiChatSurfaceVariant = "workspace" | "essay-panel";
 
 export type AiChatPageProps = {
   sessionId: string;
@@ -37,6 +49,17 @@ export type AiChatPageProps = {
   /** Injectable for tests; defaults to the real `chatTransport` singleton
    *  inside `useChatSession`. */
   transport?: ChatTransport;
+  variant?: AiChatSurfaceVariant;
+  /** Essay-panel only: scopes every turn to one essay and its selection. */
+  essayContext?: EssayTurnContext | null;
+  /** Essay-panel only: the student dismissed the selection chip. */
+  onClearEssaySelection?: () => void;
+  /**
+   * Essay-panel only: a turn reached a terminal state. The agent's essay edits
+   * land as suggestions written directly to the essay, and nothing in the chat
+   * stream carries them into the workspace cache — so the caller re-reads.
+   */
+  onTurnSettled?: () => void;
 };
 
 function documentTitleFor(title: string | null | undefined): string {
@@ -56,7 +79,12 @@ export function AiChatPage({
   initialPrompt = null,
   onInitialPromptConsumed,
   transport,
+  variant = "workspace",
+  essayContext = null,
+  onClearEssaySelection,
+  onTurnSettled,
 }: AiChatPageProps) {
+  const isEssayPanel = variant === "essay-panel";
   const effectiveInitialTurn = useMemo(
     () =>
       initialTurn ??
@@ -218,6 +246,7 @@ export function AiChatPage({
         taskSkills: submittedTaskSkills,
         executionResponseMode: submittedMode,
         clarifyReplyTo,
+        essayContext,
       }).then((result) => {
         if (!result.ok) {
           setComposerValue(result.keepText);
@@ -228,6 +257,7 @@ export function AiChatPage({
       });
     },
     [
+      essayContext,
       latestMessage,
       normalizedSelectedResponseMode,
       selectedMode?.skillName,
@@ -364,6 +394,17 @@ export function AiChatPage({
     [feedback, sessionId],
   );
 
+  /* The falling edge of `isSubmitting` — a turn just reached a terminal
+   * state. Nothing else in the chat stack knows the essay panel exists, so
+   * this is the one signal the caller needs to re-read what the turn wrote. */
+  const wasSubmittingRef = useRef(false);
+  useEffect(() => {
+    if (wasSubmittingRef.current && !isSubmitting) {
+      onTurnSettled?.();
+    }
+    wasSubmittingRef.current = isSubmitting;
+  }, [isSubmitting, onTurnSettled]);
+
   const openSources = useCallback((payload: MessageSourcesPayload) => {
     setSourcesPayload(payload);
   }, []);
@@ -397,18 +438,44 @@ export function AiChatPage({
     );
   }
 
-  const railOpen = !isMobile && sourcesPayload !== null;
+  /* The sources rail is a fixed 26rem — wider than the whole essay panel, so
+   * opening it inside one would blow the layout out. Citations there stay on
+   * their existing hover-card; a real rail for the panel is follow-up work. */
+  const railOpen = !isMobile && !isEssayPanel && sourcesPayload !== null;
 
+  /*
+   * In the essay panel the surface belongs to the panel, not to the chat:
+   * `EssayChatPanel` fills itself `bg-background` docked and `--surface-raised`
+   * covering, and an opaque fill here overrode the covering one everywhere
+   * below the 48px header — which is the whole of what makes the panel read as
+   * an object OVER the essay rather than instead of it. Transparent here, so
+   * that choice reaches the panel body.
+   */
   return (
-    <main className="flex min-h-0 flex-1 md:bg-sidebar">
+    <main
+      className={cn("flex min-h-0 flex-1", !isEssayPanel && "md:bg-sidebar")}
+      data-chat-variant={variant}
+    >
       <div
         className={cn(
-          "flex min-h-0 min-w-0 flex-1 flex-col bg-background",
+          "flex min-h-0 min-w-0 flex-1 flex-col",
+          isEssayPanel ? "bg-transparent" : "bg-background",
           railOpen && "md:overflow-hidden md:rounded-r-xl",
         )}
       >
         <ChatMessages
           clarifyDraft={clarifyDraft}
+          emptyState={
+            isEssayPanel ? (
+              <EssayPanelEmpty
+                hasSelection={
+                  essayContext?.selection !== null &&
+                  essayContext?.selection !== undefined
+                }
+                onStart={handleComposerSubmit}
+              />
+            ) : undefined
+          }
           isSubmitting={isSubmitting}
           messages={messages}
           modeSkillNames={modeSkillNames}
@@ -468,7 +535,10 @@ export function AiChatPage({
           )}
           <ChatComposer
             awaitingClarify={awaitingClarify}
+            hideResponseMode={isEssayPanel}
             isSubmitting={isSubmitting}
+            onClearSelection={onClearEssaySelection}
+            selectionChip={isEssayPanel ? essayContext?.selection : null}
             onStop={stopGenerating}
             onResponseModeChange={setSelectedResponseMode}
             onSourceConfigChange={setSourceConfig}
@@ -491,11 +561,13 @@ export function AiChatPage({
           />
         </div>
       </div>
-      <SourcesRail
-        isMobile={isMobile}
-        onClose={closeSources}
-        payload={sourcesPayload}
-      />
+      {!isEssayPanel && (
+        <SourcesRail
+          isMobile={isMobile}
+          onClose={closeSources}
+          payload={sourcesPayload}
+        />
+      )}
     </main>
   );
 }

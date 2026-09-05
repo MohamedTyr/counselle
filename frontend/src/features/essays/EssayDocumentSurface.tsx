@@ -4,6 +4,7 @@ import { useEffectEvent, useLayoutEffect } from "react";
 
 import type { TiptapContent } from "@/api/workspace/types";
 import type { EssaySuggestion } from "@/domain/essay-suggestion";
+import { essayPaperInsetClass } from "@/features/essays/essay-paper-inset";
 import {
   emptyToolbarState,
   type ToolbarState,
@@ -23,8 +24,11 @@ export type EssayDocumentDensity = "editor" | "panel";
  * floor and the wide-viewport padding steps that column never reaches.
  */
 const densityClass: Record<EssayDocumentDensity, string> = {
-  editor:
-    "min-h-[860px] max-w-[820px] px-7 py-8 sm:px-12 sm:py-11 lg:px-16 lg:py-14",
+  editor: cn(
+    "min-h-[860px] max-w-[820px]",
+    essayPaperInsetClass,
+    "py-8 @xl/essay-canvas:py-10 @2xl/essay-canvas:py-11 @4xl/essay-canvas:py-14",
+  ),
   panel: "max-w-[820px] px-6 py-8",
 };
 
@@ -37,6 +41,10 @@ type EssayDocumentSurfaceProps = {
    */
   layoutId?: string;
   onBlur: (update: EssayEditorUpdate) => void;
+  /** `Mod+Enter` on a pending change. Omit and the shortcut stays unbound. */
+  onAcceptSuggestion?: (suggestion: EssaySuggestion) => void;
+  /** `Mod+Backspace` on a pending change. Omit and it stays unbound. */
+  onRejectSuggestion?: (suggestion: EssaySuggestion) => void;
   /**
    * Hands the editor instance and its derived toolbar state up to the caller,
    * which owns whatever chrome drives them (the editor page's toolbar). Content
@@ -54,15 +62,19 @@ export function EssayDocumentSurface({
   content,
   density = "editor",
   layoutId,
+  onAcceptSuggestion,
   onBlur,
   onEditorReady,
+  onRejectSuggestion,
   onUpdate,
   suggestions,
   syncContent,
 }: EssayDocumentSurfaceProps) {
   const { editor, toolbarState } = useEssayEditor({
     content,
+    onAcceptSuggestion,
     onBlur,
+    onRejectSuggestion,
     onUpdate,
     suggestions,
     syncContent,
@@ -93,6 +105,17 @@ export function EssayDocumentSurface({
         densityClass[density],
       )}
       layoutId={layoutId}
+      /*
+       * Measure only when the identity changes — i.e. on the card → editor
+       * shared-element transition this `layoutId` exists for. Without it every
+       * re-render that happens to change the paper's width runs the 420ms
+       * shared-element curve, so toggling the chat panel fired a route
+       * transition's animation on a panel toggle: the pending-changes bar
+       * resized in one frame while the paper eased for a third of a second,
+       * and mid-flight the paper's edge sat under the panel. The width now
+       * simply follows the panel's own 200ms transition.
+       */
+      layoutDependency={layoutId}
       transition={{ layout: { duration: 0.42, ease: [0.22, 1, 0.36, 1] } }}
     >
       <EditorContent editor={editor} />

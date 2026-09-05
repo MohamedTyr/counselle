@@ -112,6 +112,13 @@ def render_essay_context(essay: Essay, *, selection: str | None, max_chars: int)
     does not recurse), so essay prose containing braces is safe. An unusually
     long draft is truncated and *says so* — the model must know its view is
     partial and reach for ``read_essay`` rather than act on a silent excerpt.
+
+    The write-guard version token is deliberately **not** rendered here.
+    ``read_essay`` is its single source, which is what both content tools'
+    docstrings already require ("Always read_essay first"); handing the model a
+    second copy inside a prose block it is told to echo verbatim is how the
+    token reached a student's answer as ``**Expected Version:** `<timestamp>```
+    when the model narrated an ``edit_essay`` call instead of making one.
     """
     markdown = essay_markdown.to_markdown(essay.content)
     truncated = len(markdown) > max_chars
@@ -134,7 +141,8 @@ def render_essay_context(essay: Essay, *, selection: str | None, max_chars: int)
         f"- School: {essay.school_name or '(not linked to a school)'}\n"
         f"- Status: {essay.status} · {essay.word_count} words · {limit}\n"
         f"- Essay id (pass as essay_id): {essay.id}\n"
-        f"- Version token (echo verbatim as expected_version): {essay.updated_at.isoformat()}\n\n"
+        "- To edit: call read_essay first for the version token edit_essay and "
+        "write_essay require. Never guess it, and never print it.\n\n"
         f"Current text:\n\n---\n{markdown[:max_chars]}\n---{truncation_note}\n\n{selection_note}"
     )
 

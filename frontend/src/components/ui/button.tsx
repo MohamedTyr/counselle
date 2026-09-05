@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 import { Spinner } from "@/components/ui/spinner";
 
 export const buttonVariants = cva(
-  "relative inline-flex shrink-0 cursor-pointer items-center justify-center gap-2 rounded-lg border text-base font-medium whitespace-nowrap transition-[background-color,border-color,box-shadow,color] duration-150 ease-out outline-none motion-reduce:transition-none before:pointer-events-none before:absolute before:inset-0 before:rounded-[calc(var(--radius-lg)-1px)] focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-64 data-loading:text-transparent data-loading:select-none sm:text-sm pointer-coarse:after:absolute pointer-coarse:after:size-full pointer-coarse:after:min-h-11 pointer-coarse:after:min-w-11 [&_svg]:pointer-events-none [&_svg]:-mx-0.5 [&_svg]:shrink-0 [&_svg:not([class*='opacity-'])]:opacity-80 [&_svg:not([class*='size-'])]:size-4.5 sm:[&_svg:not([class*='size-'])]:size-4",
+  "relative inline-flex shrink-0 cursor-pointer items-center justify-center gap-2 rounded-lg border text-base font-medium whitespace-nowrap transition-[background-color,border-color,box-shadow,color] duration-150 ease-out outline-none motion-reduce:transition-none before:pointer-events-none before:absolute before:inset-0 before:rounded-[calc(var(--radius-lg)-1px)] focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-64 data-loading:cursor-not-allowed data-loading:text-transparent data-loading:opacity-64 data-loading:select-none sm:text-sm pointer-coarse:after:absolute pointer-coarse:after:size-full pointer-coarse:after:min-h-11 pointer-coarse:after:min-w-11 [&_svg]:pointer-events-none [&_svg]:-mx-0.5 [&_svg]:shrink-0 [&_svg:not([class*='opacity-'])]:opacity-80 [&_svg:not([class*='size-'])]:size-4.5 sm:[&_svg:not([class*='size-'])]:size-4",
   {
     defaultVariants: {
       size: "default",
@@ -65,7 +65,6 @@ export function Button({
   disabled: disabledProp,
   ...props
 }: ButtonProps): React.ReactElement {
-  const isDisabled: boolean = Boolean(loading || disabledProp);
   const typeValue: React.ButtonHTMLAttributes<HTMLButtonElement>["type"] =
     render ? undefined : "button";
 
@@ -85,13 +84,43 @@ export function Button({
     "aria-disabled": loading || undefined,
     "data-loading": loading ? "" : undefined,
     "data-slot": "button",
-    disabled: isDisabled,
+    /*
+     * `loading` deliberately does NOT set the native attribute (DESIGN.md
+     * §11.6). A button that natively disables itself the instant it is pressed
+     * ejects DOM focus to `<body>`, so a keyboard student resolving tracked
+     * changes one at a time restarts Tab from the top of the page after every
+     * accept. The busy button stays focusable and announceable; the activation
+     * is refused below instead.
+     *
+     * The muted look therefore has to be keyed off `data-loading` rather than
+     * `:disabled` (§11.5's `opacity-64`, §11.7's `cursor-not-allowed`), or a
+     * button that is busy but not natively disabled keeps its full-strength
+     * colours and reads as live. Deliberately WITHOUT `pointer-events-none`:
+     * staying hoverable and focusable is the entire point — see
+     * `ResolveButtons`, which carries the same pair by hand.
+     */
+    disabled: disabledProp,
     type: typeValue,
   };
+  const merged = mergeProps<"button">(defaultProps, props);
 
   return useRender({
     defaultTagName: "button",
-    props: mergeProps<"button">(defaultProps, props),
+    /* Refusing the click is what the native attribute used to do for us —
+     * including `preventDefault`, which is what stops a busy submit button
+     * from posting its form a second time. */
+    props: loading
+      ? {
+          ...merged,
+          /* Re-asserted after the merge: a caller passing its own
+           * `aria-disabled={undefined}` would otherwise overwrite the busy
+           * state with nothing, and a spinner nobody is told about is a
+           * button that silently stopped working. */
+          "aria-disabled": true,
+          onClick: (event: React.MouseEvent<HTMLButtonElement>) =>
+            event.preventDefault(),
+        }
+      : merged,
     render,
   });
 }

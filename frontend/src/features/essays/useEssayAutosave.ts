@@ -71,15 +71,38 @@ function draftKey(content: TiptapContent, wordCount: number) {
   return JSON.stringify({ content: normalizeDraftValue(content), wordCount });
 }
 
+/* Is `candidate` a strictly newer version of the essay than `current`?
+ *
+ * COMPARED AS INSTANTS, NEVER AS STRINGS. These look like sortable ISO-8601,
+ * but the backend serialises a whole second with no fractional part at all, so
+ * `2026-09-05T10:15:00Z` sorts AFTER `2026-09-05T10:15:00.500000Z` — `'.'`
+ * (0x2E) precedes `'Z'` (0x5A) — while being half a second EARLIER. Any pair
+ * that lands on the same second with only one of them fractional compares
+ * backwards, which is exactly the pair a save and an accept produce.
+ *
+ * An unreadable timestamp is never "later": it can neither win a version race
+ * nor make a fresh server response look stale. Both remaining failure modes
+ * then surface as a visible, retryable save conflict rather than as a
+ * student's work quietly leaving the screen. */
+export function isLaterVersion(candidate: string, current: string): boolean {
+  const candidateTime = Date.parse(candidate);
+  const currentTime = Date.parse(current);
+  return (
+    Number.isFinite(candidateTime) &&
+    Number.isFinite(currentTime) &&
+    candidateTime > currentTime
+  );
+}
+
 /* An essay's `updated_at` only ever moves forward, and every value here came
  * from the server, so the newest one we have seen is always the right one to
  * write against. Taking the later of the two means a stale prop arriving after
  * a save response can't walk the version backwards and leave every subsequent
- * save failing its staleness check forever. ISO-8601 UTC sorts lexically. */
+ * save failing its staleness check forever. */
 function laterVersion(a: string | null, b: string | null) {
   if (a === null) return b;
   if (b === null) return a;
-  return a > b ? a : b;
+  return isLaterVersion(a, b) ? a : b;
 }
 
 /* Omitted rather than sent as null when we have no server version to guard
@@ -142,6 +165,20 @@ export function useEssayAutosave(essayId: string, savedDraft?: SavedDraft) {
     return false;
   }, []);
 
+  /* Adopt whatever the server now holds — including a write this hook did not
+   * issue, such as an accepted suggestion, which rewrites the essay through
+   * its own endpoint and bumps `updated_at`. Adopting is what stops the next
+   * autosave from being written against a version the server has already moved
+   * past and failing its staleness check for a conflict that isn't real.
+   *
+   * THE GUARD IS THE POINT, so keep this the only place that touches
+   * `expectedUpdatedAtRef` from a prop. A version may be adopted only when
+   * there is no locally-authored draft still waiting to be sent: a draft
+   * written against the OLD content, paired with the NEW version, passes the
+   * backend's staleness check and silently overwrites the server write it was
+   * never based on — the accepted edit reverts with no error and no toast.
+   * `dirty || pendingDraftRef.current` is exactly that condition. An unguarded
+   * copy of this adoption living anywhere else reopens that hole. */
   useEffect(() => {
     if (savedDraftKey === null || dirty || pendingDraftRef.current) {
       return;

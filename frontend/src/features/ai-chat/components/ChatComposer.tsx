@@ -1,4 +1,4 @@
-import { AtSign, Send, Square } from "lucide-react";
+import { AtSign, Send, Square, TextQuote, X } from "lucide-react";
 import {
   useEffect,
   useRef,
@@ -7,6 +7,7 @@ import {
   type KeyboardEvent,
 } from "react";
 
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -60,6 +61,19 @@ export type ChatComposerProps = {
   mode?: CounselingMode | null;
   modes?: readonly CounselingMode[];
   onModeChange?: (mode: CounselingMode) => void;
+  /**
+   * Essay-panel only: an essay turn is not deep-research-eligible, so the
+   * response-mode picker is not offered. The toolbar row already wraps, so
+   * one fewer chip needs no other change.
+   */
+  hideResponseMode?: boolean;
+  /**
+   * Essay-panel only: the text the student has selected in the document,
+   * shown as a removable chip so it is obvious what the next turn will be
+   * about. `undefined`/`null` renders nothing, which is every main-chat turn.
+   */
+  selectionChip?: string | null;
+  onClearSelection?: () => void;
 };
 
 export function ChatComposer({
@@ -82,6 +96,9 @@ export function ChatComposer({
   mode = null,
   modes = [],
   onModeChange = () => undefined,
+  hideResponseMode = false,
+  selectionChip = null,
+  onClearSelection,
 }: ChatComposerProps) {
   const [isComposing, setIsComposing] = useState(false);
   const [textareaScrollTop, setTextareaScrollTop] = useState(0);
@@ -157,6 +174,36 @@ export function ChatComposer({
           awaitingClarify ? "min-h-0" : "min-h-28",
         )}
       >
+        {selectionChip !== null && selectionChip !== "" && (
+          /*
+           * Above the message, not below it among the settings chips: what the
+           * student highlighted is the subject of the sentence they are about
+           * to write, not a third preference sitting beside "Sources". Reuses
+           * `Badge` rather than a bespoke chip — it is the same "something
+           * scoped is attached to this turn" claim the citation chip makes.
+           */
+          <div className="flex px-[var(--workspace-composer-inset)] pt-3">
+            <Badge
+              className="min-w-0 max-w-full gap-1.5 py-0.5 pr-1 pl-2 font-normal"
+              variant="outline"
+            >
+              <TextQuote aria-hidden="true" className="size-3.5 shrink-0" />
+              <span className="truncate">{selectionChip}</span>
+              <button
+                aria-label="Clear the selected text"
+                /* Not a `Button`, so §11.8's coarse-pointer hit area has to be
+                 * added by hand: a 16px target is unhittable on a touch
+                 * screen. */
+                className="-mr-0.5 relative flex size-4 shrink-0 cursor-pointer items-center justify-center rounded-sm text-muted-foreground transition-colors duration-150 ease-out hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background focus-visible:outline-none motion-reduce:transition-none pointer-coarse:after:absolute pointer-coarse:after:size-full pointer-coarse:after:min-h-11 pointer-coarse:after:min-w-11"
+                onClick={onClearSelection}
+                type="button"
+              >
+                <X aria-hidden="true" className="size-3" />
+              </button>
+            </Badge>
+          </div>
+        )}
+
         <div className="relative">
           {hasSkillMention && (
             <InlineSkillMentionLayer
@@ -250,12 +297,14 @@ export function ChatComposer({
                   onSourceConfigChange={onSourceConfigChange}
                   sourceConfig={sourceConfig}
                 />
-                <ResponseModeMenu
-                  disabled={disabled || isSubmitting}
-                  mode={responseMode}
-                  modes={responseModes}
-                  onModeChange={onResponseModeChange}
-                />
+                {!hideResponseMode && (
+                  <ResponseModeMenu
+                    disabled={disabled || isSubmitting}
+                    mode={responseMode}
+                    modes={responseModes}
+                    onModeChange={onResponseModeChange}
+                  />
+                )}
               </>
             )}
           </div>

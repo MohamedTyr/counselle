@@ -16,6 +16,7 @@ import pytest
 from api.deps import EnvelopeError
 from api.routes.workspace_common import map_workspace_errors
 from app.agent_node import _write_mode
+from app.prompt import render_essay_context
 from app.workspace import essay_markdown
 from app.workspace.agent_tools_essays_suggestions import suggest_edits
 from app.workspace.agent_tools_shared import ToolCtx
@@ -113,6 +114,27 @@ def _essay_with_content(text: str) -> Essay:
             "updated_at": "2026-09-04T12:00:00+00:00",
         }
     )
+
+
+def test_essay_context_block_never_carries_the_write_guard_version_token() -> None:
+    """The prompt block is prose the model quotes from; the token is plumbing.
+
+    A live essay turn ended with ``**Expected Version:**
+    `2026-09-05T04:19:42.081700+00:00` `` in the student's answer — the model
+    narrated an ``edit_essay`` call instead of making one, and reproduced this
+    block's version line verbatim because the block told it to. ``read_essay``
+    is the token's single source (both content tools' docstrings already say
+    "Always read_essay first"), so it must not appear here at all.
+    """
+    essay = _essay_with_content("A first sentence about bread.")
+    rendered = render_essay_context(essay, selection=None, max_chars=8_000)
+
+    assert essay.updated_at.isoformat() not in rendered
+    assert "expected_version" not in rendered
+    # The essay id is still handed over — it is the one identifier a tool call
+    # cannot be made without — and the read_essay instruction replaces the token.
+    assert str(essay.id) in rendered
+    assert "read_essay" in rendered
 
 
 def _exploding_ctx() -> ToolCtx:

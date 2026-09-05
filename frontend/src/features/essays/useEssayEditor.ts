@@ -3,7 +3,14 @@ import TextAlign from "@tiptap/extension-text-align";
 import { FontFamily, TextStyle } from "@tiptap/extension-text-style";
 import { useEditor, useEditorState, type Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
-import { useEffect, useEffectEvent, useMemo, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useEffectEvent,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 import type { TiptapContent } from "@/api/workspace/types";
 import type { EssaySuggestion } from "@/domain/essay-suggestion";
@@ -26,6 +33,10 @@ export type EssayEditorUpdate = {
 type UseEssayEditorOptions = {
   content: TiptapContent;
   onBlur: (update: EssayEditorUpdate) => void;
+  /** `Mod+Enter` on a pending change. Omit and the shortcut stays unbound. */
+  onAcceptSuggestion?: (suggestion: EssaySuggestion) => void;
+  /** `Mod+Backspace` on a pending change. Omit and it stays unbound. */
+  onRejectSuggestion?: (suggestion: EssaySuggestion) => void;
   onUpdate: (update: EssayEditorUpdate) => void;
   /**
    * Pending tracked changes to paint. Omit entirely and the decoration layer
@@ -49,11 +60,31 @@ function editorUpdate(editor: Editor): EssayEditorUpdate {
 export function useEssayEditor({
   content,
   onBlur,
+  onAcceptSuggestion,
+  onRejectSuggestion,
   onUpdate,
   suggestions,
   syncContent,
 }: UseEssayEditorOptions) {
   const contentKey = useMemo(() => JSON.stringify(content), [content]);
+  /* The extension is configured once, when the editor is built, so its
+   * keyboard shortcuts close over whatever was passed at that moment. These
+   * two are stable but read the handler through a ref at call time, so
+   * `Mod+Enter` always reaches the CURRENT accept — the one that knows about
+   * the panel-wide resolving lock — rather than the first this hook ever saw.
+   * An effect event would be the natural fit and cannot be used: it may not be
+   * passed out of the component that created it. */
+  const resolveHandlersRef = useRef({ onAcceptSuggestion, onRejectSuggestion });
+  useEffect(() => {
+    resolveHandlersRef.current = { onAcceptSuggestion, onRejectSuggestion };
+  }, [onAcceptSuggestion, onRejectSuggestion]);
+
+  const acceptSuggestion = useCallback((suggestion: EssaySuggestion) => {
+    resolveHandlersRef.current.onAcceptSuggestion?.(suggestion);
+  }, []);
+  const rejectSuggestion = useCallback((suggestion: EssaySuggestion) => {
+    resolveHandlersRef.current.onRejectSuggestion?.(suggestion);
+  }, []);
   // The list is re-derived on every render upstream, so identity churns while
   // its contents don't. Key on the value, exactly as `contentKey` already
   // does, or the sync effect below would dispatch on every render forever.
@@ -88,8 +119,17 @@ export function useEssayEditor({
       }),
       ...(initialSuggestions
         ? [
+            /* The rule sees two callbacks that close over a ref being handed
+             * to a call made during render, and cannot see that neither one
+             * READS the ref until a key is pressed. The alternative it wants —
+             * passing the handlers straight through — is the stale-closure bug
+             * the ref exists to prevent, because the extension is configured
+             * once and these handlers change identity as the editor mounts. */
+            // eslint-disable-next-line react-hooks/refs
             SuggestionExtension.configure({
               getSuggestions: () => initialSuggestions,
+              onAccept: acceptSuggestion,
+              onReject: rejectSuggestion,
             }),
           ]
         : []),
@@ -126,6 +166,16 @@ export function useEssayEditor({
 
   useEffect(() => {
     if (!editor || !syncContent) {
+      return;
+    }
+
+    /* A resync that would replace the document with what it already contains
+     * is not free: `setContent` rebuilds the doc and drops the caret to the
+     * start. It fires after an accepted suggestion, whose content the accept
+     * flow has already applied itself (in one transaction with the new
+     * suggestion list, which this call deliberately carries no meta for). The
+     * comparison is byte-exact, so it only ever skips a genuine no-op. */
+    if (JSON.stringify(editor.getJSON()) === contentKey) {
       return;
     }
 

@@ -1,4 +1,4 @@
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, type QueryClient } from "@tanstack/react-query";
 
 import {
   archiveEssay,
@@ -38,6 +38,24 @@ type EssayListSnapshot = Snapshot<EssaySummary[]> & {
   applicationIds: string[];
   previousDetail: Essay | undefined;
 };
+
+/**
+ * Adopt an authoritative essay the server just handed back, everywhere it is
+ * cached. Shared because "we have the real essay now" is one fact with one
+ * reason to change, and it arrives from two places: a content PATCH, and the
+ * suggestion accept/reject endpoints, which rewrite the essay through their
+ * own route (`useEssaySuggestions`).
+ */
+export function adoptServerEssay(
+  client: QueryClient,
+  essayId: string,
+  essay: Essay,
+) {
+  client.setQueryData<Essay>(workspaceKeys.essays.detail(essayId), essay);
+  client.setQueryData<EssaySummary[]>(workspaceKeys.essays.list(), (current) =>
+    replaceById(current, essayId, essay),
+  );
+}
 
 export function useEssays() {
   return useQuery({
@@ -147,14 +165,7 @@ export function useUpdateEssay() {
       handleMutationError(error, context);
     },
     onSuccess: (essay, { id }, _snapshot, context) => {
-      context.client.setQueryData<Essay>(
-        workspaceKeys.essays.detail(id),
-        essay,
-      );
-      context.client.setQueryData<EssaySummary[]>(
-        workspaceKeys.essays.list(),
-        (current) => replaceById(current, id, essay),
-      );
+      adoptServerEssay(context.client, id, essay);
     },
     onSettled: (_data, _error, vars, snapshot, context) => {
       void context.client.invalidateQueries({
