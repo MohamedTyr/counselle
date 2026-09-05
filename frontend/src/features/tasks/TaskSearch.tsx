@@ -27,19 +27,15 @@ import {
 import type { Task } from "@/domain/task";
 import { filterTasksByQuery } from "@/features/tasks/task-filters";
 import { TaskRow } from "@/features/tasks/TaskRow";
+import type { TaskRowActions } from "@/features/tasks/TaskRowMenu";
 
-export type TaskSearchProps = {
+// `onOpen` is omitted: opening a result also has to close the dialog, so
+// this component wraps `onOpenTask` in its own `openResult`.
+export type TaskSearchProps = Omit<TaskRowActions, "onOpen"> & {
   applicationsById: ReadonlyMap<string, ApplicationView>;
   essaysById: ReadonlyMap<string, EssaySummary>;
-  onComplete: (taskId: string, done: boolean) => void;
   onOpenChange: (open: boolean) => void;
   onOpenTask: (taskId: string) => void;
-  onSchedule: (
-    taskId: string,
-    field: "when_on" | "deadline_on",
-    value: string | null,
-  ) => void;
-  onToggleFlag: (taskId: string) => void;
   open: boolean;
   tasks: Task[];
 };
@@ -48,6 +44,7 @@ export function TaskSearch({
   applicationsById,
   essaysById,
   onComplete,
+  onDelete,
   onOpenChange,
   onOpenTask,
   onSchedule,
@@ -124,6 +121,7 @@ export function TaskSearch({
                   isSelected={false}
                   key={task.id}
                   onComplete={onComplete}
+                  onDelete={onDelete}
                   onOpen={openResult}
                   onSchedule={onSchedule}
                   onToggleFlag={onToggleFlag}

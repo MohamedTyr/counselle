@@ -20,6 +20,7 @@ export function AnytimeView() {
     applicationsById,
     essaysById,
     onComplete,
+    onDelete,
     onOpenTask,
     onSchedule,
     onToggleFlag,
@@ -62,6 +63,7 @@ export function AnytimeView() {
                 isSelected={task.id === activeTaskId}
                 key={task.id}
                 onComplete={onComplete}
+                onDelete={onDelete}
                 onOpen={onOpenTask}
                 onSchedule={onSchedule}
                 onToggleFlag={onToggleFlag}

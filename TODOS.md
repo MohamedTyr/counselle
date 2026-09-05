@@ -168,3 +168,25 @@
   `class_size` metric handling for the second.
 - *(Logged from the CDS admin polish-2 batch, 2026-09-02 — found at baseline, not introduced by
   it.)*
+
+## `TasksLayout.test.tsx`'s two detail-panel tests are flaky (pre-existing)
+
+- **What:** `opens the detail panel when a row title is clicked` and `opens the detail panel
+  for the task named in the ?task= query param` fail on roughly a third to a half of runs with
+  `Unable to find role="textbox" and name "Task title"`. The panel's title field simply never
+  appears; the rest of the page renders. Both fail the same way, and the second one never
+  clicks anything — it renders straight onto `?task=<id>` — so this is the panel's *mount*
+  being racy in jsdom, not the click path.
+- **Why it matters:** it makes `npm test` non-deterministic, which trains people to re-run
+  until green. It is also the likeliest explanation for the "detail panel never opens" report
+  from an earlier in-browser pass that could not be reproduced by hand.
+- **Not caused by the tasks UI/UX pass (2026-09-05):** confirmed by stashing that work and
+  running the file five times on the pre-change tree — it failed three of five, on exactly
+  these two tests. Raising `asyncUtilTimeout` does *not* fix it (the query still never
+  resolves, it just times out later), so it is a real state race and not a slow machine.
+- **Where to start:** `useDelayedUnmount` in `frontend/src/features/tasks/TaskDetailPanel.tsx`
+  (`mounted` is adjusted during render, `entered` from a `requestAnimationFrame`), and
+  `useIsDesktop` in the same file, which decides between the desktop `<aside>` and the mobile
+  Base UI `Sheet` from `window.innerWidth` while the test setup's `matchMedia` mock always
+  reports `matches: false`. Reproduce with
+  `cd frontend && npm test -- --run TasksLayout` a few times in a row.

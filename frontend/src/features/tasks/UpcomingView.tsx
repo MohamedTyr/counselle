@@ -25,6 +25,7 @@ export function UpcomingView() {
     applicationsById,
     essaysById,
     onComplete,
+    onDelete,
     onOpenTask,
     onSchedule,
     onToggleFlag,
@@ -73,6 +74,7 @@ export function UpcomingView() {
                 isSelected={task.id === activeTaskId}
                 key={task.id}
                 onComplete={onComplete}
+                onDelete={onDelete}
                 onOpen={onOpenTask}
                 onSchedule={onSchedule}
                 onToggleFlag={onToggleFlag}

@@ -12,6 +12,9 @@ export type TaskKeymapView = "today" | "upcoming" | "anytime";
 
 export type TaskKeymapHandlers = {
   onComplete: (taskId: string, done: boolean) => void;
+  /** `⌫`/`Delete` on a focused row. Undoable, so there is no confirm step —
+   * the toast is the confirmation (spec §9's `⌘Z` is already wired). */
+  onDelete: (taskId: string) => void;
   onNavigateView: (view: TaskKeymapView) => void;
   onOpenSearch: () => void;
   onOpenTask: (taskId: string) => void;
@@ -180,6 +183,11 @@ export function useTaskKeymap(handlers: TaskKeymapHandlers) {
       if (event.key === "e") {
         event.preventDefault();
         handlers.onOpenTask(taskId);
+        return;
+      }
+      if (event.key === "Backspace" || event.key === "Delete") {
+        event.preventDefault();
+        handlers.onDelete(taskId);
         return;
       }
 

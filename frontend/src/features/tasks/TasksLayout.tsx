@@ -6,7 +6,6 @@
 // context={…} />`. Also owns the page scaffold, the view tabs, the
 // quick-add bar, the detail panel, and the undo-toast seam.
 import { useMemo, useState } from "react";
-import { useReducedMotion } from "motion/react";
 import { Search } from "lucide-react";
 import {
   NavLink,
@@ -18,14 +17,9 @@ import {
 
 import {
   useApplications,
-  useArchiveTask,
-  useCompleteTask,
   useEssays,
   useReorderTasks,
-  useRestoreTask,
   useTasks,
-  useScheduleTask,
-  useToggleFlag,
 } from "@/api/workspace/hooks";
 import { Button } from "@/components/ui/button";
 import { Kbd } from "@/components/ui/kbd";
@@ -33,8 +27,10 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { UndoToast } from "@/components/undo-toast";
 import { PageContainer } from "@/components/workspace/PageContainer";
 import { taskFromApi, type Task } from "@/domain/task";
-import { useUndoableAction } from "@/hooks/useUndoableAction";
-import { QuickAddBar, type QuickAddDefaults } from "@/features/tasks/QuickAddBar";
+import {
+  QuickAddBar,
+  type QuickAddDefaults,
+} from "@/features/tasks/QuickAddBar";
 import { PlanWithCounselleButton } from "@/features/tasks/task-actions";
 import { TaskDetailPanel } from "@/features/tasks/TaskDetailPanel";
 import { TaskSearch } from "@/features/tasks/TaskSearch";
@@ -47,8 +43,16 @@ import {
   getUpcomingGroups,
   hasCompletedTodayPlan,
 } from "@/features/tasks/task-filters";
-import { formatPageSubtitle, getDateKey, type TaskSubtitleView } from "@/features/tasks/task-dates";
-import { useTaskKeymap, type TaskKeymapView } from "@/features/tasks/useTaskKeymap";
+import {
+  formatPageSubtitle,
+  getDateKey,
+  type TaskSubtitleView,
+} from "@/features/tasks/task-dates";
+import {
+  useTaskKeymap,
+  type TaskKeymapView,
+} from "@/features/tasks/useTaskKeymap";
+import { useTaskRowActions } from "@/features/tasks/useTaskRowActions";
 import { getNowDate } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import type { TasksOutletContext } from "@/features/tasks/tasks-outlet-context";
@@ -77,11 +81,12 @@ const VIEW_TITLES: Record<TaskViewName, string> = {
 
 /** spec §8.1 — one default question per view. Logbook has none (the "Plan
  * with Counselle" button doesn't render there, same as the quick-add bar). */
-const PLAN_DEFAULT_QUESTIONS: Record<"today" | "upcoming" | "anytime", string> = {
-  anytime: "Which of these should I schedule, and when?",
-  today: "Help me plan today.",
-  upcoming: "Look at my next two weeks and tell me what's unrealistic.",
-};
+const PLAN_DEFAULT_QUESTIONS: Record<"today" | "upcoming" | "anytime", string> =
+  {
+    anytime: "Which of these should I schedule, and when?",
+    today: "Help me plan today.",
+    upcoming: "Look at my next two weeks and tell me what's unrealistic.",
+  };
 
 function listOrEmpty<TItem>(value: TItem[] | undefined): TItem[] {
   return Array.isArray(value) ? value : [];
@@ -163,7 +168,9 @@ export function TaskGroupHeader({
       >
         {label}
       </span>
-      <span className="ml-2 text-chrome text-[var(--ink-faint)] tabular-nums">{count}</span>
+      <span className="ml-2 text-chrome text-[var(--ink-faint)] tabular-nums">
+        {count}
+      </span>
     </div>
   );
 }
@@ -178,19 +185,12 @@ export function TasksLayout() {
   const tasksQuery = useTasks();
   const applicationsQuery = useApplications();
   const essaysQuery = useEssays();
-  const completeTaskMutation = useCompleteTask();
-  const scheduleTaskMutation = useScheduleTask();
-  const toggleFlagMutation = useToggleFlag();
-  const archiveTaskMutation = useArchiveTask();
-  const restoreTaskMutation = useRestoreTask();
   const reorderTasksMutation = useReorderTasks();
-  const undoableAction = useUndoableAction();
 
   const [searchParams, setSearchParams] = useSearchParams();
   const [searchOpen, setSearchOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
-  const reduceMotion = useReducedMotion();
   const view = resolveView(location.pathname);
   const referenceDate = getNowDate();
 
@@ -201,7 +201,8 @@ export function TasksLayout() {
   const applications = listOrEmpty(applicationsQuery.data);
   const essays = listOrEmpty(essaysQuery.data);
   const applicationsById = useMemo(
-    () => new Map(applications.map((application) => [application.id, application])),
+    () =>
+      new Map(applications.map((application) => [application.id, application])),
     [applications],
   );
   const essaysById = useMemo(
@@ -243,8 +244,14 @@ export function TasksLayout() {
   );
 
   const todayCount = todayGroups.main.length;
-  const upcomingCount = upcomingGroups.reduce((sum, group) => sum + group.tasks.length, 0);
-  const anytimeCount = anytimeGroups.reduce((sum, group) => sum + group.tasks.length, 0);
+  const upcomingCount = upcomingGroups.reduce(
+    (sum, group) => sum + group.tasks.length,
+    0,
+  );
+  const anytimeCount = anytimeGroups.reduce(
+    (sum, group) => sum + group.tasks.length,
+    0,
+  );
 
   const subtitleCount: Record<TaskViewName, number> = {
     anytime: anytimeCount,
@@ -283,56 +290,13 @@ export function TasksLayout() {
     );
   }
 
-  // The row's When chip and hover-revealed affordance are themselves
-  // SchedulerPopover triggers, so by the time this runs the student has
-  // already chosen a date — this only writes it. That is what keeps
-  // "reschedule from any surface" at two clicks (spec §13). Every write here
-  // also registers with `useUndoableAction` (plan P7.5, spec §9's `⌘Z`) so
-  // the toast and the keymap's undo binding stay one code path.
-  function handleSchedule(
-    taskId: string,
-    field: "when_on" | "deadline_on",
-    value: string | null,
-  ) {
-    const task = tasks.find((item) => item.id === taskId);
-    const previousValue = task?.[field] ?? null;
-    scheduleTaskMutation.mutate({ id: taskId, field, value });
-    undoableAction.perform({
-      inverse: () =>
-        scheduleTaskMutation.mutate({ id: taskId, field, value: previousValue }),
-      kind: "rescheduled",
-      label: task?.title ?? "Task",
-    });
-  }
-
-  function handleComplete(taskId: string, done: boolean) {
-    const task = tasks.find((item) => item.id === taskId);
-    completeTaskMutation.mutate({ id: taskId, done });
-    undoableAction.perform({
-      inverse: () => completeTaskMutation.mutate({ id: taskId, done: !done }),
-      kind: done ? "completed" : "reopened",
-      label: task?.title ?? "Task",
-    });
-  }
-
-  function handleToggleFlag(taskId: string) {
-    const task = tasks.find((item) => item.id === taskId);
-    if (!task) {
-      return;
-    }
-    toggleFlagMutation.mutate({ id: taskId, flagged: !task.flagged });
-  }
-
-  function handleDelete(taskId: string) {
-    const task = tasks.find((item) => item.id === taskId);
-    archiveTaskMutation.mutate(taskId);
-    closeTask();
-    undoableAction.perform({
-      inverse: () => restoreTaskMutation.mutate(taskId),
-      kind: "deleted",
-      label: task?.title ?? "Task",
-    });
-  }
+  // One source for the row verbs — see useTaskRowActions. `onAfterDelete`
+  // closes a detail panel that is showing the row that just went away.
+  const { actions, undo, undoToastProps } = useTaskRowActions({
+    onAfterDelete: closeTask,
+    onOpen: openTask,
+    tasks,
+  });
 
   function isTaskDone(taskId: string): boolean {
     return Boolean(tasks.find((task) => task.id === taskId)?.done_at);
@@ -389,14 +353,16 @@ export function TasksLayout() {
 
   useTaskKeymap({
     isTaskDone,
-    onComplete: handleComplete,
-    onNavigateView: (nextView: TaskKeymapView) => navigate(`/app/tasks/${nextView}`),
+    onComplete: actions.onComplete,
+    onDelete: actions.onDelete,
+    onNavigateView: (nextView: TaskKeymapView) =>
+      navigate(`/app/tasks/${nextView}`),
     onOpenSearch: () => setSearchOpen(true),
     onOpenTask: openTask,
     onReorder: handleReorderTodayByKey,
-    onSchedule: handleSchedule,
-    onToggleFlag: handleToggleFlag,
-    onUndo: undoableAction.undo,
+    onSchedule: actions.onSchedule,
+    onToggleFlag: actions.onToggleFlag,
+    onUndo: undo,
   });
 
   const outletContext: TasksOutletContext = {
@@ -409,11 +375,12 @@ export function TasksLayout() {
     essaysById,
     hasCompletedTodayPlan: completedTodayPlan,
     logbookGroups,
-    onComplete: handleComplete,
+    onComplete: actions.onComplete,
+    onDelete: actions.onDelete,
     onOpenTask: openTask,
     onReorderToday: handleReorderToday,
-    onSchedule: handleSchedule,
-    onToggleFlag: handleToggleFlag,
+    onSchedule: actions.onSchedule,
+    onToggleFlag: actions.onToggleFlag,
     tasks,
     todayGroups,
     upcomingGroups,
@@ -443,16 +410,11 @@ export function TasksLayout() {
       className="gap-0"
       overlay={
         <>
-          <UndoToast
-            onDismiss={undoableAction.clearPending}
-            onUndo={undoableAction.undo}
-            pending={undoableAction.pending}
-            reduceMotion={reduceMotion ?? false}
-          />
+          <UndoToast {...undoToastProps} />
           <TaskDetailPanel
             applicationsById={applicationsById}
             essaysById={essaysById}
-            onDelete={handleDelete}
+            onDelete={actions.onDelete}
             onOpenChange={(open) => {
               if (!open) {
                 closeTask();
@@ -464,11 +426,12 @@ export function TasksLayout() {
           <TaskSearch
             applicationsById={applicationsById}
             essaysById={essaysById}
-            onComplete={handleComplete}
+            onComplete={actions.onComplete}
+            onDelete={actions.onDelete}
             onOpenChange={setSearchOpen}
             onOpenTask={openTask}
-            onSchedule={handleSchedule}
-            onToggleFlag={handleToggleFlag}
+            onSchedule={actions.onSchedule}
+            onToggleFlag={actions.onToggleFlag}
             open={searchOpen}
             tasks={tasks}
           />
@@ -479,9 +442,24 @@ export function TasksLayout() {
       width="wide"
     >
       <div className="mb-4 flex h-8 items-center gap-6" role="tablist">
-        <ViewTab active={view === "today"} count={todayCount} label="Today" to="/app/tasks/today" />
-        <ViewTab active={view === "upcoming"} count={upcomingCount} label="Upcoming" to="/app/tasks/upcoming" />
-        <ViewTab active={view === "anytime"} count={anytimeCount} label="Anytime" to="/app/tasks/anytime" />
+        <ViewTab
+          active={view === "today"}
+          count={todayCount}
+          label="Today"
+          to="/app/tasks/today"
+        />
+        <ViewTab
+          active={view === "upcoming"}
+          count={upcomingCount}
+          label="Upcoming"
+          to="/app/tasks/upcoming"
+        />
+        <ViewTab
+          active={view === "anytime"}
+          count={anytimeCount}
+          label="Anytime"
+          to="/app/tasks/anytime"
+        />
       </div>
 
       {view !== "logbook" && (
@@ -506,7 +484,9 @@ export function TasksLayout() {
       ) : isError ? (
         <div className="rounded-xl border bg-card p-6">
           <div className="max-w-md space-y-3">
-            <h2 className="font-heading text-lg font-medium">Could not load tasks</h2>
+            <h2 className="font-heading text-lg font-medium">
+              Could not load tasks
+            </h2>
             <p className="text-sm text-muted-foreground">
               The workspace could not reach your tasks list.
             </p>

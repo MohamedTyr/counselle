@@ -21,6 +21,7 @@ export function LogbookView() {
     essaysById,
     logbookGroups,
     onComplete,
+    onDelete,
     onOpenTask,
     onSchedule,
     onToggleFlag,
@@ -57,6 +58,7 @@ export function LogbookView() {
                 isSelected={task.id === activeTaskId}
                 key={task.id}
                 onComplete={onComplete}
+                onDelete={onDelete}
                 onOpen={onOpenTask}
                 onSchedule={onSchedule}
                 onToggleFlag={onToggleFlag}

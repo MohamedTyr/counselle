@@ -9,18 +9,13 @@
 import { useMemo } from "react";
 import { useNavigate } from "react-router";
 
-import {
-  useApplications,
-  useCompleteTask,
-  useEssays,
-  useScheduleTask,
-  useTasks,
-  useToggleFlag,
-} from "@/api/workspace/hooks";
+import { useApplications, useEssays, useTasks } from "@/api/workspace/hooks";
 import type { ApplicationView, EssaySummary } from "@/api/workspace/types";
+import { UndoToast } from "@/components/undo-toast";
 import { taskFromApi } from "@/domain/task";
 import { QuickAddBar } from "@/features/tasks/QuickAddBar";
 import { TaskRow } from "@/features/tasks/TaskRow";
+import { useTaskRowActions } from "@/features/tasks/useTaskRowActions";
 
 function listOrEmpty<TItem>(value: TItem[] | undefined): TItem[] {
   return Array.isArray(value) ? value : [];
@@ -31,14 +26,12 @@ export function EssayTasksSection({ essayId }: { essayId: string }) {
   const tasksQuery = useTasks();
   const applicationsQuery = useApplications();
   const essaysQuery = useEssays();
-  const completeTaskMutation = useCompleteTask();
-  const scheduleTaskMutation = useScheduleTask();
-  const toggleFlagMutation = useToggleFlag();
 
   const applications = listOrEmpty(applicationsQuery.data);
   const essays = listOrEmpty(essaysQuery.data);
   const applicationsById = useMemo<ReadonlyMap<string, ApplicationView>>(
-    () => new Map(applications.map((application) => [application.id, application])),
+    () =>
+      new Map(applications.map((application) => [application.id, application])),
     [applications],
   );
   const essaysById = useMemo<ReadonlyMap<string, EssaySummary>>(
@@ -54,33 +47,20 @@ export function EssayTasksSection({ essayId }: { essayId: string }) {
     [tasksQuery.data, essayId],
   );
 
-  function openTask(taskId: string) {
-    navigate(`/app/tasks?task=${taskId}`);
-  }
-
-  function handleComplete(taskId: string, done: boolean) {
-    completeTaskMutation.mutate({ id: taskId, done });
-  }
-
-  function handleSchedule(
-    taskId: string,
-    field: "when_on" | "deadline_on",
-    value: string | null,
-  ) {
-    scheduleTaskMutation.mutate({ id: taskId, field, value });
-  }
-
-  function handleToggleFlag(taskId: string) {
-    const task = tasks.find((item) => item.id === taskId);
-    if (!task) {
-      return;
-    }
-    toggleFlagMutation.mutate({ id: taskId, flagged: !task.flagged });
-  }
+  const { actions, undoToastProps } = useTaskRowActions({
+    onOpen: (taskId) => navigate(`/app/tasks?task=${taskId}`),
+    tasks,
+  });
 
   return (
-    <section aria-labelledby="essay-tasks-heading" className="flex flex-col gap-3">
-      <h2 className="text-sm font-medium text-[var(--ink)]" id="essay-tasks-heading">
+    <section
+      aria-labelledby="essay-tasks-heading"
+      className="flex flex-col gap-3"
+    >
+      <h2
+        className="text-sm font-medium text-[var(--ink)]"
+        id="essay-tasks-heading"
+      >
         Tasks
       </h2>
       <QuickAddBar
@@ -92,20 +72,18 @@ export function EssayTasksSection({ essayId }: { essayId: string }) {
         <ul className="-mx-2 flex flex-col" role="list">
           {tasks.map((task) => (
             <TaskRow
+              {...actions}
               applicationsById={applicationsById}
               essaysById={essaysById}
               isSelected={false}
               key={task.id}
-              onComplete={handleComplete}
-              onOpen={openTask}
-              onSchedule={handleSchedule}
-              onToggleFlag={handleToggleFlag}
               suppress={{ label: true }}
               task={task}
             />
           ))}
         </ul>
       )}
+      <UndoToast {...undoToastProps} />
     </section>
   );
 }

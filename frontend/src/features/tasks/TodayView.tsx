@@ -30,6 +30,7 @@ export function TodayView() {
     essaysById,
     hasCompletedTodayPlan,
     onComplete,
+    onDelete,
     onOpenTask,
     onReorderToday,
     onSchedule,
@@ -127,6 +128,7 @@ export function TodayView() {
               isSelected={task.id === activeTaskId}
               key={task.id}
               onComplete={onComplete}
+              onDelete={onDelete}
               onOpen={onOpenTask}
               onSchedule={onSchedule}
               onToggleFlag={onToggleFlag}
@@ -154,6 +156,7 @@ export function TodayView() {
                 isSelected={task.id === activeTaskId}
                 key={task.id}
                 onComplete={onComplete}
+                onDelete={onDelete}
                 onOpen={onOpenTask}
                 onSchedule={onSchedule}
                 onToggleFlag={onToggleFlag}

@@ -9,17 +9,13 @@ import type {
   SchoolRequirement,
 } from "@/api/workspace/types";
 import {
-  useCompleteTask,
-  useScheduleTask,
-  useToggleFlag,
-} from "@/api/workspace/hooks";
-import {
   Accordion,
   AccordionItem,
   AccordionPanel,
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
+import { UndoToast } from "@/components/undo-toast";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Select,
@@ -41,6 +37,7 @@ import {
 import type { CommonRequirement } from "@/features/schools/school-workspace-format";
 import { QuickAddBar } from "@/features/tasks/QuickAddBar";
 import { TaskRow } from "@/features/tasks/TaskRow";
+import { useTaskRowActions } from "@/features/tasks/useTaskRowActions";
 
 /* Extracted verbatim from SchoolWorkspace.tsx (the 800-line limit). */
 
@@ -52,9 +49,6 @@ export function SchoolRequirementsSection({
   patchApplication: (patch: ApplicationPatch) => void;
 }) {
   const navigate = useNavigate();
-  const completeTaskMutation = useCompleteTask();
-  const scheduleTaskMutation = useScheduleTask();
-  const toggleFlagMutation = useToggleFlag();
 
   // A single-entry map (this application) plus this application's own
   // essays — exactly what `TaskRow`'s derived-label lookup needs, built
@@ -68,31 +62,12 @@ export function SchoolRequirementsSection({
     [detail.essays],
   );
 
-  function openTask(taskId: string) {
+  const { actions, undoToastProps } = useTaskRowActions({
     // Keeps the pre-existing deep-link behaviour: `/app/tasks?task=<id>`
     // opens the redesigned Tasks page with that task's detail panel open.
-    navigate(`/app/tasks?task=${taskId}`);
-  }
-
-  function handleComplete(taskId: string, done: boolean) {
-    completeTaskMutation.mutate({ id: taskId, done });
-  }
-
-  function handleSchedule(
-    taskId: string,
-    field: "when_on" | "deadline_on",
-    value: string | null,
-  ) {
-    scheduleTaskMutation.mutate({ id: taskId, field, value });
-  }
-
-  function handleToggleFlag(taskId: string) {
-    const task = detail.tasks.find((item) => item.id === taskId);
-    if (!task) {
-      return;
-    }
-    toggleFlagMutation.mutate({ id: taskId, flagged: !task.flagged });
-  }
+    onOpen: (taskId) => navigate(`/app/tasks?task=${taskId}`),
+    tasks: detail.tasks.map(taskFromApi),
+  });
 
   const visibleRequirements = useMemo(
     () =>
@@ -246,14 +221,11 @@ export function SchoolRequirementsSection({
                 <ul className="-mx-2 flex flex-col" role="list">
                   {tasks.map((task) => (
                     <TaskRow
+                      {...actions}
                       applicationsById={applicationsById}
                       essaysById={essaysById}
                       isSelected={false}
                       key={task.id}
-                      onComplete={handleComplete}
-                      onOpen={openTask}
-                      onSchedule={handleSchedule}
-                      onToggleFlag={handleToggleFlag}
                       suppress={{ label: true }}
                       task={taskFromApi(task)}
                     />
@@ -310,6 +282,7 @@ export function SchoolRequirementsSection({
           )}
         </CardContent>
       </Card>
+      <UndoToast {...undoToastProps} />
     </section>
   );
 }
