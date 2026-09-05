@@ -4,6 +4,10 @@ import type {
   EssaySummary,
   TiptapContent,
 } from "@/api/workspace/types";
+import {
+  essaySuggestionsFromApi,
+  type EssaySuggestion,
+} from "@/domain/essay-suggestion";
 
 export type EssayStatus =
   "Not started" | "Drafting" | "Needs review" | "Ready" | "Submitted";
@@ -34,6 +38,10 @@ export type Essay = {
 
 export type EssayDetail = Essay & {
   content: TiptapContent;
+  /* The suggestion rows themselves, not the count `Essay.suggestions` carries
+   * for the library card. Every persisted row is pending by definition —
+   * accepting or rejecting one removes it server-side. */
+  pendingSuggestions: EssaySuggestion[];
 };
 
 const essayStatuses = new Set<EssayStatus>([
@@ -169,6 +177,7 @@ export function essayFromApi(essay: ApiEssay): EssayDetail {
   return {
     ...essayFromSummary(essay),
     content: contentOrEmpty(essay.content),
+    pendingSuggestions: essaySuggestionsFromApi(essay.suggestions),
   };
 }
 

@@ -1159,7 +1159,60 @@ There is **no charting library.** "Viz" means typed tabular render specs:
 - An unrecognised spec version renders "This visualization requires a newer client."
   inside the normal frame, so it reads as forward-compatibility rather than breakage.
 
-### 15.6 Composer
+### 15.6 Tracked changes
+
+The agent's edits to a student's essay arrive as **proposals**, not writes. They are
+painted into the ProseMirror document as decorations — a `<del>` around text the agent
+wants removed, an `<ins>` widget carrying text it wants added — and nothing lands in the
+essay until the student accepts it.
+
+- **The document is the source of truth for where a change goes.** A suggestion is
+  anchored by searching the document for its text, never by a stored position, so a
+  drifting offset can never point a change at the wrong words.
+- **Stale is shown, never hidden.** When the student edits the text a change was written
+  against, that change is no longer applicable: its line goes dotted and grey and it
+  stays on the page, inert. A proposal that silently vanished would leave the student
+  thinking it was applied. Only the **line** dims — the words under a stale change are
+  the student's own essay and stay at full ink, which makes that line the sole channel
+  carrying "stale" and so a graphical state indicator owing 3:1 (1.4.11). Stale is
+  derived against the live document every time — it is never a flag the server sends.
+- **Ambiguity is stale too.** If a change's text appears twice in the document, there is
+  no honest way to pick one, so it goes stale rather than guessing.
+- **The trim is presentation only.** "Add a sentence here" is stored as a replacement
+  that extends the existing one, so the shared head and tail are trimmed away before
+  painting and only the genuinely new words go green. Nothing trimmed is ever sent back.
+
+| Token | Resolves to | Claim |
+|---|---|---|
+| `--essay-suggestion-insert-ink` | `--success-fg` (leaf-700, 7.90:1) | text being **added** |
+| `--essay-suggestion-insert-surface` | `--success-surface` | hover wash behind an insertion |
+| `--essay-suggestion-delete-ink` | `--danger-fg` (red-700, 9.85:1) | text being **removed** |
+| `--essay-suggestion-delete-surface` | `--danger-surface` | hover wash behind a deletion |
+| `--essay-suggestion-stale-ink` | `--ink-faint` (gray-700, 5.45:1) | a change that can no longer be applied |
+
+Success and danger are the right hues under §2.2 Law 2 (something added, something
+removed), but "ready" and "proposed" are two claims on one hue — so the decorations take
+their own family tokens in `essay.css` rather than the role tokens directly, and a
+suggestion can never read as a status. At rest a change is ink plus one line; the wash
+arrives on hover, because a permanent colour block through the student's own prose is
+harder to read than the prose it annotates. The rules live in `index.css` next to the
+ProseMirror essay typography (they are ProseMirror-rendered DOM, not React).
+
+**One change, one hover target.** A replacement paints as a struck span plus a proposed
+one, and a change crossing a paragraph break paints one fragment per block — so hovering
+any fragment washes *every* fragment of that change. Half a change lighting up misreads
+one decision as two. The hovered id is plugin state and the wash is a decoration, never
+an attribute written onto the rendered spans: the editor treats a foreign attribute
+inside its own DOM as interference, reverts it, and the redraw re-fires the pointer
+event that set it.
+
+Never bind bare `Enter`, `Backspace` or `Delete` to accept or reject. Inside a
+`contenteditable` those mean "new paragraph" and "delete a character", so a student
+typing near a pending change would resolve it by accident — and an accidental accept is
+silent. `Mod+Enter` accepts, `Mod+Backspace` rejects, `Alt+.`/`Alt+,` move between
+pending changes.
+
+### 15.7 Composer
 
 `rounded-2xl` panel, `min-h-28`, focus-within border swap plus a 30% ring. Chip toolbar
 with an explicit internal rhythm (`10px | icon 16 | 6px | label | 4px | chevron 14 | 8px`).

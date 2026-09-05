@@ -38,6 +38,7 @@ export function EssayEditorPage({ essay, onBack }: EssayEditorPageProps) {
   } | null>(null);
   const autosave = useEssayAutosave(essay.id, {
     content: essay.content,
+    updatedAt: essay.updatedAt,
     wordCount: essay.wordCount,
   });
   const prompt = getEssayPrompt(essay);
@@ -214,6 +215,7 @@ export function EssayEditorPage({ essay, onBack }: EssayEditorPageProps) {
                 setEditorHandle({ editor, toolbarState })
               }
               onUpdate={handleUpdate}
+              suggestions={essay.pendingSuggestions}
               syncContent={!autosave.isDirty}
             />
           </main>

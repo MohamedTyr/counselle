@@ -3,6 +3,7 @@ import { motion } from "motion/react";
 import { useEffectEvent, useLayoutEffect } from "react";
 
 import type { TiptapContent } from "@/api/workspace/types";
+import type { EssaySuggestion } from "@/domain/essay-suggestion";
 import {
   emptyToolbarState,
   type ToolbarState,
@@ -44,6 +45,8 @@ type EssayDocumentSurfaceProps = {
    */
   onEditorReady?: (editor: Editor, toolbarState: ToolbarState) => void;
   onUpdate: (update: EssayEditorUpdate) => void;
+  /** Pending tracked changes to paint. Omit to render the paper alone. */
+  suggestions?: EssaySuggestion[];
   syncContent: boolean;
 };
 
@@ -54,12 +57,14 @@ export function EssayDocumentSurface({
   onBlur,
   onEditorReady,
   onUpdate,
+  suggestions,
   syncContent,
 }: EssayDocumentSurfaceProps) {
   const { editor, toolbarState } = useEssayEditor({
     content,
     onBlur,
     onUpdate,
+    suggestions,
     syncContent,
   });
 

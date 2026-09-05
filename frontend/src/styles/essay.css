@@ -63,6 +63,39 @@
   --essay-editor-toolbar-active: var(--workspace-surface-active);
   --essay-editor-toolbar-shadow: var(--elevation-2);
 
+  /* ---- tracked changes (agent suggestions on the paper) ----
+   *
+   * A proposed insertion is something being added and a proposed deletion
+   * something being removed, so --success-* and --danger-* are the right
+   * claims — but "this word is ready" and "this word is a proposal" are two
+   * different claims on the same hue, which is exactly what a family token is
+   * for. Aliasing keeps the decorations moving with the ramps without letting
+   * a decoration ever read as a status.
+   *
+   * The two inks are the badge-text roles, measured against the raised surface
+   * the paper actually uses: leaf-700 at 7.90:1 and red-700 at 9.85:1.
+   * text-decoration-color inherits the ink, so the strike and the underline
+   * clear the same bar the text does.
+   *
+   * The surfaces are hover-only wash. At rest the ink and the line carry the
+   * whole signal — a permanently highlighted paragraph would read as a
+   * marker pen through the student's own prose.
+   *
+   * A stale change marks the LINE only, never the words — the text under it is
+   * the student's own essay, and dimming a paragraph of their writing to
+   * annotate a proposal that no longer applies would be the wrong thing to
+   * make hard to read. That leaves the dotted line as the single channel
+   * carrying "stale", so it is a graphical state indicator under WCAG 1.4.11
+   * and owes 3:1. --ink-disabled measures 2.64:1 and its exemption is for
+   * disabled CONTROLS, which this is not; --ink-faint measures 5.45:1 on the
+   * raised surface the paper uses, and is still plainly dimmer than the live
+   * red and green. */
+  --essay-suggestion-insert-ink: var(--success-fg);
+  --essay-suggestion-insert-surface: var(--success-surface);
+  --essay-suggestion-delete-ink: var(--danger-fg);
+  --essay-suggestion-delete-surface: var(--danger-surface);
+  --essay-suggestion-stale-ink: var(--ink-faint);
+
   /* ---- the paper ---- */
   --essay-document-surface: var(--document);
   --essay-document-foreground: var(--document-foreground);
