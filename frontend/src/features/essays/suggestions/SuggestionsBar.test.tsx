@@ -3,10 +3,8 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, test, vi } from "vitest";
 
 import type { EssaySuggestion } from "@/domain/essay-suggestion";
-import {
-  SuggestionsBar,
-  type SuggestionResolution,
-} from "@/features/essays/suggestions/SuggestionsBar";
+import type { SuggestionResolution } from "@/features/essays/suggestions/suggestion-counts";
+import { SuggestionsBar } from "@/features/essays/suggestions/SuggestionsBar";
 import type { EssaySuggestionsController } from "@/features/essays/suggestions/useEssaySuggestions";
 
 /*

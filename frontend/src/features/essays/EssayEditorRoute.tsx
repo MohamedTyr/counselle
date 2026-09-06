@@ -30,6 +30,7 @@ import type { EssayEditorPageProps } from "@/features/essays/essays-types";
 import { useEssayAutosave } from "@/features/essays/useEssayAutosave";
 import { EssayChatPanel } from "@/features/essays/EssayChatPanel";
 import { SuggestionPopover } from "@/features/essays/suggestions/SuggestionPopover";
+import { countPendingChanges } from "@/features/essays/suggestions/suggestion-counts";
 import { SuggestionsBar } from "@/features/essays/suggestions/SuggestionsBar";
 import { useSuggestionReview } from "@/features/essays/suggestions/useSuggestionReview";
 import { useEssaySuggestions } from "@/features/essays/suggestions/useEssaySuggestions";
@@ -441,6 +442,13 @@ export function EssayEditorPage({ essay, onBack }: EssayEditorPageProps) {
         <AnimatePresence initial={false}>
           {panelOpen && (
             <EssayChatPanel
+              /* The same split the bar beside it prints, from the same
+               * function — the readout counting the raw server rows put
+               * "3 waiting" on screen beside "Counselle proposed 2 changes". */
+              changeCounts={countPendingChanges(
+                essay.pendingSuggestions,
+                suggestionResolutions,
+              )}
               docked={panelDocked}
               essayId={essay.id}
               essayTitle={essay.title}

@@ -2,7 +2,7 @@ import type { Editor } from "@tiptap/core";
 import { useEditorState } from "@tiptap/react";
 import { useCallback, useMemo } from "react";
 
-import type { SuggestionResolution } from "@/features/essays/suggestions/SuggestionsBar";
+import type { SuggestionResolution } from "@/features/essays/suggestions/suggestion-counts";
 import { SuggestionPluginKey } from "@/features/essays/suggestions/suggestionExtension";
 
 /**

@@ -16,7 +16,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { essayFromApi } from "@/domain/essay";
 import type { EssayDetail } from "@/domain/essay";
 import { EssayDocumentSurface } from "@/features/essays/EssayDocumentSurface";
+import { PendingChangesReadout } from "@/features/essays/PendingChangesReadout";
 import { SuggestionPopover } from "@/features/essays/suggestions/SuggestionPopover";
+import { countPendingChanges } from "@/features/essays/suggestions/suggestion-counts";
 import { SuggestionsBar } from "@/features/essays/suggestions/SuggestionsBar";
 import { useEssaySuggestions } from "@/features/essays/suggestions/useEssaySuggestions";
 import { useSuggestionReview } from "@/features/essays/suggestions/useSuggestionReview";
@@ -189,6 +191,42 @@ function EssayDocumentPanelBody({
   return (
     <PanelFrame>
       <PanelHeader essayId={essay.id} onClose={onClose} title={essay.title} />
+      {/*
+       * The same readout the editor's chat panel carries, for the same reason:
+       * this panel runs the same essay tools, so it inherits the same failure —
+       * a reply claiming a proposed edit on a turn that made no tool call. The
+       * `SuggestionsBar` below unmounts at zero, which is precisely the state
+       * that claim is false in, so without this the student had nothing on
+       * screen to check the sentence against.
+       *
+       * It lives here rather than in `PanelHeader` because only this branch has
+       * the essay: the loading and error branches render their own header and
+       * return before this one, so the count is never guessed at. "None
+       * waiting" printed over an unresolved query would be the same lie
+       * pointing the other way.
+       *
+       * Chrome-matched to this panel rather than the editor's: the header above
+       * insets its title 16px and rules itself off in `--sidebar-border`, so the
+       * band does both, and the two read as one piece of chrome.
+       *
+       * At N it does overlap the bar 28px below it, and that duplication is
+       * deliberate. The bar's count lives inside a `CollapsibleTrigger` — it is
+       * a control's label, it appears and disappears with the control, and it
+       * is the one number that vanishes in the state a false claim is made in.
+       * This band is a fixed instrument: same place, every state, saying the
+       * same thing in the same words, which is the only way a student learns to
+       * trust it enough to check a sentence against it. An instrument that only
+       * reads when the value is non-zero is not one. They do not contradict —
+       * both take their numbers from `countPendingChanges` — and past the plain
+       * case the band carries the outdated count the bar's header drops.
+       *
+       * Not announced: the bar here is never `inert`, so its live region is the
+       * screen-reader channel and a second one would say the fact twice.
+       */}
+      <PendingChangesReadout
+        className="border-b-sidebar-border px-4"
+        counts={countPendingChanges(essay.pendingSuggestions, resolutions)}
+      />
       <PanelScrollColumn>
         {/*
          * The same bar the editor page carries, in the panel built to show

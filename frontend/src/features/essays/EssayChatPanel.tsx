@@ -5,6 +5,8 @@ import { useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AiChatPage } from "@/features/ai-chat/AiChatPage";
+import { PendingChangesReadout } from "@/features/essays/PendingChangesReadout";
+import type { PendingChangeCounts } from "@/features/essays/suggestions/suggestion-counts";
 import { useEssayChatSession } from "@/features/essays/useEssayChatSession";
 import { cn } from "@/lib/utils";
 
@@ -59,11 +61,20 @@ type EssayChatPanelProps = {
    * carries them into the workspace cache on its own.
    */
   onTurnSettled: () => void;
+  /**
+   * What is waiting and what is outdated on this essay — the numbers
+   * `PendingChangesReadout` states. Counted off the essay record and the live
+   * document by `countPendingChanges`, the same function `SuggestionsBar`
+   * counts itself with, so the band and the bar can never print two different
+   * numbers for one fact. Never derived from the chat.
+   */
+  changeCounts: PendingChangeCounts;
   /** The student's current selection, plain text, attached to the next turn. */
   selection: string | null;
 };
 
 export function EssayChatPanel({
+  changeCounts,
   className,
   docked,
   essayId,
@@ -181,6 +192,13 @@ export function EssayChatPanel({
             </Button>
           )}
         </header>
+
+        {/* Live only while covering: that is the state the editor's own
+         * `SuggestionsBar` goes `inert` in, taking its announcement with it, so
+         * this becomes the only channel a screen reader has. Docked, the bar is
+         * still there announcing — two live regions would say the same fact
+         * twice in two different grammars. */}
+        <PendingChangesReadout announce={!docked} counts={changeCounts} />
 
         {session.isLoading ? (
           <div className="flex flex-col gap-2 p-4">

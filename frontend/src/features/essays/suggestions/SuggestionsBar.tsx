@@ -15,6 +15,10 @@ import {
   ResolveButtons,
 } from "@/features/essays/suggestions/ResolveButtons";
 import {
+  countPendingChanges,
+  type SuggestionResolution,
+} from "@/features/essays/suggestions/suggestion-counts";
+import {
   suggestionPreview,
   suggestionPreviewLabel,
 } from "@/features/essays/suggestions/suggestion-preview";
@@ -58,19 +62,6 @@ const LIST_MAX_HEIGHT = "max-h-64";
  */
 const LIST_FADE_CLASS =
   "pb-6 [-webkit-mask-image:linear-gradient(to_bottom,#000_calc(100%-24px),transparent)] [mask-image:linear-gradient(to_bottom,#000_calc(100%-24px),transparent)]";
-
-/**
- * One pending change as the live document sees it: where it currently sits,
- * and whether it can still be applied. Both are derived inside the decoration
- * plugin against the document itself — never sent by the server — so the bar
- * reads them from there rather than answering either question twice.
- */
-export type SuggestionResolution = {
-  /** Document position, or `null` when the change no longer anchors at all. */
-  from: number | null;
-  id: string;
-  stale: boolean;
-};
 
 type SuggestionsBarProps = {
   controller: EssaySuggestionsController;
@@ -136,10 +127,10 @@ export function SuggestionsBar({
     () => orderForReview(suggestions, resolutions),
     [resolutions, suggestions],
   );
-  const staleCount = ordered.filter(
-    (entry) => entry.resolution?.stale ?? false,
-  ).length;
-  const pendingCount = ordered.length - staleCount;
+  const { outdated: staleCount, waiting: pendingCount } = countPendingChanges(
+    suggestions,
+    resolutions,
+  );
   const hasAny = suggestions.length > 0;
 
   return (
