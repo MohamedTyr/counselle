@@ -21,7 +21,13 @@ export type EssayDocumentDensity = "editor" | "panel";
  * The sheet of paper, and the one object the eye lands on wherever it renders.
  * `editor` is the full page's measure and its generous margins; `panel` keeps
  * the same paper in a narrow right-docked column, so it drops the page-height
- * floor and the wide-viewport padding steps that column never reaches.
+ * floor and the vertical steps that column never reaches.
+ *
+ * Both densities read their horizontal inset from the SAME scale, stepped by
+ * the scroll column's own width rather than the viewport. A hand-tuned second
+ * ladder for the panel would be a value that drifts from the editor's the first
+ * time either is retuned — and the panel's column is exactly the case the
+ * container-query scale was written for.
  */
 const densityClass: Record<EssayDocumentDensity, string> = {
   editor: cn(
@@ -29,7 +35,7 @@ const densityClass: Record<EssayDocumentDensity, string> = {
     essayPaperInsetClass,
     "py-8 @xl/essay-canvas:py-10 @2xl/essay-canvas:py-11 @4xl/essay-canvas:py-14",
   ),
-  panel: "max-w-[820px] px-6 py-8",
+  panel: cn("max-w-[820px]", essayPaperInsetClass, "py-8"),
 };
 
 type EssayDocumentSurfaceProps = {
@@ -106,16 +112,24 @@ export function EssayDocumentSurface({
       )}
       layoutId={layoutId}
       /*
-       * Measure only when the identity changes — i.e. on the card → editor
-       * shared-element transition this `layoutId` exists for. Without it every
-       * re-render that happens to change the paper's width runs the 420ms
-       * shared-element curve, so toggling the chat panel fired a route
-       * transition's animation on a panel toggle: the pending-changes bar
-       * resized in one frame while the paper eased for a third of a second,
-       * and mid-flight the paper's edge sat under the panel. The width now
-       * simply follows the panel's own 200ms transition.
+       * Measure only when the paper changes SURFACE.
+       *
+       * Without a dependency at all, every re-render that happens to change
+       * the paper's width runs the 420ms shared-element curve, so toggling the
+       * editor's chat panel fired a route transition's animation on a panel
+       * toggle: the pending-changes bar resized in one frame while the paper
+       * eased for a third of a second, and mid-flight the paper's edge sat
+       * under the panel. Density is constant within a surface, so that stays
+       * fixed — the width still simply follows the panel's own 200ms
+       * transition.
+       *
+       * It was `layoutId`, which is identical on both sides of the chat
+       * panel → editor handoff. Pinned to a value that never changes across
+       * the handoff, motion never re-measured across it either, and the one
+       * transition this `layoutId` exists for degraded into a jump. Density is
+       * the value that actually differs between the two papers.
        */
-      layoutDependency={layoutId}
+      layoutDependency={density}
       transition={{ layout: { duration: 0.42, ease: [0.22, 1, 0.36, 1] } }}
     >
       <EditorContent editor={editor} />

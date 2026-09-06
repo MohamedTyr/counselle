@@ -22,6 +22,7 @@ import { cn } from "@/lib/utils";
 import { ChatComposer } from "./components/ChatComposer";
 import { ChatMessages } from "./components/ChatMessages";
 import type { ClarifyWidgetAnswer } from "./components/clarify/types";
+import { EssayDocumentPanel } from "./components/EssayDocumentPanel";
 import { EssayPanelEmpty } from "./components/EssayPanelEmpty";
 import type { MessageSourcesPayload } from "./components/MessageSources";
 import { SourcesRail } from "./components/SourcesRail";
@@ -38,6 +39,18 @@ const EMPTY_SKILL_MODES = [] as const;
  * the chrome around it.
  */
 export type AiChatSurfaceVariant = "workspace" | "essay-panel";
+
+/**
+ * What the right rail is showing, if anything.
+ *
+ * One union rather than two booleans, because the two panels are the same
+ * piece of screen: opening a document while the sources rail is up has to
+ * close the rail, and a pair of independent flags makes "both at once" a state
+ * the type system allows and someone eventually reaches.
+ */
+export type RightPanel =
+  | { kind: "sources"; payload: MessageSourcesPayload }
+  | { kind: "document"; essayId: string };
 
 export type AiChatPageProps = {
   sessionId: string;
@@ -100,8 +113,11 @@ export function AiChatPage({
     null,
   );
   const [selectedTaskSkills, setSelectedTaskSkills] = useState<string[]>([]);
-  const [sourcesPayload, setSourcesPayload] =
-    useState<MessageSourcesPayload | null>(null);
+  const [rightPanel, setRightPanel] = useState<RightPanel | null>(null);
+  /* What had focus when the rail opened, so closing it puts the student back on
+   * the citation chip or the receipt they came from rather than at the top of
+   * the conversation. */
+  const panelTriggerRef = useRef<HTMLElement | null>(null);
   const consumedInitialTurnRef = useRef(false);
   const clarifySubmitInFlightRef = useRef<string | null>(null);
   const hydratedModeRef = useRef(false);
@@ -405,11 +421,33 @@ export function AiChatPage({
     wasSubmittingRef.current = isSubmitting;
   }, [isSubmitting, onTurnSettled]);
 
-  const openSources = useCallback((payload: MessageSourcesPayload) => {
-    setSourcesPayload(payload);
+  const openPanel = useCallback((panel: RightPanel) => {
+    panelTriggerRef.current =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
+    setRightPanel(panel);
   }, []);
 
-  const closeSources = useCallback(() => setSourcesPayload(null), []);
+  const closePanel = useCallback(() => {
+    setRightPanel(null);
+    const trigger = panelTriggerRef.current;
+    panelTriggerRef.current = null;
+    /* Before the unmount, while the trigger is still in the document: if focus
+     * is sitting inside the panel when it goes away, the browser drops it on
+     * `<body>` and the next Tab restarts at the top of the page. */
+    trigger?.focus();
+  }, []);
+
+  const openSources = useCallback(
+    (payload: MessageSourcesPayload) => openPanel({ kind: "sources", payload }),
+    [openPanel],
+  );
+
+  const openEssayDocument = useCallback(
+    (essayId: string) => openPanel({ kind: "document", essayId }),
+    [openPanel],
+  );
 
   if (isLoading) {
     return (
@@ -441,7 +479,13 @@ export function AiChatPage({
   /* The sources rail is a fixed 26rem — wider than the whole essay panel, so
    * opening it inside one would blow the layout out. Citations there stay on
    * their existing hover-card; a real rail for the panel is follow-up work. */
-  const railOpen = !isMobile && !isEssayPanel && sourcesPayload !== null;
+  const sourcesPayload =
+    !isEssayPanel && rightPanel?.kind === "sources" ? rightPanel.payload : null;
+  const documentEssayId =
+    !isEssayPanel && rightPanel?.kind === "document"
+      ? rightPanel.essayId
+      : null;
+  const railOpen = !isMobile && sourcesPayload !== null;
 
   /*
    * In the essay panel the surface belongs to the panel, not to the chat:
@@ -461,6 +505,7 @@ export function AiChatPage({
           "flex min-h-0 min-w-0 flex-1 flex-col",
           isEssayPanel ? "bg-transparent" : "bg-background",
           railOpen && "md:overflow-hidden md:rounded-r-xl",
+          documentEssayId !== null && "lg:overflow-hidden lg:rounded-r-xl",
         )}
       >
         <ChatMessages
@@ -486,6 +531,9 @@ export function AiChatPage({
           onClarifyAnswer={handleClarifyAnswer}
           onFeedback={handleFeedback}
           onOpenSources={openSources}
+          /* Not in the essay panel: the essay in question is already the whole
+           * left half of that screen, so a door into it opens nothing new. */
+          onOpenEssay={isEssayPanel ? undefined : openEssayDocument}
           onRegenerate={handleRegenerate}
           sessionId={sessionId}
         />
@@ -564,9 +612,12 @@ export function AiChatPage({
       {!isEssayPanel && (
         <SourcesRail
           isMobile={isMobile}
-          onClose={closeSources}
+          onClose={closePanel}
           payload={sourcesPayload}
         />
+      )}
+      {documentEssayId !== null && (
+        <EssayDocumentPanel essayId={documentEssayId} onClose={closePanel} />
       )}
     </main>
   );

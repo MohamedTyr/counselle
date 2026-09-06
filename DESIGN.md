@@ -1160,6 +1160,65 @@ timeline — **not** a collapsed reasoning drawer plus a separate final answer.
   evidence, the anchor's stretch is scoped to the header block so excerpts stay
   selectable.
 
+### 15.4.1 The chat's document panel
+
+The other right rail. **Only one is ever open**: `AiChatPage` holds a single
+`RightPanel` discriminated union (`{kind: "sources"} | {kind: "document"} | null`), so
+opening a document closes the sources rail and opening a citation closes the document.
+Two competing right rails is worse than one that swaps.
+
+- **Docked on the measured row, never on the viewport.** `w-[36rem]` (576px) of panel plus
+  a 424px floor for the chat column beside it is `MIN_DOCK_ROW_PX` = 1000px of *row*
+  (`EssayDocumentPanel.tsx`), read off the panel's own parent with a `ResizeObserver`.
+  A viewport breakpoint is wrong by a whole sidebar: 312px expanded, far less collapsed.
+  Keyed to `innerWidth >= 1024` the aside was shoved past the right edge between 1024 and
+  1141px and clipped every line of the essay with no horizontal scrollbar to recover it.
+  Same lesson as `essay-paper-inset.ts` one level up. The aside stays mounted below the
+  threshold (`hidden`, no children) because it is what measures the row. Below it the
+  document is a full-width `Sheet`, because the chat column left over would be narrower
+  than the composer in it. No resizable divider.
+- It hosts `EssayDocumentSurface` at `density="panel"`: the same paper, the same tracked
+  changes, the same hover accept/reject popover, and the same `SuggestionsBar` as the full
+  editor — the bar is the only place a change one comma wide stays findable and the only
+  thing that announces the count to a screen reader, so the panel built to show proposed
+  edits is the last place to drop it. The paper's inset comes from the one scale in
+  `essay-paper-inset.ts`, stepped by the panel's own scroll column
+  (`@container/essay-canvas`) — never a second hand-tuned ladder. The column caps its
+  content at `max-w-[40rem]`, tighter than the editor page's 820px: docked that ceiling is
+  never reached (544px column, measured 475px of prose, ~69 characters), but in the Sheet
+  the editor's ceiling gave 724px of prose at 106 characters a line — a *worse* measure on
+  the wider surface. 640px holds the Sheet to a measured 510px of prose (~74 characters),
+  the docked rhythm.
+- **The panel sits at canvas level, deliberately** — `--essay-editor-chrome-surface`,
+  where the sources arm of the same slot sits at chrome level (`bg-sidebar`, §15.4). The
+  two arms therefore differ in material, not only in contents. That is the point: this arm
+  is the editor's own chrome, and "Open in editor" morphs the paper straight into it, so
+  matching the editor is worth more here than matching the rail it replaces.
+- **Non-modal when docked.** The student keeps reading the answer that produced the edit.
+  Enter/exit is the rail's own 200ms `ease-out` `slide-in-from-right-2`; Escape closes it,
+  and only when nothing nearer the key has already defaulted the event.
+- **Closing returns focus to whatever opened it** — the mutation-receipt door, or the
+  citation chip for the sources arm. `AiChatPage` captures `document.activeElement` on
+  open and refocuses it before the panel unmounts.
+- **The receipt is the door.** A settled essay mutation receipt's glance line becomes a
+  `<button>` labelled `Open {title} — {glance}`. Its ink is identical to the non-door
+  glance lines above it, so the resting underline is the whole static cue and has to clear
+  1.4.11 on its own: `--ink-faint` (5.28:1), an ink token for a text decoration, one step
+  quieter than the label. Ink and rule go to full strength on hover over 150ms.
+  `min-h-6` for SC 2.5.8's 24px floor — not the disclosure trigger's `min-h-11`, which on
+  a 20px glance line would pull the label off the icon beside it. A **running** or
+  **failed** receipt is never a door: mid-write there is nothing stable to open, and after
+  a failure a click that says "see your edit" would promise a document that was never
+  written.
+- **"Open in editor"** is a real shared-element transition, not a fade: the panel's paper
+  and the editor page's paper carry the same `essay-document-${id}` `layoutId` under
+  `WorkspaceOutlet`'s `LayoutGroup`, so the sheet flies from the 576px column into the
+  820px page. The layout tween is **420ms `cubic-bezier(0.22, 1, 0.36, 1)`**, inherited
+  from the editor route since MVP3 — off §12.2's scale and tracked as a debt in §20; it is
+  not "the route curve", which is 220ms. `layoutDependency` is the paper's `density`, the
+  one value that differs across the handoff: pinned to `layoutId` — identical on both
+  sides — motion never re-measured across it and the morph degraded to a jump.
+
 ### 15.5 Visualisations
 
 There is **no charting library.** "Viz" means typed tabular render specs:
@@ -1277,9 +1336,11 @@ longer had the room.
 
 Opening animates the panel's **width** over 200ms `ease-out` — the accordion carve-out of
 §12.1 rule 2, so the paper follows it frame for frame. The paper's own `layoutId` gets
-`layoutDependency={layoutId}`, which pins its 420ms shared-element curve to the card →
-editor transition it exists for; without it a panel toggle fired a route transition's
-animation on one edge while the bar resized on the next frame.
+`layoutDependency={density}`, which pins its 420ms shared-element curve to a change of
+*surface*; without a dependency a panel toggle fired that curve on one edge while the bar
+resized on the next frame. Density is constant within the editor route, so the toggle is
+still unanimated — and it does differ across the chat panel → editor handoff, which is the
+one transition the `layoutId` exists for. See §15.4.1.
 
 ### 15.7 Composer
 
@@ -1483,6 +1544,7 @@ Ranked. Each is small; none is speculative.
 | 22 | **Dead tokens** — `--essay-library-card-hover`, `--essay-editor-toolbar-border` | essay.css |
 | 23 | **`transition-all` in 4 files** — violates rule 29; name the properties instead | `sidebar.tsx`, `accordion.tsx`, `meter.tsx`, `sheet.tsx` |
 | 24 | **Onboarding aliases Profile's tokens** rather than semantic ones | onboarding.css |
+| 25 | **The 420ms shared-element layout tween is off §12.2's scale** — `EssayDocumentSurface.tsx:125`, inherited from the editor route since MVP3. It is the paper's card → editor → panel morph, not the 220ms route curve; either fold it into the scale or name it a fifth tier. | essays |
 
 ---
 

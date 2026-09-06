@@ -3,7 +3,7 @@ import { useEditorState } from "@tiptap/react";
 import { useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { ArrowLeft, PanelRight, Save } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -30,11 +30,8 @@ import type { EssayEditorPageProps } from "@/features/essays/essays-types";
 import { useEssayAutosave } from "@/features/essays/useEssayAutosave";
 import { EssayChatPanel } from "@/features/essays/EssayChatPanel";
 import { SuggestionPopover } from "@/features/essays/suggestions/SuggestionPopover";
-import {
-  SuggestionsBar,
-  type SuggestionResolution,
-} from "@/features/essays/suggestions/SuggestionsBar";
-import { SuggestionPluginKey } from "@/features/essays/suggestions/suggestionExtension";
+import { SuggestionsBar } from "@/features/essays/suggestions/SuggestionsBar";
+import { useSuggestionReview } from "@/features/essays/suggestions/useSuggestionReview";
 import { useEssaySuggestions } from "@/features/essays/suggestions/useEssaySuggestions";
 import { useDebounce } from "@/hooks/useDebounce";
 import { workspaceKeys } from "@/api/workspace/keys";
@@ -128,25 +125,8 @@ export function EssayEditorPage({ essay, onBack }: EssayEditorPageProps) {
     hasUnsavedChanges,
   });
 
-  /* Position and staleness are both derived against the live document inside
-   * the decoration plugin, so the bar has to read them from there rather than
-   * recompute them — two answers to "where is this" or "can this still be
-   * applied" is exactly one too many. `useEditorState` is the editor's own
-   * subscription seam. */
-  const resolutions = useEditorState({
-    editor,
-    selector: ({ editor: current }): SuggestionResolution[] =>
-      current
-        ? (SuggestionPluginKey.getState(current.state)?.resolved ?? []).map(
-            (entry) => ({
-              from: entry.from,
-              id: entry.suggestion.id,
-              stale: entry.stale,
-            }),
-          )
-        : [],
-  });
-  const suggestionResolutions = useMemo(() => resolutions ?? [], [resolutions]);
+  const { resolutions: suggestionResolutions, revealSuggestion } =
+    useSuggestionReview(editor);
 
   const rawSelection = useEditorState({
     editor,
@@ -166,15 +146,6 @@ export function EssayEditorPage({ essay, onBack }: EssayEditorPageProps) {
     settledSelection === "" || settledSelection === dismissedSelection
       ? null
       : settledSelection.slice(0, SELECTION_CHIP_MAX_CHARS);
-
-  const revealSuggestion = useCallback(
-    (suggestionId: string) => {
-      editor?.view.dom
-        .querySelector(`[data-suggestion-id="${CSS.escape(suggestionId)}"]`)
-        ?.scrollIntoView({ block: "center" });
-    },
-    [editor],
-  );
 
   const refetchEssay = useCallback(() => {
     void queryClient.invalidateQueries({

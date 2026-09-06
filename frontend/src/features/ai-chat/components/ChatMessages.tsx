@@ -23,6 +23,8 @@ export type ChatMessagesProps = {
   onRegenerate?: (message: ChatMessageModel) => void;
   onFeedback?: (message: ChatMessageModel, rating: FeedbackRating) => void;
   onOpenSources?: (payload: MessageSourcesPayload) => void;
+  /** A settled essay mutation receipt becomes a door into the document panel. */
+  onOpenEssay?: (essayId: string) => void;
   onClarifyAnswer?: (answer: ClarifyWidgetAnswer) => void;
   clarifyDraft?: ClarifyDraftController;
   skillLabelForName?: (name: string) => string | undefined;
@@ -44,6 +46,7 @@ export function ChatMessages({
   onRegenerate,
   onFeedback,
   onOpenSources,
+  onOpenEssay,
   onClarifyAnswer,
   clarifyDraft,
   skillLabelForName,
@@ -114,6 +117,7 @@ export function ChatMessages({
                   : undefined
               }
               onOpenSources={onOpenSources}
+              onOpenEssay={onOpenEssay}
               onOpenCitation={
                 message.kind === "assistant" && onOpenSources !== undefined
                   ? (focus: SourceFocus) => {
