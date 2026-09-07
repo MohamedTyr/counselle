@@ -51,6 +51,7 @@
 36. [Student profile, documents & agent memory](#36-student-profile-documents--agent-memory)
 37. [Onboarding](#37-onboarding)
 38. [The CDS extraction pipeline & admin surface](#38-the-cds-extraction-pipeline--admin-surface)
+39. [The essay surface & the suggestion lifecycle](#39-the-essay-surface--the-suggestion-lifecycle)
 
 ---
 
@@ -182,7 +183,7 @@ counselle/
 ├── counselle_db/                 # the counselle-db MCP server (own process; imports domain/) — read path only
 ├── config/cds/                   # ported, versioned CDS manifest/prompt/domain YAMLs (§38)
 ├── skills/                       # SKILL.md files (§15)
-├── migrations/                   # Counselle-owned migrations for the counselle.* schema ONLY (0001–0015)
+├── migrations/                   # Counselle-owned yoyo migrations for the counselle.* schema ONLY
 ├── evals/                        # the eval question set + runner (§21)
 ├── frontend/                     # the React SPA (§31) — the sole protocol client
 ├── scripts/                      # one-off utilities (setup_db.sql, chat_cli.py, smoke scripts)
@@ -238,10 +239,11 @@ The `counselle-db` MCP server ships in the same repo (it imports the domain core
 
 - **Every conversation is a session with a durable `session_id` from day one.** In-session working memory (PRD) *is* the LangGraph state for that session — one mechanism, not two.
 - **State persists in Postgres via LangGraph's own Postgres checkpointer**, in Counselle's `counselle.*` schema. Sessions survive restarts; pending clarification records and continuation intent survive too. No bespoke session store — the checkpointer protocol is the seam, and swapping it (memory in unit tests, Postgres in prod) is configuration.
-- **A thin `counselle.sessions` row** (session_id, created_at, `user_id`, title, default source-config) fronts the checkpoint data. `user_id` is populated and FK-enforced for new rows (migration 0004 added `counselle.users` + the FK; §28) — chat history, profiles, and per-user memory attach to rows that already exist. No migration of meaning, only addition.
+- **A thin `counselle.sessions` row** (session_id, created_at, `user_id`, title, default source-config, and a nullable `essay_id`) fronts the checkpoint data. `user_id` is populated and FK-enforced for new rows (migration 0004 added `counselle.users` + the FK; §28) — chat history, profiles, and per-user memory attach to rows that already exist. No migration of meaning, only addition.
 - **Counselle owns its schema and migration chain** (`migrations/`, over `counselle.*` only — never `public.*`/`raw.*`, which belong to the pipeline and are read-only to us; ADR 0012).
+- **A session may belong to a workspace object.** `sessions.essay_id` (nullable, with a partial unique index — `docs/DATABASE_GUIDE.md` §10) gives each essay exactly one durable panel thread. Such a session is an ordinary session that knows which essay it fronts: same checkpointer, same turn registry, same transcript read. It is excluded from the chat list, which filters `essay_id IS NULL`, and it is the authority for which essay an essay-surface turn may be about (§39).
 - **Long-term memory & personalization are deferred** (PRD) — but they will live behind the same session/user rows, which is why those rows exist now.
-- **Retention:** sessions are cheap rows; a configurable TTL/cleanup job knob (§18) defaults to "keep everything" until there's a reason not to.
+- **Retention:** sessions are cheap rows; a configurable TTL/cleanup job knob (§18) defaults to "keep everything" until there's a reason not to. A TTL sweep must reckon with object-owned threads: an essay's panel conversation is durable state a student expects to find again, not a disposable chat.
 
 ---
 
@@ -341,6 +343,8 @@ mismatch and aggregate denominators.
 
 The **counselor** agent is the primary agent. The **researcher** and **verifier** agents are designed (§13) but not yet wired — they are part of the deep-research follow-up (`specs/deep-research/plan.md`). Parallel research subgraphs attach when that subsystem is activated.
 
+**One node, more than one persona.** A turn carries a **surface** (`domain/surface.py`: `chat` | `essay`, ADR 0037) that selects the system-prompt asset, the tool profile, and the essay write mode at the single point where the PydanticAI `Agent` is constructed (`app/agent_node.py`). It is not a second agent and not a second graph: the emission router, marker strippers, clarify lifecycle, tool-overflow middleware, usage accounting, turn record, steering, and replay safety are all surface-agnostic and are shared verbatim. The value rides `turn_ids` — the same checkpointed bag as `response_mode` and `model` — is written only for a non-chat surface, and reads back as `chat` when absent or unrecognized, so every older checkpoint and every direct-graph call keeps its exact behavior. Clarify continuations (§27.7 G4) inherit it from A1's own `turn_ids`, so a resumed turn cannot silently widen back to the counselor's prompt and tool set. §39 describes the essay surface.
+
 ### 12.1 Clarifying questions
 
 (ADR 0035.) A clarifying question is the interactive sibling of a visualization:
@@ -416,11 +420,13 @@ Embedded as a research subagent inside the LangGraph orchestrator — not adopte
 
 **Source control (per-request, enforced in code — ADR 0013):** a **source-config object** travels with each request (web on/off; Reddit on/off + per-subreddit allowlist; .edu on/off; DB always on). The orchestrator **builds the toolset from the config**: a disabled source's tool isn't mounted. When the deep-research subagent is activated (§13), its retriever list is gated by the same config. A disabled source can't be reached and never appears in citations. Three named tools (not one generic) so the dropdown maps 1:1 and the citation tier is unambiguous per tool.
 
+*Unmounted-not-hidden has exactly one sanctioned exception, and it is a mechanism exception, not a principle one.* The four `counselle-db` tools arrive as one indivisible `MCPToolset` over one stdio child process, so two of the four cannot be withheld by construction without a second toolset and a second child. The essay surface (§39) therefore denies `get_domain` and `query_database` inside that toolset's existing per-run result hook (`ESSAY_SURFACE_DENIED_MCP_TOOLS`, `app/toolset.py`) — refused in code, before the child process and before the database, never in the prompt. Everything the app constructs itself stays unmounted. ADRs 0013 and 0037 carry the trade.
+
 ---
 
 ## 15. Skills (SKILL.md)
 
-Skills are SKILL.md files (open standard: YAML frontmatter + Markdown body), living in `skills/`. Current skills include public response-mode workflows (`focused-answer`, `deep-research`, `guided-counselor`), public task workflows (`application-rounds`, `chancing`, `costs-and-aid`, `essay-fit`, `major-and-fit`, `school-comparison`, `school-deep-dive`, `school-list`, `testing-strategy`), and internal support workflows (`citation-and-recency`, `counselor-research`, `db-recipes`). Metadata loads at startup and bodies load through progressive disclosure. The non-advertised `dossier-assembly` alias canonicalizes to `school-deep-dive` only for parked-turn compatibility; it is not a public skill.
+Skills are SKILL.md files (open standard: YAML frontmatter + Markdown body), living in `skills/`. Current skills include public response-mode workflows (`focused-answer`, `deep-research`, `guided-counselor`), public task workflows (`application-rounds`, `chancing`, `costs-and-aid`, `essay-drafting`, `essay-fit`, `essay-revision`, `essay-voice`, `major-and-fit`, `school-comparison`, `school-deep-dive`, `school-list`, `testing-strategy`), and internal support workflows (`citation-and-recency`, `counselor-research`, `db-recipes`, `essay-honesty`). Metadata loads at startup and bodies load through progressive disclosure. The non-advertised `dossier-assembly` alias canonicalizes to `school-deep-dive` only for parked-turn compatibility; it is not a public skill.
 
 Students can explicitly invoke only skills that opt into the public SKILL.md metadata (`user_invokable`, with student-facing display copy). The API exposes ordinary task skills through config and validates submitted canonical names, visibility, uniqueness, count, group conflicts, and trusted body-size/path bounds before a turn is claimed. Valid selections are preloaded as a server-owned, one-turn instruction block; they cannot override authz, read-only constraints, mounted-tool availability, or honesty rules. The selected canonical names persist in the turn record and original user transcript entry, so reload, retry, and regeneration preserve the exact invocation without adding control syntax to the student's text. Internal skills remain available to the agent's normal progressive-disclosure tool path but are never exposed as student actions.
 
@@ -499,7 +505,7 @@ Cheap on day one, brutal to retrofit:
 
 - **12-factor:** all config comes from the environment; durable state lives in Postgres (`counselle.*`), so the service can restart or move safely.
 - **One container** (a `Containerfile` from day one) running the API service; the `counselle-db` MCP server runs as a child process inside it, supervised by `api/supervision.py` (`McpSupervisor`: exponential-backoff restart, status on `/v1/health`).
-- **Migrations** (`migrations/`, chain 0001–0006 over `counselle.*` only). Migration-on-boot via the container entrypoint is planned per §33; until then, `uv run yoyo apply` is run manually before first launch.
+- **Migrations** (`migrations/`, a yoyo chain over `counselle.*` only). Migration-on-boot via the container entrypoint is planned per §33; until then, `uv run yoyo apply` is run manually before first launch.
 - **Secrets** in `.env`/secret manager only; shared with the pipeline **credentials only** (the read-only DSN + Vertex/GCP keys) — no shared code, config, or runtime dependency. The DB is the contract.
 - **Read-only boundary** — the reader LOGIN can select exactly the five `cds_library` views; the separate application DSN owns only `counselle.*`. (ADRs 0012, 0032.)
 
@@ -744,8 +750,11 @@ The transcript read (`GET /v1/sessions/{id}`) returns user/assistant text pairs 
 | `POST /v1/auth/*` | fastapi-users routers (register, login, logout, forgot/reset, Google OAuth) — §28 |
 | `GET/PATCH/DELETE /v1/me` | Account read/update/delete; `DELETE /v1/me/chats` for delete-all — §28 |
 | `GET /v1/config` | Runtime client config: starter chips, greeting, default source-config, response-mode capability list — §32 |
+| `POST /v1/essays/{id}/session` | Get-or-create the essay's own durable panel thread — §39 |
+| `POST /v1/essays/{id}/suggestions/{suggestion_id}/accept` \| `/reject` | Resolve one pending suggestion — §39 |
+| `POST /v1/essays/{id}/suggestions/accept-all` \| `/reject-all` | Resolve the whole queue — §39 |
 
-All existing v1 endpoints keep their exact semantics; `POST /v1/sessions` and `POST .../messages` now require auth and stamp `user_id`.
+All existing v1 endpoints keep their exact semantics; `POST /v1/sessions` and `POST .../messages` now require auth and stamp `user_id`. `POST .../messages` additionally accepts an optional `surface` and, for the essay surface, a nested `essay_context` (§39) — additive within v1, defaulting to the chat surface when omitted.
 
 ### 27.7 Turn identity, the turn record & lifecycle semantics
 
@@ -867,6 +876,20 @@ Activities and honors enforce the Common App-shaped workspace limits in both the
 API model and UI. Public Common App resources confirm the activities count and
 activity field caps; the UI wording stays generic where live first-year form
 access is required to verify exact active-cycle wording.
+
+An essay is the one workspace object a student works *inside*, so it has two
+hosts rather than one, and both are the same component. `EssayDocumentSurface`
+(`frontend/src/features/essays/`) is the shared paper — the Tiptap editor, its
+inset scale, and the tracked-change decorations — rendered by the full editor
+route and by a right-hand document panel in the main chat. Beside the editor
+sits `EssayChatPanel`, which is the existing `AiChatPage` in a narrow variant
+(same composer, same streaming, same activity timeline) rather than a second
+chat implementation, sending every turn with the essay's id and the student's
+current selection. In the main chat, a settled essay mutation receipt's glance
+line is a door: `EssayDocumentPanel` opens the same surface beside the
+conversation, and the right rail is one discriminated union (`sources` |
+`document`) so "both open" is not a reachable state. §39 covers the suggestion
+lifecycle both hosts render.
 
 ### 31.0 Historical MVP2 frontend
 
@@ -1370,4 +1393,156 @@ the architecture, not a point-in-time build record.
 
 ---
 
-*Companions: `specs/mvp1/PRD.md` (agent service product spec), `specs/mvp2/PRD.md` (full-stack app product spec), `specs/user-onboarding/plan/` (onboarding plan and phase record), `docs/DATABASE_GUIDE.md` (the data contract), `docs/DEPLOY.md` (the deploy runbook), `docs/adr/` (decisions — Part I added ADRs 0016–0019; Part II added ADRs 0020–0031; hardening added ADR 0025; workspace/service and run/message parity added ADRs 0026–0030; profile/document/memory added ADR 0031; db-rewire to the CDS Library added ADR 0032; onboarding's reserved-settings-namespace and locked merge added ADR 0033; counselor response modes added ADR 0034; the in-app CDS extraction pipeline and admin write path added ADR 0036), `docs/research/` (stack survey). Keep this current as decisions change.*
+## 39. The essay surface & the suggestion lifecycle
+
+(ADR 0037, amending ADR 0030.) The essay editor hosts an AI panel that works on
+one essay. Architecturally it is not a second agent, a second graph, or a second
+chat client — it is the same turn, run under a different **surface** (§12), with
+its edits routed to a review queue instead of straight into the document.
+
+### 39.1 What the surface selects
+
+A turn from the panel carries `surface: "essay"` plus a nested
+`essay_context: {essay_id, selection}` on `POST /v1/sessions/{id}/messages`.
+The route validates the pair — `essay_context` is required for `essay` and
+refused for `chat`, and the **session row's own `essay_id` is authoritative**:
+an essay turn naming a different essay than its thread is rejected, so a stale
+client-held session id can never queue one essay's suggestions onto another.
+Below the route the value flattens to plain scalars on `turn_ids` (§12).
+
+Inside the node, the surface selects exactly four things:
+
+| Selection | `chat` | `essay` |
+|---|---|---|
+| System prompt asset | `counselor.md` | `essay_partner.md`, with a code-built `{essay_context}` block |
+| Workspace tools | all of them | an explicit allowlist: the essay tools minus create/duplicate/archive/restore (`view_essays`, `read_essay`, `edit_essay`, `write_essay`, `update_essay`), every workspace **read** (activities, documents, schools, tasks — the student's real material, which is the anti-fabrication supply), and the two memory-note writes (`remember`, `update_memory`). Every other workspace mutation is dropped from the list before the `Agent` is built, so it is never handed to the model |
+| `render_viz` | constructed | never constructed (a data-visualization card is a chat-surface answer format) |
+| Essay write mode | `direct` | `suggest` |
+
+The two metric-heavy DB tools (`get_domain`, `query_database`) are refused in
+the MCP result hook rather than unmounted — the sanctioned ADR 0013 exception
+(§14). External search is deliberately **not** narrowed: research grounds "why
+this school" material, and the request's source config still governs it.
+
+**The essay block is built in code, not by the model.** `render_essay_context`
+(`app/prompt.py`) reads the essay once at turn start through the same
+`user_id`-scoped service read the tools use, and renders title, prompt, school,
+status, word count/limit, the markdown body, and the student's current
+selection. It is bounded by `essay_context_max_chars` and, when it truncates,
+*says so* and points the model at `read_essay` — the model must never mistake an
+excerpt for the whole draft. An essay that cannot be loaded (deleted mid-session,
+or an unauthenticated harness run) renders an explicit unavailable block rather
+than nothing, so the turn degrades to an honest answer instead of a silent guess.
+The write-guard version token is deliberately absent from this block:
+`read_essay` is its single source, because a token inside a prose block the model
+is told to echo is how one reached a student's answer.
+
+### 39.2 The suggestion lifecycle, end to end
+
+**1 — An agent edit becomes a proposal, not a write.** `edit_essay` and
+`write_essay` keep their exact model-facing vocabulary; only the sink changes,
+per the turn's `write_mode` fixed at tool-construction time. In `suggest` mode
+`app/workspace/agent_tools_essays_suggestions.py` validates each
+`{old_text, new_text}` edit **independently against the original document** —
+because the student will accept them one at a time, in any order — and refuses
+the whole batch if one edit only matches after a sibling lands. `write_essay`
+becomes one suggestion spanning the whole current draft. The one carve-out:
+an essay that is **empty** when the turn starts is written directly, because a
+first draft has no prior text to review against and an empty `old_text` has no
+anchor at all.
+
+**2 — Persistence.** `service_essays.append_suggestions` appends to
+`counselle.essays.suggestions` under the essay's row lock, leaving `content`
+untouched, and writes the same actor-attributed change row and publishes the
+same post-commit workspace event every other workspace mutation does (§31, ADR
+0027) — a proposal is an ordinary workspace change, not a parallel write path
+with its own audit story. The element shape, and the four rules that govern the
+array, are specified in `docs/DATABASE_GUIDE.md` §10.
+
+**3 — Rendering as a tracked change.** The client paints suggestions as
+ProseMirror decorations inside the live document — insertions underlined,
+deletions struck through, each fragment of one change highlighting with its
+siblings on hover. Two properties are load-bearing:
+
+- **Anchoring searches the document; it never trusts a stored position.** The
+  document round-trips through the server as Tiptap JSON, so an absolute offset
+  would drift. The search runs against `old_text_plain` in ProseMirror's own
+  `textContent` string space, because the live editor carries formatting as
+  marks and a markdown anchor would never match.
+- **Hover state lives in plugin state, rendered through the decoration
+  pipeline** — never as a DOM attribute written onto the rendered spans.
+  Mutating attributes inside ProseMirror's managed DOM is treated as external
+  interference and triggers an unbounded redraw loop.
+
+`useSuggestionReview` is the one place that answers "where is this suggestion"
+and "can it still be applied" for every review surface, reading both from the
+plugin rather than recomputing them.
+
+**4 — Accept and reject.** Four routes (§27.6) resolve one suggestion or the
+whole queue. Accept applies the suggestion's markdown edit to `content` and
+drops it from the array; reject only drops it; both recompute `word_count`,
+write a change row, and publish an event. Both take the essay's row lock for the
+whole read-then-write, so two simultaneous resolves serialize and a double
+accept is a `404` rather than a second application — **a resolved suggestion is
+removed, never tombstoned**. Accept-all differs from an `edit_essay` batch on
+purpose: these are independently authored proposals, so an item that no longer
+applies is left pending and reported in `skipped` instead of sinking the rest.
+
+On the client, resolution is **serialized panel-wide** and **never optimistic**.
+Applying the accepted text locally would fire the editor's update handler, queue
+an autosave of the markdown-stripped plain text, and let that save land on top of
+the server's correctly formatted result. The server's returned content is the
+only content the editor is ever set from, and content and the remaining
+suggestion list land in one transaction.
+
+**5 — Going stale.** A suggestion is stale when its anchor no longer matches the
+essay uniquely — zero matches, or more than one. There is no stored context to
+disambiguate with, and guessing between two identical sentences is exactly the
+quiet mistake that would apply an edit to the wrong words. The server discovers
+it at accept time (the essay is left untouched; the caller gets `422`); the
+client discovers it while anchoring and paints the change **visibly inert and
+still on the page**, so a student sees what was proposed instead of watching it
+disappear.
+
+### 39.3 Where the honesty guarantees live
+
+The failure mode on this surface is a wrong *claim*, not a wrong number: the
+agent can say it proposed an edit on a turn where it made no tool call. Three
+things stand against it, and all three are outside the model's prose:
+
+- **The tool is the only thing that can create a suggestion.** Nothing else
+  writes the array; a description of an edit is not an edit.
+- **Prompt hardening pins the order** — call the tool, read what came back,
+  report only that, never the count you meant to propose — in both
+  `essay_partner.md` and `counselor.md`, with an explicit script for the
+  not-yet-edited case so "want me to draft that as a suggestion?" is a complete
+  turn rather than something to paper over.
+- **Provenance display contradicts a false claim on screen.**
+  `PendingChangesReadout` is a code-owned band mounted on both surfaces that host
+  an essay conversation, sourced from the server's essay record rather than the
+  message stream, and **honest at zero as loudly as at N** — "None" is the
+  reading that refutes the claim, and the zero state is precisely the one the
+  pending-changes bar has no surface for. `countPendingChanges` is the single
+  source of truth for the waiting/outdated split, so the band and the bar can
+  never print two different numbers for one fact.
+
+**There is no output validator, and adding one is out of bounds.** Nothing here
+scans, classifies, blocks, rewrites, or retries the model's text; the
+programmatic answer-validation layers this system removed on purpose stay
+removed. Honesty on this surface is code-owned display of what is true, stated
+next to whatever was said — not inspection of what was said. ADR 0037 records
+the constraint.
+
+### 39.4 Per-essay conversations
+
+Each essay has exactly one durable chat thread: a `counselle.sessions` row with
+`essay_id` set, created get-or-create by `POST /v1/essays/{id}/session` and made
+unique by a partial index rather than by client-side storage, so the conversation
+follows the essay across browsers and devices (§7,
+`docs/DATABASE_GUIDE.md` §10). It is an ordinary session in every other respect —
+same checkpointer, same turn registry, same transcript read — and is excluded
+from the main chat list, which filters `essay_id IS NULL`.
+
+---
+
+*Companions: `specs/mvp1/PRD.md` (agent service product spec), `specs/mvp2/PRD.md` (full-stack app product spec), `specs/user-onboarding/plan/` (onboarding plan and phase record), `docs/DATABASE_GUIDE.md` (the data contract), `docs/DEPLOY.md` (the deploy runbook), `docs/adr/` (decisions — Part I added ADRs 0016–0019; Part II added ADRs 0020–0031; hardening added ADR 0025; workspace/service and run/message parity added ADRs 0026–0030; profile/document/memory added ADR 0031; db-rewire to the CDS Library added ADR 0032; onboarding's reserved-settings-namespace and locked merge added ADR 0033; counselor response modes added ADR 0034; the in-app CDS extraction pipeline and admin write path added ADR 0036; the per-turn agent surface and the essay suggestion layer added ADR 0037, amending ADRs 0013 and 0030), `docs/research/` (stack survey). Keep this current as decisions change.*

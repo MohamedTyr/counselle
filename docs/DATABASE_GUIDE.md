@@ -470,3 +470,96 @@ Never, from this path:
 The data is the product. If the contract cannot support a claim, say what is known,
 what is unavailable, which edition and population were checked, and where the answer
 falls back to an external source.
+
+## 10. Counselle-owned shapes that are contracts
+
+Everything above is `cds_library`, read over `COUNSELLE_DB_RO_DSN`. This section is a
+different region of the same server: `counselle.*`, owned by `COUNSELLE_DB_APP_DSN` and
+defined by this repo's `migrations/`. Most of that schema needs no contract here — a
+column is whatever the migration and the typed service model say it is. Two shapes do,
+because more than one component has to agree on them without a type to enforce it: a
+jsonb array whose element shape crosses the server, the wire, and a ProseMirror plugin,
+and a uniqueness rule that only a partial index makes true.
+
+### `counselle.essays.suggestions` — the pending review queue
+
+`jsonb NOT NULL DEFAULT '[]'` (`migrations/0007_workspace.sql`). An array of pending
+agent-proposed edits, appended by a `suggest`-mode `edit_essay`/`write_essay`
+(ADR 0030's amendment, ADR 0037) and drained on accept/reject. Every element:
+
+| Key | Type | Contract |
+|---|---|---|
+| `id` | string (uuid) | Minted server-side. The accept/reject route's path parameter. |
+| `old_text` | string | The markdown span to replace. **Never empty in practice**, by two mechanisms that meet: suggest mode only runs on an essay with content (one that is still empty is written directly, since a first draft has nothing to review against), and an empty anchor matches everywhere in a non-empty document, so validation refuses it as ambiguous before it can be stored. Do not add a code path that stores an empty anchor — it can be located nowhere and everywhere at once. |
+| `new_text` | string | The markdown to put in its place. Empty means *delete the matched text*; this is the only thing that distinguishes a deletion from a replacement, and no `kind` field is stored. |
+| `old_text_plain` | string | `old_text` with markdown syntax stripped (`essay_markdown.to_plain_text`). |
+| `new_text_plain` | string | `new_text`, likewise. |
+| `rationale` | string | One short line on why, shown beside the change. May be `""`. Never essay prose. |
+| `actor` | string | `"counselle"` for every row written today; present so a future student- or third-party-authored suggestion is distinguishable without a migration. |
+| `created_at` | string (ISO-8601, UTC) | When the batch was proposed. One value shared by every element of one `edit_essay` call. |
+| `essay_version_at_creation` | string (ISO-8601) | The essay's `updated_at` when the suggestion was authored — the same token `expected_version` uses. Provenance, not a guard: it is recorded, never compared on the accept path. |
+| `turn_message_id` | string (uuid) or null | The assistant turn that authored it, for traceability back to the conversation. Null outside a live turn (tests, CLI). |
+
+Four rules govern the array, and code depends on all four:
+
+- **The two spaces are not interchangeable.** `old_text`/`new_text` are markdown and are
+  the *only* fields the server ever applies — accept runs `essay_markdown.apply_edits`
+  in markdown space. The `_plain` twins are the *only* fields a client may anchor with:
+  the live editor carries formatting as marks, so `"I love **pizza**."` never matches a
+  document that reads `"I love pizza."`. They are produced by joining blocks with **no
+  separator**, matching ProseMirror's own `textContent`; any other block separator on
+  either side searches for a differently-shaped string and silently finds nothing.
+- **Pending is the only state.** There is no `status` field. A resolved suggestion is
+  removed from the array, so every persisted element is pending by definition, and a
+  second accept of the same `id` is a 404 rather than a second application.
+- **Staleness is derived, never stored.** A suggestion is stale when its anchor no longer
+  matches the essay uniquely — zero matches or more than one. The server discovers this
+  at accept time (`apply_edits` raises; the essay is left untouched and the caller gets
+  422); the client discovers it by searching the live document for `old_text_plain` and
+  finding no unique match, and paints the change inert rather than dropping it.
+- **A batch is independently anchorable.** Every element must match the essay as it reads
+  *now*, not only after a sibling element lands. `apply_edits` validates an `edit_essay`
+  batch cumulatively, which is correct for a direct write that commits as one document;
+  suggest mode therefore re-validates each edit against the original document and refuses
+  the whole batch if one depends on another. Without that, accepting out of order would
+  match different text than the agent described.
+
+### `counselle.sessions.essay_id` — one durable thread per essay
+
+`uuid NULL REFERENCES counselle.essays(id) ON DELETE CASCADE`
+(`migrations/0020_essay_sessions.sql`), with:
+
+```sql
+CREATE UNIQUE INDEX sessions_essay_id_idx
+  ON counselle.sessions (essay_id)
+  WHERE essay_id IS NOT NULL;
+```
+
+**The invariant this index enforces: at most one session row may point at any given
+essay, while any number of rows may point at none.** The unbounded `NULL` half is not
+what the `WHERE` clause buys — Postgres treats `NULL`s as distinct in a unique index by
+default, so a plain `UNIQUE (essay_id)` would already permit every main-chat session. What
+the predicate buys is that the index covers only the rows the rule is about, that it is
+immune to a later `NULLS NOT DISTINCT`, and — the load-bearing part — that it is an exact
+conflict target.
+
+That last point is why the index is not decorative:
+
+- `app/sessions.py::get_or_create_essay_session` infers it with
+  `ON CONFLICT (essay_id) WHERE essay_id IS NOT NULL DO NOTHING`; the predicate must
+  match the index's for the inference to resolve. The insert *is* the concurrency guard:
+  two racing first-opens of the same essay serialize, and the loser reads the winner's row
+  instead of creating a second thread the student would silently lose half a conversation
+  to.
+- It is what makes "the conversation about an essay follows the essay" a database fact
+  rather than a client-side convention — the panel's thread survives a different browser
+  or device because it was never stored in one.
+
+Ownership is enforced in the same statement rather than assumed by the caller: the insert
+selects the essay row under the caller's `user_id` with `archived_at IS NULL`, so an essay
+that is not this student's inserts nothing and matches nothing, and the caller gets a 404.
+
+`essay_id IS NOT NULL` is also a filter, not only a key: `list_sessions` excludes these
+rows, so an essay's panel thread never appears in the main chat list, and
+`POST /v1/sessions/{id}/messages` refuses an essay-surface turn whose request names a
+different essay than the session row does.

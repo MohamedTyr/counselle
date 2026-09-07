@@ -94,3 +94,41 @@ about them. `FOR UPDATE` inside `update_essay`'s transaction means a content
 write now briefly holds a row lock across the read-modify-write, which is
 correct for the single-row, low-contention essay-update case this guards but
 would need revisiting if essay writes ever became bulk or high-throughput.
+
+## Amendment (ADR 0037) — the suggestions layer wraps this mechanic, as designed
+
+The "Direct edits, not a suggestions layer" decision above was scoped to the
+absence of a surface to accept suggestions on. That surface now exists (the
+essay editor's AI panel, ADR 0037), and the layer landed the way this ADR
+predicted: **wrapping this edit mechanic, not replacing it.**
+
+- `edit_essay` and `write_essay` keep their exact model-facing vocabulary. The
+  only thing that changes is the sink, chosen by a per-turn `write_mode`
+  (`direct` | `suggest`) fixed at tool-construction time — so it is a property
+  of which surface asked, never something a tool call selects. `edit_essay`
+  gains one optional per-edit field, `rationale`, which is shown to the student
+  beside the change and ignored in `direct` mode.
+- A `suggest`-mode write appends `{old_text, new_text}` items to the
+  already-existing `counselle.essays.suggestions` jsonb column instead of
+  committing content; accept applies exactly one such item through the same
+  `essay_markdown.apply_edits`. Markdown stays the only space the server edits
+  in. The persisted `old_text_plain`/`new_text_plain` twins exist solely so the
+  live editor can *anchor* a change (where formatting is marks, not literal
+  `**`); they are never read on the accept path.
+- **One rule is genuinely new, and it is a consequence of review, not of
+  storage.** `apply_edits` validates a batch cumulatively — edit *i* against the
+  buffer edits *0..i-1* already mutated — which is right when a batch commits
+  as one document. Suggestions are accepted one at a time, in any order, so
+  suggest mode validates every edit *independently against the original
+  document* and refuses the whole batch if any member depends on a sibling
+  landing first. Direct mode's cumulative semantics are unchanged.
+- `expected_version` still guards every content write, including the
+  suggest-mode paths, and a resolve takes the essay's row lock for the whole
+  read-then-write, so a double-accept is a 404 rather than a second
+  application.
+- **Staleness is not a stored field.** A resolved suggestion is *removed* from
+  the array rather than tombstoned, so every persisted item is pending by
+  definition; "stale" is derived — server-side by `apply_edits` failing to match
+  uniquely at accept time, client-side by the decoration plugin failing to
+  anchor. The element shape is specified in `docs/DATABASE_GUIDE.md` §10, and
+  the end-to-end lifecycle in `docs/ARCHITECTURE.md` §39.
