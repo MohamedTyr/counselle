@@ -57,6 +57,29 @@ function editorUpdate(editor: Editor): EssayEditorUpdate {
   };
 }
 
+/*
+ * "Is this the same document?", with KEY ORDER LEFT OUT OF THE ANSWER.
+ *
+ * The `content` prop round-trips through a Postgres `jsonb` column, which
+ * normalises object key order: the server returns `{"text": …, "type": "text"}`
+ * where Tiptap emits `{"type": "text", "text": …}`. A plain `JSON.stringify`
+ * comparison of the two therefore never matches on any document containing
+ * text — so the resync's "skip a genuine no-op" guard below never skipped
+ * anything, and every settled autosave replaced the whole document with a copy
+ * of itself. Sorting keys is what makes that guard mean what it says.
+ */
+function canonicalJson(value: unknown): string {
+  return JSON.stringify(value, (_key, raw: unknown) =>
+    raw !== null && typeof raw === "object" && !Array.isArray(raw)
+      ? Object.fromEntries(
+          Object.entries(raw as Record<string, unknown>).sort(([a], [b]) =>
+            a.localeCompare(b),
+          ),
+        )
+      : raw,
+  );
+}
+
 export function useEssayEditor({
   content,
   onBlur,
@@ -66,7 +89,7 @@ export function useEssayEditor({
   suggestions,
   syncContent,
 }: UseEssayEditorOptions) {
-  const contentKey = useMemo(() => JSON.stringify(content), [content]);
+  const contentKey = useMemo(() => canonicalJson(content), [content]);
   /* The extension is configured once, when the editor is built, so its
    * keyboard shortcuts close over whatever was passed at that moment. These
    * two are stable but read the handler through a ref at call time, so
@@ -164,28 +187,54 @@ export function useEssayEditor({
     },
   });
 
+  /*
+   * A resync REPLACES THE WHOLE DOCUMENT, so it must re-anchor, never map.
+   *
+   * Every position inside a replaced range maps onto that range's boundary, so
+   * the plugin's mapping branch turns each pending change into a zero-width
+   * range: `buildDecorations` paints nothing for it and the bar calls it
+   * outdated, while the server still holds a row that anchors perfectly. The
+   * recompute branch searches the new document for each anchor instead, which
+   * is the only answer a replacement survives — so this carries the same meta,
+   * in the same transaction, and for the same reason as the accept flow
+   * (`useEssaySuggestions.applyToEditor`).
+   *
+   * An effect event so the current list is read without its churning identity
+   * becoming a dependency, exactly as `reanchorSuggestions` below does.
+   */
+  const resyncContent = useEffectEvent((target: Editor, next: TiptapContent) => {
+    target
+      .chain()
+      .setContent(next, { emitUpdate: false })
+      .command(({ tr }) => {
+        tr.setMeta(SuggestionPluginKey, { suggestions: suggestions ?? [] });
+        return true;
+      })
+      .run();
+  });
+
   useEffect(() => {
     if (!editor || !syncContent) {
       return;
     }
 
     /* A resync that would replace the document with what it already contains
-     * is not free: `setContent` rebuilds the doc and drops the caret to the
-     * start. It fires after an accepted suggestion, whose content the accept
-     * flow has already applied itself (in one transaction with the new
-     * suggestion list, which this call deliberately carries no meta for). The
-     * comparison is byte-exact, so it only ever skips a genuine no-op. */
-    if (JSON.stringify(editor.getJSON()) === contentKey) {
+     * is not free: `setContent` rebuilds the doc and moves the caret out of
+     * the student's sentence. It fires after an accepted suggestion, whose
+     * content the accept flow has already applied itself. The comparison
+     * ignores key order (`canonicalJson`), because the server's copy comes
+     * back from `jsonb` reordered and a byte-exact one could never match. */
+    if (canonicalJson(editor.getJSON()) === contentKey) {
       return;
     }
 
-    editor.commands.setContent(content, { emitUpdate: false });
+    resyncContent(editor, content);
   }, [content, contentKey, editor, syncContent]);
 
-  /* Re-anchor whenever the suggestion list itself changes. The meta is what
-   * tells the plugin to recompute rather than map — a plain content resync
-   * above deliberately carries none, which is the only thing separating the
-   * two cases.
+  /* Re-anchor whenever the suggestion list itself changes — the list moved
+   * under a document that did not. The meta is what tells the plugin to
+   * recompute rather than map; mapping is only ever right for an ordinary
+   * edit, which is the one case that dispatches no meta at all.
    *
    * An effect event, so the dispatch reads the current list without the list's
    * churning identity being a dependency: keyed on the value, it would

@@ -110,12 +110,14 @@ export function useEssaySuggestions({
    *
    * A bare `setContent` produces a `docChanged` transaction with no meta,
    * which the decoration plugin answers by MAPPING every other anchor through
-   * a whole-document replacement — mapping then fails re-validation and flips
-   * every sibling suggestion to stale the instant one is accepted. The plugin
-   * checks its meta strictly before `docChanged`, so a transaction carrying
-   * both recomputes every remaining anchor from scratch instead. Tiptap's
-   * chained commands accumulate into a single shared transaction, which is
-   * what makes "both, atomically" expressible at all.
+   * a whole-document replacement — and mapping collapses each one onto the
+   * replaced range's boundary, so every sibling suggestion goes zero-width and
+   * stale the instant one is accepted, painting nothing. The plugin checks its
+   * meta strictly before `docChanged`, so a transaction carrying both
+   * recomputes every remaining anchor from scratch instead. Tiptap's chained
+   * commands accumulate into a single shared transaction, which is what makes
+   * "both, atomically" expressible at all. `useEssayEditor`'s content resync
+   * replaces the document too, and carries the meta for the same reason.
    *
    * `emitUpdate: false` keeps this off the autosave path: the server already
    * has this content, and re-saving it is what rule 1 above exists to prevent.

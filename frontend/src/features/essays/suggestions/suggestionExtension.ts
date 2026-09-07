@@ -530,11 +530,13 @@ export const SuggestionExtension = Extension.create<SuggestionExtensionOptions>(
                * Accepting a suggestion replaces the whole document with the
                * server's authoritative copy AND changes the suggestion list, in
                * one transaction. Mapping every other anchor through a
-               * whole-document replacement would fail re-validation and flip
-               * every sibling to stale the moment one change was accepted, so a
-               * transaction carrying both must recompute. The two cases are told
-               * apart by which code issued them — the editor's ordinary content
-               * resync never attaches this meta, the accept path always does.
+               * whole-document replacement cannot work: every position inside
+               * the replaced range lands on that range's boundary, so each
+               * anchor collapses to a zero-width stale span that paints
+               * nothing at all. Any transaction that replaces the document
+               * must therefore carry this meta and recompute — the accept path
+               * and the editor's content resync both do. Mapping is for an
+               * ordinary edit, which carries no meta.
                */
               const meta = tr.getMeta(SuggestionPluginKey) as
                 | SuggestionMeta
