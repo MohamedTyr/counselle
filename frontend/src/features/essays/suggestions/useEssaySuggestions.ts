@@ -20,7 +20,7 @@ import { isLaterVersion } from "@/features/essays/useEssayAutosave";
 /*
  * Resolving a tracked change: flush, POST, apply what the server returns.
  *
- * FOUR RULES, EACH ONE A BUG THIS FLOW USED TO HAVE.
+ * FIVE RULES, EACH ONE A BUG THIS FLOW USED TO HAVE.
  *
  * 1. NO OPTIMISTIC EDIT. Applying the accepted text locally would fire the
  *    editor's `onUpdate`, queue an autosave of the markdown-stripped plain
@@ -42,6 +42,11 @@ import { isLaterVersion } from "@/features/essays/useEssayAutosave";
  * 4. THE RESPONSE IS RE-QUALIFIED WHEN IT LANDS, NOT ONLY BEFORE IT IS SENT.
  *    A whole document computed a second ago is not automatically newer than
  *    the one on screen. See `resolve`.
+ *
+ * 5. THIS IS NOT THE ONLY WRITER OF THIS CACHE KEY. A background read of the
+ *    essay, issued before the resolve committed, lands after it and overwrites
+ *    it — putting the resolved change back on screen as pending. See the
+ *    invalidation in `resolve`.
  */
 
 /* This one message has to outlive the app-wide toast default: it is the only
@@ -223,6 +228,31 @@ export function useEssaySuggestions({
           if (!serverMovedOn) {
             adoptServerEssay(queryClient, essayId, essay);
           }
+          /* SYNCHRONOUSLY AFTER THE WRITE ABOVE, never separated from it by an
+           * await — the gap is the whole hazard.
+           *
+           * This is not the only writer of this key. An agent turn settling in
+           * the docked chat panel invalidates it (`EssayEditorRoute
+           * .refetchEssay`), and so does every workspace change event
+           * (`api/workspace/events.ts`). A read those issued BEFORE this
+           * resolve committed carries a document that still contains the change
+           * the student has just resolved, and landing after the write above it
+           * overwrote it — the resolved change came back on screen as pending,
+           * counted by the honesty readout, while the server had it right the
+           * whole time. This resolve's own change event does eventually correct
+           * that, but only eventually: which of the two lands first is a race,
+           * and "wrong until the next event arrives" is still wrong.
+           *
+           * Re-invalidating is React Query's own answer, and it is the answer to
+           * BOTH directions. `refetchQueries` defaults to `cancelRefetch`, so
+           * this silently cancels whatever read is in flight — its response can
+           * no longer reach the cache — and the read is re-issued rather than
+           * dropped, which is what keeps an essay the agent rewrote from the
+           * main chat reaching this editor. The replacement is answered after
+           * the commit, so it can only carry this state or something newer. */
+          void queryClient.invalidateQueries({
+            queryKey: workspaceKeys.essays.detail(essayId),
+          });
           if (target.action === "accept" && !serverMovedOn && editorIsAhead) {
             toast.warning("Saved, but not shown here", {
               description:

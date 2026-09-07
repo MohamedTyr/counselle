@@ -3,6 +3,7 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
+import { useEssay } from "@/api/workspace/hooks/essays";
 import { workspaceKeys } from "@/api/workspace/keys";
 import { useEssaySuggestions } from "@/features/essays/suggestions/useEssaySuggestions";
 import { SuggestionPluginKey } from "@/features/essays/suggestions/suggestionExtension";
@@ -22,12 +23,14 @@ import { createTestQueryClient } from "@/test/render-app";
 
 const accept = vi.hoisted(() => vi.fn());
 const acceptAll = vi.hoisted(() => vi.fn());
+const getEssay = vi.hoisted(() => vi.fn());
 const reject = vi.hoisted(() => vi.fn());
 const warn = vi.hoisted(() => vi.fn());
 
 vi.mock("@/api/workspace/essays", () => ({
   acceptAllSuggestions: acceptAll,
   acceptSuggestion: accept,
+  getEssay,
   rejectAllSuggestions: vi.fn(),
   rejectSuggestion: reject,
 }));
@@ -385,6 +388,90 @@ describe("accept applies only what the server returned", () => {
         workspaceKeys.essays.detail(ESSAY_ID),
       )?.updated_at,
     ).toBe("2026-09-05T10:00:00.500000Z");
+  });
+
+  test("a background read still in flight cannot re-show the accepted change", async () => {
+    /* The editor is not the only thing reading this essay. Every agent turn
+     * that settles in the docked chat panel invalidates the same query key
+     * (`EssayEditorRoute.refetchEssay`), and that read is issued against the
+     * server as it was BEFORE the accept committed. Landing after the accept's
+     * own cache write, it used to overwrite it — content and suggestion list
+     * together — and the change the student had just accepted came back on
+     * screen as pending, with the honesty readout counting it. The server was
+     * right the whole time; only the screen lied.
+     *
+     * The fix is not to drop the background read: an agent writing the essay
+     * from the main chat has to reach this editor. It is to re-issue it, which
+     * both cancels the in-flight stale one and guarantees the state that lands
+     * is the one after the accept. */
+    const stale = serverEssay([suggestionRow("a")], "2026-09-05T10:00:00Z");
+    const accepted = serverEssay([], "2026-09-05T10:00:05Z");
+    const backgroundRead = deferred<unknown>();
+    const acceptResponse = deferred<unknown>();
+    accept.mockReturnValue(acceptResponse.promise);
+    getEssay
+      // The editor's own first read of the essay.
+      .mockResolvedValueOnce(stale)
+      // The agent turn's refetch — issued before the accept commits, and
+      // deliberately left unanswered until after it has.
+      .mockReturnValueOnce(backgroundRead.promise)
+      // Whatever is read after that sees the accept.
+      .mockResolvedValue(accepted);
+
+    const editor = fakeEditor();
+    const queryClient = createTestQueryClient();
+    const view = renderHook(
+      () => ({
+        essay: useEssay(ESSAY_ID),
+        suggestions: useEssaySuggestions({
+          editor: editor as never,
+          essayId: ESSAY_ID,
+          flush: () => Promise.resolve(),
+          hasUnsavedChanges: () => false,
+        }),
+      }),
+      {
+        wrapper: ({ children }: { children: ReactNode }) => (
+          <QueryClientProvider client={queryClient}>
+            {children}
+          </QueryClientProvider>
+        ),
+      },
+    );
+    await waitFor(() => expect(view.result.current.essay.data).toEqual(stale));
+
+    act(() => {
+      view.result.current.suggestions.acceptOne("a");
+    });
+    await waitFor(() => expect(accept).toHaveBeenCalledTimes(1));
+
+    // An agent turn settles in the docked panel while the accept is in flight.
+    act(() => {
+      void queryClient.invalidateQueries({
+        queryKey: workspaceKeys.essays.detail(ESSAY_ID),
+      });
+    });
+    await waitFor(() => expect(getEssay).toHaveBeenCalledTimes(2));
+
+    await act(async () => {
+      acceptResponse.resolve(accepted);
+      await acceptResponse.promise;
+    });
+    // Only now does the pre-accept read come back.
+    await act(async () => {
+      backgroundRead.resolve(stale);
+      await backgroundRead.promise;
+    });
+    await waitFor(() =>
+      expect(view.result.current.suggestions.isResolving).toBe(false),
+    );
+
+    expect(
+      queryClient.getQueryData(workspaceKeys.essays.detail(ESSAY_ID)),
+    ).toEqual(accepted);
+    // Re-issued, not dropped: a genuinely newer server state still has a way in.
+    await waitFor(() => expect(getEssay).toHaveBeenCalledTimes(3));
+    expect(view.result.current.essay.data).toEqual(accepted);
   });
 
   test("reject never touches the document", async () => {
