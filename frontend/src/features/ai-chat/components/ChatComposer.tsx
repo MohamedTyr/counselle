@@ -37,6 +37,29 @@ import { useSkillPicker } from "@/features/skill-picker/useSkillPicker";
 import { useAutoResizeTextarea } from "@/hooks/use-auto-resize-textarea";
 import { cn } from "@/lib/utils";
 
+/*
+ * A selection-scoped ask, as a chip.
+ *
+ * `variant="outline"` and not the soft fill the chips *below* the textarea wear
+ * (`composerControlButtonClass`): those open menus and set preferences, this
+ * one sends a message the moment it is pressed. Same row of the composer, two
+ * different consequences — so they must not look like one family. Everything
+ * that makes it feel pressable is `buttonVariants`' own: the 150ms colour
+ * hover, the rim-light that flips to a depression on press, the focus ring, and
+ * the coarse-pointer hit-area block. None of it is redrawn here.
+ *
+ * `rounded-md` because DESIGN.md §5 reads a radius: `md` is "a control inside a
+ * control", which is what a chip inside the composer is. The vendored AI
+ * Elements `Suggestion` shipped `rounded-full`, a shape this app spends only on
+ * avatars, dots and tracks.
+ *
+ * `sm:text-[13px]` is not redundant with `text-[13px]`: `buttonVariants` ships
+ * `sm:text-sm` in a different variant bucket, which silently wins from 640px up
+ * — the trap `composer-control.ts` documents for the chips below.
+ */
+const SELECTION_ACTION_CLASS =
+  "rounded-md text-[13px] before:rounded-[calc(var(--radius-md)-1px)] sm:text-[13px]";
+
 const DEFAULT_PLACEHOLDER = "Message Counselle";
 const CLARIFY_PLACEHOLDER = "Answer above, or reply in your own words...";
 const CLARIFY_HELPER = "Answering the question above";
@@ -74,6 +97,14 @@ export type ChatComposerProps = {
    */
   selectionChip?: string | null;
   onClearSelection?: () => void;
+  /**
+   * Essay-panel only: asks that act on the selected text, offered as chips
+   * under the chip naming it. Rendered only while a selection is attached, so
+   * "this" in each one always has a referent on screen — the row is not a
+   * standing toolbar, it is the verbs for a highlight. Structural on purpose:
+   * the composer states the shape it renders, the essay panel owns the words.
+   */
+  selectionActions?: readonly { label: string; prompt: string }[];
 };
 
 export function ChatComposer({
@@ -99,6 +130,7 @@ export function ChatComposer({
   hideResponseMode = false,
   selectionChip = null,
   onClearSelection,
+  selectionActions = [],
 }: ChatComposerProps) {
   const [isComposing, setIsComposing] = useState(false);
   const [textareaScrollTop, setTextareaScrollTop] = useState(0);
@@ -182,25 +214,61 @@ export function ChatComposer({
            * `Badge` rather than a bespoke chip — it is the same "something
            * scoped is attached to this turn" claim the citation chip makes.
            */
-          <div className="flex px-[var(--workspace-composer-inset)] pt-3">
-            <Badge
-              className="min-w-0 max-w-full gap-1.5 py-0.5 pr-1 pl-2 font-normal"
-              variant="outline"
-            >
-              <TextQuote aria-hidden="true" className="size-3.5 shrink-0" />
-              <span className="truncate">{selectionChip}</span>
-              <button
-                aria-label="Clear the selected text"
-                /* Not a `Button`, so §11.8's coarse-pointer hit area has to be
-                 * added by hand: a 16px target is unhittable on a touch
-                 * screen. */
-                className="-mr-0.5 relative flex size-4 shrink-0 cursor-pointer items-center justify-center rounded-sm text-muted-foreground transition-colors duration-150 ease-out hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background focus-visible:outline-none motion-reduce:transition-none pointer-coarse:after:absolute pointer-coarse:after:size-full pointer-coarse:after:min-h-11 pointer-coarse:after:min-w-11"
-                onClick={onClearSelection}
-                type="button"
+          <div className="flex flex-col gap-2 px-[var(--workspace-composer-inset)] pt-3">
+            <div className="flex">
+              <Badge
+                className="min-w-0 max-w-full gap-1.5 py-0.5 pr-1 pl-2 font-normal"
+                variant="outline"
               >
-                <X aria-hidden="true" className="size-3" />
-              </button>
-            </Badge>
+                <TextQuote aria-hidden="true" className="size-3.5 shrink-0" />
+                <span className="truncate">{selectionChip}</span>
+                <button
+                  aria-label="Clear the selected text"
+                  /* Not a `Button`, so §11.8's coarse-pointer hit area has to be
+                   * added by hand: a 16px target is unhittable on a touch
+                   * screen. */
+                  className="-mr-0.5 relative flex size-4 shrink-0 cursor-pointer items-center justify-center rounded-sm text-muted-foreground transition-colors duration-150 ease-out hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background focus-visible:outline-none motion-reduce:transition-none pointer-coarse:after:absolute pointer-coarse:after:size-full pointer-coarse:after:min-h-11 pointer-coarse:after:min-w-11"
+                  onClick={onClearSelection}
+                  type="button"
+                >
+                  <X aria-hidden="true" className="size-3" />
+                </button>
+              </Badge>
+            </div>
+            {selectionActions.length > 0 && (
+              /*
+               * Under the chip that names the selection, never beside it: each
+               * verb says "this", and the only thing that gives "this" a
+               * referent is the quoted text directly above. Wrapping rather
+               * than scrolling — three verbs in a 380px panel is close enough
+               * to the edge that a second line is the honest outcome, and a
+               * horizontally scrolled row hides an offer behind a gesture
+               * nobody is told about.
+               *
+               * `gap-2` is 8px of real dead space between neighbours: unlike
+               * the icon-only pair in `ResolveButtons`, these are wider than
+               * the 44px coarse-pointer floor, so no hit area grows past its
+               * own button and the visual gap IS the gap between targets.
+               */
+              <div
+                aria-label="Ask Counselle about the selected text"
+                className="flex flex-wrap gap-2"
+                role="group"
+              >
+                {selectionActions.map(({ label, prompt }) => (
+                  <Button
+                    className={SELECTION_ACTION_CLASS}
+                    disabled={disabled}
+                    key={prompt}
+                    onClick={() => submitText(prompt)}
+                    type="button"
+                    variant="outline"
+                  >
+                    {label}
+                  </Button>
+                ))}
+              </div>
+            )}
           </div>
         )}
 

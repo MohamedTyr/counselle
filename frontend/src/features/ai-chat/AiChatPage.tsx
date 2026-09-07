@@ -23,6 +23,7 @@ import { ChatComposer } from "./components/ChatComposer";
 import { ChatMessages } from "./components/ChatMessages";
 import type { ClarifyWidgetAnswer } from "./components/clarify/types";
 import { EssayDocumentPanel } from "./components/EssayDocumentPanel";
+import { ESSAY_QUICK_ACTIONS } from "@/features/essays/essay-quick-actions";
 import { EssayPanelEmpty } from "./components/EssayPanelEmpty";
 import type { MessageSourcesPayload } from "./components/MessageSources";
 import { SourcesRail } from "./components/SourcesRail";
@@ -586,6 +587,7 @@ export function AiChatPage({
             hideResponseMode={isEssayPanel}
             isSubmitting={isSubmitting}
             onClearSelection={onClearEssaySelection}
+            selectionActions={isEssayPanel ? ESSAY_QUICK_ACTIONS : undefined}
             selectionChip={isEssayPanel ? essayContext?.selection : null}
             onStop={stopGenerating}
             onResponseModeChange={setSelectedResponseMode}

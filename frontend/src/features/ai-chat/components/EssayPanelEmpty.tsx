@@ -1,3 +1,5 @@
+import { ESSAY_QUICK_ACTIONS } from "@/features/essays/essay-quick-actions";
+
 /*
  * The first thing a student sees in the essay panel, and by a wide margin the
  * state it spends the most time in.
@@ -25,21 +27,6 @@
  * honestly instead of being padded out to fill it.
  */
 
-const OPENERS = [
-  {
-    gloss: "swap a general claim for the detail behind it",
-    prompt: "Make this more specific",
-  },
-  {
-    gloss: "cut words without losing the meaning",
-    prompt: "Tighten this",
-  },
-  {
-    gloss: "turn the conclusion back into the scene it came from",
-    prompt: "Show, don't tell",
-  },
-] as const;
-
 type EssayPanelEmptyProps = {
   /** The student has text highlighted, so the openers act on that text. */
   hasSelection: boolean;
@@ -63,7 +50,7 @@ export function EssayPanelEmpty({
         </p>
       </div>
       <ul className="flex flex-col gap-0.5">
-        {OPENERS.map(({ gloss, prompt }) => (
+        {ESSAY_QUICK_ACTIONS.map(({ gloss, prompt }) => (
           <li key={prompt}>
             {/* The editor's own row-button vocabulary (`SuggestionsBar`): a
              * colour-only hover at 150ms, never a transform (§11.1). */}

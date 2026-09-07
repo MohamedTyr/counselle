@@ -775,15 +775,25 @@ lineage a file uses before adding to it, because the state attributes differ
 
 ### 10.5 The AI Elements directory is mostly vendored scaffolding
 
-`components/ai-elements/` contains 12 files. **Only two are actually imported:**
+`components/ai-elements/` contains 11 files. **Only two are actually imported:**
 `message.tsx` (Message, MessageContent, MessageResponse/Streamdown, MessageActions) and
-`inline-citation.tsx`. The other ten — `artifact`, `code-block`, `chain-of-thought`,
-`conversation`, `prompt-input`, `reasoning`, `shimmer`, `sources`, `suggestion`, `task`
-— have **zero importers**. `tool.tsx` has been deleted.
+`inline-citation.tsx`. The other nine — `artifact`, `code-block`, `chain-of-thought`,
+`conversation`, `prompt-input`, `reasoning`, `shimmer`, `sources`, `task` — have **zero
+importers**. `tool.tsx` and `suggestion.tsx` have been deleted.
 
 **Do not treat that directory as representative of the design system.** The real chat
 system is the bespoke stack in §15. If you need a work-visibility component, extend
 `ToolBeat`, not `chain-of-thought.tsx`.
+
+**A vendored file is not automatically reusable — check it against *our* primitives.**
+`suggestion.tsx` was deleted at the one moment it finally had a caller (the essay panel's
+selection-scoped verb chips, §15.7). It wraps shadcn's Radix `ScrollArea`, and
+`ui/scroll-area.tsx` is a Base UI rewrite with a different contract — the root is
+`size-full` and renders its own scrollbars, so `Suggestions` would have stretched to its
+parent's height and left a stray `ScrollBar` inside the content. Its `Suggestion` half was
+a `Button` wearing `rounded-full px-4`, a shape §5 reserves for avatars, dots and tracks.
+Both halves were being overridden more than used, so the chips are a `Button` row and the
+file is gone.
 
 ---
 
@@ -1367,6 +1377,25 @@ below it: what the student highlighted is the subject of the sentence they are a
 write, not a third preference beside "Sources". It is a `Badge` with a `TextQuote` icon
 and a bespoke clear button, which therefore carries §11.8's coarse-pointer block by hand.
 
+Directly under it, and only while it is there, sit the **three selection-scoped verbs**
+("Make specific" / "Tighten" / "Show, don't tell", from `essay-quick-actions.ts` — the one
+list the panel's empty state also reads). Each sends its full prompt the moment it is
+pressed. Three things make them read as actions rather than as more settings:
+
+- **`variant="outline"`, not the composer's soft-fill chip.** The chips *below* the
+  textarea open menus; these send a message. Same composer, two consequences, so they must
+  not look like one family. Everything tactile is `buttonVariants`' own — the 150ms colour
+  hover, the rim-light that flips to a depression on press, the focus ring, §11.8's hit
+  area. Nothing is redrawn locally.
+- **`rounded-md`** (§5: "a control inside a control"), at `text-[13px]` with the explicit
+  `sm:` twin §6.3 warns about, and content-sized rather than a uniform pill row.
+- **Position is the whole affordance.** Each verb says "this"; the quoted selection
+  directly above is what gives "this" a referent, so the row is never rendered without it.
+
+Measured: 32px tall on desktop / 36px on mobile, `gap-2` giving a true 8px between hit
+areas (the buttons are wider than 44px, so the coarse-pointer block grows them only
+vertically), one line in the docked 380px panel and a clean two-line wrap at 375px.
+
 ---
 
 ## 16. Accessibility
@@ -1542,7 +1571,7 @@ Ranked. Each is small; none is speculative.
 | 7 | **Reduced-motion gaps on spinners** — `spinner.tsx:12`, `sonner.tsx:24`, `AgentRunView.tsx:42`, `ChatMessage.tsx:67` | app-wide |
 | 8 | **Two dropdown-menu implementations** — `ui/menu.tsx` (Base UI, aliased as `DropdownMenu*`, 3 importers) and `ui/dropdown-menu.tsx` (Radix, 10 importers). Same import name, different library. | ui |
 | 9 | **`AiComposer.tsx` and `ChatComposer.tsx`** are ~280-line near-duplicates | ai-composer, ai-chat |
-| 10 | **Ten unused `ai-elements` files** with zero importers | components/ai-elements |
+| 10 | **Nine unused `ai-elements` files** with zero importers | components/ai-elements |
 | 11 | **Disabled opacity split** 50 vs 64 | ui |
 | 12 | **Focus ring width split** 2px vs 3px on form controls | ui |
 | 13 | **`text-[13px]` scattered** in 22 places; promote to a `text-chrome` token | app-wide |
