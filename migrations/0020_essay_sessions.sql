@@ -20,7 +20,12 @@
 -- (e.g. sessions_user_fk in 0004_users.sql). Essays are soft-deleted via
 -- archived_at and never hard-deleted, so in practice this only fires on the
 -- dev-purge / account-deletion path.
--- depends: 0019_drop_school_requirements
+-- Depends on 0018, not on 0019_drop_school_requirements: this migration only
+-- touches counselle.sessions (0001) and counselle.essays (0007), and 0019 is
+-- deliberately held unapplied pending owner sign-off (TODOS.md). Chaining onto
+-- it would make applying this feature force that owner-gated drop. 0019 and
+-- this migration are now independent siblings off 0018.
+-- depends: 0018_drop_essay_prompt_drafts
 
 ALTER TABLE counselle.sessions
   ADD COLUMN essay_id uuid REFERENCES counselle.essays(id) ON DELETE CASCADE;
