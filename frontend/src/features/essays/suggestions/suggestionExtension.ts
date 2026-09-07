@@ -260,6 +260,27 @@ function bracket(
   );
 }
 
+/*
+ * The class that keeps two fragments rendered back to back from welding into
+ * one mark. A replacement's struck word and its proposed one collide as
+ * "goodnorth" — one nonsense word for as long as it takes to parse the two
+ * colours apart — and two separately-decidable deletions divided only by an
+ * unstruck full stop run together as a single red bar, which hides how many
+ * decisions the student is being asked to make.
+ *
+ * WHICH FRAGMENTS ABUT IS DECIDED HERE, FROM THE POSITIONS, and reaches the
+ * stylesheet as a class. A CSS sibling selector cannot decide it: `bracket()`
+ * puts one or two id-less screen-reader markers between any two fragments, so
+ * `+` has to hop an amount that varies by case, and it skips text nodes, so
+ * whichever arms do fire also separate pairs with whole words of prose between
+ * them. The builder already holds both ranges exactly.
+ */
+const ABUTS_CLASS = "essay-suggestion-abuts";
+
+function decorationClass(className: string, abuts: boolean): string {
+  return abuts ? `${className} ${ABUTS_CLASS}` : className;
+}
+
 function decorationAttributes(
   suggestion: EssaySuggestion,
   className: string,
@@ -284,10 +305,11 @@ function insertionWidget(
   suggestion: EssaySuggestion,
   text: string,
   hovered: boolean,
+  abuts: boolean,
 ) {
   return () => {
     const element = document.createElement("ins");
-    element.className = "essay-suggestion-insert";
+    element.className = decorationClass("essay-suggestion-insert", abuts);
     element.contentEditable = "false";
     element.dataset.suggestionId = suggestion.id;
     element.dataset.suggestionKind = suggestion.kind;
@@ -303,86 +325,126 @@ function insertionWidget(
   };
 }
 
+/**
+ * Paint one resolved suggestion, and report where its last fragment ends so the
+ * caller can tell whether the next one abuts it. `previousEnd` is the same
+ * value for the fragment before; it comes back unchanged when this suggestion
+ * paints nothing, because something invisible cannot separate two marks.
+ */
+function pushSuggestionDecorations(
+  decorations: Decoration[],
+  doc: ProseMirrorNode,
+  entry: ResolvedSuggestion,
+  hoveredId: string | null,
+  previousEnd: number | null,
+): number | null {
+  const { from, to, suggestion } = entry;
+  if (from === null || to === null) {
+    return previousEnd;
+  }
+
+  const hovered = suggestion.id === hoveredId;
+
+  if (entry.stale) {
+    // The whole anchor, untrimmed and inert: what was proposed, marked as no
+    // longer applicable rather than quietly removed.
+    if (to <= from) {
+      return previousEnd;
+    }
+
+    decorations.push(
+      Decoration.inline(from, to, {
+        ...decorationAttributes(
+          suggestion,
+          decorationClass("essay-suggestion-stale", previousEnd === from),
+          hovered,
+        ),
+        title: STALE_LABEL,
+      }),
+    );
+    bracket(decorations, from, to, SR_MARKERS.stale);
+    return to;
+  }
+
+  const diff = diffSuggestionText(
+    suggestion.oldTextPlain,
+    suggestion.newTextPlain,
+  );
+  const removedFrom = positionAtTextOffset(
+    doc,
+    from,
+    to,
+    diff.prefixLength,
+    "start",
+  );
+  const removedTo = positionAtTextOffset(
+    doc,
+    from,
+    to,
+    suggestion.oldTextPlain.length - diff.suffixLength,
+    "end",
+  );
+  const abuts = previousEnd === removedFrom;
+
+  // An inline decoration spanning several blocks is split per text node by
+  // DecorationSet itself, so a multi-paragraph change needs no hand-rolled
+  // fragmentation — every rendered piece still carries the same id.
+  const struck = diff.oldMiddle !== "" && removedTo > removedFrom;
+  if (struck) {
+    decorations.push(
+      Decoration.inline(removedFrom, removedTo, {
+        ...decorationAttributes(
+          suggestion,
+          decorationClass("essay-suggestion-delete", abuts),
+          hovered,
+        ),
+        nodeName: "del",
+      }),
+    );
+    bracket(decorations, removedFrom, removedTo, SR_MARKERS.delete);
+  }
+
+  if (diff.newMiddle !== "") {
+    // After the struck text, never per block: one insertion, one widget. A
+    // replacement's insertion always touches its own <del>, which is the
+    // "goodnorth" pair — so it separates whenever that <del> was painted.
+    decorations.push(
+      Decoration.widget(
+        removedTo,
+        insertionWidget(suggestion, diff.newMiddle, hovered, struck || abuts),
+        { marks: [], side: 1 },
+      ),
+    );
+  }
+
+  return struck || diff.newMiddle !== "" ? removedTo : previousEnd;
+}
+
+/** Anchor start, with unanchored suggestions sorted last. */
+function anchorStart(entry: ResolvedSuggestion): number {
+  return entry.from ?? Number.MAX_SAFE_INTEGER;
+}
+
 function buildDecorations(
   doc: ProseMirrorNode,
   resolved: ResolvedSuggestion[],
   hoveredId: string | null,
 ): DecorationSet {
   const decorations: Decoration[] = [];
+  /* Painted in document order, so an abutment is just "this fragment starts
+   * where the last one ended". `resolved` arrives in the order the agent
+   * emitted its edits, which is not that. */
+  const ordered = [...resolved].sort((a, b) => anchorStart(a) - anchorStart(b));
+  let previousEnd: number | null = null;
 
-  for (const entry of resolved) {
-    const { from, to, suggestion } = entry;
-    if (from === null || to === null) {
-      continue;
-    }
-
-    const hovered = suggestion.id === hoveredId;
-
-    if (entry.stale) {
-      // The whole anchor, untrimmed and inert: what was proposed, marked as no
-      // longer applicable rather than quietly removed.
-      if (to > from) {
-        decorations.push(
-          Decoration.inline(from, to, {
-            ...decorationAttributes(
-              suggestion,
-              "essay-suggestion-stale",
-              hovered,
-            ),
-            title: STALE_LABEL,
-          }),
-        );
-        bracket(decorations, from, to, SR_MARKERS.stale);
-      }
-      continue;
-    }
-
-    const diff = diffSuggestionText(
-      suggestion.oldTextPlain,
-      suggestion.newTextPlain,
-    );
-    const removedFrom = positionAtTextOffset(
+  for (const entry of ordered) {
+    previousEnd = pushSuggestionDecorations(
+      decorations,
       doc,
-      from,
-      to,
-      diff.prefixLength,
-      "start",
+      entry,
+      hoveredId,
+      previousEnd,
     );
-    const removedTo = positionAtTextOffset(
-      doc,
-      from,
-      to,
-      suggestion.oldTextPlain.length - diff.suffixLength,
-      "end",
-    );
-
-    // An inline decoration spanning several blocks is split per text node by
-    // DecorationSet itself, so a multi-paragraph change needs no hand-rolled
-    // fragmentation — every rendered piece still carries the same id.
-    if (diff.oldMiddle !== "" && removedTo > removedFrom) {
-      decorations.push(
-        Decoration.inline(removedFrom, removedTo, {
-          ...decorationAttributes(
-            suggestion,
-            "essay-suggestion-delete",
-            hovered,
-          ),
-          nodeName: "del",
-        }),
-      );
-      bracket(decorations, removedFrom, removedTo, SR_MARKERS.delete);
-    }
-
-    if (diff.newMiddle !== "") {
-      // After the struck text, never per block: one insertion, one widget.
-      decorations.push(
-        Decoration.widget(
-          removedTo,
-          insertionWidget(suggestion, diff.newMiddle, hovered),
-          { marks: [], side: 1 },
-        ),
-      );
-    }
   }
 
   return DecorationSet.create(doc, decorations);

@@ -1295,17 +1295,25 @@ solid-red against dotted-grey keeps deletion and stale apart in two channels at 
 **This is one rule, not two:** the student's words are always the student's ink, and the
 line is what says what is being proposed about them.
 
-Their DOM order matters to a rule that looks like it works and does not. `bracket()` puts
-a deletion's closing screen-reader marker between the `<del>` and the `<ins>`, and those
-markers deliberately carry no `data-suggestion-id` — so the `[data-suggestion-id] +
-[data-suggestion-id]` separator in `essay-suggestions.css` never matched a replacement,
-and `good`/`north` rendered 0px apart as one word. The selector carries a `.sr-only` hop
-for that. jsdom does not lay out, so only a browser can catch this class of bug. The rules are plain selectors, not React
-components — ProseMirror renders this DOM itself — so they live in
-`styles/essay-suggestions.css`, which carries its own `@layer components` wrapper so
-that the layer order `index.css` declares still decides when they apply. The
-`--essay-suggestion-*` tokens they resolve stay in `essay.css` with the rest of the
-essay family (§2.1 tier 3).
+**Two fragments that touch are separated by the decoration builder, never by a sibling
+selector.** Marks rendered back to back weld into one: `good`/`north` reads as `goodnorth`,
+and two separately-decidable deletions divided only by an unstruck full stop become a
+single red bar over two decisions. `buildDecorations` knows both ranges, so it compares
+positions and hangs `.essay-suggestion-abuts` on the later fragment; the stylesheet holds
+one flat rule. CSS adjacency cannot do this job, and two attempts proved it: `bracket()`
+puts a varying number of id-less screen-reader markers between any two fragments — one
+hop for a replacement, two for a pair of deletions — so `[data-suggestion-id] +
+[data-suggestion-id]` separated nothing, and adding one `.sr-only` hop separated
+replacements only, leaving abutting deletions measured at 0.00px. `+` also skips text
+nodes, so whichever arm did fire padded pairs with whole words of prose between them.
+jsdom does not lay out, so only a browser can catch this class of bug.
+
+The rules are plain selectors, not React components — ProseMirror renders this DOM itself
+— so they live in `styles/essay-suggestions.css`, which carries its own `@layer
+components` wrapper so that the layer order `index.css` declares still decides when they
+apply. The `--essay-suggestion-*` tokens they resolve stay in `essay.css` with the rest of
+the essay family (§2.1 tier 3); their `-ink` suffix names the colour, not the property, so
+the delete and stale tokens reach the page as `text-decoration-color`.
 
 **One change, one hover target.** A replacement paints as a struck span plus a proposed
 one, and a change crossing a paragraph break paints one fragment per block — so hovering

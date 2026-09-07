@@ -93,12 +93,17 @@
    * further on: the text under it is the student's own essay, and dimming a
    * paragraph of their writing to annotate a proposal that no longer applies
    * would be the wrong thing to make hard to read. That leaves the dotted line
-   * as the single channel
-   * carrying "stale", so it is a graphical state indicator under WCAG 1.4.11
-   * and owes 3:1. --ink-disabled measures 2.64:1 and its exemption is for
-   * disabled CONTROLS, which this is not; --ink-faint measures 5.45:1 on the
-   * raised surface the paper uses, and is still plainly dimmer than the live
-   * red and green. */
+   * as the single channel carrying "stale", so it is a graphical state
+   * indicator under WCAG 1.4.11 and owes 3:1. --ink-disabled measures 2.64:1
+   * and its exemption is for disabled CONTROLS, which this is not; --ink-faint
+   * measures 5.45:1 on the raised surface the paper uses, and is still plainly
+   * dimmer than the live red and green.
+   *
+   * `-ink` NAMES THE COLOUR, NOT THE PROPERTY. It says which ramp step this
+   * decoration is coloured from and keeps the three parallel; only the insert
+   * token is applied as `color`, and the other two reach the page as
+   * `text-decoration-color` for the reason above. Renaming them apart would
+   * split a family of three over one word and change nothing on screen. */
   --essay-suggestion-insert-ink: var(--success-fg);
   --essay-suggestion-insert-surface: var(--success-surface);
   --essay-suggestion-delete-ink: var(--danger-fg);
