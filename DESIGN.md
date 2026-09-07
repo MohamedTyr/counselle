@@ -1316,6 +1316,19 @@ description of anything — `Replace , → ;` says a semicolon belongs somewhere
 text around the change point. That window is presentation only, from the `_plain` fields,
 same as the trim.
 
+**Focus advances so the queue can be cleared without leaving it.** Resolution is
+serialized and non-optimistic, so the row that was pressed stays in the DOM, busy, until
+the server confirms — and then leaves, taking a keyboard student's focus to `<body>` and
+restarting the next Tab at the top of the page. The bar therefore moves focus to the row
+that took its place, or the row above it when the last one goes, or the disclosure, or —
+when the bar itself is leaving — back into the document, which is where the popover and
+`Mod+Enter` paths already put the caret. It arms only when focus was genuinely inside the
+bar (a pointer click never focuses these buttons at all, by design), and it fires on the
+resolved row *leaving the list* rather than on the lock clearing, because those two arrive
+in separate renders. Nothing new is announced: the row's control is already named for its
+change, so landing on it says what it is, and a second live region is exactly the double
+announcement `PendingChangesReadout`'s `announce` default exists to prevent.
+
 **The word count says what it would become.** Beside "648 / 650 words" the header appends
 "· 631 if you accept all" whenever that number is knowable. It is not a sum of per-change
 deltas: accepting is cumulative, so overlapping changes get skipped rather than applied,

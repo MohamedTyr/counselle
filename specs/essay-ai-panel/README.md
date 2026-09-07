@@ -23,26 +23,62 @@ is not retro-edited.
 Recorded here because the plan itself is a historical record and is not
 retro-edited.
 
-### Not built
+### Not built at first pass, closed later (2026-09-07)
 
-- **Part 2 §4, the word-count projection, was not built.** The header's word
-  count was to append `· N if you accept all` whenever pending suggestions carry
-  a net word delta. It shows the current count only. This is the one of the three
-  gaps with a real argument for closing: a student cutting to a word limit is the
-  exact case the panel exists for.
-- **Part 2 §6's selection-scoped quick-action chips were not built.** The
-  selection chip itself ships (`ChatComposer.tsx`'s `selectionChip`); the three
-  verbs that were to replace the generic quick-action row while a selection is
-  attached — "Make specific" / "Shorten" / "Show don't tell" — did not, and
-  `components/ai-elements/suggestion.tsx` still has the zero importers the plan
-  explicitly wanted it to stop having.
-- **Part 2 §3.4's focus advance on resolve was not built.** Resolving a row in
-  the pending-changes list was to move focus to the next row's Accept button.
-  Resolution works; focus does not advance. (The *popover* path's focus handling,
-  which returns the caret to the document, did ship.)
+Three plan requirements shipped after the panel itself did. They are recorded
+here because the shape they landed in is not the shape the plan drafted.
 
-All three are in `TODOS.md` with their exact plan references, as deliberate gaps
-for an owner to decide on rather than oversights.
+- **Part 2 §4, the word-count projection**, now appends `· N if you accept all`
+  to the header. **It does not use the plan's arithmetic.** The plan summed
+  `countWords(new_text_plain) - countWords(old_text_plain)` over the pending
+  rows, and that number can be wrong twice over: `resolve_all_suggestions`
+  applies each change to the result of the last one, so a change overlapping one
+  already applied is *skipped* rather than added; and `countWords` counts runs of
+  non-whitespace, so a change can merge or split words at its own edges while
+  counting none of its own (deleting the one space in "a b" loses a word;
+  `countWords(" ") - countWords("")` is zero). `word-projection.ts` instead
+  rebuilds the text the student would be left with, in the same string space the
+  header already counts, and counts it — and returns nothing at all where that
+  text is not knowable (a change spanning a paragraph break, overlapping anchors,
+  an anchor it cannot re-find, or its own reading of the document disagreeing
+  with the count already on screen). Verified live: a 52-word essay with three
+  seeded changes projected 45, and the server's own `word_count` after accept-all
+  was 45 — reached both in one bulk accept and one change at a time.
+- **Part 2 §6's selection-scoped quick-action chips** now render under the
+  selection chip. Two departures. The plan said the row "swaps from generic
+  suggestions" — there was no generic quick-action row in `ChatComposer` to swap,
+  so the chips are purely additive and appear only with a selection attached. And
+  the verbs are the ones `EssayPanelEmpty` already shipped ("Make this more
+  specific" / "Tighten this" / "Show, don't tell"), not the plan's drafted
+  "Shorten" — one list now lives in `essay-quick-actions.ts` and both surfaces
+  read it, because two lists of the same three offers would drift the moment
+  either was reworded.
+- **`components/ai-elements/suggestion.tsx` was deleted, not adopted.** The plan
+  named it as the component this row would finally give a caller. It does not
+  fit: it wraps shadcn's Radix `ScrollArea`, and this repo's `ui/scroll-area.tsx`
+  is a Base UI rewrite with a different contract (a `size-full` root that renders
+  its own scrollbars), so `Suggestions` would have stretched to its parent's
+  height and left a stray `ScrollBar` inside the content. Its `Suggestion` half
+  was a `Button` wearing `rounded-full px-4`, a shape `DESIGN.md` §5 reserves for
+  avatars, dots and tracks. Both halves would have been overridden more than
+  used, so the chips are a plain `Button` row and the file is gone.
+- **Part 2 §3.4's focus advance on resolve** now moves focus to the row that took
+  the resolved one's place, the row above it when the last one goes, the
+  disclosure, or — when the bar itself is leaving — back into the document. Two
+  things the plan did not anticipate. It arms only when focus was genuinely
+  inside the bar, because a pointer click never focuses these buttons at all
+  (`ResolveButtons` prevents the mousedown default so accept cannot pull the
+  caret out of the essay), so the mouse path needs nothing. And it fires on the
+  resolved row *leaving the list*, not on the resolving lock clearing: those two
+  arrive in **separate renders** — the query cache notifies on its own schedule —
+  and a first pass keyed on the lock alone read the not-yet-updated list, called
+  a successful accept a failure, and dropped focus to `<body>`. That was caught
+  in a real browser, not by the tests.
+
+Measured in-browser for all three: the projection against a hand-verified 45; the
+chips at a true 8.00px gap, 32px tall on desktop and wrapping cleanly at 375px;
+and `document.activeElement` after every resolve edge (mid-list row, last row,
+list-emptying row, accept-all, reject-all) — never `<body>`.
 
 ### Re-architected during implementation
 

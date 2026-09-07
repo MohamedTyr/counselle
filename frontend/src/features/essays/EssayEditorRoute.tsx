@@ -127,8 +127,11 @@ export function EssayEditorPage({ essay, onBack }: EssayEditorPageProps) {
     hasUnsavedChanges,
   });
 
-  const { resolutions: suggestionResolutions, revealSuggestion } =
-    useSuggestionReview(editor);
+  const {
+    focusDocument,
+    resolutions: suggestionResolutions,
+    revealSuggestion,
+  } = useSuggestionReview(editor);
 
   const rawSelection = useEditorState({
     editor,
@@ -395,6 +398,7 @@ export function EssayEditorPage({ essay, onBack }: EssayEditorPageProps) {
             <main className="min-w-0 flex-1">
               <SuggestionsBar
                 controller={suggestions}
+                onQueueCleared={focusDocument}
                 onRevealSuggestion={revealSuggestion}
                 resolutions={suggestionResolutions}
                 suggestions={essay.pendingSuggestions}

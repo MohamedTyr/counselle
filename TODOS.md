@@ -333,36 +333,24 @@
   branch added).
 - *(Logged from the essay AI panel branch, 2026-09-07.)*
 
-## Essay panel: three plan requirements shipped as deliberate gaps
-- **What:** three things `plans/essay-ai-panel.md` (now
-  `specs/essay-ai-panel/plan/implementation-plan.md`) specified were not built. None is a
-  half-implementation — each is simply absent, and each is a product call an owner should make
-  rather than an oversight to quietly fix:
-  1. **The word-count projection.** Part 2 §4 asks the editor header's word count to append
-     `· N if you accept all` whenever pending suggestions carry a net word delta, derived in
-     plain-text space from the non-stale pending list. The header shows the current count only.
-     This is the one of the three with a real argument for building it: a student cutting to a
-     word limit is the exact case the panel exists for, and "will accepting these get me under
-     650" is currently a question they have to answer by accepting and looking.
-  2. **The selection-scoped quick-action chips.** Part 2 §6 asks that, while a selection chip is
-     attached, the composer's quick-action row swap to three selection-scoped verbs — "Make
-     specific" / "Shorten" / "Show don't tell" — built on `components/ai-elements/suggestion.tsx`.
-     The selection chip itself ships (`ChatComposer.tsx`'s `selectionChip`); the three verb chips
-     do not, and `suggestion.tsx` still has **zero importers**, which is the state the plan
-     explicitly wanted to end.
-  3. **Focus advance on resolve.** Part 2 §3.4 asks that resolving a row in the pending-changes
-     list move focus to the next row's Accept button (or the bar's own control when the list
-     empties), so a student can clear a queue from the keyboard without refocusing between rows.
-     Resolution works; focus does not advance.
-- **Why:** all three are polish on a surface that had not yet been seen in a real browser, and
-  (1) and (3) both want live interaction to tune. They are recorded rather than dropped because
-  the plan is a historical record and is not retro-edited — this is the list of what it promised
-  and the tree does not have.
-- **Context (start here):** `specs/essay-ai-panel/plan/implementation-plan.md` Part 2 §4, §6, and
-  §3.4 for the exact specifications (including the `pendingWordDelta` formula);
-  `frontend/src/features/essays/EssayEditorRoute.tsx` (the header word count),
-  `frontend/src/features/ai-chat/components/ChatComposer.tsx` (`selectionChip`, and where a
-  quick-action row would go), `frontend/src/features/essays/suggestions/SuggestionsBar.tsx` and
-  `useSuggestionReview.ts` (resolve and reveal, where focus advance would live).
-  `specs/essay-ai-panel/README.md` records the same three as divergences.
-- *(Logged from the essay AI panel branch, 2026-09-07.)*
+## Essay panel: the three plan requirements are built (closed 2026-09-07)
+- **What:** the word-count projection (Part 2 §4), the selection-scoped quick-action chips
+  (Part 2 §6), and focus advance on resolve (Part 2 §3.4) all shipped, verified in a real
+  browser. Nothing is outstanding here; the entry is kept because two of the three landed in a
+  different shape from the plan and the next person should not "restore" the drafted version:
+  1. **The projection does not use the plan's `pendingWordDelta` formula**, which is wrong twice
+     over (accepting is cumulative, so an overlapping change is skipped rather than summed; and
+     `countWords` counts runs of non-whitespace, so a change can merge or split words at its own
+     edges while counting none of its own). `word-projection.ts` rebuilds the projected text and
+     counts it, and returns nothing where that text is not knowable.
+  2. **`components/ai-elements/suggestion.tsx` was deleted rather than adopted** — it wraps
+     shadcn's Radix `ScrollArea`, and this repo's is a Base UI rewrite with a different contract.
+     Do not re-add it.
+  3. **Focus advance fires on the resolved row leaving the list, not on the resolving lock
+     clearing.** Those arrive in separate renders and keying on the lock drops focus to `<body>`.
+- **Context:** `frontend/src/features/essays/suggestions/word-projection.ts` (+ its tests),
+  `frontend/src/features/essays/essay-quick-actions.ts`,
+  `frontend/src/features/ai-chat/components/ChatComposer.tsx`,
+  `frontend/src/features/essays/suggestions/SuggestionsBar.tsx`.
+  `specs/essay-ai-panel/README.md` records the same three, with the measurements.
+- *(Closed on the essay AI panel branch, 2026-09-07.)*

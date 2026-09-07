@@ -20,6 +20,7 @@ import { SuggestionPluginKey } from "@/features/essays/suggestions/suggestionExt
  * and this is the one place that answers those two questions for both.
  */
 export function useSuggestionReview(editor: Editor | null): {
+  focusDocument: () => void;
   resolutions: readonly SuggestionResolution[];
   revealSuggestion: (suggestionId: string) => void;
 } {
@@ -47,5 +48,19 @@ export function useSuggestionReview(editor: Editor | null): {
     [editor],
   );
 
-  return { resolutions, revealSuggestion };
+  /*
+   * Where focus goes when the last tracked change leaves the bar.
+   *
+   * The bar's rows are the only thing holding focus while a student clears the
+   * queue from the keyboard, so once the last one goes something has to catch
+   * it — and the document is the answer the rest of this feature already gives:
+   * both the popover and the `Mod+Enter` paths leave the caret in the essay.
+   * The caret is restored where it was (`focus()`'s default position) and the
+   * view is not scrolled, so catching focus never also moves the page.
+   */
+  const focusDocument = useCallback(() => {
+    editor?.commands.focus(null, { scrollIntoView: false });
+  }, [editor]);
+
+  return { focusDocument, resolutions, revealSuggestion };
 }

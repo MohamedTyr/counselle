@@ -1,6 +1,6 @@
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { ChevronDown, X } from "lucide-react";
-import { useId, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -63,8 +63,19 @@ const LIST_MAX_HEIGHT = "max-h-64";
 const LIST_FADE_CLASS =
   "pb-6 [-webkit-mask-image:linear-gradient(to_bottom,#000_calc(100%-24px),transparent)] [mask-image:linear-gradient(to_bottom,#000_calc(100%-24px),transparent)]";
 
+/** The bulk controls, as a focus-advance target id. Never a suggestion id. */
+const BULK_TARGET = "all";
+
 type SuggestionsBarProps = {
   controller: EssaySuggestionsController;
+  /**
+   * The list has no row left to hold focus — the student resolved the last one
+   * from the keyboard and this bar is on its way out. Somewhere has to take
+   * focus or the next Tab restarts at the top of the page, and the honest place
+   * is the document they were reviewing: it is where the popover and keyboard
+   * paths already leave the caret. Omit and focus is simply left alone.
+   */
+  onQueueCleared?: () => void;
   /** Scroll a change into view in the document and flash its decoration. */
   onRevealSuggestion: (suggestionId: string) => void;
   resolutions: readonly SuggestionResolution[];
@@ -109,6 +120,7 @@ function orderForReview(
 
 export function SuggestionsBar({
   controller,
+  onQueueCleared,
   onRevealSuggestion,
   resolutions,
   suggestions,
@@ -132,6 +144,122 @@ export function SuggestionsBar({
     resolutions,
   );
   const hasAny = suggestions.length > 0;
+
+  /*
+   * FOCUS ADVANCES SO THE QUEUE CAN BE CLEARED WITHOUT LEAVING IT.
+   *
+   * Resolution is deliberately serialized panel-wide and deliberately not
+   * optimistic, so the row that was pressed stays in the DOM, busy, until the
+   * server confirms — and then leaves, taking the student's focus to `<body>`
+   * with it. That restarts the next Tab at the top of the page after every
+   * single accept, which is the whole reason this list exists to be worked
+   * through in order.
+   *
+   * Only the keyboard path needs it. A pointer click never focuses these
+   * buttons at all — `ResolveButtons` prevents the mousedown default precisely
+   * so accept cannot pull the caret out of the essay — so `rememberAdvance`
+   * asks whether focus is actually inside the bar before arming anything, and
+   * a mouse-driven review is left exactly as it is.
+   *
+   * Nothing is announced here beyond the moved focus itself. The row's own
+   * control is already named for its change ("Accept: Replace good →
+   * unforgettable"), so landing on it says what it is; a second live region
+   * would be the double announcement `PendingChangesReadout`'s `announce`
+   * default exists to avoid.
+   */
+  const barRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const rowRefs = useRef(new Map<string, HTMLLIElement>());
+  const advance = useRef<{
+    fromTrigger: boolean;
+    index: number;
+    target: string;
+  } | null>(null);
+
+  function rememberAdvance(target: string, index: number) {
+    const active = document.activeElement;
+    const inside =
+      active instanceof HTMLElement &&
+      barRef.current !== null &&
+      barRef.current.contains(active);
+    advance.current = inside
+      ? { fromTrigger: active === triggerRef.current, index, target }
+      : null;
+  }
+
+  /* The row's Accept — or, on an outdated row, its Dismiss. Found through
+   * `data-slot`, the app's universal element hook (§10.3), rather than by
+   * threading a ref down through `ResolveButtons` for both of its shapes. */
+  function rowControl(suggestionId: string | undefined): HTMLElement | null {
+    if (suggestionId === undefined) {
+      return null;
+    }
+    return (
+      rowRefs.current
+        .get(suggestionId)
+        ?.querySelector<HTMLElement>('[data-slot="button"]') ?? null
+    );
+  }
+
+  /* No dependency array on purpose: the two facts this waits on — the lock
+   * clearing and the row leaving `suggestions` — arrive from an async resolve
+   * and there is nothing to gain from guessing which render carries both.
+   * Every render asks; every render but one returns on the first line. */
+  useEffect(() => {
+    const request = advance.current;
+    if (request === null || controller.isResolving) {
+      return;
+    }
+
+    /*
+     * The resolve has landed when the thing it acted on is gone — the row out
+     * of the list, or the last pending change out of the count.
+     *
+     * Waiting on THAT rather than on the lock alone does two jobs. A failed
+     * resolve puts its row back exactly where it was, so this never fires and
+     * focus stays on the button the student pressed, which is where §3.5 wants
+     * it. And the two updates genuinely arrive in separate renders: the query
+     * cache notifies on its own schedule, so the lock clears a render before
+     * the list catches up — measured, after a first pass keyed on the lock
+     * alone read the not-yet-updated list, called a successful accept a
+     * failure, and dropped focus to `<body>`.
+     */
+    const settled =
+      request.target === BULK_TARGET
+        ? pendingCount === 0
+        : !suggestions.some(({ id }) => id === request.target);
+    if (!settled) {
+      return;
+    }
+    advance.current = null;
+
+    if (request.fromTrigger) {
+      /* Focus was on the disclosure, not on a row, so there is nothing to
+       * advance through — a student who pressed a bulk control from there is
+       * not walking the list. The one thing that still has to happen is
+       * catching focus when the disclosure itself goes with the bar. */
+      if (!hasAny) {
+        onQueueCleared?.();
+      }
+      return;
+    }
+
+    const ids = ordered.map(({ suggestion }) => suggestion.id);
+    /* The row that slid into the resolved one's place, else the one above it. */
+    const next =
+      request.target === BULK_TARGET
+        ? null
+        : (rowControl(ids[request.index]) ?? rowControl(ids[request.index - 1]));
+    if (next) {
+      next.focus();
+      return;
+    }
+    if (hasAny && triggerRef.current !== null) {
+      triggerRef.current.focus();
+      return;
+    }
+    onQueueCleared?.();
+  });
 
   return (
     <>
@@ -158,6 +286,7 @@ export function SuggestionsBar({
             className="mx-auto w-full max-w-[820px] overflow-hidden"
             exit={reduceMotion ? { opacity: 0 } : { height: 0, opacity: 0 }}
             initial={reduceMotion ? false : { height: 0, opacity: 0 }}
+            ref={barRef}
             transition={
               reduceMotion
                 ? { duration: 0.2, ease: "easeOut" }
@@ -178,6 +307,7 @@ export function SuggestionsBar({
               <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 pt-1">
                 <CollapsibleTrigger
                   aria-controls={listId}
+                  ref={triggerRef}
                   className="group -ml-1 flex min-w-0 cursor-pointer items-center gap-1.5 rounded-md px-1 py-0.5 text-sm text-muted-foreground transition-colors duration-150 ease-out hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background focus-visible:outline-none motion-reduce:transition-none"
                 >
                   <ChevronDown
@@ -214,10 +344,16 @@ export function SuggestionsBar({
                   <ResolveButtons
                     acceptLabel="Accept all"
                     controller={controller}
-                    onAccept={controller.acceptAll}
-                    onReject={controller.rejectAll}
+                    onAccept={() => {
+                      rememberAdvance(BULK_TARGET, 0);
+                      controller.acceptAll();
+                    }}
+                    onReject={() => {
+                      rememberAdvance(BULK_TARGET, 0);
+                      controller.rejectAll();
+                    }}
                     rejectLabel="Reject all"
-                    target="all"
+                    target={BULK_TARGET}
                   />
                 )}
               </div>
@@ -243,7 +379,7 @@ export function SuggestionsBar({
                     LIST_FADE_CLASS,
                   )}
                 >
-                  {ordered.map(({ resolution, suggestion }) => {
+                  {ordered.map(({ resolution, suggestion }, rowIndex) => {
                     const stale = resolution?.stale ?? false;
                     const preview = suggestionPreview(
                       suggestion,
@@ -284,6 +420,13 @@ export function SuggestionsBar({
                       <li
                         className="flex items-center justify-between gap-2 text-sm"
                         key={suggestion.id}
+                        ref={(node) => {
+                          if (node) {
+                            rowRefs.current.set(suggestion.id, node);
+                          } else {
+                            rowRefs.current.delete(suggestion.id);
+                          }
+                        }}
                       >
                         {canReveal ? (
                           <button
@@ -316,6 +459,7 @@ export function SuggestionsBar({
                               if (controller.isResolving) {
                                 return;
                               }
+                              rememberAdvance(suggestion.id, rowIndex);
                               controller.rejectOne(suggestion.id);
                             }}
                             size="sm"
@@ -333,8 +477,14 @@ export function SuggestionsBar({
                             collapsible
                             controller={controller}
                             describedChange={label}
-                            onAccept={() => controller.acceptOne(suggestion.id)}
-                            onReject={() => controller.rejectOne(suggestion.id)}
+                            onAccept={() => {
+                              rememberAdvance(suggestion.id, rowIndex);
+                              controller.acceptOne(suggestion.id);
+                            }}
+                            onReject={() => {
+                              rememberAdvance(suggestion.id, rowIndex);
+                              controller.rejectOne(suggestion.id);
+                            }}
                             rejectLabel="Reject"
                             target={suggestion.id}
                           />

@@ -182,7 +182,8 @@ function EssayDocumentPanelBody({
     flush: autosave.flush,
     hasUnsavedChanges,
   });
-  const { resolutions, revealSuggestion } = useSuggestionReview(editor);
+  const { focusDocument, resolutions, revealSuggestion } =
+    useSuggestionReview(editor);
 
   const handleUpdate = (update: EssayEditorUpdate) => {
     autosave.queueSave(update.content, update.wordCount);
@@ -239,6 +240,7 @@ function EssayDocumentPanelBody({
          */}
         <SuggestionsBar
           controller={suggestions}
+          onQueueCleared={focusDocument}
           onRevealSuggestion={revealSuggestion}
           resolutions={resolutions}
           suggestions={essay.pendingSuggestions}
