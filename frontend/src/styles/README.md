@@ -62,6 +62,13 @@ and the small set of component classes that don't fit the token system
 (sidebar scroll affordances, markdown vertical rhythm, the ProseMirror
 essay typography).
 
+Those component classes live in `index.css` itself until it approaches the
+800-line limit; past that they move out to a file here named for what they
+draw, not for a token family — `essay-suggestions.css` is the first. Such a
+file carries its own `@layer components` wrapper so the layer order
+`index.css` declares still decides when it applies, and `index.css` imports
+it after tier 4.
+
 ## Where a new token goes
 
 - Need a new raw color? It almost certainly doesn't belong here — reach for
