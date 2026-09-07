@@ -1,6 +1,18 @@
 -- Counselle role & schema bootstrap for the connected CDS Library database.
 -- Idempotent: safe to rerun. Passwords are read from the environment, never argv.
--- ADR 0012 (read-only role), ADR 0019 (counselle-owned schema), ADR 0032 (db-rewire).
+-- ADR 0012 (read-only role), ADR 0019 (counselle-owned schema), ADR 0032 (db-rewire),
+-- ADR 0037 (school-data-v3: the CollegeData facts store; cds_library_app is
+-- repurposed to drive the facts crawler, mutually exclusive with the parked
+-- CDS extraction pipeline).
+--
+-- This script owns ROLES only (create/reconcile, passwords, session
+-- defaults) -- it grants no cds_library object. Every object grant on
+-- cds_library (schema USAGE, view/table SELECT/INSERT/UPDATE/DELETE, the
+-- default-privilege rows) lives in deploy/seed/cds_library_schema.sql,
+-- which is the single source of every such grant (plan §3.3). Run this
+-- script BEFORE that seed: the seed's own bootstrap
+-- (`GRANT cds_library_owner TO CURRENT_USER WITH SET TRUE`) requires the
+-- cds_library_owner role to already exist.
 --
 -- WARNING: roles and their passwords are cluster-global, not database-local.
 -- Running this script against ANY database on a Postgres instance overwrites
@@ -30,13 +42,15 @@ SELECT current_database() AS target_database \gset
 \else
   DO $$ BEGIN RAISE EXCEPTION 'COUNSELLE_APP_PASSWORD is required'; END $$;
 \endif
--- cds_library_app (the CDS admin write path, ADR 0036) is optional: only
--- required once deploy/seed/cds_library_schema.sql has been applied to this
--- target. Skip its role/grant block entirely when the password is unset,
--- rather than forcing every caller of this script onto the write path.
+-- cds_library_app (ADR 0037: the facts crawler, mutually exclusive with the
+-- parked CDS admin write path) must always exist as a role: the seed
+-- (deploy/seed/cds_library_schema.sql) GRANTs to it by name unconditionally
+-- on every boot (plan §3.3), regardless of whether this deployment
+-- configures a pipeline DSN. When the password is unset, the role is
+-- created/kept NOLOGIN -- present but inert, never a login target.
 \if :pipeline_password_present
 \else
-  \echo 'COUNSELLE_PIPELINE_PASSWORD not set -- skipping cds_library_app role/grants'
+  \echo 'COUNSELLE_PIPELINE_PASSWORD not set -- cds_library_app will be created NOLOGIN (inert)'
 \endif
 
 DO $$
@@ -53,22 +67,25 @@ BEGIN
     CREATE ROLE cds_library_reader NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE
       NOREPLICATION NOBYPASSRLS;
   END IF;
-END
-$$;
-
-\if :pipeline_password_present
--- cds_library_app (ADR 0036): the CDS admin write path's role. Same
--- reconciliation shape as the two roles above, gated on the password being
--- supplied (see the \if block near the top of this file).
-DO $$
-BEGIN
+  -- cds_library_owner (plan §3.3): owns every cds_library object (schema,
+  -- tables, views, triggers, functions). NOLOGIN -- nothing authenticates
+  -- as it directly; the seed acquires it via
+  -- `GRANT cds_library_owner TO CURRENT_USER WITH SET TRUE` so a managed
+  -- provider's admin identity (which may not itself hold CREATE on the
+  -- database) can still own every object it creates.
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'cds_library_owner') THEN
+    CREATE ROLE cds_library_owner NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE
+      NOREPLICATION NOBYPASSRLS;
+  END IF;
+  -- cds_library_app (ADR 0037): always created, NOLOGIN by default -- see
+  -- the comment above this DO block for why it can never be skipped
+  -- entirely under v3.
   IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'cds_library_app') THEN
-    CREATE ROLE cds_library_app LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE
+    CREATE ROLE cds_library_app NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE
       NOREPLICATION NOBYPASSRLS;
   END IF;
 END
 $$;
-\endif
 
 -- Existing roles are normalized too: setup is reconciliation, not create-only.
 ALTER ROLE counselle_ro LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE
@@ -79,6 +96,9 @@ ALTER ROLE cds_library_reader NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE
   NOREPLICATION NOBYPASSRLS;
 \if :pipeline_password_present
 ALTER ROLE cds_library_app LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE
+  NOREPLICATION NOBYPASSRLS;
+\else
+ALTER ROLE cds_library_app NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE
   NOREPLICATION NOBYPASSRLS;
 \endif
 
@@ -105,16 +125,10 @@ SELECT format('ALTER ROLE counselle_app PASSWORD %L', :'counselle_app_password')
 SELECT format('ALTER ROLE cds_library_app PASSWORD %L', :'counselle_pipeline_password') \gexec
 \endif
 
--- Read role: the five cds_library reader views only, read-only session defaults.
-GRANT USAGE ON SCHEMA cds_library TO cds_library_reader;
-REVOKE ALL ON ALL TABLES IN SCHEMA cds_library FROM cds_library_reader;
-GRANT SELECT ON TABLE
-  cds_library.school_profiles,
-  cds_library.active_cds_documents,
-  cds_library.active_cds_domain_packets,
-  cds_library.cds_document_sources,
-  cds_library.cds_manifest_snapshots
-TO cds_library_reader;
+-- Read role: role-level reconciliation and read-only session defaults only.
+-- Object grants (schema USAGE, view SELECT) belong to
+-- deploy/seed/cds_library_schema.sql now (plan §3.3) -- this script no
+-- longer names a single cds_library view or table.
 GRANT cds_library_reader TO counselle_ro;
 ALTER ROLE counselle_ro RESET ALL;
 ALTER ROLE counselle_ro IN DATABASE :"target_database" RESET ALL;
@@ -124,28 +138,10 @@ ALTER ROLE counselle_ro IN DATABASE :"target_database"
   SET search_path = cds_library, pg_catalog;
 
 \if :pipeline_password_present
--- Write role (ADR 0036, docs/DATABASE_GUIDE.md §1): INSERT, SELECT, UPDATE on
--- every cds_library base table and view -- never DELETE, anywhere, on
--- anything (verified live, specs/cds-pipeline/plan/recon/recon-db-live.md
--- §4). Reconciled the same way as the reader role above: REVOKE ALL, then
--- GRANT exactly the intended privilege set.
-GRANT USAGE ON SCHEMA cds_library TO cds_library_app;
-REVOKE ALL ON ALL TABLES IN SCHEMA cds_library FROM cds_library_app;
-GRANT INSERT, SELECT, UPDATE ON TABLE
-  cds_library.schools,
-  cds_library.cds_school_years,
-  cds_library.cds_documents,
-  cds_library.cds_manifests,
-  cds_library.cds_extractions,
-  cds_library.cds_domain_packets,
-  cds_library.ct_index_entries,
-  cds_library.ct_index_state,
-  cds_library.school_profiles,
-  cds_library.active_cds_documents,
-  cds_library.active_cds_domain_packets,
-  cds_library.cds_document_sources,
-  cds_library.cds_manifest_snapshots
-TO cds_library_app;
+-- Write role (ADR 0037): role-level reconciliation and session defaults
+-- only. Object grants (INSERT/SELECT/UPDATE on every cds_library base
+-- table, DELETE on page_snapshots only -- never DELETE anywhere else)
+-- belong to deploy/seed/cds_library_schema.sql now (plan §3.3).
 ALTER ROLE cds_library_app RESET ALL;
 ALTER ROLE cds_library_app IN DATABASE :"target_database" RESET ALL;
 \endif

@@ -24,6 +24,7 @@ import {
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
 import { Button } from "@/components/ui/button";
+import { ErrorCard } from "@/components/ui/error-card";
 import {
   Empty,
   EmptyContent,
@@ -326,19 +327,12 @@ function ApplicationTab({
   if (isLoading) return <Skeleton className="h-96 w-full" />;
   if (isError) {
     return (
-      <div
-        className="flex max-w-md flex-col gap-3 rounded-xl border bg-card p-6"
+      <ErrorCard
+        message="The workspace could not reach your application data. This is not shown as an empty catalog, because that would hide a data failure."
+        onRetry={onRetry}
         role="alert"
-      >
-        <h2 className="text-lg font-medium">Could not load this application</h2>
-        <p className="text-sm text-muted-foreground">
-          The workspace could not reach your application data. This is not shown
-          as an empty catalog, because that would hide a data failure.
-        </p>
-        <div>
-          <Button onClick={onRetry}>Try again</Button>
-        </div>
-      </div>
+        title="Could not load this application"
+      />
     );
   }
   if (!detail) {

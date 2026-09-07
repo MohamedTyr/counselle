@@ -1,0 +1,11 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "project": ["src/**/*.{ts,tsx}"],
+  "ignore": [
+    "src/features/cds-admin/**",
+    "src/api/cds-admin/**",
+    "src/pages/cds-*.tsx",
+    "src/components/ui/**"
+  ],
+  "ignoreExportsUsedInFile": true
+}

@@ -220,12 +220,15 @@ def install_middleware(app: FastAPI, settings: Any) -> None:
     from api.deps import EnvelopeError, envelope_error_handler
 
     app.add_middleware(RequestContextMiddleware)
-    # Headroom over the largest legitimate upload (`cds_upload_max_bytes`) for
-    # multipart framing — boundaries and part headers ride along with the file,
-    # so a body exactly at the file cap is still a little over it on the wire.
+    # `max_request_body_bytes` already bakes in headroom over the largest
+    # legitimate upload (DOCUMENT_MAX_BYTES) for multipart framing —
+    # boundaries and part headers ride along with the file, so a body exactly
+    # at the file cap is still a little over it on the wire. A Phase 0 test
+    # posts a DOCUMENT_MAX_BYTES-sized document and asserts the route's own
+    # 413, not this middleware's.
     app.add_middleware(
         MaxBodySizeMiddleware,
-        max_bytes=getattr(settings, "cds_upload_max_bytes", 50_000_000) + 1_048_576,
+        max_bytes=getattr(settings, "max_request_body_bytes", 16_777_216),
     )
     # 06-L1: a non-empty CORS allowance under prod (cookie_secure=True ≈ behind a
     # TLS proxy) contradicts the same-origin serving model (ADR 0023) — surface it.

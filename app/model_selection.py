@@ -18,6 +18,22 @@ if TYPE_CHECKING:
 _VERTEX_PREFIX = "google-vertex:"
 
 
+def model_name_from_setting(model_setting: str) -> str:
+    """``"google-vertex:gemini-2.5-pro"`` → ``"gemini-2.5-pro"`` — the provider
+    prefix is unusable with our Express-mode key; only the bare model name
+    feeds the explicit ``GoogleModel``/genai-client constructors that consume
+    it (``app.agent_node.default_model_factory`` and its siblings in
+    ``app.titles``, ``app.workspace.document_summary``, ``evals.runner``).
+
+    Hoisted here from ``app.agent_node`` (school-data-v3 Phase 0) — this
+    module is the model-selection seam, so the name-normalization helper
+    belongs beside it rather than in the agent node. ``app.agent_node``
+    re-exports the name so existing ``from app.agent_node import
+    model_name_from_setting`` imports keep working unchanged.
+    """
+    return model_setting.split(":", 1)[-1]
+
+
 @dataclass(frozen=True)
 class CounselorModelSelection:
     """The immutable, fully-resolved model configuration for one turn."""

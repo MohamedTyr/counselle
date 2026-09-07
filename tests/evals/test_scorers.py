@@ -15,7 +15,6 @@ from evals.runner import (
     TurnCapture,
     _comparison_stats,
     _report_stem,
-    _require_metric_ref,
     _safe_event_summary,
     build_judge_case,
     build_report,
@@ -1017,12 +1016,6 @@ def test_workspace_scorer_requires_successful_persisted_rows() -> None:
         ],
     )
     assert score_workspace(expects, message_error)["items_created"]["passed"] is False
-
-
-def test_required_eval_metric_never_falls_back_to_an_unrelated_ref() -> None:
-    metrics = {"admissions.acceptance_rate": object()}
-    with pytest.raises(RuntimeError, match="applicants_total"):
-        _require_metric_ref(metrics, "admissions", "applicants_total")
 
 
 def test_live_template_absence_requires_typed_row_evidence() -> None:

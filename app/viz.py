@@ -125,7 +125,7 @@ def _resolve_columns(
 
 
 def _metric_ref(catalog: Catalog, value: str) -> tuple[str, str] | None:
-    if value.count(".") != 1 or value not in catalog.snapshot.metrics:
+    if value.count(".") != 1 or value not in catalog.snapshot.fact_keys:
         return None
     return tuple(value.split(".", 1))  # type: ignore[return-value]
 
@@ -349,7 +349,7 @@ async def render_viz(
     candidate_registry = registry.fork()
     flat: list[CitationEnvelope] = []
     valid_cells = 0
-    metric_choices = list(catalog.snapshot.metrics)
+    metric_choices = list(catalog.snapshot.fact_keys)
     for row_index, row in enumerate(rows):
         for col, cell in enumerate(row.cells):
             school = schools[col]

@@ -14,7 +14,7 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { PageHeader } from "@/components/workspace/PageHeader";
-import { CdsErrorCard } from "@/features/cds-admin/CdsErrorCard";
+import { ErrorCard as CdsErrorCard } from "@/components/ui/error-card";
 import { CdsUnavailable } from "@/features/cds-admin/CdsUnavailable";
 import { CoverageCounters } from "@/features/cds-admin/coverage/CoverageCounters";
 import { CoverageFilters } from "@/features/cds-admin/coverage/CoverageFilters";

@@ -96,7 +96,7 @@ def _title_model(runtime: Any, settings: Any) -> Any:
     from pydantic_ai.models.google import GoogleModel
     from pydantic_ai.providers.google_cloud import GoogleCloudProvider
 
-    from app.agent_node import model_name_from_setting
+    from app.model_selection import model_name_from_setting
 
     return GoogleModel(
         model_name_from_setting(settings.model_title),

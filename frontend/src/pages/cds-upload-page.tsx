@@ -4,8 +4,8 @@ import { useRef, useState } from "react";
 import { Link } from "react-router";
 
 import { Button } from "@/components/ui/button";
+import { ErrorCard as CdsErrorCard } from "@/components/ui/error-card";
 import { PageHeader } from "@/components/workspace/PageHeader";
-import { CdsErrorCard } from "@/features/cds-admin/CdsErrorCard";
 import { CdsUnavailable } from "@/features/cds-admin/CdsUnavailable";
 import { BatchActionBar } from "@/features/cds-admin/upload/BatchActionBar";
 import { BatchSkeleton } from "@/features/cds-admin/upload/BatchSkeleton";

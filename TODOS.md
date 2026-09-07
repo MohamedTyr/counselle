@@ -197,3 +197,19 @@
   `class_size` metric handling for the second.
 - *(Logged from the CDS admin polish-2 batch, 2026-09-02 — found at baseline, not introduced by
   it.)*
+
+## `COUNSELLE_DB_RESET_NOTICE_DATE` — documented in an earlier round, not yet wired up
+- **What:** `.env.example` briefly documented `COUNSELLE_DB_RESET_NOTICE_DATE` as a value
+  "surfaced to operators," but no such field exists on `config/settings.py`'s `Settings` and
+  nothing in the tree reads it — the entry was removed from `.env.example` rather than leaving
+  undocumented behavior alongside it. It's genuine future work: the plan wires it to a new
+  `GET /v1/config/public` endpoint and a sign-in reset notice.
+- **Why:** an operator who set the date expecting the sign-in notice to appear would see
+  nothing, with no code path to explain why — `.env.example` must never describe behavior that
+  doesn't exist yet (per `CLAUDE.md`'s honesty rule). Re-add the env var to `.env.example`
+  *together with* its `Settings` field and the `/v1/config/public` consumer in the same change,
+  not ahead of it.
+- **Context (start here):** `plans/school-data-v3.md` §4.3 (the `Settings` field and
+  `GET /v1/config/public` shape) and §5.6 (the sign-in reset notice UI); `config/settings.py`
+  for where the field belongs.
+- *(Logged from the school-data-v3 review, 2026-09-07.)*

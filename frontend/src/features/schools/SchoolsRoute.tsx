@@ -4,6 +4,7 @@ import { useNavigate, useSearchParams } from "react-router";
 
 import { PageHeader } from "@/components/workspace/PageHeader";
 import { Button } from "@/components/ui/button";
+import { ErrorCard } from "@/components/ui/error-card";
 import { Kbd } from "@/components/ui/kbd";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsPanel, TabsTab } from "@/components/ui/tabs";
@@ -151,19 +152,11 @@ export function SchoolsPage() {
         {applications.isLoading ? (
           <SchoolsSkeleton />
         ) : applications.isError ? (
-          <div className="rounded-xl border bg-card p-6">
-            <div className="max-w-md space-y-3">
-              <h2 className="font-heading text-lg font-medium">
-                Could not load schools
-              </h2>
-              <p className="text-sm text-muted-foreground">
-                The workspace could not reach your applications list.
-              </p>
-              <Button onClick={() => void applications.refetch()}>
-                Try again
-              </Button>
-            </div>
-          </div>
+          <ErrorCard
+            message="The workspace could not reach your applications list."
+            onRetry={() => void applications.refetch()}
+            title="Could not load schools"
+          />
         ) : (
           <Tabs
             aria-label="Schools views"

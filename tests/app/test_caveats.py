@@ -28,21 +28,47 @@ def test_phase3_prompt_assets_validate_at_boot() -> None:
     validate_prompt_assets()
 
 
-def test_data_picture_formats_snapshot_in_manifest_order() -> None:
+def test_data_picture_formats_snapshot_ranges_and_thousands_separators() -> None:
     snapshot = SimpleNamespace(
-        profile_snapshot_min=date(2026, 1, 1),
-        profile_snapshot_max=date(2026, 2, 1),
-        coverage_aggregates=MappingProxyType(
-            {"covered": 2, "fully": 1, "partial": 1, "stale": 1, "by_year": {2024: 2}}
-        ),
-        domains=(SimpleNamespace(id="admissions"), SimpleNamespace(id="cost")),
-        domain_counts={"admissions": 35, "cost": 1_002},
         refreshed_at=datetime(2026, 7, 15, tzinfo=UTC),
         schools={1: object(), 2: object()},
-        current_version="5.0.1",
-        total_metrics=1_037,
+        profile_snapshot_min=date(2026, 1, 1),
+        profile_snapshot_max=date(2026, 2, 1),
+        facts_updated_min=datetime(2026, 6, 1, tzinfo=UTC),
+        facts_updated_max=datetime(2026, 6, 3, tzinfo=UTC),
+        schools_with_facts=1_234,
+        stale_facts_count=56,
+        fact_keys=MappingProxyType({f"key.{i}": object() for i in range(1_500)}),
+        sections=MappingProxyType({"cost": object(), "admissions": object()}),
     )
     rendered = render_data_picture(cast(CatalogSnapshot, snapshot))
-    assert "manifest 5.0.1, 1,037 metrics" in rendered
-    assert "2024-25 (2)" in rendered
-    assert rendered.index("admissions (35)") < rendered.index("cost (1,002)")
+    assert "profile snapshot date(s): 2026-01-01–2026-02-01" in rendered
+    assert "last crawled: 2026-06-01–2026-06-03" in rendered
+    assert "1,234 schools with collected facts" in rendered
+    assert "56 are stale" in rendered
+    assert "Fact keys tracked: 1,500" in rendered
+    assert "Sections: admissions, cost" in rendered
+
+
+def test_data_picture_renders_the_honest_not_yet_collected_state() -> None:
+    """Phase 0-2: the facts store has no rows yet and facts_sections.yaml
+    hasn't shipped -- fact_keys/sections/facts_updated_* are empty/None and
+    must render an explicit not-yet-collected state, never a bare 0 or an
+    empty list that would understate what's on file (CLAUDE.md principle 3:
+    never lie to a student)."""
+    snapshot = SimpleNamespace(
+        refreshed_at=datetime(2026, 7, 15, tzinfo=UTC),
+        schools={1: object()},
+        profile_snapshot_min=date(2026, 1, 1),
+        profile_snapshot_max=date(2026, 1, 1),
+        facts_updated_min=None,
+        facts_updated_max=None,
+        schools_with_facts=0,
+        stale_facts_count=0,
+        fact_keys=MappingProxyType({}),
+        sections=MappingProxyType({}),
+    )
+    rendered = render_data_picture(cast(CatalogSnapshot, snapshot))
+    assert "last crawled: none yet" in rendered
+    assert "Fact keys tracked: not yet collected" in rendered
+    assert "Sections: not yet collected" in rendered

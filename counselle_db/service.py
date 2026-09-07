@@ -13,9 +13,8 @@ from sqlglot.errors import ParseError, TokenError
 
 from config.settings import get_settings
 from counselle_db.catalog import Catalog
-from counselle_db.formatting import format_cds_edition, format_decimal
+from counselle_db.formatting import format_decimal
 from counselle_db.models import (
-    AvailabilitySummary,
     DomainResult,
     ProfileGroup,
     ProfileGroupResult,
@@ -29,7 +28,6 @@ from counselle_db.models import (
     SchoolCoverage,
     ServiceError,
 )
-from counselle_db.packets import ParsedMetric, parse_packet_row, read_metric
 
 __all__ = [
     "ServiceError",
@@ -604,40 +602,19 @@ def _contains_binary(value: Any) -> bool:
 def _coverage(
     document: asyncpg.Record | None, rows: list[asyncpg.Record], catalog: Catalog
 ) -> SchoolCoverage:
-    if document is None:
-        return SchoolCoverage()
-    statuses = {
-        row["domain_id"]: row["accepted_packet_status"] for row in rows if row["packet"] is not None
-    }
-    ordered = tuple(domain.id for domain in catalog.snapshot.domains if domain.id in statuses)
-    return SchoolCoverage(
-        selected_year=document["academic_year"],
-        selected_edition=format_cds_edition(document["academic_year"]),
-        document_id=document["document_id"],
-        currentness=document["currentness"],
-        stale_reason=document["staleness_reason"],
-        usable_domain_count=len(ordered),
-        partial_domain_count=sum(value == "partial" for value in statuses.values()),
-        usable_domain_ids=ordered,
-        latest_status=document["latest_extraction_status"],
-        latest_error_code=document["latest_error_code"],
-    )
+    # Parked (school-data-v3 Phase 0): cds_library's manifest/packet tables
+    # are dropped, so there is no CDS document coverage to compute. This tool
+    # is never reached live (mounted only when settings.cds_data_enabled,
+    # which the v3 hatch keeps false) — fully removed in Phase 3, when
+    # resolve_school's coverage shape becomes SchoolFactsStatus.
+    raise ServiceError("CDS coverage is parked under school-data-v3; no CDS documents exist.")
 
 
 async def _live_document(
     catalog: Catalog, unitid: int
 ) -> tuple[asyncpg.Record | None, list[asyncpg.Record]]:
-    async with catalog.pool.acquire() as conn:
-        document = await conn.fetchrow(_SELECTED_DOCUMENT_SQL, unitid, None)
-        if document is None:
-            return None, []
-        rows = await conn.fetch(
-            _DOMAIN_ROWS_SQL,
-            unitid,
-            document["document_id"],
-            [d.id for d in catalog.snapshot.domains],
-        )
-        return document, list(rows)
+    # Parked (school-data-v3 Phase 0): see _coverage above.
+    raise ServiceError("CDS coverage is parked under school-data-v3; no CDS documents exist.")
 
 
 async def resolve_school(catalog: Catalog, query: str) -> ResolveResult:
@@ -755,168 +732,12 @@ async def get_school_profile(
 
 
 async def get_domain(catalog: Catalog, unitid: int, domain_id: str) -> DomainResult:
-    domain = await catalog.domain(domain_id)
-    school = catalog.snapshot.schools.get(unitid)
-    if school is None:
-        raise ServiceError("School is not in the profile catalog.")
-    async with catalog.pool.acquire() as conn:
-        document = await conn.fetchrow(_SELECTED_DOCUMENT_SQL, unitid, domain_id)
-    empty = AvailabilitySummary(
-        configured=len(domain.metrics),
-        verified=0,
-        available=0,
-        not_in_template_version=0,
-    )
-    if document is None:
-        return DomainResult(
-            school=school.basics,
-            domain_id=domain_id,
-            availability=empty,
-            summary=f"0 of {len(domain.metrics)} metrics verified; no active CDS document.",
-        )
-    manifest_version = document["target_manifest_version"]
-    manifests = dict(catalog.snapshot.manifests)
-    pinned_manifest = manifests.get(manifest_version) if manifest_version else None
-    if manifest_version and pinned_manifest is None:
-        raise ServiceError(
-            "Stored CDS data for this domain uses an unsupported/inconsistent "
-            "contract; no values were returned."
-        )
-    historical_domain = (
-        next((item for item in pinned_manifest.domains if item.id == domain_id), None)
-        if pinned_manifest
-        else None
-    )
-    if pinned_manifest and historical_domain is None:
-        raise ServiceError(
-            "Stored CDS data for this domain uses an unsupported/inconsistent "
-            "contract; no values were returned."
-        )
-    binder_domains = {
-        ref.split(".", 1)[0]
-        for metric in (historical_domain.metrics if historical_domain else ())
-        for context in metric.contexts
-        for ref in context.refs
-    }
-    requested_domains = sorted({domain_id, *binder_domains})
-    async with catalog.pool.acquire() as conn:
-        raw_rows = await conn.fetch(
-            _DOMAIN_ROWS_SQL, unitid, document["document_id"], requested_domains
-        )
-    by_domain = {row["domain_id"]: row for row in raw_rows}
-    target = by_domain.get(domain_id)
-    if target is None or target["packet"] is None:
-        return DomainResult(
-            school=school.basics,
-            domain_id=domain_id,
-            academic_year=document["academic_year"],
-            document_id=document["document_id"],
-            document_sha256=bytes(document["pdf_sha256"]).hex(),
-            currentness=document["currentness"],
-            latest_status=document["latest_extraction_status"],
-            latest_error_code=document["latest_error_code"],
-            availability=empty,
-            summary=(
-                f"0 of {len(domain.metrics)} metrics verified; this domain has no accepted packet."
-            ),
-        )
-    settings = _catalog_settings(catalog)
-    target_packet = parse_packet_row(
-        dict(target), manifests, settings.supported_packet_extractor_versions
-    )
-    parsed = {domain_id: target_packet}
-    parsed.update(
-        {
-            key: parse_packet_row(
-                dict(row), manifests, settings.supported_packet_extractor_versions
-            )
-            for key, row in by_domain.items()
-            if key != domain_id and row["packet"] is not None
-        }
-    )
-    context_values: dict[str, tuple[ParsedMetric, Any]] = {}
-    for parsed_packet in parsed.values():
-        definitions = {
-            metric.ref: metric for d in parsed_packet.manifest.domains for metric in d.metrics
-        }
-        context_values.update(
-            {
-                ref: (metric, definitions[ref])
-                for ref, metric in parsed_packet.packet.metrics.items()
-                if ref in definitions
-                and metric.extraction_status == "verified"
-                and metric.availability_status == "reported"
-                and metric.value is not None
-                and metric.evidence is not None
-            }
-        )
-    packet = parsed[domain_id]
-    definitions = {
-        metric.ref: metric
-        for d in packet.manifest.domains
-        if d.id == domain_id
-        for metric in d.metrics
-    }
-    rows = tuple(
-        read_metric(
-            packet.packet.metrics.get(
-                definition.ref,
-                ParsedMetric(
-                    ref=definition.ref,
-                    extraction_status="not_extracted",
-                    availability_status=None,
-                    value=None,
-                    raw_value=None,
-                    evidence=None,
-                ),
-            ),
-            definition,
-            academic_year=document["academic_year"],
-            packet_status=packet.packet.status,
-            definition_match=packet.current_definition_match,
-            currentness=document["currentness"],
-            context_values=context_values,
-        )
-        for definition in definitions.values()
-    )
-    current_refs = {metric.ref for metric in domain.metrics}
-    verified = sum(
-        metric.extraction_status == "verified"
-        for ref, metric in packet.packet.metrics.items()
-        if ref in definitions and ref in current_refs
-    )
-    available = sum(row.available for row in rows if row.ref in current_refs)
-    absent = sum(
-        row.availability_status == "not_in_template_version"
-        for row in rows
-        if row.ref in current_refs
-    )
-    summary = f"{verified} of {len(domain.metrics)} metrics verified"
-    if absent:
-        summary += f"; {absent} not in this template version"
-    return DomainResult(
-        school=school.basics,
-        domain_id=domain_id,
-        academic_year=document["academic_year"],
-        document_id=document["document_id"],
-        document_sha256=bytes(document["pdf_sha256"]).hex(),
-        source_kind=document["source_kind"],
-        retrieved_at=document["retrieved_at"],
-        manifest_version=packet.packet.manifest_version,
-        packet_status=packet.packet.status,
-        currentness=document["currentness"],
-        latest_status=document["latest_extraction_status"],
-        latest_error_code=document["latest_error_code"],
-        definition_match=packet.current_definition_match,
-        rows=rows,
-        availability=AvailabilitySummary(
-            configured=len(domain.metrics),
-            verified=verified,
-            available=available,
-            not_in_template_version=absent,
-        ),
-        summary=summary,
-    )
+    # Parked (school-data-v3 Phase 0): cds_library's manifest/packet tables and
+    # Catalog.domain() are both gone — there is no CDS domain data to read.
+    # This tool is never reached live (mounted only when
+    # settings.cds_data_enabled, which the v3 hatch keeps false); fully
+    # removed in Phase 3 along with the packet/manifest guard machinery.
+    raise ServiceError("get_domain is parked under school-data-v3; no CDS domains exist.")
 
 
 def _guard_sql(sql: str, params: list[Any]) -> str:

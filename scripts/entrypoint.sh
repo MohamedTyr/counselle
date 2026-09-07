@@ -4,6 +4,8 @@ set -eu
 required_env="
 COUNSELLE_DB_APP_DSN
 COUNSELLE_DB_RO_DSN
+COUNSELLE_DB_ADMIN_DSN
+COUNSELLE_DB_PIPELINE_DSN
 COUNSELLE_JWT_SECRET
 COUNSELLE_TRUSTED_PROXY_CIDR
 "
@@ -16,8 +18,9 @@ for name in $required_env; do
   fi
 done
 
-# A managed database starts empty, so provision roles, the counselle schema and
-# the cds_library reader contract before migrations run. No-op once seeded.
+# A managed database starts empty, so provision roles + every cds_library
+# object (schools, the eight facts-store tables, the six reader views, D9)
+# and the counselle schema before migrations run. No-op once seeded.
 .venv/bin/python scripts/seed_reader_db.py
 
 schema_dsn="${COUNSELLE_DB_APP_DSN}"

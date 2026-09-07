@@ -37,7 +37,7 @@ def _catalog() -> Catalog:
     # never need a live connection, only the read-only snapshot shape.
     return cast(
         Catalog,
-        SimpleNamespace(snapshot=SimpleNamespace(schools={}, metrics={}, profile_groups=())),
+        SimpleNamespace(snapshot=SimpleNamespace(schools={}, fact_keys={}, profile_groups=())),
     )
 
 
@@ -48,7 +48,7 @@ def _db_catalog() -> Catalog:
         SimpleNamespace(
             snapshot=SimpleNamespace(
                 schools={1: SimpleNamespace(basics=school)},
-                metrics={"admissions.one": object(), "admissions.two": object()},
+                fact_keys={"admissions.one": object(), "admissions.two": object()},
                 profile_groups=(),
             )
         ),
@@ -428,7 +428,7 @@ async def test_profile_reads_are_grouped_once_and_source_label_names_snapshot(
                     schools={
                         1: SimpleNamespace(basics=SchoolBasics(unitid=1, name="Canonical School"))
                     },
-                    metrics={},
+                    fact_keys={},
                     profile_groups=("location",),
                 )
             ),
@@ -502,7 +502,7 @@ async def test_profile_typo_is_unknown_while_present_null_leaf_is_unavailable(
                     schools={
                         1: SimpleNamespace(basics=SchoolBasics(unitid=1, name="Canonical School"))
                     },
-                    metrics={},
+                    fact_keys={},
                     profile_groups=("location",),
                 )
             ),
@@ -789,7 +789,7 @@ async def test_mixed_cds_editions_attach_comparison_caveat(
         SimpleNamespace(
             snapshot=SimpleNamespace(
                 schools=schools,
-                metrics={"admissions.one": object()},
+                fact_keys={"admissions.one": object()},
                 profile_groups=(),
             )
         ),

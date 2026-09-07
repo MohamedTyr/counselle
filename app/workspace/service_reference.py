@@ -6,6 +6,7 @@ import re
 
 from app.caveats import render_caveat
 from app.workspace.models import SchoolReference
+from config.settings import get_settings
 from counselle_db.catalog import Catalog
 from counselle_db.service import get_domain
 from domain.envelope import Citation, CitationEnvelope, EvidenceItem
@@ -37,6 +38,11 @@ async def get_school_reference(
 async def _compatible_test_policy(
     catalog: Catalog, unitid: int, cycle_year: int
 ) -> CitationEnvelope | None:
+    # Interim guard (school-data-v3 Phase 0, removed in Phase 3): get_domain
+    # is parked and always raises now that cds_library has no CDS tables.
+    settings = getattr(catalog, "settings", None) or get_settings()
+    if not settings.cds_data_enabled:
+        return None
     domain = await get_domain(catalog, unitid, "admissions")
     available = [
         row

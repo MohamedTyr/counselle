@@ -13,14 +13,11 @@ _DATA_SLOTS = (
     "as_of",
     "n_schools",
     "snapshot_date",
-    "manifest_version",
-    "total_metrics",
-    "covered",
-    "fully",
-    "partial",
-    "stale",
-    "by_year",
-    "domain_menu",
+    "facts_updated_range",
+    "schools_with_facts",
+    "fact_key_count",
+    "section_menu",
+    "stale_count",
 )
 _PROMPT_SLOTS = ("temporal_context", "student_context", "data_picture", "subreddit_menu")
 _SOURCE_AVAILABILITY_SLOTS = ("web_status", "edu_status", "reddit_status")
@@ -39,32 +36,30 @@ def render_data_picture(snapshot: CatalogSnapshot) -> str:
         if snapshot.profile_snapshot_min == snapshot.profile_snapshot_max
         else f"{snapshot.profile_snapshot_min}–{snapshot.profile_snapshot_max}"
     )
-    aggregates = snapshot.coverage_aggregates
-    years = aggregates["by_year"]
-    by_year = (
-        ", ".join(
-            f"{year}-{str(year + 1)[-2:]} ({count:,})"
-            for year, count in sorted(years.items(), reverse=True)
+    if snapshot.facts_updated_min is None or snapshot.facts_updated_max is None:
+        facts_updated_range = "none yet"
+    elif snapshot.facts_updated_min.date() == snapshot.facts_updated_max.date():
+        facts_updated_range = str(snapshot.facts_updated_min.date())
+    else:
+        facts_updated_range = (
+            f"{snapshot.facts_updated_min.date()}–{snapshot.facts_updated_max.date()}"
         )
-        or "none"
-    )
-    domain_menu = ", ".join(
-        f"{domain.id} ({snapshot.domain_counts[domain.id]:,})" for domain in snapshot.domains
-    )
+    # fact_keys/sections are empty until Phase 3/Phase 2 fill them from the
+    # facts store — render the honest "not yet collected" state rather than 0.
+    not_yet_collected = "not yet collected"
+    fact_key_count = f"{len(snapshot.fact_keys):,}" if snapshot.fact_keys else not_yet_collected
+    section_menu = ", ".join(sorted(snapshot.sections)) if snapshot.sections else not_yet_collected
     return render_slots(
         load_prompt("data_picture"),
         _DATA_SLOTS,
         as_of=snapshot.refreshed_at.astimezone(UTC).isoformat(),
         n_schools=f"{len(snapshot.schools):,}",
         snapshot_date=dates,
-        manifest_version=snapshot.current_version,
-        total_metrics=f"{snapshot.total_metrics:,}",
-        covered=f"{aggregates['covered']:,}",
-        fully=f"{aggregates['fully']:,}",
-        partial=f"{aggregates['partial']:,}",
-        stale=f"{aggregates['stale']:,}",
-        by_year=by_year,
-        domain_menu=domain_menu,
+        facts_updated_range=facts_updated_range,
+        schools_with_facts=f"{snapshot.schools_with_facts:,}",
+        fact_key_count=fact_key_count,
+        section_menu=section_menu,
+        stale_count=f"{snapshot.stale_facts_count:,}",
     )
 
 

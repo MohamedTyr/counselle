@@ -1,0 +1,35 @@
+# Local dev Postgres for school-data-v3 (plans/school-data-v3.md §6c,
+# appendix G-iii). Deliberately a NEW container/volume name, not the retired
+# counselle-data-pipeline repo's `counselle-data-pipeline-db-1` /
+# `counselle-data-pipeline_postgres_data` -- D9's "rebuild from a new seed"
+# intent: nothing here silently re-adopts old data. The old container is
+# stopped (never removed) by the owner before this claims port 5433 (plan
+# §8 Q8) and both are deleted only at Phase 5 sign-off.
+#
+# No /docker-entrypoint-initdb.d/ mount: all role/schema bootstrap happens
+# host-side via `scripts/dev.py reset-db` calling scripts/setup_db.sql and
+# deploy/seed/cds_library_schema.sql against COUNSELLE_DB_ADMIN_DSN.
+
+name: counselle-v3
+
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    container_name: counselle-db-v3
+    environment:
+      POSTGRES_DB: counselle_data
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${COUNSELLE_LOCAL_DB_SUPERUSER_PASSWORD:?set in .env}
+    ports:
+      - "127.0.0.1:${COUNSELLE_DB_PORT:-5433}:5432"
+    volumes:
+      - counselle_v3_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d counselle_data"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+
+volumes:
+  counselle_v3_postgres_data:
+    name: counselle_v3_postgres_data

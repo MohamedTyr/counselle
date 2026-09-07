@@ -4,8 +4,8 @@ Usage:
     uv run python scripts/chat_cli.py [--session SESSION_ID]
 
 Builds the production runtime once (RO pool + catalog, app pool, Postgres
-checkpointer, counselle-db MCP child, real Gemini), then loops: read a line,
-stream the turn, print events. Clarify questions print their options and the
+checkpointer, real Gemini), then loops: read a line, stream the turn, print
+events. Clarify questions print their options and the
 next line you type is the answer (``run_turn`` auto-detects the parked
 interrupt). Piped stdin works for one-shot smokes (EOF exits cleanly).
 ``--session`` resumes an existing session — including one parked on a clarify

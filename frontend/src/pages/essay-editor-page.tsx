@@ -2,6 +2,7 @@ import { useNavigate, useParams } from "react-router";
 
 import { useEssay } from "@/api/workspace/hooks";
 import { Button } from "@/components/ui/button";
+import { ErrorCard } from "@/components/ui/error-card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { essayFromApi } from "@/domain/essay";
 import { EssayEditorPage as EssayEditorFeaturePage } from "@/features/essays/EssayEditorRoute";
@@ -27,28 +28,21 @@ export function EssayEditorPage() {
   if (essayQuery.isError || !essayQuery.data) {
     return (
       <section className="flex min-h-0 flex-1 items-start p-6">
-        <div className="max-w-md rounded-xl border bg-card p-6">
-          <div className="space-y-3">
-            <h1 className="font-heading text-lg font-medium">
-              Could not load essay
-            </h1>
-            <p className="text-sm text-muted-foreground">
-              The workspace could not reach this essay.
-            </p>
-            <div className="flex gap-2">
-              <Button onClick={() => void essayQuery.refetch()}>
-                Try again
-              </Button>
-              <Button
-                onClick={() => void navigate("/app/essays")}
-                type="button"
-                variant="outline"
-              >
-                Back to essays
-              </Button>
-            </div>
-          </div>
-        </div>
+        <ErrorCard
+          headingLevel="h1"
+          message="The workspace could not reach this essay."
+          onRetry={() => void essayQuery.refetch()}
+          secondaryAction={
+            <Button
+              onClick={() => void navigate("/app/essays")}
+              type="button"
+              variant="outline"
+            >
+              Back to essays
+            </Button>
+          }
+          title="Could not load essay"
+        />
       </section>
     );
   }

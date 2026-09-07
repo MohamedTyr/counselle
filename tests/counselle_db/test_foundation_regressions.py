@@ -12,7 +12,6 @@ from counselle_db.catalog import Catalog, SchoolRecord, _freeze, normalize_schoo
 from counselle_db.formatting import format_cds_edition
 from counselle_db.models import SchoolBasics, ServiceError
 from counselle_db.service import (
-    _coverage,
     _display_profile,
     _walk_profile,
     query_database,
@@ -32,20 +31,6 @@ def test_profile_display_rejects_blank_strings_and_empty_lists() -> None:
 
 def test_selected_edition_label_is_code_formatted_from_opening_year() -> None:
     assert format_cds_edition(2024) == "CDS 2024-25"
-    coverage = _coverage(
-        {
-            "academic_year": 2024,
-            "document_id": 7,
-            "currentness": "current",
-            "staleness_reason": None,
-            "latest_extraction_status": "succeeded",
-            "latest_error_code": None,
-        },
-        [],
-        cast(Any, SimpleNamespace(snapshot=SimpleNamespace(domains=()))),
-    )
-    assert coverage.selected_year == 2024
-    assert coverage.selected_edition == "CDS 2024-25"
 
 
 class _Context:

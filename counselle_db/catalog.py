@@ -1,4 +1,4 @@
-"""Atomic, immutable catalog snapshot for the five-view reader contract."""
+"""Atomic, immutable catalog snapshot for the six-view reader contract (school-data-v3)."""
 
 from __future__ import annotations
 
@@ -14,14 +14,8 @@ import asyncpg
 import structlog
 
 from config.settings import get_settings, load_yaml_asset
+from counselle_db.formatting import hex_digest
 from counselle_db.models import SchoolBasics, ServiceError
-from counselle_db.packets import (
-    ManifestDomain,
-    ManifestMetric,
-    ManifestSnapshot,
-    compile_manifest,
-    hex_digest,
-)
 
 logger = structlog.get_logger(__name__)
 
@@ -37,19 +31,14 @@ def _freeze(value: Any) -> Any:
     return value
 
 
-_MANIFEST_SQL = """SELECT version,content_sha256,content,domain_hashes,published_at,
- extractor_contract_version,is_current
- FROM cds_library.cds_manifest_snapshots ORDER BY published_at"""
 _PROFILES_SQL = """SELECT id,name,aliases,city,state,search_name,official_domain,is_main_campus,
  basic_profile,profile_version,profile_snapshot_date,profile_sha256
  FROM cds_library.school_profiles ORDER BY id"""
-_COVERAGE_SQL = """WITH selected_documents AS (
- SELECT DISTINCT ON (school_id) * FROM cds_library.active_cds_documents
- ORDER BY school_id,academic_year DESC,document_id DESC)
- SELECT d.school_id,d.academic_year,d.document_id,d.currentness,d.staleness_reason,
- d.latest_extraction_status,d.latest_error_code,p.domain_id,p.accepted_packet_status
- FROM selected_documents d LEFT JOIN cds_library.active_cds_domain_packets p
- ON p.school_id=d.school_id AND p.document_id=d.document_id"""
+# One row per school, including one with no CollegeData crawl yet at all
+# (LEFT JOIN in the view) -- an empty facts store still returns every school
+# with fact_count=0 and facts_updated_at=NULL, never an absent row.
+_SCHOOL_DATA_STATUS_SQL = """SELECT school_id,fact_count,facts_updated_at
+ FROM cds_library.school_data_status"""
 
 
 def normalize_school_name(value: str) -> str:
@@ -87,22 +76,25 @@ class SchoolRecord:
 @dataclass(frozen=True)
 class CatalogSnapshot:
     refreshed_at: datetime
-    current_version: str
-    current_hash: str
-    current_contract: str
-    published_at: datetime
-    manifests: Mapping[str, ManifestSnapshot]
-    domains: tuple[ManifestDomain, ...]
-    metrics: Mapping[str, ManifestMetric]
-    total_metrics: int
-    domain_counts: Mapping[str, int]
     schools: Mapping[int, SchoolRecord]
     name_index: Mapping[str, tuple[int, ...]]
     profile_groups: tuple[str, ...]
     profile_snapshot_min: date
     profile_snapshot_max: date
-    coverage: Mapping[int, Mapping[str, Any]]
-    coverage_aggregates: Mapping[str, Any]
+    # CollegeData facts-store aggregates (cds_library.school_data_status).
+    # Genuinely zero/None while the facts store is empty (Phase 0-1) — not a
+    # placeholder, the real count of an empty crawl.
+    schools_with_facts: int
+    facts_updated_min: datetime | None
+    facts_updated_max: datetime | None
+    stale_facts_count: int
+    # Both empty until later phases: fact_keys is filled from fact_coverage in
+    # Phase 3 (viz validation + the data picture); sections is filled from
+    # facts_sections.yaml in Phase 2 (get_facts, the facts route). An empty
+    # fact_keys correctly rejects every metric cell while the agent is
+    # web-only (Phase 0-2, no in-process DB tools mounted).
+    fact_keys: Mapping[str, Any]
+    sections: Mapping[str, Any]
 
 
 class Catalog:
@@ -138,36 +130,20 @@ class Catalog:
 
     @staticmethod
     async def _load_snapshot(pool: asyncpg.Pool) -> CatalogSnapshot:
+        # Deliberately the global settings, not an injected instance: this is
+        # a bare @staticmethod (tests monkeypatch it wholesale with a
+        # single-argument replacement), and facts_stale_days is not something
+        # a caller needs to override per Catalog instance.
+        settings = get_settings()
         async with (
             pool.acquire() as conn,
             conn.transaction(isolation="repeatable_read", readonly=True),
         ):
-            manifest_rows = await conn.fetch(_MANIFEST_SQL)
             profile_rows = await conn.fetch(_PROFILES_SQL)
-            coverage_rows = await conn.fetch(_COVERAGE_SQL)
+            status_rows = await conn.fetch(_SCHOOL_DATA_STATUS_SQL)
             now = datetime.now(UTC)
         if not profile_rows:
             raise ServiceError("The school profile catalog is empty.")
-        current_rows = [row for row in manifest_rows if row["is_current"]]
-        if len(current_rows) != 1:
-            raise ServiceError("The CDS catalog must have exactly one current manifest.")
-        manifests: dict[str, ManifestSnapshot] = {}
-        for row in manifest_rows:
-            content = row["content"]
-            root_version = content.get("root", {}).get("version")
-            if (
-                root_version != row["version"]
-                or row["version"] in manifests
-                or len(bytes(row["content_sha256"])) != 32
-                or not row["extractor_contract_version"]
-            ):
-                raise ServiceError("Manifest snapshot identity is inconsistent.")
-            manifests[row["version"]] = compile_manifest(
-                row["version"], content, row["domain_hashes"]
-            )
-        current_row = current_rows[0]
-        current = manifests[current_row["version"]]
-        metrics = {metric.ref: metric for domain in current.domains for metric in domain.metrics}
         schools: dict[int, SchoolRecord] = {}
         names: dict[str, list[int]] = {}
         groups: set[str] = set()
@@ -212,67 +188,31 @@ class Catalog:
                 normalized = normalize_school_name(name)
                 if normalized:
                     names.setdefault(normalized, []).append(unitid)
-        coverage: dict[int, dict[str, Any]] = {}
-        for row in coverage_rows:
-            existing = coverage.get(row["school_id"])
-            if existing is not None and existing["document_id"] != row["document_id"]:
-                raise ServiceError("Selected-document coverage contains duplicate schools.")
-            item = coverage.setdefault(
-                row["school_id"],
-                {
-                    "academic_year": row["academic_year"],
-                    "document_id": row["document_id"],
-                    "currentness": row["currentness"],
-                    "staleness_reason": row["staleness_reason"],
-                    "latest_status": row["latest_extraction_status"],
-                    "latest_error_code": row["latest_error_code"],
-                    "domains": [],
-                    "partials": 0,
-                },
-            )
-            if row["accepted_packet_status"]:
-                item["domains"].append(row["domain_id"])
-                item["partials"] += row["accepted_packet_status"] == "partial"
-        order = {domain.id: index for index, domain in enumerate(current.domains)}
-        for item in coverage.values():
-            item["domains"].sort(key=lambda domain: order.get(domain, 10**9))
-        covered = sum(bool(item["domains"]) for item in coverage.values())
-        fully = sum(
-            len(item["domains"]) == len(current.domains) and item["partials"] == 0
-            for item in coverage.values()
-        )
-        by_year: dict[int, int] = {}
-        stale = 0
-        for item in coverage.values():
-            if item["domains"]:
-                by_year[item["academic_year"]] = by_year.get(item["academic_year"], 0) + 1
-                stale += item["currentness"] == "stale"
+        stale_cutoff = now - timedelta(days=settings.facts_stale_days)
+        schools_with_facts = 0
+        stale_facts_count = 0
+        updated_ats: list[datetime] = []
+        for row in status_rows:
+            if row["fact_count"]:
+                schools_with_facts += 1
+            updated_at = row["facts_updated_at"]
+            if updated_at is not None:
+                updated_ats.append(updated_at)
+                if updated_at < stale_cutoff:
+                    stale_facts_count += 1
         return CatalogSnapshot(
             refreshed_at=now,
-            current_version=current.version,
-            current_hash=hex_digest(current_row["content_sha256"]),
-            current_contract=current_row["extractor_contract_version"],
-            published_at=current_row["published_at"],
-            manifests=MappingProxyType(manifests),
-            domains=current.domains,
-            metrics=MappingProxyType(metrics),
-            total_metrics=len(metrics),
-            domain_counts=MappingProxyType({d.id: len(d.metrics) for d in current.domains}),
             schools=MappingProxyType(schools),
             name_index=MappingProxyType({k: tuple(v) for k, v in names.items()}),
             profile_groups=tuple(sorted(groups)),
             profile_snapshot_min=min(dates),
             profile_snapshot_max=max(dates),
-            coverage=_freeze(coverage),
-            coverage_aggregates=_freeze(
-                {
-                    "covered": covered,
-                    "fully": fully,
-                    "partial": covered - fully,
-                    "stale": stale,
-                    "by_year": by_year,
-                }
-            ),
+            schools_with_facts=schools_with_facts,
+            facts_updated_min=min(updated_ats) if updated_ats else None,
+            facts_updated_max=max(updated_ats) if updated_ats else None,
+            stale_facts_count=stale_facts_count,
+            fact_keys=MappingProxyType({}),
+            sections=MappingProxyType({}),
         )
 
     async def maybe_refresh(self, *, force: bool = False) -> CatalogSnapshot:
@@ -289,16 +229,6 @@ class Catalog:
             return self._snapshot
         self._snapshot = fresh
         return fresh
-
-    async def domain(self, domain_id: str) -> ManifestDomain:
-        match = next((d for d in self._snapshot.domains if d.id == domain_id), None)
-        if match is None:
-            await self.maybe_refresh(force=True)
-            match = next((d for d in self._snapshot.domains if d.id == domain_id), None)
-        if match is None:
-            valid = ", ".join(d.id for d in self._snapshot.domains)
-            raise ServiceError(f"Unknown CDS domain. Valid domains: {valid}")
-        return match
 
     def school_name(self, unitid: int) -> str | None:
         record = self._snapshot.schools.get(unitid)

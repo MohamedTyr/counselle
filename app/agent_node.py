@@ -63,6 +63,7 @@ from app import viz as viz_mod
 from app.clarification import ask_student_output_type, build_pending_clarification
 from app.evidence_markers import EvidenceMarkerStripper, scrub_evidence_tokens
 from app.model_selection import counselor_model_selection
+from app.model_selection import model_name_from_setting as model_name_from_setting
 from app.plan_tool import PlanReminder, PlanState, make_write_plan_tool
 from app.prompt import build_system_prompt, render_source_availability
 from app.pydantic_iter_nodes import CallToolsNode, ModelRequestNode
@@ -242,13 +243,6 @@ class TurnDeps:
 
     registry: SourceRegistry
     tool_overflow: ToolMiddlewareContext | None = None
-
-
-def model_name_from_setting(model_setting: str) -> str:
-    """``"google-vertex:gemini-2.5-pro"`` → ``"gemini-2.5-pro"`` (notes §1: the
-    provider prefix is unusable with our Express-mode key; only the bare model
-    name feeds the explicit GoogleModel constructor)."""
-    return model_setting.split(":", 1)[-1]
 
 
 def default_model_factory(settings: Any, model_setting: str) -> Model:

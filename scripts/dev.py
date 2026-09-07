@@ -4,6 +4,7 @@
     ./scripts/dev.py            # sync, migrate, start API + frontend, open the app
     ./scripts/dev.py stop       # free the dev ports and exit
     ./scripts/dev.py --check    # validate toolchain + config + ports, then exit
+    ./scripts/dev.py reset-db   # nuke and rebuild the local dev database (destructive)
 
 What a normal start does, in order: validate the toolchain (uv, node, npm) and
 config (required env), sync locked Python + frontend deps, wake the existing local
@@ -35,17 +36,23 @@ import urllib.request
 import webbrowser
 from pathlib import Path
 from typing import NoReturn
-from urllib.parse import urlsplit
+from urllib.parse import unquote, urlsplit
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 FRONTEND_DIR = REPO_ROOT / "frontend"
 MIGRATIONS_DIR = REPO_ROOT / "migrations"
 ENV_FILE = REPO_ROOT / ".env"
+COMPOSE_FILE = REPO_ROOT / "deploy" / "docker-compose.dev.yml"
+SETUP_DB_SQL = REPO_ROOT / "scripts" / "setup_db.sql"
+SEED_READER_DB_PY = REPO_ROOT / "scripts" / "seed_reader_db.py"
+FACTS_MODULE_MARKER = REPO_ROOT / "app" / "facts" / "__main__.py"
 
 DEFAULT_API_HOST = "127.0.0.1"
 DEFAULT_API_PORT = 8000
 DEFAULT_WEB_HOST = "localhost"
 DEFAULT_WEB_PORT = 5173
+DEFAULT_DB_PORT = 5433
+COMPOSE_DB_CONTAINER_NAME = "counselle-db-v3"
 MIN_NODE = (22, 12)
 HEALTH_TIMEOUT_S = 120
 PORT_SCAN_LIMIT = 20
@@ -366,6 +373,183 @@ def apply_migrations(file_env: dict[str, str], *, allow_remote: bool) -> None:
 
 
 # ---------------------------------------------------------------------------
+# reset-db (school-data-v3, plan §6c / appendix G-iv): the one command that
+# ever drops the local dev database. Every other boot path (container/prod
+# self-seed via scripts/seed_reader_db.py) only creates-if-missing and
+# loads-if-empty.
+# ---------------------------------------------------------------------------
+
+
+def _dsn_password(dsn: str) -> str:
+    password = unquote(urlsplit(dsn).password or "")
+    if not password:
+        die(f"DSN carries no password: {dsn!r}")
+    return password
+
+
+def _run_psql(dsn: str, *, args: list[str], env: dict[str, str], what: str) -> None:
+    if shutil.which("psql") is None:
+        die("'psql' is not on PATH — required for reset-db.")
+    _run_checked(["psql", dsn, "-v", "ON_ERROR_STOP=1", *args], cwd=REPO_ROOT, env=env, what=what)
+
+
+def _print_grant_verification_summary(admin_dsn: str, file_env: dict[str, str]) -> None:
+    """Mirror Phase 0's own DB exit test locally (appendix G-iv step 9)."""
+    info("verifying reader/writer grants…")
+    script = """
+\\echo -- cds_library_reader: must see exactly the six views, denied on every base table
+SET ROLE cds_library_reader;
+SELECT count(*) AS reader_visible_views FROM information_schema.views
+  WHERE table_schema = 'cds_library';
+SELECT bool_and(NOT has_table_privilege('cds_library_reader', 'cds_library.' || t, 'SELECT'))
+  AS reader_denied_all_base_tables
+  FROM unnest(ARRAY['schools','collegedata_schools','page_snapshots','school_pages',
+                     'school_facts','school_explore_rows','fact_coverage_counts',
+                     'facts_jobs','crawl_runs']) AS t;
+RESET ROLE;
+\\echo -- cds_library_app: INSERT/SELECT/UPDATE on the eight new tables, SELECT-only on schools
+SET ROLE cds_library_app;
+SELECT bool_and(has_table_privilege('cds_library_app', 'cds_library.' || t, 'INSERT'))
+  AS app_can_insert_all_new_tables
+  FROM unnest(ARRAY['collegedata_schools','page_snapshots','school_pages','school_facts',
+                     'school_explore_rows','fact_coverage_counts','facts_jobs',
+                     'crawl_runs']) AS t;
+SELECT has_table_privilege('cds_library_app', 'cds_library.page_snapshots', 'DELETE')
+  AS app_can_delete_page_snapshots;
+SELECT NOT has_table_privilege('cds_library_app', 'cds_library.schools', 'INSERT')
+  AS app_denied_write_on_schools;
+RESET ROLE;
+"""
+    proc = subprocess.run(
+        ["psql", admin_dsn, "-v", "ON_ERROR_STOP=1"],
+        input=script,
+        cwd=REPO_ROOT,
+        env=merged_env(file_env),
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    print(proc.stdout, end="")
+    if proc.returncode != 0:
+        warn(f"grant verification query failed: {proc.stderr.strip()}")
+
+
+def _check_target_container(file_env: dict[str, str]) -> None:
+    """Refuse to proceed if port COUNSELLE_DB_PORT is already claimed by a
+    container other than the school-data-v3 compose service (finding 4): the
+    pre-existing counselle-data-pipeline-db-1 container defaults to the same
+    5433 port, and reset-db must not guess which database it just dropped."""
+    if shutil.which("docker") is None:
+        return
+    port = int(env_get(file_env, "COUNSELLE_DB_PORT") or DEFAULT_DB_PORT)
+    container = find_container_publishing(port)
+    if container is None:
+        return
+    _container_id, name = container
+    if name != COMPOSE_DB_CONTAINER_NAME:
+        die(
+            f"port {port} is already claimed by container {name!r}, not the "
+            f"school-data-v3 container ({COMPOSE_DB_CONTAINER_NAME!r}) — refusing to "
+            "reset-db. Stop the other container first (never remove it)."
+        )
+
+
+def reset_db(file_env: dict[str, str], *, allow_remote: bool = False) -> int:
+    admin_dsn = env_get(file_env, "COUNSELLE_DB_ADMIN_DSN")
+    app_dsn = env_get(file_env, "COUNSELLE_DB_APP_DSN")
+    ro_dsn = env_get(file_env, "COUNSELLE_DB_RO_DSN")
+    pipeline_dsn = env_get(file_env, "COUNSELLE_DB_PIPELINE_DSN")
+    if not admin_dsn:
+        die("COUNSELLE_DB_ADMIN_DSN is required for reset-db (see .env.example).")
+    if not app_dsn or not ro_dsn:
+        die("COUNSELLE_DB_APP_DSN and COUNSELLE_DB_RO_DSN are required for reset-db.")
+
+    for name, dsn in (
+        ("COUNSELLE_DB_ADMIN_DSN", admin_dsn),
+        ("COUNSELLE_DB_APP_DSN", app_dsn),
+        ("COUNSELLE_DB_RO_DSN", ro_dsn),
+    ):
+        if not dsn_is_local(dsn) and not allow_remote:
+            die(
+                f"{name} is not a local database — refusing to reset-db, which drops "
+                "cds_library and counselle entirely. Pass --allow-remote-reset to run it anyway."
+            )
+
+    _check_target_container(file_env)
+
+    warn(
+        "about to DROP the cds_library and counselle schemas — every school, account, "
+        "session, workspace, and student profile in the local dev database."
+    )
+    try:
+        reply = input("Type 'reset' to continue: ").strip()
+    except EOFError:
+        reply = ""
+    if reply != "reset":
+        die("reset-db aborted — confirmation not given.")
+
+    env = merged_env(file_env)
+
+    info(f"bringing up the local dev database container ({COMPOSE_FILE.name})…")
+    _run_checked(
+        ["docker", "compose", "-f", str(COMPOSE_FILE), "up", "-d", "db"],
+        cwd=REPO_ROOT,
+        env=env,
+        what="docker compose up db",
+    )
+    if not wait_for_database(admin_dsn, DB_START_TIMEOUT_S):
+        die("local dev database did not become ready in time.")
+    ok("database container ready")
+
+    warn("dropping cds_library and counselle schemas — the one destructive step…")
+    drop_sql = "DROP SCHEMA IF EXISTS cds_library CASCADE; DROP SCHEMA IF EXISTS counselle CASCADE;"
+    _run_psql(admin_dsn, args=["-c", drop_sql], env=env, what="drop schemas")
+    ok("schemas dropped")
+
+    info("provisioning roles (scripts/setup_db.sql)…")
+    setup_env = {
+        **env,
+        "COUNSELLE_RO_PASSWORD": _dsn_password(ro_dsn),
+        "COUNSELLE_APP_PASSWORD": _dsn_password(app_dsn),
+    }
+    if pipeline_dsn:
+        setup_env["COUNSELLE_PIPELINE_PASSWORD"] = _dsn_password(pipeline_dsn)
+    _run_psql(admin_dsn, args=["-f", str(SETUP_DB_SQL)], env=setup_env, what="scripts/setup_db.sql")
+    ok("roles provisioned")
+
+    info("seeding the cds_library schema + schools (scripts/seed_reader_db.py)…")
+    _run_checked(
+        ["uv", "run", "python", str(SEED_READER_DB_PY)],
+        cwd=REPO_ROOT,
+        env=env,
+        what="scripts/seed_reader_db.py",
+    )
+    ok("cds_library seeded")
+
+    # app.facts (the crosswalk loader) lands in Phase 1 — reset-db must stay
+    # usable before then, so this step degrades to a warning rather than a
+    # hard failure when the module doesn't exist yet.
+    if FACTS_MODULE_MARKER.exists():
+        info("syncing the CollegeData crosswalk (python -m app.facts crosswalk-sync)…")
+        _run_checked(
+            ["uv", "run", "python", "-m", "app.facts", "crosswalk-sync"],
+            cwd=REPO_ROOT,
+            env=env,
+            what="app.facts crosswalk-sync",
+        )
+        ok("crosswalk synced")
+    else:
+        warn("app.facts is not implemented yet (lands in Phase 1) — skipping crosswalk-sync")
+
+    info("applying counselle migrations from a clean ledger…")
+    apply_migrations(file_env, allow_remote=False)
+
+    _print_grant_verification_summary(admin_dsn, file_env)
+    ok("reset-db complete")
+    return 0
+
+
+# ---------------------------------------------------------------------------
 # Process supervision
 # ---------------------------------------------------------------------------
 
@@ -583,8 +767,11 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         "action",
         nargs="?",
         default="start",
-        choices=("start", "stop"),
-        help="start the stack (default) or stop: free the dev ports and exit.",
+        choices=("start", "stop", "reset-db"),
+        help=(
+            "start the stack (default), stop: free the dev ports and exit, or "
+            "reset-db: nuke and rebuild the local dev database (destructive)."
+        ),
     )
     parser.add_argument(
         "--host", default=DEFAULT_API_HOST, help="API bind host (default 127.0.0.1)."
@@ -614,6 +801,11 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         action="store_true",
         help="Permit migrations against a non-local database (off by default).",
     )
+    parser.add_argument(
+        "--allow-remote-reset",
+        action="store_true",
+        help="Permit reset-db against a non-local database (off by default).",
+    )
     return parser.parse_args(argv)
 
 
@@ -624,6 +816,8 @@ def main(argv: list[str]) -> int:
     if args.action == "stop":
         stop_stack(args.host, args.api_port, args.web_port)
         return 0
+    if args.action == "reset-db":
+        return reset_db(file_env, allow_remote=args.allow_remote_reset)
     try:
         return run_stack(args, file_env)
     except KeyboardInterrupt:

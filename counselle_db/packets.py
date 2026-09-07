@@ -8,7 +8,7 @@ from typing import Any, Literal
 import structlog
 from pydantic import BaseModel, ConfigDict, Field, JsonValue, ValidationError
 
-from counselle_db.formatting import format_cds_edition, format_decimal
+from counselle_db.formatting import format_cds_edition, format_decimal, hex_digest
 from counselle_db.models import DomainRow, ServiceError
 
 logger = structlog.get_logger(__name__)
@@ -106,10 +106,6 @@ class ParsedPacket(StrictModel):
     manifest: ManifestSnapshot
     current_definition_match: bool
     currentness: str
-
-
-def hex_digest(value: bytes | bytearray | memoryview) -> str:
-    return bytes(value).hex()
 
 
 def compile_manifest(

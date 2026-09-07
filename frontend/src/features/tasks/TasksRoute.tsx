@@ -15,6 +15,7 @@ import {
 } from "@/api/workspace/hooks";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ErrorCard } from "@/components/ui/error-card";
 import { UndoToast, type UndoToastPending } from "@/components/undo-toast";
 import {
   Empty,
@@ -376,19 +377,11 @@ export function TasksPage() {
         {isLoading ? (
           <TasksSkeleton />
         ) : isError ? (
-          <div className="rounded-xl border bg-card p-6">
-            <div className="max-w-md space-y-3">
-              <h2 className="font-heading text-lg font-medium">
-                Could not load tasks
-              </h2>
-              <p className="text-sm text-muted-foreground">
-                The workspace could not reach your tasks list.
-              </p>
-              <Button onClick={() => void tasksQuery.refetch()}>
-                Try again
-              </Button>
-            </div>
-          </div>
+          <ErrorCard
+            message="The workspace could not reach your tasks list."
+            onRetry={() => void tasksQuery.refetch()}
+            title="Could not load tasks"
+          />
         ) : hasNoTasks ? (
           <Empty className="rounded-xl border bg-card">
             <EmptyHeader>

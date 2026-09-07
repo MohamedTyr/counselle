@@ -120,13 +120,13 @@ def _summary_model(settings: Any, model_factory: ModelFactory | None) -> Any:
         return model_setting
     # The bare "google-vertex:" prefix resolves to an ambient-credentials
     # GoogleCloudProvider, which this app can't authenticate with (notes §1 on
-    # app.agent_node.model_name_from_setting/default_model_factory). Build the
-    # model the same explicit way the counselor model does, but for the cheap
-    # model setting.
+    # app.model_selection.model_name_from_setting/app.agent_node.default_model_factory).
+    # Build the model the same explicit way the counselor model does, but for
+    # the cheap model setting.
     from pydantic_ai.models.google import GoogleModel
     from pydantic_ai.providers.google_cloud import GoogleCloudProvider
 
-    from app.agent_node import model_name_from_setting
+    from app.model_selection import model_name_from_setting
 
     if not settings.vertex_api_key:
         raise RuntimeError(

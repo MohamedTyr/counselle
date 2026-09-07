@@ -7,7 +7,6 @@ import {
   SchoolsIcon,
   TasksIcon,
 } from "@/features/shell/sidebar-icons";
-import { DatabaseZap } from "lucide-react";
 
 import type { ShellRoute } from "@/features/shell/MainNav";
 
@@ -68,12 +67,12 @@ export const shellRoutes: ShellRoute[] = [
 ];
 
 /** Appended to `shellRoutes` by `AppSidebar` only when `is_superuser` is
- * true (plan §F1) — one entry, not a section. */
-export const adminShellRoutes: ShellRoute[] = [
-  {
-    id: "cds",
-    title: "CDS",
-    icon: <DatabaseZap />,
-    link: "/app/admin/cds",
-  },
-];
+ * true (plan §F1) — one entry, not a section.
+ *
+ * Empty for the school-data-v3 Phase 0 → Phase 1 window: the CDS admin
+ * screen this used to link to is parked (`PARKED.md`), and its replacement,
+ * `/app/admin/facts`, does not exist until Phase 1 — so there is nothing to
+ * point a superuser at yet. Restoring a link here (to `/app/admin/facts`,
+ * with `DatabaseZap` from `lucide-react` as its icon) is Phase 1 work; see
+ * `PARKED.md` for the exact restore step. */
+export const adminShellRoutes: ShellRoute[] = [];

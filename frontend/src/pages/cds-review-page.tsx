@@ -13,7 +13,7 @@ import {
   type DocumentReviewOut,
 } from "@/api/cds-admin/types";
 import { isTransportError } from "@/api/http/errors";
-import { CdsErrorCard } from "@/features/cds-admin/CdsErrorCard";
+import { ErrorCard as CdsErrorCard } from "@/components/ui/error-card";
 import { CdsUnavailable } from "@/features/cds-admin/CdsUnavailable";
 import { ApproveAnywayDialog } from "@/features/cds-admin/review/ApproveAnywayDialog";
 import { ApproveBar } from "@/features/cds-admin/review/ApproveBar";

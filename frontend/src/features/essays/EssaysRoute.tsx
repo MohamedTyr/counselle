@@ -14,6 +14,7 @@ import {
 import type { ApplicationView, EssayType } from "@/api/workspace/types";
 import { UndoToast } from "@/components/undo-toast";
 import { Button } from "@/components/ui/button";
+import { ErrorCard } from "@/components/ui/error-card";
 import {
   Empty,
   EmptyContent,
@@ -213,19 +214,11 @@ export function EssaysPage({ onOpenEssay }: EssaysPageProps = {}) {
         {essaysQuery.isLoading ? (
           <EssaysSkeleton />
         ) : essaysQuery.isError ? (
-          <div className="rounded-xl border bg-card p-6">
-            <div className="max-w-md space-y-3">
-              <h2 className="font-heading text-lg font-medium">
-                Could not load essays
-              </h2>
-              <p className="text-sm text-muted-foreground">
-                The workspace could not reach your essay library.
-              </p>
-              <Button onClick={() => void essaysQuery.refetch()}>
-                Try again
-              </Button>
-            </div>
-          </div>
+          <ErrorCard
+            message="The workspace could not reach your essay library."
+            onRetry={() => void essaysQuery.refetch()}
+            title="Could not load essays"
+          />
         ) : hasNoEssays ? (
           <Empty className="rounded-xl border bg-card">
             <EmptyHeader>

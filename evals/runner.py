@@ -24,9 +24,8 @@ from pydantic import BaseModel
 from sqlglot import exp, parse
 from sqlglot.errors import ParseError, TokenError
 
-from app.agent_node import model_name_from_setting
 from app.deps import Runtime, build_runtime
-from app.model_selection import counselor_model_selection
+from app.model_selection import counselor_model_selection, model_name_from_setting
 from app.run_turn import run_turn
 from app.sessions import create_session
 from app.workspace.changes import WorkspaceEventBus
@@ -38,7 +37,6 @@ from config.settings import get_settings
 from counselle_db.service import (
     _join_has_exact_document_keys,
     _ordered_column,
-    get_domain,
 )
 from domain.events import Event
 from domain.response_mode import ResponseMode
@@ -163,155 +161,28 @@ class EvalContext:
 
 
 def _school(snapshot: Any, unitid: int) -> EvalSchool:
-    record = snapshot.schools[unitid]
-    coverage = snapshot.coverage.get(unitid, {})
-    return EvalSchool(
-        unitid,
-        record.basics.name,
-        tuple(coverage.get("domains", ())),
-        coverage.get("academic_year"),
-        coverage.get("currentness"),
-        int(coverage.get("partials", 0)),
+    """Parked under school-data-v3 (see ``build_eval_context``)."""
+    raise NotImplementedError(
+        "evals.runner._school is parked under school-data-v3; the CDS "
+        "domain/coverage catalog it read no longer exists. Phase 3 rewrites "
+        "this against the facts store."
     )
-
-
-def _require_metric_ref(
-    metrics: Mapping[str, Any], domain_id: str, metric_id: str
-) -> str:
-    """Resolve one semantic eval role without substituting an unrelated metric."""
-    ref = f"{domain_id}.{metric_id}"
-    if ref not in metrics:
-        raise RuntimeError(
-            f"live manifest lacks required {domain_id!r} eval metric {metric_id!r}"
-        )
-    return ref
 
 
 async def build_eval_context(runtime: Runtime) -> EvalContext:
-    """Choose fixture roles from the current immutable catalog snapshot."""
-    snapshot = runtime.deps.catalog.snapshot
-    covered_ids = [uid for uid, row in snapshot.coverage.items() if row.get("domains")]
-    profile_only_ids = [
-        uid for uid in snapshot.schools if not snapshot.coverage.get(uid, {}).get("domains")
-    ]
-    stale_partial_ids = [
-        uid
-        for uid in covered_ids
-        if snapshot.coverage[uid].get("currentness") == "stale"
-        and snapshot.coverage[uid].get("partials", 0) > 0
-    ]
-    if not profile_only_ids or not covered_ids:
-        raise RuntimeError("live catalog lacks required covered/profile-only eval roles")
-    if not stale_partial_ids:
-        raise RuntimeError(
-            "live catalog lacks a school whose selected edition is stale and partial"
-        )
-    stale_id = stale_partial_ids[0]
+    """Parked under school-data-v3 Phase 0.
 
-    # Verify the common metric through the real typed reader, not packet internals.
-    common: tuple[int, int, str, str, tuple[str, ...]] | None = None
-    by_domain: dict[str, list[int]] = {}
-    for uid in covered_ids:
-        for domain in snapshot.coverage[uid]["domains"]:
-            by_domain.setdefault(domain, []).append(uid)
-    for domain in (item.id for item in snapshot.domains):
-        candidates = by_domain.get(domain, [])[:12]
-        if len(candidates) < 2:
-            continue
-        verified: dict[str, list[int]] = {}
-        numeric_refs: dict[int, list[str]] = {}
-        for uid in candidates:
-            result = await get_domain(runtime.deps.catalog, uid, domain)
-            for value in result.rows:
-                if value.available:
-                    verified.setdefault(value.ref, []).append(uid)
-                    if isinstance(value.value, int | float) and not isinstance(value.value, bool):
-                        numeric_refs.setdefault(uid, []).append(value.ref)
-        pair = next(((ref, ids) for ref, ids in verified.items() if len(ids) >= 2), None)
-        if pair:
-            stat_refs = tuple(numeric_refs.get(pair[1][0], ()))[:4]
-            if len(stat_refs) < 4:
-                continue
-            common = (pair[1][0], pair[1][1], domain, pair[0], stat_refs)
-            break
-    if common is None:
-        raise RuntimeError("live catalog has no two schools with a common verified metric")
-
-    aid_metric_ref = _require_metric_ref(
-        snapshot.metrics,
-        "financial_aid",
-        "h2_i_average_percent_need_met_all_full_time",
-    )
-    applicants_ref = _require_metric_ref(
-        snapshot.metrics, "admissions", "applicants_total"
-    )
-    admitted_ref = _require_metric_ref(
-        snapshot.metrics, "admissions", "admitted_total"
-    )
-    need_blind_ref = next(
-        (
-            ref
-            for ref, metric in snapshot.metrics.items()
-            if "need-blind" in f"{ref} {metric.description}".casefold()
-            or "need blind" in f"{ref} {metric.description}".casefold()
-        ),
-        None,
-    )
-
-    # The deterministic packet-v8 fixture owns the permanent template-absence gate.
-    # A live role exists only when the latest selected document's typed reader
-    # exposes the absence; older raw packets can disagree with selected truth.
-    async with runtime.ro_pool.acquire() as conn:
-        template_candidates = await conn.fetch(
-            """WITH selected AS (
-                 SELECT DISTINCT ON (school_id) school_id, document_id
-                 FROM cds_library.active_cds_documents
-                 ORDER BY school_id, academic_year DESC, document_id DESC
-               )
-               SELECT p.id, p.name, d.domain_id, metric.key AS metric_id
-               FROM cds_library.active_cds_domain_packets d
-               JOIN selected s ON s.school_id=d.school_id AND s.document_id=d.document_id
-               JOIN cds_library.school_profiles p ON p.id = d.school_id
-               CROSS JOIN LATERAL jsonb_each(d.packet -> 'metrics') AS metric(key, value)
-               WHERE metric.value ->> 'availability_status' = $1
-               ORDER BY p.id, d.domain_id, metric.key
-               LIMIT 50""",
-            "not_in_template_version",
-        )
-    template_row = None
-    for candidate in template_candidates:
-        typed = await get_domain(
-            runtime.deps.catalog, int(candidate["id"]), str(candidate["domain_id"])
-        )
-        candidate_ref = str(candidate["metric_id"])
-        if any(
-            row.ref == candidate_ref
-            and row.availability_status == "not_in_template_version"
-            for row in typed.rows
-        ):
-            template_row = candidate
-            break
-    return EvalContext(
-        snapshot.current_version,
-        tuple(d.id for d in snapshot.domains),
-        len(covered_ids),
-        len(snapshot.schools),
-        _school(snapshot, stale_id),
-        _school(snapshot, profile_only_ids[0]),
-        _school(snapshot, common[0]),
-        _school(snapshot, common[1]),
-        _school(snapshot, common[1] if common[0] == stale_id else common[0]),
-        common[2],
-        common[3],
-        common[4],
-        aid_metric_ref,
-        applicants_ref,
-        admitted_ref,
-        need_blind_ref,
-        template_row is not None,
-        str(template_row["name"]) if template_row else None,
-        str(template_row["domain_id"]) if template_row else None,
-        str(template_row["metric_id"]) if template_row else None,
+    This eval-fixture selection logic picked live schools by the old
+    manifest-era ``CatalogSnapshot``'s coverage/domains/metrics/version
+    fields — all dropped with the manifest. ``CatalogSnapshot.fact_keys``/
+    ``.sections`` are empty until Phase 2/3 fill them from the facts store,
+    so there is nothing to pick live eval fixtures from yet. Phase 3
+    rewrites this against the facts store.
+    """
+    raise NotImplementedError(
+        "evals.runner.build_eval_context is parked under school-data-v3; "
+        "the CDS manifest/domain catalog it depended on no longer exists. "
+        "Phase 3 rewrites this against the facts store."
     )
 
 

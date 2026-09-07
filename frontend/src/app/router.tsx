@@ -1,6 +1,5 @@
 import { createBrowserRouter, Navigate } from "react-router";
 
-import { AdminGate } from "@/app/auth/AdminGate";
 import { GuestOnly } from "@/app/auth/GuestOnly";
 import { OnboardingGate } from "@/app/auth/OnboardingGate";
 import { RequireAuth } from "@/app/auth/RequireAuth";
@@ -12,9 +11,6 @@ import { RegisterRoute } from "@/features/auth/RegisterRoute";
 import { AiPage } from "@/pages/ai-page";
 import { AiChatRoute } from "@/features/ai-chat/AiChatRoute";
 import { ActivitiesPage } from "@/pages/activities-page";
-import { CdsCoveragePage } from "@/pages/cds-coverage-page";
-import { CdsReviewPage } from "@/pages/cds-review-page";
-import { CdsUploadPage } from "@/pages/cds-upload-page";
 import { EssayEditorPage } from "@/pages/essay-editor-page";
 import { EssaysPage } from "@/pages/essays-page";
 import { ProfilePage } from "@/pages/profile-page";
@@ -132,44 +128,23 @@ export function createAppRouter() {
                   element: <EssayEditorPage />,
                 },
                 {
-                  path: "admin/cds",
-                  element: (
-                    <AdminGate>
-                      <CdsCoveragePage />
-                    </AdminGate>
-                  ),
-                },
-                {
-                  path: "admin/cds/upload",
-                  element: (
-                    <AdminGate>
-                      <CdsUploadPage />
-                    </AdminGate>
-                  ),
-                },
-                {
-                  path: "admin/cds/documents/:documentId",
-                  element: (
-                    <AdminGate>
-                      <CdsReviewPage />
-                    </AdminGate>
-                  ),
-                },
-                {
                   /*
-                   * A mistyped or stale `/app/admin/cds/*` path (the review
-                   * route carries a document id, so "review" instead of
-                   * "documents/:id" is a plausible typo) used to fall
-                   * through to the generic `*` below and land the operator
-                   * on /app/tasks with no explanation. The app has no
-                   * dedicated not-found surface anywhere, so — matching its
-                   * existing redirect-to-nearest-known-place pattern — this
-                   * scopes that fallback to the CDS admin index instead of
-                   * an unrelated screen. More specific admin/cds routes
-                   * above always win on match specificity.
+                   * The CDS admin screens are parked (not deleted) as of
+                   * school-data-v3 Phase 0 — the admin dashboard moves to
+                   * `/app/admin/facts` (added in Phase 1). The superuser nav
+                   * entry that used to link here is hidden for this same
+                   * Phase 0 → Phase 1 window (`navigation.tsx`), so this
+                   * redirect exists only for a stale `/app/admin/cds/*`
+                   * bookmark or link: `/app/admin/facts` does not exist yet,
+                   * so until Phase 1 ships it, a hit here still falls
+                   * through to the generic `*` below and lands on
+                   * /app/tasks unexplained — same as if this redirect were
+                   * deleted outright. Keeping it re-pointed now means it
+                   * starts working the moment Phase 1 adds the route,
+                   * with no further edit here.
                    */
                   path: "admin/cds/*",
-                  element: <Navigate replace to="/app/admin/cds" />,
+                  element: <Navigate replace to="/app/admin/facts" />,
                 },
                 {
                   path: "*",

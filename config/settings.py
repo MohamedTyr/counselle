@@ -256,11 +256,31 @@ class Settings(BaseSettings):
     # unset or set-but-unreachable, and the CDS admin surface returns a clean
     # 503 until it is configured (mirrors cds_data_enabled below).
     db_pipeline_dsn: str | None = None
-    cds_data_enabled: bool = True
+    cds_data_enabled: bool = False
     db_statement_timeout_ms: int = DEFAULT_DB_STATEMENT_TIMEOUT_MS
     db_row_cap: int = Field(default=500, gt=0)
     query_database_max_bytes: int = Field(default=262_144, gt=0)
     data_catalog_refresh_seconds: int = Field(default=3600, gt=0)
+    # Hard cap on request bodies the API accepts (document uploads, etc.).
+    # Default = app.workspace.models.DOCUMENT_MAX_BYTES (15 MiB) + 1 MiB of
+    # multipart framing headroom (boundaries, part headers). Replaces the
+    # parked cds_upload_max_bytes as the middleware-level limit — a route's
+    # own limit (e.g. the document upload cap) still applies first and is
+    # what the user-facing 413 message names (plan §4.3).
+    max_request_body_bytes: int = Field(default=16_777_216, gt=0)
+    # --- CollegeData facts store (school-data-v3) ---
+    # In-process crawl-pass worker kill switch — mirrors cds_worker_enabled's
+    # shape. Defaults false: a brand-new crawler against a third-party site
+    # must be switched on deliberately after staging verification. The real
+    # worker (adapters/collegedata, app/facts/jobs.py) lands in Phase 1; this
+    # name only needs to exist so boot never fails on a missing setting.
+    facts_worker_enabled: bool = False
+    # Days since a school's last successful facts crawl before its data is
+    # flagged stale (the `stale_facts` caveat, and the data picture's stale
+    # count — counselle_db.catalog.Catalog reads this at every load, so it is
+    # a real Phase 0 consumer even though the crawler itself ships in Phase 1).
+    facts_stale_days: int = Field(default=120, gt=0)
+    # parked (ADR 0036) — read only by the parked adapters/cds_store.py.
     supported_packet_extractor_versions: Annotated[frozenset[str], NoDecode] = frozenset(
         {
             "gemini-native-pdf-v2",
@@ -375,10 +395,15 @@ class Settings(BaseSettings):
     # (decompression-bomb DoS). Bounded the same way as the summary model call.
     document_extraction_timeout_s: float = 8.0
 
-    # --- CDS admin pipeline (plan §E) ---
+    # --- CDS admin pipeline (parked, ADR 0036/0037 — D8) ---
     # In-process asyncio poller kill switch — all queue state lives in
     # cds_extractions (Postgres), so flipping this off just stops new claims.
-    cds_worker_enabled: bool = True
+    # Defaults false under school-data-v3: the CDS extraction pipeline is
+    # parked, and COUNSELLE_DB_PIPELINE_DSN now drives the facts crawler —
+    # this must never be true wherever that DSN is used for facts (the
+    # untouched poller would otherwise spin forever against the dropped
+    # cds_extractions table). See PARKED.md.
+    cds_worker_enabled: bool = False
     # How often the poller checks for a claimable extraction when idle.
     cds_worker_poll_seconds: int = 3
     # Concurrent extraction runs (bounded so the shared event loop/thread pool

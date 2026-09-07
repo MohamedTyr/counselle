@@ -22,6 +22,7 @@ import type {
   HonorPatch,
 } from "@/api/workspace/types";
 import { Button } from "@/components/ui/button";
+import { ErrorCard } from "@/components/ui/error-card";
 import { UndoToast } from "@/components/undo-toast";
 import { PageContainer } from "@/components/workspace/PageContainer";
 import {
@@ -195,19 +196,12 @@ function ListError({
   onRetry: () => void;
 }) {
   return (
-    <div className="rounded-xl border border-[color:var(--edge)] bg-[color:var(--surface-raised)] p-6">
-      <div className="max-w-md space-y-3">
-        <h2 className="font-heading text-lg font-medium">
-          Could not load {label}
-        </h2>
-        <p className="text-sm text-muted-foreground">
-          The workspace could not reach your {label} list.
-        </p>
-        <Button onClick={onRetry} type="button">
-          Try again
-        </Button>
-      </div>
-    </div>
+    <ErrorCard
+      message={`The workspace could not reach your ${label} list.`}
+      onRetry={onRetry}
+      title={`Could not load ${label}`}
+      variant="raised"
+    />
   );
 }
 

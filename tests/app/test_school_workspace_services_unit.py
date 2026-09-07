@@ -107,8 +107,9 @@ async def test_test_policy_uses_compatible_preference_fallback(
 
     monkeypatch.setattr(service_reference, "get_domain", fake_get_domain)
 
+    catalog = SimpleNamespace(settings=SimpleNamespace(cds_data_enabled=True))
     result = await service_reference._compatible_test_policy(
-        cast(Any, object()), unitid=1, cycle_year=2027
+        cast(Any, catalog), unitid=1, cycle_year=2027
     )
 
     assert result is not None
@@ -148,8 +149,9 @@ async def test_stale_test_policy_is_unavailable_and_requires_portal_verification
 
     monkeypatch.setattr(service_reference, "get_domain", fake_get_domain)
 
+    catalog = SimpleNamespace(settings=SimpleNamespace(cds_data_enabled=True))
     result = await service_reference._compatible_test_policy(
-        cast(Any, object()), unitid=1, cycle_year=2027
+        cast(Any, catalog), unitid=1, cycle_year=2027
     )
 
     assert result is not None
