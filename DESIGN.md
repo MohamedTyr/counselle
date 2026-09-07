@@ -1306,6 +1306,19 @@ description of anything — `Replace , → ;` says a semicolon belongs somewhere
 text around the change point. That window is presentation only, from the `_plain` fields,
 same as the trim.
 
+**The word count says what it would become.** Beside "648 / 650 words" the header appends
+"· 631 if you accept all" whenever that number is knowable. It is not a sum of per-change
+deltas: accepting is cumulative, so overlapping changes get skipped rather than applied,
+and `countWords` counts runs of non-whitespace, so a change can merge or split words at
+its own edges without changing any of its own. `word-projection.ts` rebuilds the text the
+student would be left with — in the same string space the header already counts — and
+counts it. Where it cannot be sure (a change spanning a paragraph break, overlapping
+anchors, an anchor it cannot re-find, or its own reading of the document disagreeing with
+the count on screen) it says nothing at all. **A wrong number in a student's word budget
+is worse than no number**, and the clause is the added part of that segment, so it is also
+the first thing to drop when the header gets tight (`xl:` — measured: at 1024 a realistic
+title loses half its width to it).
+
 **Outdated changes sink, and keep their text.** Rows are ordered by document position so
 a student working top-to-bottom is not bounced around their own essay, and stale rows
 sort last because they are the only ones that cannot be acted on. A stale row says

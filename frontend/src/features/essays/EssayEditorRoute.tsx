@@ -34,6 +34,7 @@ import { countPendingChanges } from "@/features/essays/suggestions/suggestion-co
 import { SuggestionsBar } from "@/features/essays/suggestions/SuggestionsBar";
 import { useSuggestionReview } from "@/features/essays/suggestions/useSuggestionReview";
 import { useEssaySuggestions } from "@/features/essays/suggestions/useEssaySuggestions";
+import { useAcceptAllWordCount } from "@/features/essays/suggestions/word-projection";
 import { useDebounce } from "@/hooks/useDebounce";
 import { workspaceKeys } from "@/api/workspace/keys";
 import { getEssayActivityLabel } from "@/lib/essay-display";
@@ -172,6 +173,10 @@ export function EssayEditorPage({ essay, onBack }: EssayEditorPageProps) {
   const modifiedLabel = autosave.isDirty
     ? "Unsaved changes"
     : getEssayActivityLabel(essay);
+  /* What the count becomes if every applicable change is accepted, or null
+   * when that number is not knowable — see `word-projection.ts`. Checked
+   * against the count actually on screen, so the two can never disagree. */
+  const projectedWordCount = useAcceptAllWordCount(editor, displayedWordCount);
 
   function handleUpdate(update: EssayEditorUpdate) {
     setWordCount(update.wordCount);
@@ -221,6 +226,20 @@ export function EssayEditorPage({ essay, onBack }: EssayEditorPageProps) {
                       {displayedWordCount}
                     </span>
                     {hasWordLimit ? ` / ${essay.wordLimit} words` : " words"}
+                    {/*
+                     * Only ever present while there is something to project,
+                     * and it is the added part of this segment rather than its
+                     * content — so it is the part that drops when the bar gets
+                     * tight, one step later than "Modified …" does. Below `xl`
+                     * the sidebar is still at full width and the actions column
+                     * is `shrink-0`: measured at 1024, showing this clause takes
+                     * a realistic prompt title from 204px to 97px.
+                     */}
+                    {projectedWordCount !== null && (
+                      <span className="hidden text-xs xl:inline">
+                        {` · ${projectedWordCount} if you accept all`}
+                      </span>
+                    )}
                   </span>
                   {/*
                    * PageHeader's actions column is `shrink-0`, so anything left
