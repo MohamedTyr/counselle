@@ -385,10 +385,22 @@ export function SuggestionsBar({
                  * failure the sibling file calls the one that matters most.
                  * 20px takes the pitch to 52px and leaves a true 8px dead zone
                  * between hit areas. Fine pointers keep the dense list, so the
-                 * eight-row shape above is unchanged where it is real. */}
+                 * eight-row shape above is unchanged where it is real.
+                 *
+                 * THE TOP MARGIN OPENS UP WITH IT, for the boundary that
+                 * matters most. The row gap was widened and this element's own
+                 * `mt-1.5` was not, so the one seam left overlapping was the one
+                 * between `Reject all` — the safest control on the surface, the
+                 * one that changes nothing — and row 1's Accept, which rewrites
+                 * a sentence with no undo. Measured on a real touch context:
+                 * Reject all 295→339, row 1 Accept 333→377, a 6px OVERLAP and no
+                 * dead zone at all. It landed on the safe control only because
+                 * the row's `::after` happens to be clipped by this element's
+                 * own overflow — an accident of a clip, not a decision. Matching
+                 * the row gap puts a true 8px there too. */}
                 <ul
                   className={cn(
-                    "@container/changes mt-1.5 flex flex-col gap-y-0.5 overflow-y-auto pointer-coarse:gap-y-5",
+                    "@container/changes mt-1.5 flex flex-col gap-y-0.5 overflow-y-auto pointer-coarse:mt-5 pointer-coarse:gap-y-5",
                     LIST_MAX_HEIGHT,
                     LIST_FADE_CLASS,
                   )}

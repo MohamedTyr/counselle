@@ -1406,6 +1406,14 @@ rewrites the student's sentence with no undo. 20px takes the pitch to 52px and l
 true 8px dead zone. Fine pointers keep the dense list, so the eight-row shape above is
 unchanged wherever it is actually real.
 
+**The list's top margin opens up with the gap** (`pointer-coarse:mt-5`), because the seam
+it guards is the worst one on the surface. Widening the row gap and leaving `mt-1.5` alone
+left `Reject all` — the safest control here, the one that changes nothing — overlapping
+row 1's Accept: measured on a real touch context at 295→339 against 333→377, a **6px
+overlap and no dead zone at all**. It resolved to the safe control only because the row's
+`::after` is clipped by the list's own overflow, which is an accident of a clip and not a
+decision. Matching the row gap puts a true 8px there too.
+
 ### 15.6.1 The essay chat panel
 
 Docked at **1280px and up** (`PANEL_DOCK_BREAKPOINT_PX` in `EssayEditorRoute.tsx`), where
