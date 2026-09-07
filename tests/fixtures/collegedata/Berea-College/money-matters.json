@@ -1,0 +1,482 @@
+{
+  "__N_SSP": true,
+  "pageProps": {
+    "isStateList": false,
+    "profile": {
+      "attendanceCost": [
+        "$69,942",
+        "$69,942"
+      ],
+      "bodyContent": [
+        {
+          "data": {
+            "children": [
+              {
+                "data": {
+                  "link": "https://www.berea.edu/student-financial-aid",
+                  "text": "Financial Aid Website",
+                  "title": "Website"
+                },
+                "type": "TitleLink"
+              },
+              {
+                "data": {
+                  "link": "https://bereaquickestimator.clearcostcalculator.com/student/default/netpricecalculator/survey",
+                  "text": "Tap Here",
+                  "title": "Net Price Calculator"
+                },
+                "type": "TitleLink"
+              },
+              {
+                "data": {
+                  "value": "Application Process"
+                },
+                "type": "CategoryDivider"
+              },
+              {
+                "data": {
+                  "title": "Application Deadline",
+                  "value": [
+                    "March 31"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Award Notification",
+                  "value": [
+                    "On a rolling basis beginning March 1"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Methodology For Awarding Institutional Aid",
+                  "value": [
+                    "Federal Methodology"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "data": [
+                    {
+                      "label": "FAFSA Code is 001955",
+                      "values": [
+                        "Free"
+                      ]
+                    }
+                  ],
+                  "keyTitle": "Forms Required",
+                  "tableTitle": "",
+                  "valueTitles": [
+                    "Cost"
+                  ]
+                },
+                "type": "LabeledTable"
+              }
+            ],
+            "iconType": null,
+            "link": null,
+            "title": "Applying For Financial Aid"
+          },
+          "type": "ExpandableSection"
+        },
+        {
+          "data": {
+            "children": [
+              {
+                "data": {
+                  "value": "Freshman"
+                },
+                "type": "CategoryDivider"
+              },
+              {
+                "data": {
+                  "title": "Financial Aid Applicants",
+                  "value": [
+                    "401 (100.0%) of freshmen"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Found to Have Financial Need",
+                  "value": [
+                    "401 (100.0%) of applicants"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Received Financial Aid",
+                  "value": [
+                    "401 (100.0%) of applicants with financial need"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Need Fully Met",
+                  "value": [
+                    "9 (2.2%) of aid recipients"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Average Percent of Need Met",
+                  "value": [
+                    "95%"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "children": [
+                    {
+                      "title": "Need-Based Gift",
+                      "value": [
+                        "Received by 401 (100.0%) of aid recipients, average amount $58,184"
+                      ]
+                    },
+                    {
+                      "title": "Need-Based Self-Help",
+                      "value": [
+                        "Received by 401 (100.0%) of aid recipients, average amount $2,113"
+                      ]
+                    }
+                  ],
+                  "topTitleValue": {
+                    "title": "Average Award",
+                    "value": [
+                      "$60,297"
+                    ]
+                  }
+                },
+                "type": "NestedTitleValue"
+              },
+              {
+                "data": {
+                  "title": "Merit-Based Gift",
+                  "value": [
+                    "Not reported",
+                    "Not reported"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "value": "All Undergraduates"
+                },
+                "type": "CategoryDivider"
+              },
+              {
+                "data": {
+                  "title": "Financial Aid Applicants",
+                  "value": [
+                    "1,510 (100.0%) of undergraduates"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Found to Have Financial Need",
+                  "value": [
+                    "1,510 (100.0%) of applicants"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Received Financial Aid",
+                  "value": [
+                    "1,510 (100.0%) of applicants with financial need"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Need Fully Met",
+                  "value": [
+                    "42 (2.8%) of aid recipients"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Average Percent of Need Met",
+                  "value": [
+                    "94%"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "children": [
+                    {
+                      "title": "Need-Based Gift",
+                      "value": [
+                        "Received by 1,510 (100.0%) of aid recipients, average amount $57,167"
+                      ]
+                    },
+                    {
+                      "title": "Need-Based Self-Help",
+                      "value": [
+                        "Received by 1,510 (100.0%) of aid recipients, average amount $2,625"
+                      ]
+                    }
+                  ],
+                  "topTitleValue": {
+                    "title": "Average Award",
+                    "value": [
+                      "$59,792"
+                    ]
+                  }
+                },
+                "type": "NestedTitleValue"
+              },
+              {
+                "data": {
+                  "title": "Merit-Based Gift",
+                  "value": [
+                    "Not reported",
+                    "Not reported"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "value": "All Undergraduates"
+                },
+                "type": "CategoryDivider"
+              },
+              {
+                "data": {
+                  "title": "2024 Graduates Who Took Out Loans",
+                  "value": [
+                    "33%"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "children": [],
+                  "topTitleValue": {
+                    "title": "Average Indebtedness of 2024 Graduates",
+                    "value": [
+                      "$6,134"
+                    ]
+                  }
+                },
+                "type": "NestedTitleValue"
+              }
+            ],
+            "iconType": null,
+            "link": null,
+            "title": "Profile of 2024-25 Financial Aid"
+          },
+          "type": "ExpandableSection"
+        },
+        {
+          "data": {
+            "children": [
+              {
+                "data": {
+                  "value": "Loans"
+                },
+                "type": "CategoryDivider"
+              },
+              {
+                "data": {
+                  "title": "Federal Loans",
+                  "value": [
+                    "Direct Subsidized Stafford Loans",
+                    "Direct Unsubsidized Stafford Loans",
+                    "Direct Plus Loans"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Other Loans",
+                  "value": [
+                    "College/University Loans"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "value": "Scholarships and Grants"
+                },
+                "type": "CategoryDivider"
+              },
+              {
+                "data": {
+                  "title": "Need-Based Available",
+                  "value": [
+                    "Federal Pell grants",
+                    "SEOG",
+                    "State scholarships",
+                    "Institutional scholarships",
+                    "Private scholarships"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Non-Need-Based Available",
+                  "value": [
+                    "None"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "value": "Non-Need Awards"
+                },
+                "type": "CategoryDivider"
+              },
+              {
+                "data": {
+                  "children": [
+                    {
+                      "title": "Number of Awards",
+                      "value": [
+                        "Not reported"
+                      ]
+                    }
+                  ],
+                  "topTitleValue": {
+                    "title": "Academic Interest/Achievement Award Areas",
+                    "value": [
+                      "Not reported"
+                    ]
+                  }
+                },
+                "type": "NestedTitleValue"
+              },
+              {
+                "data": {
+                  "children": [
+                    {
+                      "title": "Number of Awards",
+                      "value": [
+                        "Not reported"
+                      ]
+                    }
+                  ],
+                  "topTitleValue": {
+                    "title": "Creative Arts/Performance Award Areas",
+                    "value": [
+                      "Not reported"
+                    ]
+                  }
+                },
+                "type": "NestedTitleValue"
+              },
+              {
+                "data": {
+                  "children": [
+                    {
+                      "title": "Number of Awards",
+                      "value": [
+                        "Not reported"
+                      ]
+                    }
+                  ],
+                  "topTitleValue": {
+                    "title": "Special Achievements/Activities Award Areas",
+                    "value": [
+                      "Not reported"
+                    ]
+                  }
+                },
+                "type": "NestedTitleValue"
+              },
+              {
+                "data": {
+                  "children": [
+                    {
+                      "title": "Number of Awards",
+                      "value": [
+                        "Not reported"
+                      ]
+                    }
+                  ],
+                  "topTitleValue": {
+                    "title": "Special Characteristics Award Areas",
+                    "value": [
+                      "Not reported"
+                    ]
+                  }
+                },
+                "type": "NestedTitleValue"
+              },
+              {
+                "data": {
+                  "value": "Employment"
+                },
+                "type": "CategoryDivider"
+              },
+              {
+                "data": {
+                  "title": "Work-Study Programs",
+                  "value": [
+                    "Not reported"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Average Earnings from On-Campus Employment",
+                  "value": [
+                    "Not reported"
+                  ]
+                },
+                "type": "TitleValue"
+              }
+            ],
+            "iconType": null,
+            "link": null,
+            "title": "Financial Aid Programs"
+          },
+          "type": "ExpandableSection"
+        }
+      ],
+      "id": 502,
+      "name": "Berea College",
+      "otherExpensesCost": "$3,150",
+      "paymentPlans": [],
+      "roomBoardCost": "$9,142",
+      "slug": "Berea-College",
+      "suppliesCost": "$750",
+      "tuitionFeesCost": [
+        "$56,900",
+        "$56,900"
+      ],
+      "website": "https://www.berea.edu/"
+    }
+  }
+}

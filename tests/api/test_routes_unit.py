@@ -109,6 +109,9 @@ def make_test_app(
         stream_buffer_bytes=256 * 1024 * 1024,
         persist_partial_timeout_s=5.0,
         current_admissions_cycle_year=2027,
+        # school-data-v3: /v1/health's facts_worker key (api/routes/system.py).
+        facts_worker_enabled=False,
+        facts_crawl_interval_hours=24,
     )
 
     # Default fake pools
@@ -155,6 +158,9 @@ def make_test_app(
         app_pool=app_pool or _app_pool,
         graph=graph or fake_graph,
         deps=fake_deps,
+        # school-data-v3: /v1/health's facts_worker key -- disabled by default,
+        # matching facts_worker_enabled=False above.
+        pipeline_pool=None,
     )
     app.state.reconciler = reconciler or fake_reconciler
     app.state.mcp_supervisor = supervisor or fake_supervisor

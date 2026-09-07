@@ -45,6 +45,7 @@ from api.context import install_middleware
 from api.ratelimit import _RATE_LIMITER_ATTR, SlidingWindowLimiter, auth_rate_limit
 from api.routes import (
     activities,
+    admin_facts,
     applications,
     documents,
     essays,
@@ -61,6 +62,7 @@ from api.routes import config as config_routes
 from api.supervision import McpSupervisor, NoopMcpSupervisor
 from app.caveats import caveat_catalog
 from app.deps import build_runtime
+from app.facts.jobs import start_facts_worker
 from app.prompt import validate_prompt_assets
 from app.skills import load_all_skill_meta
 from app.titles import make_auto_titler
@@ -69,19 +71,6 @@ from config.logging import setup_logging
 from config.settings import get_settings, load_yaml_asset
 
 logger = structlog.get_logger(__name__)
-
-
-async def start_facts_worker(runtime: Any, settings: Any) -> Any:
-    """Stub for the CollegeData facts crawl-pass worker (school-data-v3).
-
-    Replaces ``app.cds.jobs.start_cds_worker`` in the lifespan — that poller
-    is parked (ADR 0037, ``PARKED.md``), and the real facts worker
-    (``app.facts.jobs.start_facts_worker``, returning a poller-shaped object
-    with ``stop()``, mirroring ``app.cds.jobs.Poller``) lands in Phase 1.
-    Always a no-op here so boot never depends on a crawler that doesn't exist
-    yet.
-    """
-    return None
 
 
 @asynccontextmanager
@@ -94,6 +83,8 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     load_yaml_asset("greeting_templates")
     load_yaml_asset("season_calendar")
     load_yaml_asset("starter_prompts")
+    load_yaml_asset("facts_keys")
+    load_yaml_asset("facts_sections")
     caveat_catalog()
     validate_prompt_assets()
     load_all_skill_meta()
@@ -119,9 +110,10 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
         # B4: the process-local rate limiter (messages + auth windows). The named
         # constant governs both the write here and the read in get_limiter.
         setattr(app.state, _RATE_LIMITER_ATTR, SlidingWindowLimiter())
-        # school-data-v3: the facts crawl-pass worker — a no-op stub until
-        # Phase 1 ships the real poller (replaces the parked CDS extraction
-        # poller, app.cds.jobs.start_cds_worker; see PARKED.md).
+        # school-data-v3: the facts crawl-pass worker (replaces the parked
+        # CDS extraction poller, app.cds.jobs.start_cds_worker; see
+        # PARKED.md) — a no-op when the pipeline pool isn't configured or
+        # COUNSELLE_FACTS_WORKER_ENABLED is false (default).
         facts_poller = await start_facts_worker(runtime, settings)
         app.state.facts_poller = facts_poller
         try:
@@ -283,6 +275,9 @@ def create_app() -> FastAPI:
     app.include_router(documents.router, prefix="/v1")
     app.include_router(memories.router, prefix="/v1")
     app.include_router(workspace_events.router, prefix="/v1")
+    # school-data-v3: the admin dashboard that replaces the parked CDS admin
+    # surface (ADR 0037, PARKED.md) — /v1/admin/facts/*, superuser-gated.
+    app.include_router(admin_facts.router, prefix="/v1")
     # The CDS admin surface is parked (ADR 0037, PARKED.md) — its router is
     # not mounted; _install_spa_routes is the catch-all SPA fallback and
     # must stay last.

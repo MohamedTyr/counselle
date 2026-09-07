@@ -1,0 +1,296 @@
+{
+  "__N_SSP": true,
+  "pageProps": {
+    "isStateList": false,
+    "profile": {
+      "avgJanTemp": null,
+      "avgSeptTemp": null,
+      "bodyContent": [
+        {
+          "data": {
+            "children": [
+              {
+                "data": {
+                  "title": "Nearest Metropolitan Area",
+                  "value": [
+                    "Los Angeles"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Campus Size",
+                  "value": [
+                    "40 acres"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "value": "Getting Around"
+                },
+                "type": "CategoryDivider"
+              },
+              {
+                "data": {
+                  "link": "",
+                  "text": "View Map",
+                  "title": "Campus Map"
+                },
+                "type": "TitleLink"
+              }
+            ],
+            "iconType": null,
+            "link": null,
+            "title": "Location and Setting"
+          },
+          "type": "ExpandableSection"
+        },
+        {
+          "data": {
+            "children": [
+              {
+                "data": {
+                  "title": "College Housing",
+                  "value": [
+                    "College does not provide housing for students"
+                  ]
+                },
+                "type": "TitleValue"
+              }
+            ],
+            "iconType": null,
+            "link": null,
+            "title": "Housing"
+          },
+          "type": "ExpandableSection"
+        },
+        {
+          "data": {
+            "children": [
+              {
+                "data": {
+                  "title": "24-Hour Emergency Phone/Alarm Devices",
+                  "value": [
+                    "Available"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "24-Hour Security Patrols",
+                  "value": [
+                    "Available"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Late-Night Transport/Escort Services",
+                  "value": [
+                    "Available"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Electronically Operated Housing Entrances",
+                  "value": [
+                    "Not available"
+                  ]
+                },
+                "type": "TitleValue"
+              }
+            ],
+            "iconType": null,
+            "link": null,
+            "title": "Security"
+          },
+          "type": "ExpandableSection"
+        },
+        {
+          "data": {
+            "children": [
+              {
+                "data": {
+                  "title": "Health Service",
+                  "value": [
+                    "Offered"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Personal Counseling",
+                  "value": [
+                    "Offered"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Child Care",
+                  "value": [
+                    "Not offered"
+                  ]
+                },
+                "type": "TitleValue"
+              }
+            ],
+            "iconType": null,
+            "link": null,
+            "title": "Personal Support Services"
+          },
+          "type": "ExpandableSection"
+        },
+        {
+          "data": {
+            "children": [
+              {
+                "data": {
+                  "title": "Athletic Conferences",
+                  "value": [
+                    "National Junior College Athletic Association"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "value": "Intercollegiate Sports & Scholarships"
+                },
+                "type": "CategoryDivider"
+              },
+              {
+                "data": {
+                  "data": [
+                    {
+                      "label": "Basketball",
+                      "values": [
+                        "check",
+                        null,
+                        "check",
+                        null
+                      ]
+                    },
+                    {
+                      "label": "Cheerleading",
+                      "values": [
+                        "check",
+                        null,
+                        "check",
+                        null
+                      ]
+                    },
+                    {
+                      "label": "Cross-Country Running",
+                      "values": [
+                        "check",
+                        null,
+                        "check",
+                        null
+                      ]
+                    },
+                    {
+                      "label": "Football",
+                      "values": [
+                        null,
+                        null,
+                        "check",
+                        null
+                      ]
+                    },
+                    {
+                      "label": "Soccer",
+                      "values": [
+                        "check",
+                        null,
+                        "check",
+                        null
+                      ]
+                    },
+                    {
+                      "label": "Swimming And Diving",
+                      "values": [
+                        "check",
+                        null,
+                        "check",
+                        null
+                      ]
+                    },
+                    {
+                      "label": "Tennis",
+                      "values": [
+                        "check",
+                        null,
+                        null,
+                        null
+                      ]
+                    },
+                    {
+                      "label": "Track And Field",
+                      "values": [
+                        "check",
+                        null,
+                        "check",
+                        null
+                      ]
+                    },
+                    {
+                      "label": "Volleyball",
+                      "values": [
+                        "check",
+                        null,
+                        "check",
+                        null
+                      ]
+                    },
+                    {
+                      "label": "Water Polo",
+                      "values": [
+                        "check",
+                        null,
+                        "check",
+                        null
+                      ]
+                    }
+                  ],
+                  "keyTitle": "Sports",
+                  "tableTitle": "",
+                  "valueTitles": [
+                    "Women",
+                    "Women",
+                    "Men",
+                    "Men"
+                  ]
+                },
+                "type": "IconTable"
+              }
+            ],
+            "iconType": null,
+            "link": null,
+            "title": "Sports & Recreation"
+          },
+          "type": "ExpandableSection"
+        }
+      ],
+      "campusMapUrl": null,
+      "city": "Santa Monica",
+      "cityPopulation": null,
+      "freshmanHousingGuarantee": null,
+      "id": 4947,
+      "name": "Santa Monica College",
+      "nearestMetro": "Los Angeles",
+      "rain": null,
+      "slug": "Santa-Monica-College",
+      "website": "https://www.smc.edu/"
+    }
+  }
+}

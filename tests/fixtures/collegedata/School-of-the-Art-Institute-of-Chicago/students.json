@@ -1,0 +1,266 @@
+{
+  "__N_SSP": true,
+  "pageProps": {
+    "isStateList": false,
+    "profile": {
+      "avgJanTemp": null,
+      "avgSeptTemp": null,
+      "bodyContent": [
+        {
+          "data": {
+            "children": [
+              {
+                "data": {
+                  "title": "Activities and Organizations",
+                  "value": [
+                    "drama theatre, radio station, student newspaper, television station, student association/student union galleries, korean student association, intervarsity, curatorial community, xerox candy bar"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Sororities",
+                  "value": [
+                    "Not reported"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Fraternities",
+                  "value": [
+                    "Not reported"
+                  ]
+                },
+                "type": "TitleValue"
+              }
+            ],
+            "iconType": null,
+            "link": null,
+            "title": "Student Activities"
+          },
+          "type": "ExpandableSection"
+        },
+        {
+          "data": {
+            "children": [
+              {
+                "data": {
+                  "title": "Coeducational",
+                  "value": [
+                    "Yes"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "children": [
+                    {
+                      "title": "Women",
+                      "value": [
+                        "2,169 (77.3%)"
+                      ]
+                    },
+                    {
+                      "title": "Men",
+                      "value": [
+                        "637 (22.7%)"
+                      ]
+                    }
+                  ],
+                  "topTitleValue": {
+                    "title": "All Undergraduates",
+                    "value": [
+                      "2,806"
+                    ]
+                  }
+                },
+                "type": "NestedTitleValue"
+              },
+              {
+                "data": {
+                  "title": "Full-Time Undergraduates",
+                  "value": [
+                    "2,611"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "data": [
+                    {
+                      "label": "American Indian/Alaskan Native",
+                      "value": 0
+                    },
+                    {
+                      "label": "Asian",
+                      "value": 14.2
+                    },
+                    {
+                      "label": "Black/African-American",
+                      "value": 7.9
+                    },
+                    {
+                      "label": "Hispanic/Latino",
+                      "value": 18.3
+                    },
+                    {
+                      "label": "Multi-race (not Hispanic/Latino)",
+                      "value": 6.6
+                    },
+                    {
+                      "label": "White",
+                      "value": 48
+                    },
+                    {
+                      "label": "Unknown",
+                      "value": 4.8
+                    }
+                  ],
+                  "title": "Ethnicity of Students from U.S."
+                },
+                "type": "BarGraph"
+              },
+              {
+                "data": {
+                  "title": "International Students",
+                  "value": [
+                    "27.9% from 45 countries"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Average Age",
+                  "value": [
+                    "23"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "All Graduate Students",
+                  "value": [
+                    "713"
+                  ]
+                },
+                "type": "TitleValue"
+              }
+            ],
+            "iconType": null,
+            "link": null,
+            "title": "Student Body"
+          },
+          "type": "ExpandableSection"
+        },
+        {
+          "data": {
+            "children": [
+              {
+                "data": {
+                  "title": "First-Year Students Returning",
+                  "value": [
+                    "84.0%"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Students Graduating Within 4 Years",
+                  "value": [
+                    "37.1%"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Students Graduating Within 5 Years",
+                  "value": [
+                    "61.6%"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Students Graduating Within 6 Years",
+                  "value": [
+                    "67.0%"
+                  ]
+                },
+                "type": "TitleValue"
+              }
+            ],
+            "iconType": null,
+            "link": null,
+            "title": "Undergraduate Retention & Graduation"
+          },
+          "type": "ExpandableSection"
+        },
+        {
+          "data": {
+            "children": [
+              {
+                "data": {
+                  "title": "Graduates Offered Full-Time Employment Within 6 Months",
+                  "value": [
+                    "Not reported"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Average Starting Salary",
+                  "value": [
+                    "Not reported"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Graduates Pursuing Advanced Study Directly",
+                  "value": [
+                    "Not reported"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Disciplines Pursued",
+                  "value": [
+                    "Not available"
+                  ]
+                },
+                "type": "TitleValue"
+              }
+            ],
+            "iconType": null,
+            "link": null,
+            "title": "After Graduation"
+          },
+          "type": "ExpandableSection"
+        }
+      ],
+      "city": "Chicago",
+      "cityPopulation": "2,677,643",
+      "freshmanHousingGuarantee": null,
+      "id": 460,
+      "name": "School of the Art Institute of Chicago",
+      "nearestMetro": "Chicago",
+      "rain": null,
+      "slug": "School-of-the-Art-Institute-of-Chicago",
+      "website": "https://www.saic.edu/"
+    }
+  }
+}

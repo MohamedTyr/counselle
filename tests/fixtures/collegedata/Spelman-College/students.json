@@ -1,0 +1,267 @@
+{
+  "__N_SSP": true,
+  "pageProps": {
+    "isStateList": false,
+    "profile": {
+      "avgJanTemp": null,
+      "avgSeptTemp": null,
+      "bodyContent": [
+        {
+          "data": {
+            "children": [
+              {
+                "data": {
+                  "title": "Activities and Organizations",
+                  "value": [
+                    "choral groups, drama theatre, student newspaper, national sororities, glee club, theater program, student government, honors program, religious groups"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Sororities",
+                  "value": [
+                    "4% of women participate"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Fraternities",
+                  "value": [
+                    "Not reported"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "ROTC",
+                  "value": [
+                    "Army ROTC is offered off campus, Navy ROTC is offered off campus, Airforce ROTC is offered off campus"
+                  ]
+                },
+                "type": "TitleValue"
+              }
+            ],
+            "iconType": null,
+            "link": null,
+            "title": "Student Activities"
+          },
+          "type": "ExpandableSection"
+        },
+        {
+          "data": {
+            "children": [
+              {
+                "data": {
+                  "title": "Coeducational",
+                  "value": [
+                    "No"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "children": [
+                    {
+                      "title": "Women",
+                      "value": [
+                        "2,597 (100.0%)"
+                      ]
+                    },
+                    {
+                      "title": "Men",
+                      "value": [
+                        "Not reported"
+                      ]
+                    }
+                  ],
+                  "topTitleValue": {
+                    "title": "All Undergraduates",
+                    "value": [
+                      "2,597"
+                    ]
+                  }
+                },
+                "type": "NestedTitleValue"
+              },
+              {
+                "data": {
+                  "title": "Full-Time Undergraduates",
+                  "value": [
+                    "2,559"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "data": [
+                    {
+                      "label": "American Indian/Alaskan Native",
+                      "value": 1.4
+                    },
+                    {
+                      "label": "Asian",
+                      "value": 1.2
+                    },
+                    {
+                      "label": "Black/African-American",
+                      "value": 97.4
+                    },
+                    {
+                      "label": "Hispanic/Latino",
+                      "value": 0
+                    },
+                    {
+                      "label": "White",
+                      "value": 0
+                    }
+                  ],
+                  "title": "Ethnicity of Students from U.S."
+                },
+                "type": "BarGraph"
+              },
+              {
+                "data": {
+                  "title": "International Students",
+                  "value": [
+                    "0.5% from 12 countries"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Average Age",
+                  "value": [
+                    "20"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "All Graduate Students",
+                  "value": [
+                    "Not reported"
+                  ]
+                },
+                "type": "TitleValue"
+              }
+            ],
+            "iconType": null,
+            "link": null,
+            "title": "Student Body"
+          },
+          "type": "ExpandableSection"
+        },
+        {
+          "data": {
+            "children": [
+              {
+                "data": {
+                  "title": "First-Year Students Returning",
+                  "value": [
+                    "95.0%"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Students Graduating Within 4 Years",
+                  "value": [
+                    "66.5%"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Students Graduating Within 5 Years",
+                  "value": [
+                    "74.3%"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Students Graduating Within 6 Years",
+                  "value": [
+                    "77.0%"
+                  ]
+                },
+                "type": "TitleValue"
+              }
+            ],
+            "iconType": null,
+            "link": null,
+            "title": "Undergraduate Retention & Graduation"
+          },
+          "type": "ExpandableSection"
+        },
+        {
+          "data": {
+            "children": [
+              {
+                "data": {
+                  "title": "Graduates Offered Full-Time Employment Within 6 Months",
+                  "value": [
+                    "36.7%"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Average Starting Salary",
+                  "value": [
+                    "$65,005"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Graduates Pursuing Advanced Study Directly",
+                  "value": [
+                    "31.0%"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Disciplines Pursued",
+                  "value": [
+                    "Not available"
+                  ]
+                },
+                "type": "TitleValue"
+              }
+            ],
+            "iconType": null,
+            "link": null,
+            "title": "After Graduation"
+          },
+          "type": "ExpandableSection"
+        }
+      ],
+      "city": "Atlanta",
+      "cityPopulation": "512,550",
+      "freshmanHousingGuarantee": null,
+      "id": 1659,
+      "name": "Spelman College",
+      "nearestMetro": "Atlanta",
+      "rain": null,
+      "slug": "Spelman-College",
+      "website": "https://www.spelman.edu/"
+    }
+  }
+}

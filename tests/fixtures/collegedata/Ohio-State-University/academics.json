@@ -1,0 +1,874 @@
+{
+  "__N_SSP": true,
+  "pageProps": {
+    "isStateList": false,
+    "profile": {
+      "bodyContent": [
+        {
+          "data": {
+            "children": [
+              {
+                "data": {
+                  "buttonText": "View All Majors (176)",
+                  "data": [
+                    "Accounting",
+                    "Actuarial Science",
+                    "Aeronautics/Aviation/Aerospace Science and Technology, General",
+                    "Aerospace, Aeronautical, and Astronautical/Space Engineering, General",
+                    "African-American/Black Studies",
+                    "Agricultural and Extension Education Services",
+                    "Agricultural and Food Products Processing",
+                    "Agricultural/Animal/Plant/Veterinary Science and Related Fields, Other",
+                    "Agricultural Economics",
+                    "Agricultural Engineering",
+                    "Agricultural Teacher Education",
+                    "Agroecology and Sustainable Agriculture",
+                    "Allied Health and Medical Assisting Services, Other",
+                    "Animal Sciences, General",
+                    "Anthropology, General",
+                    "Apparel and Textiles, General",
+                    "Applied Mathematics, Other",
+                    "Arabic Language and Literature",
+                    "Architectural and Building Sciences/Technology",
+                    "Architecture",
+                    "Art/Art Studies, General",
+                    "Art History, Criticism and Conservation",
+                    "Art Teacher Education",
+                    "Astronomy",
+                    "Athletic Training/Trainer",
+                    "Atmospheric Sciences and Meteorology, General",
+                    "Audiology/Audiologist",
+                    "Aviation/Airway Management and Operations",
+                    "Biochemistry",
+                    "Bioengineering and Biomedical Engineering",
+                    "Biology/Biological Sciences, General",
+                    "Biomedical Sciences, General",
+                    "Business Administration and Management, General",
+                    "Business/Commerce, General",
+                    "Business/Managerial Economics",
+                    "Chemical Engineering",
+                    "Chemistry, General",
+                    "Chinese Language and Literature",
+                    "City/Urban, Community, and Regional Planning",
+                    "Civil Engineering, General",
+                    "Classics and Classical Languages, Literatures, and Linguistics, General",
+                    "Clinical Laboratory Science/Medical Technology/Technologist",
+                    "Communication, Journalism, and Related Programs, Other",
+                    "Comparative Literature",
+                    "Computational Mathematics",
+                    "Computer and Information Sciences, General",
+                    "Computer Engineering, General",
+                    "Criminology",
+                    "Dance, General",
+                    "Dental Hygiene/Hygienist",
+                    "Design and Visual Communications, General",
+                    "Dietetics/Dietitian",
+                    "Drama and Dramatics/Theatre Arts, General",
+                    "Econometrics and Quantitative Economics",
+                    "Economics, General",
+                    "Education, General",
+                    "Electrical and Electronics Engineering",
+                    "Elementary and Middle School Administration/Principalship",
+                    "Elementary Education and Teaching",
+                    "Engineering/Engineering-Related Technologies/Technicians, Other",
+                    "Engineering, Other",
+                    "Engineering Physics/Applied Physics",
+                    "Engineering Technologies/Technicians, General",
+                    "English Language and Literature, General",
+                    "English/Language Arts Teacher Education",
+                    "Entomology",
+                    "Environmental/Environmental Health Engineering",
+                    "Environmental Health",
+                    "Environmental/Natural Resources Management and Policy, General",
+                    "Environmental/Natural Resources Management and Policy, Other",
+                    "Environmental Science",
+                    "Ethnic, Cultural Minority, Gender, and Group Studies, Other",
+                    "Exercise Science and Kinesiology",
+                    "Experimental Psychology",
+                    "Family Resource Management Studies, General",
+                    "Film/Cinema/Media Studies",
+                    "Film/Video and Photographic Arts, Other",
+                    "Finance, General",
+                    "Fine and Studio Arts Management",
+                    "Fine Arts and Art Studies, Other",
+                    "Food Science",
+                    "Foodservice Systems Administration/Management",
+                    "Foreign Language Teacher  Education",
+                    "French Language and Literature",
+                    "French Studies",
+                    "Geographic Information Science and Cartography",
+                    "Geography",
+                    "Geology/Earth Science, General",
+                    "German Language and Literature",
+                    "Health and Wellness, General",
+                    "Health Information/Medical Records Administration/Administrator",
+                    "Hebrew Language and Literature",
+                    "History, General",
+                    "History, Other",
+                    "Hotel/Motel Administration/Management",
+                    "Human Development and Family Studies, General",
+                    "Humanities/Humanistic Studies",
+                    "Human Nutrition",
+                    "Human Resources Management/Personnel Administration, General",
+                    "Industrial and Product Design",
+                    "Industrial Engineering",
+                    "Insurance",
+                    "Interior Design",
+                    "International Business/Trade/Commerce",
+                    "International/Globalization Studies",
+                    "International Relations and Affairs",
+                    "Islamic Studies",
+                    "Italian Language and Literature",
+                    "Italian Studies",
+                    "Japanese Language and Literature",
+                    "Jazz/Jazz Studies",
+                    "Jewish/Judaic Studies",
+                    "Journalism",
+                    "Junior High/Intermediate/Middle School Education and Teaching",
+                    "Korean Language and Literature",
+                    "Landscape Architecture",
+                    "Linguistics",
+                    "Livestock Management",
+                    "Logistics, Materials, and Supply Chain Management",
+                    "Management Information Systems, General",
+                    "Marketing/Marketing Management, General",
+                    "Materials Engineering",
+                    "Mathematics, General",
+                    "Mechanical Engineering",
+                    "Medical Anthropology",
+                    "Medical Radiologic Technology/Science - Radiation Therapist",
+                    "Medieval and Renaissance Studies",
+                    "Microbiology, General",
+                    "Modern Greek Language and Literature",
+                    "Molecular Genetics",
+                    "Multi-/Interdisciplinary Studies, Other",
+                    "Music, General",
+                    "Music History, Literature, and Theory",
+                    "Music Performance, General",
+                    "Music Teacher Education",
+                    "Music Theory and Composition",
+                    "Natural Resources/Conservation, General",
+                    "Neuroscience",
+                    "Nutrition Sciences",
+                    "Operations Management and Supervision",
+                    "Optics/Optical Sciences",
+                    "Pharmaceutical Sciences",
+                    "Pharmacy",
+                    "Philosophy",
+                    "Physical Education Teaching and Coaching",
+                    "Physics, General",
+                    "Plant Pathology/Phytopathology",
+                    "Plant Sciences, General",
+                    "Political Science and Government, General",
+                    "Portuguese Language and Literature",
+                    "Psychology, General",
+                    "Public Administration",
+                    "Public Health, General",
+                    "Public Policy Analysis, General",
+                    "Real Estate",
+                    "Registered Nursing/Registered Nurse",
+                    "Religion/Religious Studies",
+                    "Respiratory Care Therapy/Therapist",
+                    "Romance Languages, Literatures, and Linguistics, Other",
+                    "Russian Language and Literature",
+                    "Social Sciences, General",
+                    "Social Studies Teacher Education",
+                    "Social Work",
+                    "Sociology, General",
+                    "Spanish Language and Literature",
+                    "Special Education and Teaching, General",
+                    "Speech Communication and Rhetoric",
+                    "Sport and Fitness Administration/Management",
+                    "Sports, Kinesiology, and Physical Education/Fitness, General",
+                    "Statistics, General",
+                    "Surveying Technology/Surveying",
+                    "Sustainability Studies",
+                    "Teaching English as a Second or Foreign Language/ESL Language Instructor",
+                    "Technical Teacher Education",
+                    "Women's Studies",
+                    "Zoology/Animal Biology"
+                  ],
+                  "title": "Undergraduate Majors"
+                },
+                "type": "SubscreenNavigator"
+              },
+              {
+                "data": {
+                  "title": "Most Popular Disciplines",
+                  "value": [
+                    "Business/marketing",
+                    "Engineering",
+                    "Health professions and related sciences"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Combined Liberal Arts/Professional Degree Programs",
+                  "value": [
+                    "None"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Special Programs",
+                  "value": [
+                    "Accelerated program",
+                    "Student-designed major",
+                    "Distance learning",
+                    "Double major",
+                    "English as a second language",
+                    "Honors program",
+                    "Independent study",
+                    "Internships",
+                    "Study abroad"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Study Abroad",
+                  "value": [
+                    "Offered"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Online Degrees",
+                  "value": [
+                    "Not Reported"
+                  ]
+                },
+                "type": "TitleValue"
+              }
+            ],
+            "iconType": null,
+            "link": null,
+            "title": "Undergraduate Education"
+          },
+          "type": "ExpandableSection"
+        },
+        {
+          "data": {
+            "children": [
+              {
+                "data": {
+                  "title": "General Education/Core Curriculum",
+                  "value": [
+                    "Not reported"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Computer",
+                  "value": [
+                    "Not reported"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Foreign Language",
+                  "value": [
+                    "Required"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Math/Science",
+                  "value": [
+                    "Required for all students"
+                  ]
+                },
+                "type": "TitleValue"
+              }
+            ],
+            "iconType": null,
+            "link": null,
+            "title": "Curriculum and Graduation Requirements"
+          },
+          "type": "ExpandableSection"
+        },
+        {
+          "data": {
+            "children": [
+              {
+                "data": {
+                  "title": "Full-Time Faculty",
+                  "value": [
+                    "3,363"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Part-Time Faculty",
+                  "value": [
+                    "1,062"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Full-Time Faculty with Ph.D./Terminal Degree",
+                  "value": [
+                    "67%"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "data": [
+                    {
+                      "label": "2-9 students",
+                      "value": 13
+                    },
+                    {
+                      "label": "10-19 students",
+                      "value": 26
+                    },
+                    {
+                      "label": "20-29 students",
+                      "value": 20
+                    },
+                    {
+                      "label": "30-39 students",
+                      "value": 12
+                    },
+                    {
+                      "label": "40-49 students",
+                      "value": 9
+                    },
+                    {
+                      "label": "50-99 students",
+                      "value": 12
+                    },
+                    {
+                      "label": "Over 100 students",
+                      "value": 7
+                    }
+                  ],
+                  "title": "Regular Class Size"
+                },
+                "type": "BarGraph"
+              },
+              {
+                "data": {
+                  "data": [
+                    {
+                      "label": "2-9 students",
+                      "value": 6
+                    },
+                    {
+                      "label": "10-19 students",
+                      "value": 16
+                    },
+                    {
+                      "label": "20-29 students",
+                      "value": 48
+                    },
+                    {
+                      "label": "30-39 students",
+                      "value": 16
+                    },
+                    {
+                      "label": "40-49 students",
+                      "value": 4
+                    },
+                    {
+                      "label": "50-59 students",
+                      "value": 8
+                    },
+                    {
+                      "label": "Over 100 students",
+                      "value": 1
+                    }
+                  ],
+                  "title": "Discussion Section/Lab Class Size"
+                },
+                "type": "BarGraph"
+              }
+            ],
+            "iconType": null,
+            "link": null,
+            "title": "Faculty and Instruction"
+          },
+          "type": "ExpandableSection"
+        },
+        {
+          "data": {
+            "children": [
+              {
+                "data": {
+                  "title": "International Baccalaureate",
+                  "value": [
+                    "Not reported"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Sophomore Standing",
+                  "value": [
+                    "Not reported"
+                  ]
+                },
+                "type": "TitleValue"
+              }
+            ],
+            "iconType": null,
+            "link": null,
+            "title": "Advanced Placement"
+          },
+          "type": "ExpandableSection"
+        },
+        {
+          "data": {
+            "children": [
+              {
+                "data": {
+                  "title": "Library Available on Campus",
+                  "value": [
+                    "Not reported"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Computer Ownership",
+                  "value": [
+                    "Not reported"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Computers Available on Campus",
+                  "value": [
+                    "Not Reported"
+                  ]
+                },
+                "type": "TitleValue"
+              }
+            ],
+            "iconType": null,
+            "link": null,
+            "title": "Academic Resources"
+          },
+          "type": "ExpandableSection"
+        },
+        {
+          "data": {
+            "children": [
+              {
+                "data": {
+                  "title": "Tutoring",
+                  "value": [
+                    "Available"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Services for Learning Disabled Students",
+                  "value": [
+                    "Not reported"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Services for Physically Disabled Students",
+                  "value": [
+                    "Hearing impaired services, speech disorders services, visually impaired services, wheelchair access"
+                  ]
+                },
+                "type": "TitleValue"
+              }
+            ],
+            "iconType": null,
+            "link": null,
+            "title": "Academic Support Services"
+          },
+          "type": "ExpandableSection"
+        },
+        {
+          "data": {
+            "children": [
+              {
+                "data": {
+                  "title": "Master's Degrees Offered",
+                  "value": [
+                    "Master In Business Logistics Engineering, Master In Plant Health Management, Master Of Accounting, Master Of Animal Science, Master Of Applied Statistics, Master Of Architecture, Master Of Arts, Master Of Business Administration, Master Of Business Operational Excellence, Master Of City And Regional Planning, Master Of Dental Hygiene, Master Of Education, Master Of Environment And Natural Resources, Master Of Finance, Master Of Fine Arts, Master Of Health Administration, Master Of Health Informatics, Master Of Human Resources Management, Master Of Landscape Architecture, Master Of Laws, Master Of Mathematical Sciences, Master Of Music, Master Of Occupational Therapy, Master Of Public Administration, Master Of Public Health, Master Of Science, Master Of Social Work, Master Of Studies In Law, Master'S Of Actuarial And Quantitative Risk Management"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "buttonText": "View All Programs (139)",
+                  "data": [
+                    "Accounting",
+                    "Actuarial Science",
+                    "Aerospace/Aeronautical Engineering",
+                    "African-American Studies",
+                    "African Studies",
+                    "Agricultural Economics and Agribusiness",
+                    "Agricultural Education",
+                    "Agricultural Engineering",
+                    "Agricultural Sciences--General",
+                    "Agronomy and Soil Sciences",
+                    "Allied Health--General",
+                    "Anatomy",
+                    "Animal Sciences",
+                    "Anthropology",
+                    "Architecture",
+                    "Art Education",
+                    "Art/Fine Arts",
+                    "Art History",
+                    "Arts Administration",
+                    "Asian Languages",
+                    "Asian Studies",
+                    "Astronomy",
+                    "Atmospheric Sciences",
+                    "Biochemistry",
+                    "Bioengineering",
+                    "Biological and Biomedical Sciences--General",
+                    "Biomedical Engineering",
+                    "Biophysics",
+                    "Biostatistics",
+                    "Business Administration and Management--General",
+                    "Cell Biology",
+                    "Chemical Engineering",
+                    "Chemical Physics",
+                    "Chemistry",
+                    "Child and Family Studies",
+                    "Chinese",
+                    "Civil Engineering",
+                    "Classics",
+                    "Communication Disorders",
+                    "Communication--General",
+                    "Computational Sciences",
+                    "Computer Art and Design",
+                    "Computer Engineering",
+                    "Computer Science",
+                    "Dance",
+                    "Dental Hygiene",
+                    "Dentistry",
+                    "Developmental Biology",
+                    "East European and Russian Studies",
+                    "Ecology",
+                    "Economics",
+                    "Educational Leadership and Administration",
+                    "Educational Policy",
+                    "Education--General",
+                    "Electrical Engineering",
+                    "Engineering and Applied Sciences--General",
+                    "English",
+                    "Entomology",
+                    "Environmental Management and Policy",
+                    "Environmental Sciences",
+                    "Evolutionary Biology",
+                    "Family and Consumer Sciences-General",
+                    "Finance and Banking",
+                    "Fish, Game, and Wildlife Management",
+                    "Food Science and Technology",
+                    "Forestry",
+                    "French",
+                    "Gender Studies",
+                    "Genetics",
+                    "Geodetic Sciences",
+                    "Geography",
+                    "Geology",
+                    "Geosciences",
+                    "German",
+                    "Health Services Management and Hospital Administration",
+                    "History",
+                    "Horticulture",
+                    "Human Development",
+                    "Human Resources Management",
+                    "Industrial and Labor Relations",
+                    "Industrial Design",
+                    "Industrial/Management Engineering",
+                    "Interdisciplinary Studies",
+                    "Interior Design",
+                    "Internet and Interactive Multimedia",
+                    "Italian",
+                    "Japanese",
+                    "Kinesiology and Movement Studies",
+                    "Landscape Architecture",
+                    "Latin American Studies",
+                    "Law",
+                    "Linguistics",
+                    "Logistics",
+                    "Management Information Systems",
+                    "Materials Engineering",
+                    "Materials Sciences",
+                    "Mathematics",
+                    "Mathematics Education",
+                    "Mechanical Engineering",
+                    "Metallurgical Engineering and Metallurgy",
+                    "Microbiology",
+                    "Molecular Biology",
+                    "Molecular Genetics",
+                    "Music",
+                    "Natural Resources",
+                    "Near and Middle Eastern Languages",
+                    "Nuclear Engineering",
+                    "Nursing--General",
+                    "Nutrition",
+                    "Occupational Therapy",
+                    "Operations Research",
+                    "Optical Sciences",
+                    "Optometry",
+                    "Oral and Dental Sciences",
+                    "Pharmaceutical Administration",
+                    "Pharmacology",
+                    "Pharmacy",
+                    "Philosophy",
+                    "Physical Education",
+                    "Physical Therapy",
+                    "Physics",
+                    "Plant Pathology",
+                    "Portuguese",
+                    "Public Administration",
+                    "Public Affairs",
+                    "Public Health--General",
+                    "Public Policy",
+                    "Rehabilitation Sciences",
+                    "Rural Sociology",
+                    "Slavic Languages",
+                    "Social Sciences",
+                    "Social Work",
+                    "Spanish",
+                    "Statistics",
+                    "Systems Engineering",
+                    "Theater",
+                    "Urban and Regional Planning",
+                    "Veterinary Sciences",
+                    "Women's Studies"
+                  ],
+                  "title": "Master's Programs of Study"
+                },
+                "type": "SubscreenNavigator"
+              },
+              {
+                "data": {
+                  "title": "Doctoral Degrees Offered",
+                  "value": [
+                    "Doctor Of Audiology, Doctor Of Dental Surgery, Doctor Of Education, Doctor Of Medicine, Doctor Of Musical Arts, Doctor Of Nursing Practice, Doctor Of Optometry, Doctor Of Pharmacy, Doctor Of Philosophy, Doctor Of Physical Therapy, Doctor Of Veterinary Medicine, Juris Doctor"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "buttonText": "View All Programs (140)",
+                  "data": [
+                    "Accounting",
+                    "Actuarial Science",
+                    "Aerospace/Aeronautical Engineering",
+                    "African-American Studies",
+                    "African Studies",
+                    "Agricultural Economics and Agribusiness",
+                    "Agricultural Education",
+                    "Agricultural Engineering",
+                    "Agricultural Sciences--General",
+                    "Agronomy and Soil Sciences",
+                    "Allied Health--General",
+                    "Allopathic Medicine",
+                    "Anatomy",
+                    "Animal Sciences",
+                    "Anthropology",
+                    "Architecture",
+                    "Art Education",
+                    "Art History",
+                    "Arts Administration",
+                    "Asian Languages",
+                    "Astronomy",
+                    "Atmospheric Sciences",
+                    "Biochemistry",
+                    "Bioengineering",
+                    "Biological and Biomedical Sciences--General",
+                    "Biomedical Engineering",
+                    "Biophysics",
+                    "Biostatistics",
+                    "Business Administration and Management--General",
+                    "Cell Biology",
+                    "Chemical Engineering",
+                    "Chemical Physics",
+                    "Chemistry",
+                    "Child and Family Studies",
+                    "Chinese",
+                    "Civil Engineering",
+                    "Classics",
+                    "Clinical Psychology",
+                    "Cognitive Sciences",
+                    "Communication Disorders",
+                    "Communication--General",
+                    "Computational Sciences",
+                    "Computer Engineering",
+                    "Computer Science",
+                    "Dance",
+                    "Dental Hygiene",
+                    "Dentistry",
+                    "Developmental Biology",
+                    "Developmental Psychology",
+                    "East European and Russian Studies",
+                    "Ecology",
+                    "Economics",
+                    "Educational Leadership and Administration",
+                    "Educational Policy",
+                    "Education--General",
+                    "Electrical Engineering",
+                    "Engineering and Applied Sciences--General",
+                    "English",
+                    "Entomology",
+                    "Environmental Management and Policy",
+                    "Environmental Sciences",
+                    "Evolutionary Biology",
+                    "Family and Consumer Sciences-General",
+                    "Fish, Game, and Wildlife Management",
+                    "Food Science and Technology",
+                    "Forestry",
+                    "French",
+                    "Gender Studies",
+                    "Genetics",
+                    "Geodetic Sciences",
+                    "Geography",
+                    "Geology",
+                    "Geosciences",
+                    "German",
+                    "Health Services Management and Hospital Administration",
+                    "History",
+                    "Horticulture",
+                    "Human Development",
+                    "Human Resources Management",
+                    "Industrial and Labor Relations",
+                    "Industrial/Management Engineering",
+                    "Interdisciplinary Studies",
+                    "Italian",
+                    "Japanese",
+                    "Kinesiology and Movement Studies",
+                    "Landscape Architecture",
+                    "Law",
+                    "Linguistics",
+                    "Management Information Systems",
+                    "Materials Engineering",
+                    "Materials Sciences",
+                    "Mathematics",
+                    "Mathematics Education",
+                    "Mechanical Engineering",
+                    "Metallurgical Engineering and Metallurgy",
+                    "Microbiology",
+                    "Molecular Biology",
+                    "Molecular Genetics",
+                    "Music",
+                    "Natural Resources",
+                    "Near and Middle Eastern Languages",
+                    "Neuroscience",
+                    "Nuclear Engineering",
+                    "Nursing--General",
+                    "Nutrition",
+                    "Occupational Therapy",
+                    "Optical Sciences",
+                    "Optometry",
+                    "Oral and Dental Sciences",
+                    "Pharmaceutical Administration",
+                    "Pharmacology",
+                    "Pharmacy",
+                    "Philosophy",
+                    "Physical Education",
+                    "Physical Therapy",
+                    "Physics",
+                    "Plant Pathology",
+                    "Plant Sciences",
+                    "Political Science",
+                    "Portuguese",
+                    "Psychology--General",
+                    "Public Administration",
+                    "Public Affairs",
+                    "Public Health--General",
+                    "Public Policy",
+                    "Rehabilitation Sciences",
+                    "Rural Sociology",
+                    "Slavic Languages",
+                    "Social Psychology",
+                    "Social Sciences",
+                    "Social Work",
+                    "Sociology",
+                    "Spanish",
+                    "Special Education",
+                    "Statistics",
+                    "Systems Engineering",
+                    "Theater",
+                    "Urban and Regional Planning",
+                    "Veterinary Sciences",
+                    "Women's Studies"
+                  ],
+                  "title": "Doctoral Programs of Study"
+                },
+                "type": "SubscreenNavigator"
+              }
+            ],
+            "iconType": null,
+            "link": null,
+            "title": "Graduate/Professional School Education"
+          },
+          "type": "ExpandableSection"
+        }
+      ],
+      "campusMapUrl": "https://www.osu.edu/map/",
+      "chance": null,
+      "headerCardContent": [
+        {
+          "data": {
+            "value": "General Information"
+          },
+          "type": "CategoryDivider"
+        },
+        {
+          "data": {
+            "title": "Academic Calendar System",
+            "value": [
+              "Semester"
+            ]
+          },
+          "type": "TitleValue"
+        },
+        {
+          "data": {
+            "title": "Summer Session",
+            "value": [
+              "Not reported"
+            ]
+          },
+          "type": "TitleValue"
+        }
+      ],
+      "id": 1807,
+      "name": "Ohio State University",
+      "slug": "Ohio-State-University",
+      "website": "https://www.osu.edu/"
+    }
+  }
+}

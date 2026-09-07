@@ -1,0 +1,385 @@
+{
+  "__N_SSP": true,
+  "pageProps": {
+    "isStateList": false,
+    "profile": {
+      "address": {
+        "city": "Chicago",
+        "state": "IL",
+        "street1": "36 S. Wabash Ave.",
+        "street2": null,
+        "zipCode": "60603-3103"
+      },
+      "admissionsEmail": "admiss@saic.edu",
+      "admissionsFax": "(312) 263-0141",
+      "admissionsPhone": "(800) 232-SAIC xSAIC",
+      "alternativeName": null,
+      "bodyContent": [
+        {
+          "data": {
+            "children": [
+              {
+                "data": {
+                  "title": "Entrance Difficulty",
+                  "value": [
+                    "Not reported"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Overall Admission Rate",
+                  "value": [
+                    "77% of 6,626 applicants were admitted"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Early Action Offered",
+                  "value": [
+                    "Yes"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Early Decision Offered",
+                  "value": [
+                    "No"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Regular Admission Deadline",
+                  "value": [
+                    "January 15"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "value": "Qualifications of Enrolled Freshmen"
+                },
+                "type": "CategoryDivider"
+              },
+              {
+                "data": {
+                  "title": "Average GPA",
+                  "value": [
+                    "3.6"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "SAT Math",
+                  "value": [
+                    "Not reported"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "SAT EBRW",
+                  "value": [
+                    "Not reported"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "ACT Composite",
+                  "value": [
+                    "Not reported"
+                  ]
+                },
+                "type": "TitleValue"
+              }
+            ],
+            "iconType": "admissions",
+            "link": "/college-search/School-of-the-Art-Institute-of-Chicago/admission",
+            "title": "Admissions"
+          },
+          "type": "ExpandableSection"
+        },
+        {
+          "data": {
+            "children": [
+              {
+                "data": {
+                  "title": "Cost of Attendance",
+                  "value": [
+                    "Not reported"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Tuition and Fees",
+                  "value": [
+                    "$57,910"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Room and Board",
+                  "value": [
+                    "Not reported"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Average Percent of Need Met",
+                  "value": [
+                    "Not reported"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Average Freshman Award",
+                  "value": [
+                    "Not reported"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Average Indebtedness of 2024 Graduates",
+                  "value": [
+                    "Not reported"
+                  ]
+                },
+                "type": "TitleValue"
+              }
+            ],
+            "iconType": "financials",
+            "link": "/college-search/School-of-the-Art-Institute-of-Chicago/money-matters",
+            "title": "Financials"
+          },
+          "type": "ExpandableSection"
+        },
+        {
+          "data": {
+            "children": [
+              {
+                "data": {
+                  "title": "Academic Calendar System",
+                  "value": [
+                    "Semester"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "General Education/Core Curriculum",
+                  "value": [
+                    "Required for most or all students"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Full-Time Faculty Teaching Undergraduates",
+                  "value": [
+                    "147"
+                  ]
+                },
+                "type": "TitleValue"
+              }
+            ],
+            "iconType": "academics",
+            "link": "/college-search/School-of-the-Art-Institute-of-Chicago/academics",
+            "title": "Academics"
+          },
+          "type": "ExpandableSection"
+        },
+        {
+          "data": {
+            "children": [
+              {
+                "data": {
+                  "title": "Chicago Population",
+                  "value": [
+                    "2,677,643"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Nearest Metropolitan Area",
+                  "value": [
+                    "Chicago"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Freshman Housing Guarantee",
+                  "value": [
+                    "College offers housing to students"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Students in College Housing",
+                  "value": [
+                    "32% of all students"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Sororities",
+                  "value": [
+                    "Not reported"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Fraternities",
+                  "value": [
+                    "Not reported"
+                  ]
+                },
+                "type": "TitleValue"
+              }
+            ],
+            "iconType": "campusLife",
+            "link": "/college-search/School-of-the-Art-Institute-of-Chicago/campus-life",
+            "title": "Campus Life"
+          },
+          "type": "ExpandableSection"
+        },
+        {
+          "data": {
+            "children": [
+              {
+                "data": {
+                  "data": [
+                    {
+                      "label": "American Indian/Alaskan Native",
+                      "value": 0
+                    },
+                    {
+                      "label": "Asian",
+                      "value": 14.2
+                    },
+                    {
+                      "label": "Black/African-American",
+                      "value": 7.9
+                    },
+                    {
+                      "label": "Hispanic/Latino",
+                      "value": 18.3
+                    },
+                    {
+                      "label": "Multi-race (not Hispanic/Latino)",
+                      "value": 6.6
+                    },
+                    {
+                      "label": "White",
+                      "value": 48
+                    },
+                    {
+                      "label": "Unknown",
+                      "value": 4.8
+                    }
+                  ],
+                  "title": "Ethnicity of Students from U.S."
+                },
+                "type": "BarGraph"
+              },
+              {
+                "data": {
+                  "title": "International Students",
+                  "value": [
+                    "27.9% from 45 countries"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "First-Year Students Returning",
+                  "value": [
+                    "84.0%"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Students Graduating Within 4 Years",
+                  "value": [
+                    "37.1%"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Graduates Offered Full-Time Employment Within 6 Months",
+                  "value": [
+                    "Not reported"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Graduates Pursuing Advanced Study Directly",
+                  "value": [
+                    "Not reported"
+                  ]
+                },
+                "type": "TitleValue"
+              }
+            ],
+            "iconType": "students",
+            "link": "/college-search/School-of-the-Art-Institute-of-Chicago/students",
+            "title": "Students"
+          },
+          "type": "ExpandableSection"
+        }
+      ],
+      "description": "The School of the Art Institute of Chicago, founded in 1866, is a private institution. The school occupies its own facilities adjoining the museum in downtown Chicago, overlooking Grant Park and Lake Michigan.",
+      "femalePercentage": 77.3,
+      "gradPopulation": 713,
+      "id": 460,
+      "malePercentage": 22.7,
+      "name": "School of the Art Institute of Chicago",
+      "populationType": "Coed",
+      "slug": "School-of-the-Art-Institute-of-Chicago",
+      "undergradPopulation": 2806,
+      "universityType": "Private",
+      "website": "https://www.saic.edu/"
+    }
+  }
+}

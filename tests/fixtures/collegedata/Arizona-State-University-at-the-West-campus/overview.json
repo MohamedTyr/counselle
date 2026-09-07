@@ -1,0 +1,394 @@
+{
+  "__N_SSP": true,
+  "pageProps": {
+    "isStateList": false,
+    "profile": {
+      "address": {
+        "city": "Phoenix",
+        "state": "AZ",
+        "street1": "13591 N. 47th Avenue",
+        "street2": null,
+        "zipCode": "85051"
+      },
+      "admissionsEmail": null,
+      "admissionsFax": null,
+      "admissionsPhone": null,
+      "alternativeName": null,
+      "bodyContent": [
+        {
+          "data": {
+            "children": [
+              {
+                "data": {
+                  "title": "Entrance Difficulty",
+                  "value": [
+                    "Moderately difficult"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Overall Admission Rate",
+                  "value": [
+                    "Not reported"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Early Action Offered",
+                  "value": [
+                    "No"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Early Decision Offered",
+                  "value": [
+                    "No"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Regular Admission Deadline",
+                  "value": [
+                    "Rolling"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "value": "Qualifications of Enrolled Freshmen"
+                },
+                "type": "CategoryDivider"
+              },
+              {
+                "data": {
+                  "title": "Average GPA",
+                  "value": [
+                    "3.5"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "SAT Math",
+                  "value": [
+                    "572 average",
+                    "510-630 range of middle 50%"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "SAT EBRW",
+                  "value": [
+                    "581 average",
+                    "530-640 range of middle 50%"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "ACT Composite",
+                  "value": [
+                    "22 average",
+                    "19-25 range of middle 50%"
+                  ]
+                },
+                "type": "TitleValue"
+              }
+            ],
+            "iconType": "admissions",
+            "link": "/college-search/Arizona-State-University-at-the-West-campus/admission",
+            "title": "Admissions"
+          },
+          "type": "ExpandableSection"
+        },
+        {
+          "data": {
+            "children": [
+              {
+                "data": {
+                  "title": "Cost of Attendance",
+                  "value": [
+                    "In-state: $37,116",
+                    "Out-of-state: $60,654"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Tuition and Fees",
+                  "value": [
+                    "In-state: $12,984",
+                    "Out-of-state: $36,522"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Room and Board",
+                  "value": [
+                    "$18,819"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Average Percent of Need Met",
+                  "value": [
+                    "Not reported"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Average Freshman Award",
+                  "value": [
+                    "Not reported"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Average Indebtedness of 2024 Graduates",
+                  "value": [
+                    "Not reported"
+                  ]
+                },
+                "type": "TitleValue"
+              }
+            ],
+            "iconType": "financials",
+            "link": "/college-search/Arizona-State-University-at-the-West-campus/money-matters",
+            "title": "Financials"
+          },
+          "type": "ExpandableSection"
+        },
+        {
+          "data": {
+            "children": [
+              {
+                "data": {
+                  "title": "Academic Calendar System",
+                  "value": [
+                    "Semester"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "General Education/Core Curriculum",
+                  "value": [
+                    "Required for most or all students"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Full-Time Faculty Teaching Undergraduates",
+                  "value": [
+                    "Not reported"
+                  ]
+                },
+                "type": "TitleValue"
+              }
+            ],
+            "iconType": "academics",
+            "link": "/college-search/Arizona-State-University-at-the-West-campus/academics",
+            "title": "Academics"
+          },
+          "type": "ExpandableSection"
+        },
+        {
+          "data": {
+            "children": [
+              {
+                "data": {
+                  "title": "Nearest Metropolitan Area",
+                  "value": [
+                    "Phoenix"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Freshman Housing Guarantee",
+                  "value": [
+                    "College offers housing to students"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Students in College Housing",
+                  "value": [
+                    "15% of all students"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Athletic Conferences",
+                  "value": [
+                    "NCAA Division I"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Sororities",
+                  "value": [
+                    "Not reported"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Fraternities",
+                  "value": [
+                    "Not reported"
+                  ]
+                },
+                "type": "TitleValue"
+              }
+            ],
+            "iconType": "campusLife",
+            "link": "/college-search/Arizona-State-University-at-the-West-campus/campus-life",
+            "title": "Campus Life"
+          },
+          "type": "ExpandableSection"
+        },
+        {
+          "data": {
+            "children": [
+              {
+                "data": {
+                  "data": [
+                    {
+                      "label": "American Indian/Alaskan Native",
+                      "value": 1.2
+                    },
+                    {
+                      "label": "Asian",
+                      "value": 6.2
+                    },
+                    {
+                      "label": "Black/African-American",
+                      "value": 4.9
+                    },
+                    {
+                      "label": "Hispanic/Latino",
+                      "value": 39.6
+                    },
+                    {
+                      "label": "Multi-race (not Hispanic/Latino)",
+                      "value": 3.5
+                    },
+                    {
+                      "label": "Native Hawaiian/ Pacific Islander",
+                      "value": 0.3
+                    },
+                    {
+                      "label": "White",
+                      "value": 43.3
+                    },
+                    {
+                      "label": "Unknown",
+                      "value": 0.9
+                    }
+                  ],
+                  "title": "Ethnicity of Students from U.S."
+                },
+                "type": "BarGraph"
+              },
+              {
+                "data": {
+                  "title": "International Students",
+                  "value": [
+                    "4.2%"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "First-Year Students Returning",
+                  "value": [
+                    "86.0%"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Students Graduating Within 4 Years",
+                  "value": [
+                    "56.8%"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Graduates Offered Full-Time Employment Within 6 Months",
+                  "value": [
+                    "65%"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Graduates Pursuing Advanced Study Directly",
+                  "value": [
+                    "18.0%"
+                  ]
+                },
+                "type": "TitleValue"
+              }
+            ],
+            "iconType": "students",
+            "link": "/college-search/Arizona-State-University-at-the-West-campus/students",
+            "title": "Students"
+          },
+          "type": "ExpandableSection"
+        }
+      ],
+      "description": "",
+      "femalePercentage": 62.1,
+      "gradPopulation": 328,
+      "id": 1299,
+      "malePercentage": 37.9,
+      "name": "Arizona State University at the West campus",
+      "populationType": "Coed",
+      "slug": "Arizona-State-University-at-the-West-campus",
+      "undergradPopulation": 4601,
+      "universityType": "Public",
+      "website": "https://www.asu.edu/"
+    }
+  }
+}

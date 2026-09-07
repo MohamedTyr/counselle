@@ -1,0 +1,584 @@
+{
+  "__N_SSP": true,
+  "pageProps": {
+    "isStateList": false,
+    "profile": {
+      "avgJanTemp": null,
+      "avgSeptTemp": null,
+      "bodyContent": [
+        {
+          "data": {
+            "children": [
+              {
+                "data": {
+                  "title": "West  Point Population",
+                  "value": [
+                    "6,763"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Nearest Metropolitan Area",
+                  "value": [
+                    "New York City"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Campus Size",
+                  "value": [
+                    "16,080 acres"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "value": "Getting Around"
+                },
+                "type": "CategoryDivider"
+              },
+              {
+                "data": {
+                  "link": "Not reported",
+                  "text": "View Map",
+                  "title": "Campus Map"
+                },
+                "type": "TitleLink"
+              },
+              {
+                "data": {
+                  "title": "Nearest Bus Station",
+                  "value": [
+                    "15 mile(s) from campus in Newburgh"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Nearest Train Station",
+                  "value": [
+                    "15 mile(s) from campus in Garrison"
+                  ]
+                },
+                "type": "TitleValue"
+              }
+            ],
+            "iconType": null,
+            "link": null,
+            "title": "Location and Setting"
+          },
+          "type": "ExpandableSection"
+        },
+        {
+          "data": {
+            "children": [
+              {
+                "data": {
+                  "title": "College Housing",
+                  "value": [
+                    "College offers housing to students"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Types of Housing",
+                  "value": [
+                    "Coed housing"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Students in College Housing",
+                  "value": [
+                    "100% of all students"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Housing Requirements",
+                  "value": [
+                    "Students required to live on campus through senior year"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Freshman Housing Guarantee",
+                  "value": [
+                    "Freshmen are guaranteed housing"
+                  ]
+                },
+                "type": "TitleValue"
+              }
+            ],
+            "iconType": null,
+            "link": null,
+            "title": "Housing"
+          },
+          "type": "ExpandableSection"
+        },
+        {
+          "data": {
+            "children": [
+              {
+                "data": {
+                  "title": "24-Hour Emergency Phone/Alarm Devices",
+                  "value": [
+                    "Available"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "24-Hour Security Patrols",
+                  "value": [
+                    "Available"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Late-Night Transport/Escort Services",
+                  "value": [
+                    "Available"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Electronically Operated Housing Entrances",
+                  "value": [
+                    "Available"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Other",
+                  "value": [
+                    "West Point is a federally controlled Army installation with 24/7 entrance security"
+                  ]
+                },
+                "type": "TitleValue"
+              }
+            ],
+            "iconType": null,
+            "link": null,
+            "title": "Security"
+          },
+          "type": "ExpandableSection"
+        },
+        {
+          "data": {
+            "children": [
+              {
+                "data": {
+                  "title": "Health Service",
+                  "value": [
+                    "Offered"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Personal Counseling",
+                  "value": [
+                    "Offered"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Child Care",
+                  "value": [
+                    "Not offered"
+                  ]
+                },
+                "type": "TitleValue"
+              }
+            ],
+            "iconType": null,
+            "link": null,
+            "title": "Personal Support Services"
+          },
+          "type": "ExpandableSection"
+        },
+        {
+          "data": {
+            "children": [
+              {
+                "data": {
+                  "title": "Athletic Conferences",
+                  "value": [
+                    "NCAA Division I"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Mascot",
+                  "value": [
+                    "Mule"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "School Colors",
+                  "value": [
+                    "Black, gold, and gray"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "value": "Intercollegiate Sports & Scholarships"
+                },
+                "type": "CategoryDivider"
+              },
+              {
+                "data": {
+                  "data": [
+                    {
+                      "label": "Baseball",
+                      "values": [
+                        null,
+                        null,
+                        "check",
+                        null
+                      ]
+                    },
+                    {
+                      "label": "Basketball",
+                      "values": [
+                        "check",
+                        null,
+                        "check",
+                        null
+                      ]
+                    },
+                    {
+                      "label": "Cheerleading",
+                      "values": [
+                        "check",
+                        null,
+                        "check",
+                        null
+                      ]
+                    },
+                    {
+                      "label": "Cross-Country Running",
+                      "values": [
+                        "check",
+                        null,
+                        "check",
+                        null
+                      ]
+                    },
+                    {
+                      "label": "Football",
+                      "values": [
+                        null,
+                        null,
+                        "check",
+                        null
+                      ]
+                    },
+                    {
+                      "label": "Golf",
+                      "values": [
+                        null,
+                        null,
+                        "check",
+                        null
+                      ]
+                    },
+                    {
+                      "label": "Gymnastics",
+                      "values": [
+                        null,
+                        null,
+                        "check",
+                        null
+                      ]
+                    },
+                    {
+                      "label": "Ice Hockey",
+                      "values": [
+                        null,
+                        null,
+                        "check",
+                        null
+                      ]
+                    },
+                    {
+                      "label": "Lacrosse",
+                      "values": [
+                        "check",
+                        null,
+                        "check",
+                        null
+                      ]
+                    },
+                    {
+                      "label": "Riflery",
+                      "values": [
+                        "check",
+                        null,
+                        "check",
+                        null
+                      ]
+                    },
+                    {
+                      "label": "Rugby",
+                      "values": [
+                        "check",
+                        null,
+                        null,
+                        null
+                      ]
+                    },
+                    {
+                      "label": "Soccer",
+                      "values": [
+                        "check",
+                        null,
+                        "check",
+                        null
+                      ]
+                    },
+                    {
+                      "label": "Softball",
+                      "values": [
+                        "check",
+                        null,
+                        null,
+                        null
+                      ]
+                    },
+                    {
+                      "label": "Swimming And Diving",
+                      "values": [
+                        "check",
+                        null,
+                        "check",
+                        null
+                      ]
+                    },
+                    {
+                      "label": "Tennis",
+                      "values": [
+                        "check",
+                        null,
+                        "check",
+                        null
+                      ]
+                    },
+                    {
+                      "label": "Track And Field",
+                      "values": [
+                        "check",
+                        null,
+                        "check",
+                        null
+                      ]
+                    },
+                    {
+                      "label": "Volleyball",
+                      "values": [
+                        "check",
+                        null,
+                        null,
+                        null
+                      ]
+                    },
+                    {
+                      "label": "Wrestling",
+                      "values": [
+                        null,
+                        null,
+                        "check",
+                        null
+                      ]
+                    }
+                  ],
+                  "keyTitle": "Sports",
+                  "tableTitle": "",
+                  "valueTitles": [
+                    "Women",
+                    "Women",
+                    "Men",
+                    "Men"
+                  ]
+                },
+                "type": "IconTable"
+              },
+              {
+                "data": {
+                  "value": "Club Sports"
+                },
+                "type": "CategoryDivider"
+              },
+              {
+                "data": {
+                  "data": [
+                    {
+                      "label": "Bowling",
+                      "values": [
+                        "check",
+                        "check"
+                      ]
+                    },
+                    {
+                      "label": "Crew",
+                      "values": [
+                        "check",
+                        "check"
+                      ]
+                    },
+                    {
+                      "label": "Equestrian Sports",
+                      "values": [
+                        "check",
+                        "check"
+                      ]
+                    },
+                    {
+                      "label": "Fencing",
+                      "values": [
+                        "check",
+                        "check"
+                      ]
+                    },
+                    {
+                      "label": "Ice Hockey",
+                      "values": [
+                        "check",
+                        null
+                      ]
+                    },
+                    {
+                      "label": "Rock Climbing",
+                      "values": [
+                        "check",
+                        "check"
+                      ]
+                    },
+                    {
+                      "label": "Sailing",
+                      "values": [
+                        "check",
+                        "check"
+                      ]
+                    },
+                    {
+                      "label": "Skiing (Cross-Country)",
+                      "values": [
+                        "check",
+                        "check"
+                      ]
+                    },
+                    {
+                      "label": "Skiing (Downhill)",
+                      "values": [
+                        "check",
+                        "check"
+                      ]
+                    },
+                    {
+                      "label": "Triathlon",
+                      "values": [
+                        "check",
+                        "check"
+                      ]
+                    },
+                    {
+                      "label": "Ultimate Frisbee",
+                      "values": [
+                        "check",
+                        "check"
+                      ]
+                    },
+                    {
+                      "label": "Volleyball",
+                      "values": [
+                        null,
+                        "check"
+                      ]
+                    },
+                    {
+                      "label": "Water Polo",
+                      "values": [
+                        "check",
+                        "check"
+                      ]
+                    },
+                    {
+                      "label": "Weight Lifting",
+                      "values": [
+                        "check",
+                        "check"
+                      ]
+                    }
+                  ],
+                  "keyTitle": "Sports",
+                  "tableTitle": "",
+                  "valueTitles": [
+                    "Women",
+                    "Men"
+                  ]
+                },
+                "type": "IconTable"
+              },
+              {
+                "data": {
+                  "title": "Intramural Sports",
+                  "value": [
+                    "football"
+                  ]
+                },
+                "type": "TitleValue"
+              }
+            ],
+            "iconType": null,
+            "link": null,
+            "title": "Sports & Recreation"
+          },
+          "type": "ExpandableSection"
+        }
+      ],
+      "campusMapUrl": "Not reported",
+      "city": "West  Point",
+      "cityPopulation": "6,763",
+      "freshmanHousingGuarantee": null,
+      "id": 165,
+      "name": "United States Military Academy",
+      "nearestMetro": "New York City",
+      "rain": null,
+      "slug": "United-States-Military-Academy",
+      "website": "https://www.westpoint.edu/"
+    }
+  }
+}

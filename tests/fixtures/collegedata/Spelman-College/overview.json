@@ -1,0 +1,418 @@
+{
+  "__N_SSP": true,
+  "pageProps": {
+    "isStateList": false,
+    "profile": {
+      "address": {
+        "city": "Atlanta",
+        "state": "GA",
+        "street1": "350 Spelman Lane, SW",
+        "street2": null,
+        "zipCode": "30314-4399"
+      },
+      "admissionsEmail": "admiss@spelman.edu",
+      "admissionsFax": "(404) 215-7788",
+      "admissionsPhone": "(404) 270-5193 x2411",
+      "alternativeName": null,
+      "bodyContent": [
+        {
+          "data": {
+            "children": [
+              {
+                "data": {
+                  "title": "Entrance Difficulty",
+                  "value": [
+                    "Very difficult"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Overall Admission Rate",
+                  "value": [
+                    "24% of 11,533 applicants were admitted"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Early Action Offered",
+                  "value": [
+                    "Yes"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Early Decision Offered",
+                  "value": [
+                    "Yes"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Regular Admission Deadline",
+                  "value": [
+                    "February 1"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "value": "Qualifications of Enrolled Freshmen"
+                },
+                "type": "CategoryDivider"
+              },
+              {
+                "data": {
+                  "title": "Average GPA",
+                  "value": [
+                    "3.96"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "SAT Math",
+                  "value": [
+                    "520-630 range of middle 50%"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "SAT EBRW",
+                  "value": [
+                    "570-670 range of middle 50%"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "ACT Composite",
+                  "value": [
+                    "22-28 range of middle 50%"
+                  ]
+                },
+                "type": "TitleValue"
+              }
+            ],
+            "iconType": "admissions",
+            "link": "/college-search/Spelman-College/admission",
+            "title": "Admissions"
+          },
+          "type": "ExpandableSection"
+        },
+        {
+          "data": {
+            "children": [
+              {
+                "data": {
+                  "title": "Cost of Attendance",
+                  "value": [
+                    "Not reported"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Tuition and Fees",
+                  "value": [
+                    "Not reported"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Room and Board",
+                  "value": [
+                    "Not reported"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Average Percent of Need Met",
+                  "value": [
+                    "21%"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Average Freshman Award",
+                  "value": [
+                    "$19,340"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Average Indebtedness of 2024 Graduates",
+                  "value": [
+                    "$34,425"
+                  ]
+                },
+                "type": "TitleValue"
+              }
+            ],
+            "iconType": "financials",
+            "link": "/college-search/Spelman-College/money-matters",
+            "title": "Financials"
+          },
+          "type": "ExpandableSection"
+        },
+        {
+          "data": {
+            "children": [
+              {
+                "data": {
+                  "title": "Academic Calendar System",
+                  "value": [
+                    "Semester"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "General Education/Core Curriculum",
+                  "value": [
+                    "Required for most or all students"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Full-Time Faculty Teaching Undergraduates",
+                  "value": [
+                    "207"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "data": [
+                    {
+                      "label": "2-9 ",
+                      "value": 28
+                    },
+                    {
+                      "label": "10-19 ",
+                      "value": 33
+                    },
+                    {
+                      "label": "20-29 ",
+                      "value": 31
+                    },
+                    {
+                      "label": "30-39 ",
+                      "value": 7
+                    },
+                    {
+                      "label": "40-49 ",
+                      "value": 1
+                    },
+                    {
+                      "label": "50-99 ",
+                      "value": 1
+                    }
+                  ],
+                  "title": "Regular Class Size (Students)"
+                },
+                "type": "BarGraph"
+              }
+            ],
+            "iconType": "academics",
+            "link": "/college-search/Spelman-College/academics",
+            "title": "Academics"
+          },
+          "type": "ExpandableSection"
+        },
+        {
+          "data": {
+            "children": [
+              {
+                "data": {
+                  "title": "Atlanta Population",
+                  "value": [
+                    "512,550"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Nearest Metropolitan Area",
+                  "value": [
+                    "Atlanta"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Freshman Housing Guarantee",
+                  "value": [
+                    "College offers housing to students"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Students in College Housing",
+                  "value": [
+                    "54% of all students"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Mascot",
+                  "value": [
+                    "Jaguars"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Sororities",
+                  "value": [
+                    "4% of women participate"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Fraternities",
+                  "value": [
+                    "Not reported"
+                  ]
+                },
+                "type": "TitleValue"
+              }
+            ],
+            "iconType": "campusLife",
+            "link": "/college-search/Spelman-College/campus-life",
+            "title": "Campus Life"
+          },
+          "type": "ExpandableSection"
+        },
+        {
+          "data": {
+            "children": [
+              {
+                "data": {
+                  "data": [
+                    {
+                      "label": "American Indian/Alaskan Native",
+                      "value": 1.4
+                    },
+                    {
+                      "label": "Asian",
+                      "value": 1.2
+                    },
+                    {
+                      "label": "Black/African-American",
+                      "value": 97.4
+                    },
+                    {
+                      "label": "Hispanic/Latino",
+                      "value": 0
+                    },
+                    {
+                      "label": "White",
+                      "value": 0
+                    }
+                  ],
+                  "title": "Ethnicity of Students from U.S."
+                },
+                "type": "BarGraph"
+              },
+              {
+                "data": {
+                  "title": "International Students",
+                  "value": [
+                    "0.5% from 12 countries"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "First-Year Students Returning",
+                  "value": [
+                    "95.0%"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Students Graduating Within 4 Years",
+                  "value": [
+                    "66.5%"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Graduates Offered Full-Time Employment Within 6 Months",
+                  "value": [
+                    "36.7%"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Graduates Pursuing Advanced Study Directly",
+                  "value": [
+                    "31.0%"
+                  ]
+                },
+                "type": "TitleValue"
+              }
+            ],
+            "iconType": "students",
+            "link": "/college-search/Spelman-College/students",
+            "title": "Students"
+          },
+          "type": "ExpandableSection"
+        }
+      ],
+      "description": "Spelman, founded in 1881, is a private, historically black, liberal arts college for women. Its 32-acre campus is located one mile from downtown Atlanta.",
+      "femalePercentage": 100,
+      "gradPopulation": null,
+      "id": 1659,
+      "malePercentage": null,
+      "name": "Spelman College",
+      "populationType": "Undergrad women only",
+      "slug": "Spelman-College",
+      "undergradPopulation": 2597,
+      "universityType": "Private",
+      "website": "https://www.spelman.edu/"
+    }
+  }
+}

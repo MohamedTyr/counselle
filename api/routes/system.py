@@ -2,14 +2,43 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime, timedelta
+
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 
+from adapters import facts_queries
 from api.ratelimit import _RATE_LIMITER_ATTR
 
 APP_VERSION = "0.1.0"
 
 router = APIRouter(tags=["system"])
+
+
+async def _facts_worker_status(request: Request) -> str:
+    """`"disabled"|"ok"|"stale"` (plan §7 Phase 1 exit criteria / §4.3):
+    disabled when the kill switch is off or the pipeline pool isn't
+    configured; stale when the last run finished more than
+    `2 * facts_crawl_interval_hours` ago or its status is
+    `failed`/`aborted`; `ok` otherwise, including "never run yet"."""
+    settings = request.app.state.settings
+    runtime = request.app.state.runtime
+    if not settings.facts_worker_enabled or runtime.pipeline_pool is None:
+        return "disabled"
+    try:
+        last_run = await facts_queries.get_last_run(runtime.pipeline_pool)
+    except Exception:
+        return "stale"
+    if last_run is None:
+        return "ok"
+    if last_run.status in ("failed", "aborted"):
+        return "stale"
+    if last_run.finished_at is None:
+        return "ok"  # still running
+    threshold = timedelta(hours=2 * settings.facts_crawl_interval_hours)
+    if datetime.now(UTC) - last_run.finished_at > threshold:
+        return "stale"
+    return "ok"
 
 
 @router.get("/health")
@@ -18,9 +47,11 @@ async def health(request: Request) -> JSONResponse:
 
     Pings both the read-only pool and the app pool (``SELECT 1``).  Returns
     HTTP 200 when the DB is reachable, 503 otherwise.  Reconciler state, MCP
-    supervisor status, and the rate-limiter wiring (DS-06) are included for
-    observability — a mis-wired limiter (which fails open, admitting everything)
-    degrades the health status instead of being a silent log-only warning.
+    supervisor status, the rate-limiter wiring (DS-06), and the facts crawl
+    worker's staleness (school-data-v3) are included for observability — a
+    mis-wired limiter (which fails open, admitting everything) or a stalled
+    crawler degrade the health status instead of being silent log-only
+    warnings.
     """
     runtime = request.app.state.runtime
     supervisor = request.app.state.mcp_supervisor
@@ -53,7 +84,14 @@ async def health(request: Request) -> JSONResponse:
     limiter = getattr(request.app.state, _RATE_LIMITER_ATTR, None)
     rate_limiter_status = "ok" if limiter is not None else "MISSING"
 
-    healthy = db_status == "ok" and rate_limiter_status == "ok"
+    # --- facts crawl worker (school-data-v3): "disabled" is a normal,
+    # healthy state (the kill switch defaults false) -- only "stale"
+    # degrades overall status. ---
+    facts_worker_status = await _facts_worker_status(request)
+
+    healthy = (
+        db_status == "ok" and rate_limiter_status == "ok" and facts_worker_status != "stale"
+    )
     overall = "ok" if healthy else "degraded"
     status_code = 200 if db_status == "ok" else 503
 
@@ -64,6 +102,7 @@ async def health(request: Request) -> JSONResponse:
             "db": db_status,
             "checkpointer": checkpointer_status,
             "rate_limiter": rate_limiter_status,
+            "facts_worker": facts_worker_status,
             "mcp": supervisor.status(),
             "version": APP_VERSION,
         },

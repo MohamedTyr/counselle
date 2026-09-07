@@ -1,0 +1,399 @@
+{
+  "__N_SSP": true,
+  "pageProps": {
+    "isStateList": false,
+    "profile": {
+      "address": {
+        "city": "Marion",
+        "state": "OH",
+        "street1": "1461 Mount Vernon Avenue",
+        "street2": null,
+        "zipCode": "43302"
+      },
+      "admissionsEmail": "askabuckeye@osu.edu",
+      "admissionsFax": null,
+      "admissionsPhone": "(740) 725-6242",
+      "alternativeName": "OSU",
+      "bodyContent": [
+        {
+          "data": {
+            "children": [
+              {
+                "data": {
+                  "title": "Entrance Difficulty",
+                  "value": [
+                    "Not reported"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Overall Admission Rate",
+                  "value": [
+                    "99% of 1,793 applicants were admitted"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Early Action Offered",
+                  "value": [
+                    "No"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Early Decision Offered",
+                  "value": [
+                    "No"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Regular Admission Deadline",
+                  "value": [
+                    "July 15"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "value": "Qualifications of Enrolled Freshmen"
+                },
+                "type": "CategoryDivider"
+              },
+              {
+                "data": {
+                  "title": "Average GPA",
+                  "value": [
+                    "Not reported"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "SAT Math",
+                  "value": [
+                    "510-650 range of middle 50%"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "SAT EBRW",
+                  "value": [
+                    "520-620 range of middle 50%"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "ACT Composite",
+                  "value": [
+                    "19-26 range of middle 50%"
+                  ]
+                },
+                "type": "TitleValue"
+              }
+            ],
+            "iconType": "admissions",
+            "link": "/college-search/Ohio-State-Universitity-at-Marion/admission",
+            "title": "Admissions"
+          },
+          "type": "ExpandableSection"
+        },
+        {
+          "data": {
+            "children": [
+              {
+                "data": {
+                  "title": "Cost of Attendance",
+                  "value": [
+                    "Not reported"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Tuition and Fees",
+                  "value": [
+                    "Not reported"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Room and Board",
+                  "value": [
+                    "Not reported"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Average Percent of Need Met",
+                  "value": [
+                    "67%"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Average Freshman Award",
+                  "value": [
+                    "$11,658"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Average Indebtedness of 2024 Graduates",
+                  "value": [
+                    "Not reported"
+                  ]
+                },
+                "type": "TitleValue"
+              }
+            ],
+            "iconType": "financials",
+            "link": "/college-search/Ohio-State-Universitity-at-Marion/money-matters",
+            "title": "Financials"
+          },
+          "type": "ExpandableSection"
+        },
+        {
+          "data": {
+            "children": [
+              {
+                "data": {
+                  "title": "Academic Calendar System",
+                  "value": [
+                    "Semester"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "General Education/Core Curriculum",
+                  "value": [
+                    "Not reported"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Full-Time Faculty Teaching Undergraduates",
+                  "value": [
+                    "53"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "data": [
+                    {
+                      "label": "2-9 ",
+                      "value": 24
+                    },
+                    {
+                      "label": "10-19 ",
+                      "value": 44
+                    },
+                    {
+                      "label": "20-29 ",
+                      "value": 25
+                    },
+                    {
+                      "label": "30-39 ",
+                      "value": 6
+                    },
+                    {
+                      "label": "40-49 ",
+                      "value": 1
+                    }
+                  ],
+                  "title": "Regular Class Size (Students)"
+                },
+                "type": "BarGraph"
+              }
+            ],
+            "iconType": "academics",
+            "link": "/college-search/Ohio-State-Universitity-at-Marion/academics",
+            "title": "Academics"
+          },
+          "type": "ExpandableSection"
+        },
+        {
+          "data": {
+            "children": [
+              {
+                "data": {
+                  "title": "Marion Population",
+                  "value": [
+                    "35,516"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Nearest Metropolitan Area",
+                  "value": [
+                    "Not reported"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Sororities",
+                  "value": [
+                    "Not reported"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Fraternities",
+                  "value": [
+                    "Not reported"
+                  ]
+                },
+                "type": "TitleValue"
+              }
+            ],
+            "iconType": "campusLife",
+            "link": "/college-search/Ohio-State-Universitity-at-Marion/campus-life",
+            "title": "Campus Life"
+          },
+          "type": "ExpandableSection"
+        },
+        {
+          "data": {
+            "children": [
+              {
+                "data": {
+                  "data": [
+                    {
+                      "label": "American Indian/Alaskan Native",
+                      "value": 0.1
+                    },
+                    {
+                      "label": "Asian",
+                      "value": 10.9
+                    },
+                    {
+                      "label": "Black/African-American",
+                      "value": 5.5
+                    },
+                    {
+                      "label": "Hispanic/Latino",
+                      "value": 7.3
+                    },
+                    {
+                      "label": "Multi-race (not Hispanic/Latino)",
+                      "value": 4.4
+                    },
+                    {
+                      "label": "Native Hawaiian/ Pacific Islander",
+                      "value": 0.1
+                    },
+                    {
+                      "label": "White",
+                      "value": 68.6
+                    },
+                    {
+                      "label": "Unknown",
+                      "value": 3.1
+                    }
+                  ],
+                  "title": "Ethnicity of Students from U.S."
+                },
+                "type": "BarGraph"
+              },
+              {
+                "data": {
+                  "title": "International Students",
+                  "value": [
+                    "1.6%"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "First-Year Students Returning",
+                  "value": [
+                    "43.0%"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Students Graduating Within 4 Years",
+                  "value": [
+                    "5.2%"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Graduates Offered Full-Time Employment Within 6 Months",
+                  "value": [
+                    "Not reported"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Graduates Pursuing Advanced Study Directly",
+                  "value": [
+                    "Not reported"
+                  ]
+                },
+                "type": "TitleValue"
+              }
+            ],
+            "iconType": "students",
+            "link": "/college-search/Ohio-State-Universitity-at-Marion/students",
+            "title": "Students"
+          },
+          "type": "ExpandableSection"
+        }
+      ],
+      "description": "Ohio State University at Marion, founded in 1958, is a public university focusing on elementary education. Its 180-acre campus is located in Marion, 50 miles north of Columbus.",
+      "femalePercentage": 50.8,
+      "gradPopulation": null,
+      "id": 263,
+      "malePercentage": 49.2,
+      "name": "Ohio State Universitity at Marion",
+      "populationType": "Coed",
+      "slug": "Ohio-State-Universitity-at-Marion",
+      "undergradPopulation": 926,
+      "universityType": "Public",
+      "website": "https://osumarion.osu.edu/"
+    }
+  }
+}

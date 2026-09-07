@@ -1,0 +1,391 @@
+{
+  "__N_SSP": true,
+  "pageProps": {
+    "isStateList": false,
+    "profile": {
+      "bodyContent": [
+        {
+          "data": {
+            "children": [
+              {
+                "data": {
+                  "buttonText": "View All Majors (13)",
+                  "data": [
+                    "Biology/Biological Sciences, General",
+                    "Business/Commerce, General",
+                    "Elementary and Middle School Administration/Principalship",
+                    "Elementary Education and Teaching",
+                    "Engineering/Engineering-Related Technologies/Technicians, Other",
+                    "English Language and Literature, General",
+                    "Experimental Psychology",
+                    "History, General",
+                    "Human Services, General",
+                    "Junior High/Intermediate/Middle School Education and Teaching",
+                    "Psychology, General",
+                    "Registered Nursing/Registered Nurse",
+                    "Social Work"
+                  ],
+                  "title": "Undergraduate Majors"
+                },
+                "type": "SubscreenNavigator"
+              },
+              {
+                "data": {
+                  "title": "Combined Liberal Arts/Professional Degree Programs",
+                  "value": [
+                    "None"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Special Programs",
+                  "value": [
+                    "Distance learning",
+                    "Double major",
+                    "English as a second language",
+                    "Honors program",
+                    "Independent study",
+                    "Internships",
+                    "Study abroad"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Study Abroad",
+                  "value": [
+                    "Offered"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Online Degrees",
+                  "value": [
+                    "Not Reported"
+                  ]
+                },
+                "type": "TitleValue"
+              }
+            ],
+            "iconType": null,
+            "link": null,
+            "title": "Undergraduate Education"
+          },
+          "type": "ExpandableSection"
+        },
+        {
+          "data": {
+            "children": [
+              {
+                "data": {
+                  "title": "General Education/Core Curriculum",
+                  "value": [
+                    "Not reported"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Computer",
+                  "value": [
+                    "Not reported"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Foreign Language",
+                  "value": [
+                    "Required"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Math/Science",
+                  "value": [
+                    "Required for all students"
+                  ]
+                },
+                "type": "TitleValue"
+              }
+            ],
+            "iconType": null,
+            "link": null,
+            "title": "Curriculum and Graduation Requirements"
+          },
+          "type": "ExpandableSection"
+        },
+        {
+          "data": {
+            "children": [
+              {
+                "data": {
+                  "title": "Full-Time Faculty",
+                  "value": [
+                    "53"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Part-Time Faculty",
+                  "value": [
+                    "28"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Full-Time Faculty with Ph.D./Terminal Degree",
+                  "value": [
+                    "60%"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "data": [
+                    {
+                      "label": "2-9 students",
+                      "value": 24
+                    },
+                    {
+                      "label": "10-19 students",
+                      "value": 44
+                    },
+                    {
+                      "label": "20-29 students",
+                      "value": 25
+                    },
+                    {
+                      "label": "30-39 students",
+                      "value": 6
+                    },
+                    {
+                      "label": "40-49 students",
+                      "value": 1
+                    }
+                  ],
+                  "title": "Regular Class Size"
+                },
+                "type": "BarGraph"
+              },
+              {
+                "data": {
+                  "data": [
+                    {
+                      "label": "2-9 students",
+                      "value": 18
+                    },
+                    {
+                      "label": "10-19 students",
+                      "value": 27
+                    },
+                    {
+                      "label": "20-29 students",
+                      "value": 32
+                    },
+                    {
+                      "label": "50-59 students",
+                      "value": 23
+                    }
+                  ],
+                  "title": "Discussion Section/Lab Class Size"
+                },
+                "type": "BarGraph"
+              }
+            ],
+            "iconType": null,
+            "link": null,
+            "title": "Faculty and Instruction"
+          },
+          "type": "ExpandableSection"
+        },
+        {
+          "data": {
+            "children": [
+              {
+                "data": {
+                  "title": "International Baccalaureate",
+                  "value": [
+                    "Not reported"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Sophomore Standing",
+                  "value": [
+                    "Not reported"
+                  ]
+                },
+                "type": "TitleValue"
+              }
+            ],
+            "iconType": null,
+            "link": null,
+            "title": "Advanced Placement"
+          },
+          "type": "ExpandableSection"
+        },
+        {
+          "data": {
+            "children": [
+              {
+                "data": {
+                  "title": "Library Available on Campus",
+                  "value": [
+                    "Not reported"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Computer Ownership",
+                  "value": [
+                    "Not reported"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Computers Available on Campus",
+                  "value": [
+                    "Not Reported"
+                  ]
+                },
+                "type": "TitleValue"
+              }
+            ],
+            "iconType": null,
+            "link": null,
+            "title": "Academic Resources"
+          },
+          "type": "ExpandableSection"
+        },
+        {
+          "data": {
+            "children": [
+              {
+                "data": {
+                  "title": "Tutoring",
+                  "value": [
+                    "Available"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Services for Learning Disabled Students",
+                  "value": [
+                    "Not reported"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Services for Physically Disabled Students",
+                  "value": [
+                    "Hearing impaired services, speech disorders services, visually impaired services, wheelchair access"
+                  ]
+                },
+                "type": "TitleValue"
+              }
+            ],
+            "iconType": null,
+            "link": null,
+            "title": "Academic Support Services"
+          },
+          "type": "ExpandableSection"
+        },
+        {
+          "data": {
+            "children": [
+              {
+                "data": {
+                  "title": "Master's Degrees Offered",
+                  "value": [
+                    "Master Of Arts"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "buttonText": "View All Programs (1)",
+                  "data": [
+                    "Education--General"
+                  ],
+                  "title": "Master's Programs of Study"
+                },
+                "type": "SubscreenNavigator"
+              },
+              {
+                "data": {
+                  "title": "Doctoral Degrees Offered",
+                  "value": [
+                    "Not Reported"
+                  ]
+                },
+                "type": "TitleValue"
+              }
+            ],
+            "iconType": null,
+            "link": null,
+            "title": "Graduate/Professional School Education"
+          },
+          "type": "ExpandableSection"
+        }
+      ],
+      "campusMapUrl": "Not reported",
+      "chance": null,
+      "headerCardContent": [
+        {
+          "data": {
+            "value": "General Information"
+          },
+          "type": "CategoryDivider"
+        },
+        {
+          "data": {
+            "title": "Academic Calendar System",
+            "value": [
+              "Semester"
+            ]
+          },
+          "type": "TitleValue"
+        },
+        {
+          "data": {
+            "title": "Summer Session",
+            "value": [
+              "Not reported"
+            ]
+          },
+          "type": "TitleValue"
+        }
+      ],
+      "id": 263,
+      "name": "Ohio State Universitity at Marion",
+      "slug": "Ohio-State-Universitity-at-Marion",
+      "website": "https://osumarion.osu.edu/"
+    }
+  }
+}

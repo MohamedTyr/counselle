@@ -1,0 +1,223 @@
+{
+  "__N_SSP": true,
+  "pageProps": {
+    "isStateList": false,
+    "profile": {
+      "avgJanTemp": null,
+      "avgSeptTemp": null,
+      "bodyContent": [
+        {
+          "data": {
+            "children": [
+              {
+                "data": {
+                  "title": "Marion Population",
+                  "value": [
+                    "35,516"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Nearest Metropolitan Area",
+                  "value": [
+                    "Not reported"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "value": "Getting Around"
+                },
+                "type": "CategoryDivider"
+              },
+              {
+                "data": {
+                  "link": "Not reported",
+                  "text": "View Map",
+                  "title": "Campus Map"
+                },
+                "type": "TitleLink"
+              },
+              {
+                "data": {
+                  "title": "Nearest Bus Station",
+                  "value": [
+                    "Marion"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Nearest Train Station",
+                  "value": [
+                    "Marion"
+                  ]
+                },
+                "type": "TitleValue"
+              }
+            ],
+            "iconType": null,
+            "link": null,
+            "title": "Location and Setting"
+          },
+          "type": "ExpandableSection"
+        },
+        {
+          "data": {
+            "children": [
+              {
+                "data": {
+                  "title": "Students Living Off Campus/Commuting",
+                  "value": [
+                    "100%"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Off-Campus Housing Assistance",
+                  "value": [
+                    "Assistance in locating off-campus housing is available"
+                  ]
+                },
+                "type": "TitleValue"
+              }
+            ],
+            "iconType": null,
+            "link": null,
+            "title": "Housing"
+          },
+          "type": "ExpandableSection"
+        },
+        {
+          "data": {
+            "children": [
+              {
+                "data": {
+                  "title": "24-Hour Emergency Phone/Alarm Devices",
+                  "value": [
+                    "Not available"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "24-Hour Security Patrols",
+                  "value": [
+                    "Not available"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Late-Night Transport/Escort Services",
+                  "value": [
+                    "Not available"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Electronically Operated Housing Entrances",
+                  "value": [
+                    "Not available"
+                  ]
+                },
+                "type": "TitleValue"
+              }
+            ],
+            "iconType": null,
+            "link": null,
+            "title": "Security"
+          },
+          "type": "ExpandableSection"
+        },
+        {
+          "data": {
+            "children": [
+              {
+                "data": {
+                  "title": "Health Service",
+                  "value": [
+                    "Not reported"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Personal Counseling",
+                  "value": [
+                    "Not offered"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Child Care",
+                  "value": [
+                    "Not offered"
+                  ]
+                },
+                "type": "TitleValue"
+              }
+            ],
+            "iconType": null,
+            "link": null,
+            "title": "Personal Support Services"
+          },
+          "type": "ExpandableSection"
+        },
+        {
+          "data": {
+            "children": [
+              {
+                "data": {
+                  "value": "Intercollegiate Sports & Scholarships"
+                },
+                "type": "CategoryDivider"
+              },
+              {
+                "data": {
+                  "data": [],
+                  "keyTitle": "Sports",
+                  "tableTitle": "",
+                  "valueTitles": [
+                    "Women",
+                    "Women",
+                    "Men",
+                    "Men"
+                  ]
+                },
+                "type": "IconTable"
+              }
+            ],
+            "iconType": null,
+            "link": null,
+            "title": "Sports & Recreation"
+          },
+          "type": "ExpandableSection"
+        }
+      ],
+      "campusMapUrl": "Not reported",
+      "city": "Marion",
+      "cityPopulation": "35,516",
+      "freshmanHousingGuarantee": null,
+      "id": 263,
+      "name": "Ohio State Universitity at Marion",
+      "nearestMetro": "Not reported",
+      "rain": null,
+      "slug": "Ohio-State-Universitity-at-Marion",
+      "website": "https://osumarion.osu.edu/"
+    }
+  }
+}

@@ -1,0 +1,427 @@
+{
+  "__N_SSP": true,
+  "pageProps": {
+    "isStateList": false,
+    "profile": {
+      "address": {
+        "city": "Columbus",
+        "state": "OH",
+        "street1": "Student Academic Services Building , 281 West Lane Avenue",
+        "street2": null,
+        "zipCode": "43210"
+      },
+      "admissionsEmail": "askabuckeye@osu.edu",
+      "admissionsFax": null,
+      "admissionsPhone": "(614) 292-3980",
+      "alternativeName": "OSU",
+      "bodyContent": [
+        {
+          "data": {
+            "children": [
+              {
+                "data": {
+                  "title": "Entrance Difficulty",
+                  "value": [
+                    "Not reported"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Overall Admission Rate",
+                  "value": [
+                    "49% of 81,392 applicants were admitted"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Early Action Offered",
+                  "value": [
+                    "Yes"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Early Decision Offered",
+                  "value": [
+                    "No"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Regular Admission Deadline",
+                  "value": [
+                    "January 15"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "value": "Qualifications of Enrolled Freshmen"
+                },
+                "type": "CategoryDivider"
+              },
+              {
+                "data": {
+                  "title": "Average GPA",
+                  "value": [
+                    "Not reported"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "SAT Math",
+                  "value": [
+                    "650-740 range of middle 50%"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "SAT EBRW",
+                  "value": [
+                    "640-720 range of middle 50%"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "ACT Composite",
+                  "value": [
+                    "27-32 range of middle 50%"
+                  ]
+                },
+                "type": "TitleValue"
+              }
+            ],
+            "iconType": "admissions",
+            "link": "/college-search/Ohio-State-University/admission",
+            "title": "Admissions"
+          },
+          "type": "ExpandableSection"
+        },
+        {
+          "data": {
+            "children": [
+              {
+                "data": {
+                  "title": "Cost of Attendance",
+                  "value": [
+                    "In-state: $32,989",
+                    "Out-of-state: $64,190"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Tuition and Fees",
+                  "value": [
+                    "In-state: $12,921",
+                    "Out-of-state: $44,122"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Room and Board",
+                  "value": [
+                    "$15,630"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Average Percent of Need Met",
+                  "value": [
+                    "72%"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Average Freshman Award",
+                  "value": [
+                    "$20,792"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Average Indebtedness of 2024 Graduates",
+                  "value": [
+                    "$26,869"
+                  ]
+                },
+                "type": "TitleValue"
+              }
+            ],
+            "iconType": "financials",
+            "link": "/college-search/Ohio-State-University/money-matters",
+            "title": "Financials"
+          },
+          "type": "ExpandableSection"
+        },
+        {
+          "data": {
+            "children": [
+              {
+                "data": {
+                  "title": "Academic Calendar System",
+                  "value": [
+                    "Semester"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "General Education/Core Curriculum",
+                  "value": [
+                    "Not reported"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Full-Time Faculty Teaching Undergraduates",
+                  "value": [
+                    "3,363"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "data": [
+                    {
+                      "label": "2-9 ",
+                      "value": 13
+                    },
+                    {
+                      "label": "10-19 ",
+                      "value": 26
+                    },
+                    {
+                      "label": "20-29 ",
+                      "value": 20
+                    },
+                    {
+                      "label": "30-39 ",
+                      "value": 12
+                    },
+                    {
+                      "label": "40-49 ",
+                      "value": 9
+                    },
+                    {
+                      "label": "50-99 ",
+                      "value": 12
+                    },
+                    {
+                      "label": "Over 100 ",
+                      "value": 7
+                    }
+                  ],
+                  "title": "Regular Class Size (Students)"
+                },
+                "type": "BarGraph"
+              }
+            ],
+            "iconType": "academics",
+            "link": "/college-search/Ohio-State-University/academics",
+            "title": "Academics"
+          },
+          "type": "ExpandableSection"
+        },
+        {
+          "data": {
+            "children": [
+              {
+                "data": {
+                  "title": "Columbus Population",
+                  "value": [
+                    "903,852"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Nearest Metropolitan Area",
+                  "value": [
+                    "Not reported"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Students in College Housing",
+                  "value": [
+                    "33% of all students"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Mascot",
+                  "value": [
+                    "Brutus Buckeye"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Sororities",
+                  "value": [
+                    "Not reported"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Fraternities",
+                  "value": [
+                    "Not reported"
+                  ]
+                },
+                "type": "TitleValue"
+              }
+            ],
+            "iconType": "campusLife",
+            "link": "/college-search/Ohio-State-University/campus-life",
+            "title": "Campus Life"
+          },
+          "type": "ExpandableSection"
+        },
+        {
+          "data": {
+            "children": [
+              {
+                "data": {
+                  "data": [
+                    {
+                      "label": "American Indian/Alaskan Native",
+                      "value": 0.1
+                    },
+                    {
+                      "label": "Asian",
+                      "value": 12.3
+                    },
+                    {
+                      "label": "Black/African-American",
+                      "value": 9.1
+                    },
+                    {
+                      "label": "Hispanic/Latino",
+                      "value": 6.8
+                    },
+                    {
+                      "label": "Multi-race (not Hispanic/Latino)",
+                      "value": 5.5
+                    },
+                    {
+                      "label": "Native Hawaiian/ Pacific Islander",
+                      "value": 0
+                    },
+                    {
+                      "label": "White",
+                      "value": 62.8
+                    },
+                    {
+                      "label": "Unknown",
+                      "value": 3.5
+                    }
+                  ],
+                  "title": "Ethnicity of Students from U.S."
+                },
+                "type": "BarGraph"
+              },
+              {
+                "data": {
+                  "title": "International Students",
+                  "value": [
+                    "6.9%"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "First-Year Students Returning",
+                  "value": [
+                    "93.0%"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Students Graduating Within 4 Years",
+                  "value": [
+                    "71.2%"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Graduates Offered Full-Time Employment Within 6 Months",
+                  "value": [
+                    "Not reported"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Graduates Pursuing Advanced Study Directly",
+                  "value": [
+                    "Not reported"
+                  ]
+                },
+                "type": "TitleValue"
+              }
+            ],
+            "iconType": "students",
+            "link": "/college-search/Ohio-State-University/students",
+            "title": "Students"
+          },
+          "type": "ExpandableSection"
+        }
+      ],
+      "description": "Ohio State University, founded in 1870, is a public, comprehensive university. Its 3,390-acre campus is located in Columbus.",
+      "femalePercentage": 50.4,
+      "gradPopulation": null,
+      "id": 1807,
+      "malePercentage": 49.6,
+      "name": "Ohio State University",
+      "populationType": "Coed",
+      "slug": "Ohio-State-University",
+      "undergradPopulation": 46627,
+      "universityType": "Public",
+      "website": "https://www.osu.edu/"
+    }
+  }
+}

@@ -1,0 +1,261 @@
+{
+  "__N_SSP": true,
+  "pageProps": {
+    "isStateList": false,
+    "profile": {
+      "avgJanTemp": null,
+      "avgSeptTemp": null,
+      "bodyContent": [
+        {
+          "data": {
+            "children": [
+              {
+                "data": {
+                  "title": "Activities and Organizations",
+                  "value": [
+                    "choral groups, drama theatre, student newspaper"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Sororities",
+                  "value": [
+                    "Not reported"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Fraternities",
+                  "value": [
+                    "Not reported"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "ROTC",
+                  "value": [
+                    "Army ROTC is offered off campus"
+                  ]
+                },
+                "type": "TitleValue"
+              }
+            ],
+            "iconType": null,
+            "link": null,
+            "title": "Student Activities"
+          },
+          "type": "ExpandableSection"
+        },
+        {
+          "data": {
+            "children": [
+              {
+                "data": {
+                  "title": "Coeducational",
+                  "value": [
+                    "Yes"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "children": [
+                    {
+                      "title": "Women",
+                      "value": [
+                        "12,916 (55.1%)"
+                      ]
+                    },
+                    {
+                      "title": "Men",
+                      "value": [
+                        "10,537 (44.9%)"
+                      ]
+                    }
+                  ],
+                  "topTitleValue": {
+                    "title": "All Undergraduates",
+                    "value": [
+                      "23,453"
+                    ]
+                  }
+                },
+                "type": "NestedTitleValue"
+              },
+              {
+                "data": {
+                  "title": "Full-Time Undergraduates",
+                  "value": [
+                    "9,430"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "data": [
+                    {
+                      "label": "American Indian/Alaskan Native",
+                      "value": 0.1
+                    },
+                    {
+                      "label": "Asian",
+                      "value": 8.9
+                    },
+                    {
+                      "label": "Black/African-American",
+                      "value": 9.9
+                    },
+                    {
+                      "label": "Hispanic/Latino",
+                      "value": 44.5
+                    },
+                    {
+                      "label": "Multi-race (not Hispanic/Latino)",
+                      "value": 5.6
+                    },
+                    {
+                      "label": "Native Hawaiian/ Pacific Islander",
+                      "value": 0.1
+                    },
+                    {
+                      "label": "White",
+                      "value": 28.2
+                    },
+                    {
+                      "label": "Unknown",
+                      "value": 2.6
+                    }
+                  ],
+                  "title": "Ethnicity of Students from U.S."
+                },
+                "type": "BarGraph"
+              },
+              {
+                "data": {
+                  "title": "International Students",
+                  "value": [
+                    "7.2%"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "All Graduate Students",
+                  "value": [
+                    "Not reported"
+                  ]
+                },
+                "type": "TitleValue"
+              }
+            ],
+            "iconType": null,
+            "link": null,
+            "title": "Student Body"
+          },
+          "type": "ExpandableSection"
+        },
+        {
+          "data": {
+            "children": [
+              {
+                "data": {
+                  "title": "Students Graduating Within 4 Years",
+                  "value": [
+                    "4.8%"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Students Graduating Within 5 Years",
+                  "value": [
+                    "Not reported"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Students Graduating Within 6 Years",
+                  "value": [
+                    "81.0%"
+                  ]
+                },
+                "type": "TitleValue"
+              }
+            ],
+            "iconType": null,
+            "link": null,
+            "title": "Undergraduate Retention & Graduation"
+          },
+          "type": "ExpandableSection"
+        },
+        {
+          "data": {
+            "children": [
+              {
+                "data": {
+                  "title": "Graduates Offered Full-Time Employment Within 6 Months",
+                  "value": [
+                    "Not reported"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Average Starting Salary",
+                  "value": [
+                    "Not reported"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Graduates Pursuing Advanced Study Directly",
+                  "value": [
+                    "Not reported"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Disciplines Pursued",
+                  "value": [
+                    "Not available"
+                  ]
+                },
+                "type": "TitleValue"
+              }
+            ],
+            "iconType": null,
+            "link": null,
+            "title": "After Graduation"
+          },
+          "type": "ExpandableSection"
+        }
+      ],
+      "city": "Santa Monica",
+      "cityPopulation": null,
+      "freshmanHousingGuarantee": null,
+      "id": 4947,
+      "name": "Santa Monica College",
+      "nearestMetro": "Los Angeles",
+      "rain": null,
+      "slug": "Santa-Monica-College",
+      "website": "https://www.smc.edu/"
+    }
+  }
+}

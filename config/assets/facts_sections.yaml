@@ -1,0 +1,996 @@
+# facts_sections.yaml — reader-facing section/group layout (plan §4.4).
+#
+# GENERATED FILE — do not hand-edit `tab:`/`tabs:`. Authored content (section/
+# group ids and titles, each fact's `label:`, `foot:`/`foot_ref:`) lives in
+# `scripts/build_facts_sections_tabs.py`'s `_SECTIONS_SOURCE`; regenerate with:
+#
+#     uv run python scripts/build_facts_sections_tabs.py
+#
+# Every key listed here renders "Not reported" when absent (plan §5.1). A
+# fact_key the mapper emits that is not listed anywhere lands in its
+# section's own "other" group, rendered as "Other published values".
+version: 1
+sections:
+- id: getting-in
+  title: Getting in
+  tabs:
+  - admission
+  - overview
+  groups:
+  - id: selectivity-rating
+    title: Selectivity
+    foot_ref: ENTRANCE_DIFFICULTY_NOTE
+    facts:
+    - key: admissions.entrance_difficulty
+      label: Entrance difficulty
+      tab: overview
+  - id: applicant-pool
+    title: Applicant pool
+    facts:
+    - key: admissions.applicants_total
+      label: Applicants
+      tab: admission
+    - key: admissions.admitted_total
+      label: Admitted
+      tab: admission
+    - key: admissions.enrolled_total
+      label: Enrolled
+      tab: admission
+    - key: admissions.admit_rate
+      label: Admit rate
+      tab: admission
+    - key: admissions.yield_rate
+      label: Yield
+      tab: admission
+    - key: admissions.applicants_total_women
+      label: Applicants — women
+      tab: admission
+    - key: admissions.admitted_total_women
+      label: Admitted — women
+      tab: admission
+    - key: admissions.admit_rate_women
+      label: Admit rate — women
+      tab: admission
+    - key: admissions.enrolled_total_women
+      label: Enrolled — women
+      tab: admission
+    - key: admissions.yield_rate_women
+      label: Yield — women
+      tab: admission
+    - key: admissions.applicants_total_men
+      label: Applicants — men
+      tab: admission
+    - key: admissions.admitted_total_men
+      label: Admitted — men
+      tab: admission
+    - key: admissions.admit_rate_men
+      label: Admit rate — men
+      tab: admission
+    - key: admissions.enrolled_total_men
+      label: Enrolled — men
+      tab: admission
+    - key: admissions.yield_rate_men
+      label: Yield — men
+      tab: admission
+  - id: test-detail
+    title: Test scores in detail
+    foot_ref: BAND_CAPTION
+    facts:
+    - key: class_profile.sat_math_p25
+      label: SAT Math 25th percentile
+      tab: admission
+    - key: class_profile.sat_math_p75
+      label: SAT Math 75th percentile
+      tab: admission
+    - key: class_profile.sat_math_avg
+      label: SAT Math average
+      tab: admission
+    - key: class_profile.sat_math_distribution
+      label: SAT Math distribution
+      tab: admission
+    - key: class_profile.sat_ebrw_p25
+      label: SAT EBRW 25th percentile
+      tab: admission
+    - key: class_profile.sat_ebrw_p75
+      label: SAT EBRW 75th percentile
+      tab: admission
+    - key: class_profile.sat_ebrw_avg
+      label: SAT EBRW average
+      tab: admission
+    - key: class_profile.sat_ebrw_distribution
+      label: SAT EBRW distribution
+      tab: admission
+    - key: class_profile.act_composite_p25
+      label: ACT Composite 25th percentile
+      tab: admission
+    - key: class_profile.act_composite_p75
+      label: ACT Composite 75th percentile
+      tab: admission
+    - key: class_profile.act_composite_avg
+      label: ACT Composite average
+      tab: admission
+    - key: class_profile.act_composite_distribution
+      label: ACT Composite distribution
+      tab: admission
+    - key: class_profile.act_math_avg
+      label: ACT Math average
+      tab: admission
+    - key: class_profile.act_math_distribution
+      label: ACT Math distribution
+      tab: admission
+    - key: class_profile.act_english_avg
+      label: ACT English average
+      tab: admission
+    - key: class_profile.act_english_distribution
+      label: ACT English distribution
+      tab: admission
+  - id: gpa-and-rank
+    title: GPA and class rank
+    facts:
+    - key: class_profile.average_gpa
+      label: Average GPA
+      tab: overview
+    - key: class_profile.gpa_distribution
+      label: GPA distribution
+      tab: admission
+    - key: class_profile.class_rank_top_tenth
+      label: Class rank top tenth
+      tab: admission
+    - key: class_profile.class_rank_top_quarter
+      label: Class rank top quarter
+      tab: admission
+    - key: class_profile.class_rank_top_half
+      label: Class rank top half
+      tab: admission
+    - key: class_profile.national_merit_count
+      label: National merit count
+      tab: admission
+    - key: class_profile.valedictorian_count
+      label: Valedictorian count
+      tab: admission
+    - key: class_profile.class_president_count
+      label: Class president count
+      tab: admission
+    - key: class_profile.student_government_count
+      label: Student government count
+      tab: admission
+  - id: selection-factors
+    title: How they weigh your file
+    facts:
+    - key: admissions.selection_factor_rigor_of_secondary_school_record
+      label: Selection factor rigor of secondary school record
+      tab: admission
+    - key: admissions.selection_factor_academic_gpa
+      label: Selection factor academic GPA
+      tab: admission
+    - key: admissions.selection_factor_standardized_tests
+      label: Selection factor standardized tests
+      tab: admission
+    - key: admissions.selection_factor_class_rank
+      label: Selection factor class rank
+      tab: admission
+    - key: admissions.selection_factor_recommendations
+      label: Selection factor recommendations
+      tab: admission
+    - key: admissions.selection_factor_essay
+      label: Selection factor essay
+      tab: admission
+    - key: admissions.selection_factor_interview
+      label: Selection factor interview
+      tab: admission
+    - key: admissions.selection_factor_level_of_applicant_s_interest
+      label: Selection factor level of applicant s interest
+      tab: admission
+    - key: admissions.selection_factor_extracurricular_activities
+      label: Selection factor extracurricular activities
+      tab: admission
+    - key: admissions.selection_factor_volunteer_work
+      label: Selection factor volunteer work
+      tab: admission
+    - key: admissions.selection_factor_particular_talent_ability
+      label: Selection factor particular talent ability
+      tab: admission
+    - key: admissions.selection_factor_character_personal_qualities
+      label: Selection factor character personal qualities
+      tab: admission
+    - key: admissions.selection_factor_first_generation_to_attend_college
+      label: Selection factor first generation to attend college
+      tab: admission
+    - key: admissions.selection_factor_state_residency
+      label: Selection factor state residency
+      tab: admission
+    - key: admissions.selection_factor_geographic_residence
+      label: Selection factor geographic residence
+      tab: admission
+    - key: admissions.selection_factor_relation_with_alumnus
+      label: Selection factor relation with alumnus
+      tab: admission
+    - key: admissions.selection_factor_religious_affiliation_commitment
+      label: Selection factor religious affiliation commitment
+      tab: admission
+    - key: admissions.selection_factor_work_experience
+      label: Selection factor work experience
+      tab: admission
+  - id: admission-requirements
+    title: What they require
+    facts:
+    - key: admissions.interview_requirement
+      label: Interview requirement
+      tab: admission
+    - key: admissions.essay_requirement
+      label: Essay requirement
+      tab: admission
+    - key: admissions.recommendations_requirement
+      label: Recommendations requirement
+      tab: admission
+    - key: admissions.other_requirement
+      label: Other requirement
+      tab: admission
+    - key: admissions.need_blind
+      label: Need blind
+      tab: admission
+    - key: admissions.test_policy_sat_or_act
+      label: Test policy SAT or ACT
+      tab: admission
+    - key: admissions.test_policy_sat_only
+      label: Test policy SAT only
+      tab: admission
+    - key: admissions.test_policy_act_only
+      label: Test policy ACT only
+      tab: admission
+    - key: admissions.test_policy_act_writing_test_policy
+      label: Test policy ACT writing test policy
+      tab: admission
+    - key: admissions.test_policy_sat_subject_tests_only
+      label: Test policy SAT subject tests only
+      tab: admission
+    - key: admissions.test_policy_sat_and_sat_subject_tests_or_act
+      label: Test policy SAT and SAT subject tests or ACT
+      tab: admission
+  - id: required-units
+    title: Required high-school units
+    facts:
+    - key: admissions.hs_graduation_requirement
+      label: High school graduation requirement
+      tab: admission
+    - key: admissions.hs_program_requirement
+      label: High school program requirement
+      tab: admission
+    - key: admissions.units_required_english
+      label: Units required english
+      tab: admission
+    - key: admissions.units_recommended_english
+      label: Units recommended english
+      tab: admission
+    - key: admissions.units_required_mathematics
+      label: Units required mathematics
+      tab: admission
+    - key: admissions.units_recommended_mathematics
+      label: Units recommended mathematics
+      tab: admission
+    - key: admissions.units_required_science
+      label: Units required science
+      tab: admission
+    - key: admissions.units_recommended_science
+      label: Units recommended science
+      tab: admission
+    - key: admissions.units_required_social_studies
+      label: Units required social studies
+      tab: admission
+    - key: admissions.units_recommended_social_studies
+      label: Units recommended social studies
+      tab: admission
+    - key: admissions.units_required_history
+      label: Units required history
+      tab: admission
+    - key: admissions.units_recommended_history
+      label: Units recommended history
+      tab: admission
+    - key: admissions.units_required_foreign_language
+      label: Units required foreign language
+      tab: admission
+    - key: admissions.units_recommended_foreign_language
+      label: Units recommended foreign language
+      tab: admission
+    - key: admissions.units_required_academic_electives
+      label: Units required academic electives
+      tab: admission
+    - key: admissions.units_recommended_academic_electives
+      label: Units recommended academic electives
+      tab: admission
+  - id: waitlist
+    title: Waitlist
+    facts:
+    - key: admissions.waitlist_used
+      label: Waitlist used
+      tab: admission
+    - key: admissions.waitlist_offered
+      label: Waitlist offered
+      tab: admission
+    - key: admissions.waitlist_accepted
+      label: Waitlist accepted
+      tab: admission
+    - key: admissions.waitlist_admitted
+      label: Waitlist admitted
+      tab: admission
+  - id: other
+    title: Other published values
+    facts: []
+- id: money
+  title: Money
+  tabs:
+  - money-matters
+  groups:
+  - id: cost-itemized
+    title: Cost of attendance, itemized
+    facts:
+    - key: costs.attendance_in_state
+      label: Cost of attendance — in state
+      tab: money-matters
+    - key: costs.attendance_out_of_state
+      label: Cost of attendance — out of state
+      tab: money-matters
+    - key: costs.tuition_fees_in_state
+      label: Tuition and fees — in state
+      tab: money-matters
+    - key: costs.tuition_fees_out_of_state
+      label: Tuition and fees — out of state
+      tab: money-matters
+    - key: costs.room_and_board
+      label: Room and board
+      tab: money-matters
+    - key: costs.books_and_supplies
+      label: Books and supplies
+      tab: money-matters
+    - key: costs.other_expenses
+      label: Other expenses
+      tab: money-matters
+  - id: aid-coverage
+    title: How far the aid goes
+    facts:
+    - key: aid.applicants_freshman
+      label: Applicants freshman
+      tab: money-matters
+    - key: aid.need_found_freshman
+      label: Need found freshman
+      tab: money-matters
+    - key: aid.received_freshman
+      label: Received freshman
+      tab: money-matters
+    - key: aid.need_fully_met_freshman
+      label: Need fully met freshman
+      tab: money-matters
+    - key: aid.avg_percent_need_met_freshman
+      label: Average percent of need met — freshman
+      tab: money-matters
+    - key: aid.applicants_all_undergraduates
+      label: Applicants all undergraduates
+      tab: money-matters
+    - key: aid.need_found_all_undergraduates
+      label: Need found all undergraduates
+      tab: money-matters
+    - key: aid.received_all_undergraduates
+      label: Received all undergraduates
+      tab: money-matters
+    - key: aid.need_fully_met_all_undergraduates
+      label: Need fully met all undergraduates
+      tab: money-matters
+    - key: aid.avg_percent_need_met_all_undergraduates
+      label: Average percent of need met — all undergraduates
+      tab: money-matters
+  - id: need-based-aid
+    title: Need-based aid
+    facts:
+    - key: aid.avg_award_freshman
+      label: Average award — freshman
+      tab: money-matters
+    - key: aid.need_gift_recipients_freshman
+      label: Need gift recipients freshman
+      tab: money-matters
+    - key: aid.need_gift_recipients_pct_freshman
+      label: Need gift recipients percent freshman
+      tab: money-matters
+    - key: aid.need_gift_avg_freshman
+      label: Need gift average freshman
+      tab: money-matters
+    - key: aid.need_selfhelp_recipients_freshman
+      label: Need selfhelp recipients freshman
+      tab: money-matters
+    - key: aid.need_selfhelp_recipients_pct_freshman
+      label: Need selfhelp recipients percent freshman
+      tab: money-matters
+    - key: aid.need_selfhelp_avg_freshman
+      label: Need selfhelp average freshman
+      tab: money-matters
+    - key: aid.avg_award_all_undergraduates
+      label: Average award — all undergraduates
+      tab: money-matters
+    - key: aid.need_gift_recipients_all_undergraduates
+      label: Need gift recipients all undergraduates
+      tab: money-matters
+    - key: aid.need_gift_recipients_pct_all_undergraduates
+      label: Need gift recipients percent all undergraduates
+      tab: money-matters
+    - key: aid.need_gift_avg_all_undergraduates
+      label: Need gift average all undergraduates
+      tab: money-matters
+    - key: aid.need_selfhelp_recipients_all_undergraduates
+      label: Need selfhelp recipients all undergraduates
+      tab: money-matters
+    - key: aid.need_selfhelp_recipients_pct_all_undergraduates
+      label: Need selfhelp recipients percent all undergraduates
+      tab: money-matters
+    - key: aid.need_selfhelp_avg_all_undergraduates
+      label: Need selfhelp average all undergraduates
+      tab: money-matters
+  - id: merit-aid
+    title: Merit aid
+    facts:
+    - key: aid.merit_to_need_recipients_freshman
+      label: Merit to need recipients freshman
+      tab: money-matters
+    - key: aid.merit_to_need_recipients_pct_freshman
+      label: Merit to need recipients percent freshman
+      tab: money-matters
+    - key: aid.merit_no_need_recipients_freshman
+      label: Merit no need recipients freshman
+      tab: money-matters
+    - key: aid.merit_no_need_recipients_pct_freshman
+      label: Merit no need recipients percent freshman
+      tab: money-matters
+    - key: aid.merit_no_need_avg_freshman
+      label: Merit no need average freshman
+      tab: money-matters
+    - key: aid.merit_to_need_recipients_all_undergraduates
+      label: Merit to need recipients all undergraduates
+      tab: money-matters
+    - key: aid.merit_to_need_recipients_pct_all_undergraduates
+      label: Merit to need recipients percent all undergraduates
+      tab: money-matters
+    - key: aid.merit_no_need_recipients_all_undergraduates
+      label: Merit no need recipients all undergraduates
+      tab: money-matters
+    - key: aid.merit_no_need_recipients_pct_all_undergraduates
+      label: Merit no need recipients percent all undergraduates
+      tab: money-matters
+    - key: aid.merit_no_need_avg_all_undergraduates
+      label: Merit no need average all undergraduates
+      tab: money-matters
+    - key: aid.non_need_academic_areas
+      label: Non need academic areas
+      tab: money-matters
+    - key: aid.non_need_academic_count
+      label: Non need academic count
+      tab: money-matters
+    - key: aid.non_need_creative_arts_areas
+      label: Non need creative arts areas
+      tab: money-matters
+    - key: aid.non_need_creative_arts_count
+      label: Non need creative arts count
+      tab: money-matters
+    - key: aid.non_need_special_achievements_areas
+      label: Non need special achievements areas
+      tab: money-matters
+    - key: aid.non_need_special_achievements_count
+      label: Non need special achievements count
+      tab: money-matters
+    - key: aid.non_need_special_characteristics_areas
+      label: Non need special characteristics areas
+      tab: money-matters
+    - key: aid.non_need_special_characteristics_count
+      label: Non need special characteristics count
+      tab: money-matters
+  - id: aid-programs
+    title: Aid programs offered
+    facts:
+    - key: aid.federal_loan_programs
+      label: Federal loan programs
+      tab: money-matters
+    - key: aid.state_loan_programs
+      label: State loan programs
+      tab: money-matters
+    - key: aid.other_loan_programs
+      label: Other loan programs
+      tab: money-matters
+    - key: aid.need_based_programs
+      label: Need based programs
+      tab: money-matters
+    - key: aid.non_need_programs
+      label: Non need programs
+      tab: money-matters
+    - key: aid.work_study_programs
+      label: Work study programs
+      tab: money-matters
+    - key: aid.on_campus_employment_avg
+      label: On campus employment average
+      tab: money-matters
+    - key: aid.need_analysis_methodology
+      label: Need analysis methodology
+      tab: money-matters
+  - id: forms-deadlines
+    title: Forms and deadlines
+    facts:
+    - key: money.fafsa_code
+      label: FAFSA code
+      tab: money-matters
+    - key: money.css_profile_fee
+      label: CSS profile fee
+      tab: money-matters
+    - key: deadlines.aid_award_notification
+      label: Aid award notification
+      tab: money-matters
+    - key: money.financial_aid_url
+      label: Financial aid URL
+      tab: money-matters
+    - key: money.net_price_calculator_url
+      label: Net price calculator URL
+      tab: money-matters
+    - key: money.financial_aid_email
+      label: Financial aid email
+      tab: money-matters
+  - id: other
+    title: Other published values
+    facts: []
+- id: academics
+  title: Academics
+  tabs:
+  - academics
+  groups:
+  - id: majors
+    title: What you can study
+    facts:
+    - key: academics.undergraduate_majors_count
+      label: Undergraduate majors count
+      tab: academics
+    - key: academics.undergraduate_majors
+      label: Undergraduate majors
+      tab: academics
+    - key: academics.popular_disciplines
+      label: Popular disciplines
+      tab: academics
+    - key: academics.combined_degree_programs
+      label: Combined degree programs
+      tab: academics
+  - id: class-sizes
+    title: Class sizes
+    facts:
+    - key: class_size.regular_distribution
+      label: Regular distribution
+      tab: academics
+  - id: subsection-sizes
+    title: Subsections — labs, discussions, recitations
+    facts:
+    - key: class_size.subsection_distribution
+      label: Subsection distribution
+      tab: academics
+  - id: faculty-detail
+    title: Faculty
+    facts:
+    - key: faculty.full_time_count
+      label: Full time count
+      tab: academics
+    - key: faculty.part_time_count
+      label: Part time count
+      tab: academics
+    - key: faculty.terminal_degree_pct
+      label: Terminal degree percent
+      tab: academics
+  - id: special-study
+    title: Special study options
+    facts:
+    - key: academics.special_programs
+      label: Special programs
+      tab: academics
+    - key: academics.study_abroad
+      label: Study abroad
+      tab: academics
+    - key: academics.online_degrees
+      label: Online degrees
+      tab: academics
+  - id: core-curriculum
+    title: Core curriculum
+    facts:
+    - key: academics.required_coursework_general_education
+      label: Required coursework general education
+      tab: academics
+    - key: academics.required_coursework_computer
+      label: Required coursework computer
+      tab: academics
+    - key: academics.required_coursework_foreign_language
+      label: Required coursework foreign language
+      tab: academics
+    - key: academics.required_coursework_math_science
+      label: Required coursework math science
+      tab: academics
+  - id: credit-and-support
+    title: Credit, resources and support
+    facts:
+    - key: academics.ap_policy
+      label: AP policy
+      tab: academics
+    - key: academics.ib_policy
+      label: IB policy
+      tab: academics
+    - key: academics.sophomore_standing
+      label: Sophomore standing
+      tab: academics
+    - key: academics.library_on_campus
+      label: Library on campus
+      tab: academics
+    - key: academics.library_holdings
+      label: Library holdings
+      tab: academics
+    - key: academics.computer_ownership
+      label: Computer ownership
+      tab: academics
+    - key: academics.computers_available
+      label: Computers available
+      tab: academics
+    - key: academics.support_tutoring
+      label: Support tutoring
+      tab: academics
+    - key: academics.support_remedial_instruction
+      label: Support remedial instruction
+      tab: academics
+    - key: academics.support_learning_disabled
+      label: Support learning disabled
+      tab: academics
+    - key: academics.support_physically_disabled
+      label: Support physically disabled
+      tab: academics
+  - id: graduate-education
+    title: Graduate and professional programs
+    facts:
+    - key: academics.masters_degrees
+      label: Masters degrees
+      tab: academics
+    - key: academics.masters_programs_count
+      label: Masters programs count
+      tab: academics
+    - key: academics.masters_programs
+      label: Masters programs
+      tab: academics
+    - key: academics.doctoral_degrees
+      label: Doctoral degrees
+      tab: academics
+    - key: academics.doctoral_programs_count
+      label: Doctoral programs count
+      tab: academics
+    - key: academics.doctoral_programs
+      label: Doctoral programs
+      tab: academics
+  - id: general
+    title: Academic calendar
+    facts:
+    - key: academics.calendar
+      label: Calendar
+      tab: academics
+    - key: academics.summer_session
+      label: Summer session
+      tab: academics
+  - id: other
+    title: Other published values
+    facts: []
+- id: campus-life
+  title: Campus life
+  tabs:
+  - campus-life
+  - overview
+  - students
+  groups:
+  - id: student-body
+    title: Who's here
+    facts:
+    - key: students.undergraduate_total
+      label: Undergraduate total
+      tab: students
+    - key: students.undergraduate_full_time
+      label: Undergraduate full time
+      tab: students
+    - key: students.undergraduate_women_count
+      label: Undergraduate women count
+      tab: students
+    - key: students.undergraduate_women_pct
+      label: Undergraduate women percent
+      tab: students
+    - key: students.undergraduate_men_count
+      label: Undergraduate men count
+      tab: students
+    - key: students.undergraduate_men_pct
+      label: Undergraduate men percent
+      tab: students
+    - key: students.graduate_total
+      label: Graduate total
+      tab: students
+    - key: students.ethnicity_distribution
+      label: Ethnicity distribution
+      tab: students
+    - key: students.international_pct
+      label: International percent
+      tab: students
+    - key: students.countries_represented
+      label: Countries represented
+      tab: students
+    - key: students.average_age
+      label: Average age
+      tab: students
+    - key: identity.coeducational
+      label: Coeducational
+      tab: students
+    - key: identity.gender_model_reported
+      label: Student population
+      tab: overview
+    - key: identity.control_reported
+      label: Public or private
+      tab: overview
+  - id: housing
+    title: Housing
+    facts:
+    - key: campus.housing_offered
+      label: Housing offered
+      tab: campus-life
+    - key: campus.freshman_housing_guarantee
+      label: Freshman housing guarantee
+      tab: campus-life
+    - key: campus.housing_requirement
+      label: Housing requirement
+      tab: campus-life
+    - key: campus.housing_types
+      label: Housing types
+      tab: campus-life
+    - key: campus.students_in_housing_pct
+      label: Students in housing percent
+      tab: campus-life
+    - key: campus.students_off_campus_pct
+      label: Students off campus percent
+      tab: campus-life
+    - key: campus.off_campus_housing_assistance
+      label: Off campus housing assistance
+      tab: campus-life
+  - id: greek-life
+    title: Greek life
+    facts:
+    - key: campus.fraternity_participation_pct
+      label: Fraternity participation percent
+      tab: students
+    - key: campus.sorority_participation_pct
+      label: Sorority participation percent
+      tab: students
+  - id: activities
+    title: Activities and organizations
+    facts:
+    - key: campus.activities
+      label: Activities
+      tab: students
+    - key: campus.rotc
+      label: ROTC
+      tab: students
+    - key: campus.intramural_sports
+      label: Intramural sports
+      tab: campus-life
+  - id: sports
+    title: Sports
+    facts:
+    - key: campus.athletic_conferences
+      label: Athletic conferences
+      tab: campus-life
+    - key: campus.mascot
+      label: Mascot
+      tab: campus-life
+    - key: campus.school_colors
+      label: School colors
+      tab: campus-life
+    - key: campus.varsity_sports
+      label: Varsity sports
+      tab: campus-life
+    - key: campus.club_sports
+      label: Club sports
+      tab: campus-life
+  - id: location
+    title: Location and getting around
+    facts:
+    - key: campus.city_population
+      label: City population
+      tab: campus-life
+    - key: campus.nearest_metro
+      label: Nearest metro
+      tab: campus-life
+    - key: campus.campus_acres
+      label: Campus acres
+      tab: campus-life
+    - key: campus.nearest_bus_station
+      label: Nearest bus station
+      tab: campus-life
+    - key: campus.nearest_train_station
+      label: Nearest train station
+      tab: campus-life
+    - key: campus.campus_map_url
+      label: Campus map URL
+      tab: campus-life
+  - id: safety-and-support
+    title: Safety and personal support
+    facts:
+    - key: campus.security_emergency_phones
+      label: Security emergency phones
+      tab: campus-life
+    - key: campus.security_patrols_24h
+      label: Security patrols 24h
+      tab: campus-life
+    - key: campus.security_late_night_transport
+      label: Security late night transport
+      tab: campus-life
+    - key: campus.security_electronic_entrances
+      label: Security electronic entrances
+      tab: campus-life
+    - key: campus.security_other
+      label: Security other
+      tab: campus-life
+    - key: campus.health_service
+      label: Health service
+      tab: campus-life
+    - key: campus.personal_counseling
+      label: Personal counseling
+      tab: campus-life
+    - key: campus.child_care
+      label: Child care
+      tab: campus-life
+  - id: other
+    title: Other published values
+    facts: []
+- id: outcomes
+  title: Outcomes
+  tabs:
+  - money-matters
+  - students
+  groups:
+  - id: time-to-degree
+    title: Time to degree
+    facts:
+    - key: outcomes.retention_first_year
+      label: First-year students returning
+      tab: students
+    - key: outcomes.graduation_rate_4y
+      label: Graduating within 4 years
+      tab: students
+    - key: outcomes.graduation_rate_5y
+      label: Graduating within 5 years
+      tab: students
+    - key: outcomes.graduation_rate_6y
+      label: Graduating within 6 years
+      tab: students
+  - id: debt
+    title: Debt at graduation
+    facts:
+    - key: outcomes.graduates_with_loans_pct
+      label: Graduates with loans percent
+      tab: money-matters
+    - key: outcomes.average_indebtedness
+      label: Average indebtedness
+      tab: money-matters
+  - id: after-graduation
+    title: After graduation
+    facts:
+    - key: outcomes.employed_within_6_months
+      label: Employed within 6 months
+      tab: students
+    - key: outcomes.average_starting_salary
+      label: Average starting salary
+      tab: students
+    - key: outcomes.advanced_study_pct
+      label: Advanced study percent
+      tab: students
+    - key: outcomes.disciplines_pursued
+      label: Disciplines pursued
+      tab: students
+  - id: other
+    title: Other published values
+    facts: []
+- id: applying
+  title: Applying
+  tabs:
+  - admission
+  - money-matters
+  - overview
+  groups:
+  - id: deadlines
+    title: Deadlines
+    facts:
+    - key: deadlines.regular
+      label: Regular decision deadline
+      tab: admission
+    - key: admissions.regular_deadline_is_rolling
+      label: Rolling admission
+      tab: admission
+    - key: deadlines.early_decision
+      label: Early decision deadline
+      tab: admission
+    - key: deadlines.early_action
+      label: Early action deadline
+      tab: admission
+    - key: deadlines.financial_aid
+      label: Financial aid deadline
+      tab: money-matters
+    - key: deadlines.test_due_sat_or_act
+      label: Test due SAT or ACT
+      tab: admission
+    - key: deadlines.test_due_sat_only
+      label: Test due SAT only
+      tab: admission
+    - key: deadlines.test_due_act_only
+      label: Test due ACT only
+      tab: admission
+    - key: deadlines.test_due_act_writing_test_policy
+      label: Test due ACT writing test policy
+      tab: admission
+    - key: deadlines.test_due_sat_subject_tests_only
+      label: Test due SAT subject tests only
+      tab: admission
+    - key: deadlines.test_due_sat_and_sat_subject_tests_or_act
+      label: Test due SAT and SAT subject tests or ACT
+      tab: admission
+  - id: decision-notification
+    title: Decision notification
+    facts:
+    - key: deadlines.regular_notification
+      label: Regular notification
+      tab: admission
+    - key: deadlines.early_action_notification
+      label: Early action notification
+      tab: admission
+    - key: deadlines.reply_by
+      label: Reply-by date
+      tab: admission
+  - id: rounds-offered
+    title: Rounds offered
+    facts:
+    - key: admissions.early_decision_offered
+      label: Early decision offered
+      tab: admission
+    - key: admissions.early_action_offered
+      label: Early action offered
+      tab: admission
+  - id: how-to-apply
+    title: How to apply
+    facts:
+    - key: applying.accepts_common_app
+      label: Accepts common app
+      tab: admission
+    - key: applying.electronic_application_url
+      label: Electronic application URL
+      tab: admission
+    - key: applying.application_fee
+      label: Application fee
+      tab: admission
+    - key: applying.application_fee_waiver
+      label: Application fee waiver
+      tab: admission
+    - key: applying.deferred_enrollment
+      label: Deferred enrollment
+      tab: admission
+    - key: applying.transfer_accepted
+      label: Transfer accepted
+      tab: admission
+  - id: contact
+    title: Admissions office
+    facts:
+    - key: applying.admissions_address
+      label: Admissions address
+      tab: admission
+    - key: applying.admissions_phone
+      label: Admissions phone
+      tab: overview
+    - key: applying.admissions_fax
+      label: Admissions fax
+      tab: overview
+    - key: applying.admissions_email
+      label: Admissions email
+      tab: overview
+    - key: applying.admissions_phone_direct
+      label: Admissions phone direct
+      tab: overview
+    - key: applying.admissions_fax_direct
+      label: Admissions fax direct
+      tab: overview
+  - id: other
+    title: Other published values
+    facts: []

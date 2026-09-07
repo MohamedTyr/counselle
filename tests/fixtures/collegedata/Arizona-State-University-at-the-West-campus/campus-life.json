@@ -1,0 +1,437 @@
+{
+  "__N_SSP": true,
+  "pageProps": {
+    "isStateList": false,
+    "profile": {
+      "avgJanTemp": null,
+      "avgSeptTemp": null,
+      "bodyContent": [
+        {
+          "data": {
+            "children": [
+              {
+                "data": {
+                  "title": "Nearest Metropolitan Area",
+                  "value": [
+                    "Phoenix"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Campus Size",
+                  "value": [
+                    "278 acres"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "value": "Getting Around"
+                },
+                "type": "CategoryDivider"
+              },
+              {
+                "data": {
+                  "link": "",
+                  "text": "View Map",
+                  "title": "Campus Map"
+                },
+                "type": "TitleLink"
+              }
+            ],
+            "iconType": null,
+            "link": null,
+            "title": "Location and Setting"
+          },
+          "type": "ExpandableSection"
+        },
+        {
+          "data": {
+            "children": [
+              {
+                "data": {
+                  "title": "College Housing",
+                  "value": [
+                    "College offers housing to students"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Types of Housing",
+                  "value": [
+                    "Coed housing, disabled student housing"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Students in College Housing",
+                  "value": [
+                    "15% of all students"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Housing Requirements",
+                  "value": [
+                    "Freshmen are required to live on campus"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Freshman Housing Guarantee",
+                  "value": [
+                    "Freshmen are guaranteed housing"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Students Living Off Campus/Commuting",
+                  "value": [
+                    "85%"
+                  ]
+                },
+                "type": "TitleValue"
+              }
+            ],
+            "iconType": null,
+            "link": null,
+            "title": "Housing"
+          },
+          "type": "ExpandableSection"
+        },
+        {
+          "data": {
+            "children": [
+              {
+                "data": {
+                  "title": "24-Hour Emergency Phone/Alarm Devices",
+                  "value": [
+                    "Available"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "24-Hour Security Patrols",
+                  "value": [
+                    "Available"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Late-Night Transport/Escort Services",
+                  "value": [
+                    "Available"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Electronically Operated Housing Entrances",
+                  "value": [
+                    "Available"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Other",
+                  "value": [
+                    "LiveSafe smart phone application, surveillance camera in some residence halls"
+                  ]
+                },
+                "type": "TitleValue"
+              }
+            ],
+            "iconType": null,
+            "link": null,
+            "title": "Security"
+          },
+          "type": "ExpandableSection"
+        },
+        {
+          "data": {
+            "children": [
+              {
+                "data": {
+                  "title": "Health Service",
+                  "value": [
+                    "Offered"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Personal Counseling",
+                  "value": [
+                    "Offered"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Child Care",
+                  "value": [
+                    "Not offered"
+                  ]
+                },
+                "type": "TitleValue"
+              }
+            ],
+            "iconType": null,
+            "link": null,
+            "title": "Personal Support Services"
+          },
+          "type": "ExpandableSection"
+        },
+        {
+          "data": {
+            "children": [
+              {
+                "data": {
+                  "title": "Athletic Conferences",
+                  "value": [
+                    "NCAA Division I"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "value": "Intercollegiate Sports & Scholarships"
+                },
+                "type": "CategoryDivider"
+              },
+              {
+                "data": {
+                  "data": [
+                    {
+                      "label": "Baseball",
+                      "values": [
+                        null,
+                        null,
+                        "check",
+                        "dollar"
+                      ]
+                    },
+                    {
+                      "label": "Basketball",
+                      "values": [
+                        "check",
+                        "dollar",
+                        "check",
+                        "dollar"
+                      ]
+                    },
+                    {
+                      "label": "Cross-Country Running",
+                      "values": [
+                        "check",
+                        "dollar",
+                        "check",
+                        "dollar"
+                      ]
+                    },
+                    {
+                      "label": "Football",
+                      "values": [
+                        null,
+                        null,
+                        "check",
+                        "dollar"
+                      ]
+                    },
+                    {
+                      "label": "Golf",
+                      "values": [
+                        "check",
+                        "dollar",
+                        "check",
+                        "dollar"
+                      ]
+                    },
+                    {
+                      "label": "Gymnastics",
+                      "values": [
+                        "check",
+                        "dollar",
+                        null,
+                        null
+                      ]
+                    },
+                    {
+                      "label": "Ice Hockey",
+                      "values": [
+                        null,
+                        null,
+                        "check",
+                        "dollar"
+                      ]
+                    },
+                    {
+                      "label": "Lacrosse",
+                      "values": [
+                        "check",
+                        "dollar",
+                        null,
+                        null
+                      ]
+                    },
+                    {
+                      "label": "Sand Volleyball",
+                      "values": [
+                        "check",
+                        "dollar",
+                        null,
+                        null
+                      ]
+                    },
+                    {
+                      "label": "Soccer",
+                      "values": [
+                        "check",
+                        "dollar",
+                        null,
+                        null
+                      ]
+                    },
+                    {
+                      "label": "Softball",
+                      "values": [
+                        "check",
+                        "dollar",
+                        null,
+                        null
+                      ]
+                    },
+                    {
+                      "label": "Swimming And Diving",
+                      "values": [
+                        "check",
+                        "dollar",
+                        "check",
+                        "dollar"
+                      ]
+                    },
+                    {
+                      "label": "Tennis",
+                      "values": [
+                        "check",
+                        "dollar",
+                        "check",
+                        "dollar"
+                      ]
+                    },
+                    {
+                      "label": "Track And Field",
+                      "values": [
+                        "check",
+                        "dollar",
+                        "check",
+                        "dollar"
+                      ]
+                    },
+                    {
+                      "label": "Triathlon",
+                      "values": [
+                        "check",
+                        "dollar",
+                        null,
+                        null
+                      ]
+                    },
+                    {
+                      "label": "Volleyball",
+                      "values": [
+                        "check",
+                        "dollar",
+                        null,
+                        null
+                      ]
+                    },
+                    {
+                      "label": "Water Polo",
+                      "values": [
+                        "check",
+                        "dollar",
+                        null,
+                        null
+                      ]
+                    },
+                    {
+                      "label": "Wrestling",
+                      "values": [
+                        null,
+                        null,
+                        "check",
+                        "dollar"
+                      ]
+                    }
+                  ],
+                  "keyTitle": "Sports",
+                  "tableTitle": "",
+                  "valueTitles": [
+                    "Women",
+                    "Women",
+                    "Men",
+                    "Men"
+                  ]
+                },
+                "type": "IconTable"
+              },
+              {
+                "data": {
+                  "value": "Club Sports"
+                },
+                "type": "CategoryDivider"
+              },
+              {
+                "data": {
+                  "title": "Intramural Sports",
+                  "value": [
+                    "basketball, softball, table tennis"
+                  ]
+                },
+                "type": "TitleValue"
+              }
+            ],
+            "iconType": null,
+            "link": null,
+            "title": "Sports & Recreation"
+          },
+          "type": "ExpandableSection"
+        }
+      ],
+      "campusMapUrl": null,
+      "city": "Phoenix",
+      "cityPopulation": null,
+      "freshmanHousingGuarantee": null,
+      "id": 1299,
+      "name": "Arizona State University at the West campus",
+      "nearestMetro": "Phoenix",
+      "rain": null,
+      "slug": "Arizona-State-University-at-the-West-campus",
+      "website": "https://www.asu.edu/"
+    }
+  }
+}

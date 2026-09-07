@@ -1,0 +1,520 @@
+{
+  "__N_SSP": true,
+  "pageProps": {
+    "isStateList": false,
+    "profile": {
+      "attendanceCost": [
+        "$29,566",
+        "$50,410"
+      ],
+      "bodyContent": [
+        {
+          "data": {
+            "children": [
+              {
+                "data": {
+                  "link": "",
+                  "text": "osfa@uga.edu",
+                  "title": "Email"
+                },
+                "type": "TitleLink"
+              },
+              {
+                "data": {
+                  "link": "https://osfa.uga.edu/",
+                  "text": "Financial Aid Website",
+                  "title": "Website"
+                },
+                "type": "TitleLink"
+              },
+              {
+                "data": {
+                  "value": "Application Process"
+                },
+                "type": "CategoryDivider"
+              },
+              {
+                "data": {
+                  "title": "Application Deadline",
+                  "value": [
+                    "January 1"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Award Notification",
+                  "value": [
+                    "On a rolling basis beginning December 15"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "High School Program",
+                  "value": [
+                    "College preparatory program is required"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Methodology For Awarding Institutional Aid",
+                  "value": [
+                    "Federal Methodology"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "data": [
+                    {
+                      "label": "FAFSA Code is 001598",
+                      "values": [
+                        "Free"
+                      ]
+                    }
+                  ],
+                  "keyTitle": "Forms Required",
+                  "tableTitle": "",
+                  "valueTitles": [
+                    "Cost"
+                  ]
+                },
+                "type": "LabeledTable"
+              }
+            ],
+            "iconType": null,
+            "link": null,
+            "title": "Applying For Financial Aid"
+          },
+          "type": "ExpandableSection"
+        },
+        {
+          "data": {
+            "children": [
+              {
+                "data": {
+                  "value": "Freshman"
+                },
+                "type": "CategoryDivider"
+              },
+              {
+                "data": {
+                  "title": "Financial Aid Applicants",
+                  "value": [
+                    "5,121 (82.7%) of freshmen"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Found to Have Financial Need",
+                  "value": [
+                    "1,798 (35.1%) of applicants"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Received Financial Aid",
+                  "value": [
+                    "1,763 (98.1%) of applicants with financial need"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Need Fully Met",
+                  "value": [
+                    "491 (27.9%) of aid recipients"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Average Percent of Need Met",
+                  "value": [
+                    "78%"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "children": [
+                    {
+                      "title": "Need-Based Gift",
+                      "value": [
+                        "Received by 1,740 (98.7%) of aid recipients, average amount $13,971"
+                      ]
+                    },
+                    {
+                      "title": "Need-Based Self-Help",
+                      "value": [
+                        "Received by 520 (29.5%) of aid recipients, average amount $3,889"
+                      ]
+                    }
+                  ],
+                  "topTitleValue": {
+                    "title": "Average Award",
+                    "value": [
+                      "$17,230"
+                    ]
+                  }
+                },
+                "type": "NestedTitleValue"
+              },
+              {
+                "data": {
+                  "title": "Merit-Based Gift",
+                  "value": [
+                    "Received by 406 (23.0%) of aid recipients",
+                    "419 (6.8%) of freshmen had no financial need and received merit aid, average amount $2,191"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "value": "All Undergraduates"
+                },
+                "type": "CategoryDivider"
+              },
+              {
+                "data": {
+                  "title": "Financial Aid Applicants",
+                  "value": [
+                    "20,126 (64.2%) of undergraduates"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Found to Have Financial Need",
+                  "value": [
+                    "9,213 (45.8%) of applicants"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Received Financial Aid",
+                  "value": [
+                    "9,057 (98.3%) of applicants with financial need"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Need Fully Met",
+                  "value": [
+                    "2,078 (22.9%) of aid recipients"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Average Percent of Need Met",
+                  "value": [
+                    "72%"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "children": [
+                    {
+                      "title": "Need-Based Gift",
+                      "value": [
+                        "Received by 8,791 (97.1%) of aid recipients, average amount $12,809"
+                      ]
+                    },
+                    {
+                      "title": "Need-Based Self-Help",
+                      "value": [
+                        "Received by 2,782 (30.7%) of aid recipients, average amount $4,725"
+                      ]
+                    }
+                  ],
+                  "topTitleValue": {
+                    "title": "Average Award",
+                    "value": [
+                      "$15,639"
+                    ]
+                  }
+                },
+                "type": "NestedTitleValue"
+              },
+              {
+                "data": {
+                  "title": "Merit-Based Gift",
+                  "value": [
+                    "Received by 1,656 (18.3%) of aid recipients",
+                    "1,943(6.2%)of undergraduates had no financial need and received merit aid,average amount $2,467"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "value": "All Undergraduates"
+                },
+                "type": "CategoryDivider"
+              },
+              {
+                "data": {
+                  "title": "2024 Graduates Who Took Out Loans",
+                  "value": [
+                    "30%"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "children": [],
+                  "topTitleValue": {
+                    "title": "Average Indebtedness of 2024 Graduates",
+                    "value": [
+                      "$21,660"
+                    ]
+                  }
+                },
+                "type": "NestedTitleValue"
+              }
+            ],
+            "iconType": null,
+            "link": null,
+            "title": "Profile of 2025-26 Financial Aid"
+          },
+          "type": "ExpandableSection"
+        },
+        {
+          "data": {
+            "children": [
+              {
+                "data": {
+                  "value": "Loans"
+                },
+                "type": "CategoryDivider"
+              },
+              {
+                "data": {
+                  "title": "Federal Loans",
+                  "value": [
+                    "Direct Subsidized Stafford Loans",
+                    "Direct Unsubsidized Stafford Loans",
+                    "Direct Plus Loans"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "State Loans",
+                  "value": [
+                    "Available"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Other Loans",
+                  "value": [
+                    "College/University Loans"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "value": "Scholarships and Grants"
+                },
+                "type": "CategoryDivider"
+              },
+              {
+                "data": {
+                  "title": "Need-Based Available",
+                  "value": [
+                    "Federal Pell grants",
+                    "SEOG",
+                    "State scholarships",
+                    "Institutional scholarships",
+                    "Private scholarships"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Non-Need-Based Available",
+                  "value": [
+                    "Creative arts/performance scholarships"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "value": "Non-Need Awards"
+                },
+                "type": "CategoryDivider"
+              },
+              {
+                "data": {
+                  "children": [
+                    {
+                      "title": "Number of Awards",
+                      "value": [
+                        "Not reported"
+                      ]
+                    }
+                  ],
+                  "topTitleValue": {
+                    "title": "Academic Interest/Achievement Award Areas",
+                    "value": [
+                      "Agriculture",
+                      "Biological Sciences",
+                      "Business",
+                      "Computer Science",
+                      "Education",
+                      "Engineering/Technologies",
+                      "English",
+                      "Foreign Languages",
+                      "Health Fields",
+                      "Humanities",
+                      "International Studies",
+                      "Mathematics",
+                      "Physical Sciences",
+                      "Social Sciences"
+                    ]
+                  }
+                },
+                "type": "NestedTitleValue"
+              },
+              {
+                "data": {
+                  "children": [
+                    {
+                      "title": "Number of Awards",
+                      "value": [
+                        "53"
+                      ]
+                    }
+                  ],
+                  "topTitleValue": {
+                    "title": "Creative Arts/Performance Award Areas",
+                    "value": [
+                      "Applied Art and Design",
+                      "Art/Fine Arts",
+                      "Cinema/Film/Broadcasting",
+                      "Creative Writing",
+                      "Dance",
+                      "Journalism/Publications",
+                      "Music",
+                      "Theater/Drama"
+                    ]
+                  }
+                },
+                "type": "NestedTitleValue"
+              },
+              {
+                "data": {
+                  "children": [
+                    {
+                      "title": "Number of Awards",
+                      "value": [
+                        "Not reported"
+                      ]
+                    }
+                  ],
+                  "topTitleValue": {
+                    "title": "Special Achievements/Activities Award Areas",
+                    "value": [
+                      "Not reported"
+                    ]
+                  }
+                },
+                "type": "NestedTitleValue"
+              },
+              {
+                "data": {
+                  "children": [
+                    {
+                      "title": "Number of Awards",
+                      "value": [
+                        "Not reported"
+                      ]
+                    }
+                  ],
+                  "topTitleValue": {
+                    "title": "Special Characteristics Award Areas",
+                    "value": [
+                      "Local/State Students"
+                    ]
+                  }
+                },
+                "type": "NestedTitleValue"
+              },
+              {
+                "data": {
+                  "value": "Employment"
+                },
+                "type": "CategoryDivider"
+              },
+              {
+                "data": {
+                  "title": "Work-Study Programs",
+                  "value": [
+                    "Federal work study available"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Average Earnings from On-Campus Employment",
+                  "value": [
+                    "$4,810"
+                  ]
+                },
+                "type": "TitleValue"
+              }
+            ],
+            "iconType": null,
+            "link": null,
+            "title": "Financial Aid Programs"
+          },
+          "type": "ExpandableSection"
+        }
+      ],
+      "id": 975,
+      "name": "University of Georgia",
+      "otherExpensesCost": "$4,992",
+      "paymentPlans": [],
+      "roomBoardCost": "$12,084",
+      "slug": "University-of-Georgia",
+      "suppliesCost": "$998",
+      "tuitionFeesCost": [
+        "$11,492",
+        "$32,336"
+      ],
+      "website": "https://www.uga.edu/"
+    }
+  }
+}

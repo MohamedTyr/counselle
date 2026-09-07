@@ -1,0 +1,392 @@
+{
+  "__N_SSP": true,
+  "pageProps": {
+    "isStateList": false,
+    "profile": {
+      "avgJanTemp": null,
+      "avgSeptTemp": null,
+      "bodyContent": [
+        {
+          "data": {
+            "children": [
+              {
+                "data": {
+                  "title": "Berea Population",
+                  "value": [
+                    "16,287"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Nearest Metropolitan Area",
+                  "value": [
+                    "Not reported"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Campus Size",
+                  "value": [
+                    "140 acres"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "value": "Getting Around"
+                },
+                "type": "CategoryDivider"
+              },
+              {
+                "data": {
+                  "link": "Not reported",
+                  "text": "View Map",
+                  "title": "Campus Map"
+                },
+                "type": "TitleLink"
+              },
+              {
+                "data": {
+                  "title": "Nearest Bus Station",
+                  "value": [
+                    "Berea"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Nearest Train Station",
+                  "value": [
+                    "40 mile(s) from campus in Lexington"
+                  ]
+                },
+                "type": "TitleValue"
+              }
+            ],
+            "iconType": null,
+            "link": null,
+            "title": "Location and Setting"
+          },
+          "type": "ExpandableSection"
+        },
+        {
+          "data": {
+            "children": [
+              {
+                "data": {
+                  "title": "College Housing",
+                  "value": [
+                    "College offers housing to students"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Types of Housing",
+                  "value": [
+                    "Men only housing, women only housing, coed housing"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Housing Requirements",
+                  "value": [
+                    "Freshmen are required to live on campus"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Freshman Housing Guarantee",
+                  "value": [
+                    "Freshmen are guaranteed housing"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Off-Campus Housing Assistance",
+                  "value": [
+                    "Assistance in locating off-campus housing is available"
+                  ]
+                },
+                "type": "TitleValue"
+              }
+            ],
+            "iconType": null,
+            "link": null,
+            "title": "Housing"
+          },
+          "type": "ExpandableSection"
+        },
+        {
+          "data": {
+            "children": [
+              {
+                "data": {
+                  "title": "24-Hour Emergency Phone/Alarm Devices",
+                  "value": [
+                    "Available"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "24-Hour Security Patrols",
+                  "value": [
+                    "Available"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Late-Night Transport/Escort Services",
+                  "value": [
+                    "Available"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Electronically Operated Housing Entrances",
+                  "value": [
+                    "Available"
+                  ]
+                },
+                "type": "TitleValue"
+              }
+            ],
+            "iconType": null,
+            "link": null,
+            "title": "Security"
+          },
+          "type": "ExpandableSection"
+        },
+        {
+          "data": {
+            "children": [
+              {
+                "data": {
+                  "title": "Health Service",
+                  "value": [
+                    "Offered"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Personal Counseling",
+                  "value": [
+                    "Offered"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Child Care",
+                  "value": [
+                    "Offered"
+                  ]
+                },
+                "type": "TitleValue"
+              }
+            ],
+            "iconType": null,
+            "link": null,
+            "title": "Personal Support Services"
+          },
+          "type": "ExpandableSection"
+        },
+        {
+          "data": {
+            "children": [
+              {
+                "data": {
+                  "title": "Athletic Conferences",
+                  "value": [
+                    "NCAA Division III"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Mascot",
+                  "value": [
+                    "Mountaineer"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "School Colors",
+                  "value": [
+                    "Royal blue and white"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "value": "Intercollegiate Sports & Scholarships"
+                },
+                "type": "CategoryDivider"
+              },
+              {
+                "data": {
+                  "data": [
+                    {
+                      "label": "Baseball",
+                      "values": [
+                        null,
+                        null,
+                        "check",
+                        null
+                      ]
+                    },
+                    {
+                      "label": "Basketball",
+                      "values": [
+                        "check",
+                        null,
+                        "check",
+                        null
+                      ]
+                    },
+                    {
+                      "label": "Cheerleading",
+                      "values": [
+                        "check",
+                        null,
+                        null,
+                        null
+                      ]
+                    },
+                    {
+                      "label": "Cross-Country Running",
+                      "values": [
+                        "check",
+                        null,
+                        "check",
+                        null
+                      ]
+                    },
+                    {
+                      "label": "Golf",
+                      "values": [
+                        null,
+                        null,
+                        "check",
+                        null
+                      ]
+                    },
+                    {
+                      "label": "Soccer",
+                      "values": [
+                        "check",
+                        null,
+                        "check",
+                        null
+                      ]
+                    },
+                    {
+                      "label": "Softball",
+                      "values": [
+                        "check",
+                        null,
+                        null,
+                        null
+                      ]
+                    },
+                    {
+                      "label": "Tennis",
+                      "values": [
+                        "check",
+                        null,
+                        "check",
+                        null
+                      ]
+                    },
+                    {
+                      "label": "Track And Field",
+                      "values": [
+                        "check",
+                        null,
+                        "check",
+                        null
+                      ]
+                    },
+                    {
+                      "label": "Volleyball",
+                      "values": [
+                        "check",
+                        null,
+                        null,
+                        null
+                      ]
+                    }
+                  ],
+                  "keyTitle": "Sports",
+                  "tableTitle": "",
+                  "valueTitles": [
+                    "Women",
+                    "Women",
+                    "Men",
+                    "Men"
+                  ]
+                },
+                "type": "IconTable"
+              },
+              {
+                "data": {
+                  "value": "Club Sports"
+                },
+                "type": "CategoryDivider"
+              },
+              {
+                "data": {
+                  "title": "Intramural Sports",
+                  "value": [
+                    "basketball, soccer, ultimate Frisbee, volleyball"
+                  ]
+                },
+                "type": "TitleValue"
+              }
+            ],
+            "iconType": null,
+            "link": null,
+            "title": "Sports & Recreation"
+          },
+          "type": "ExpandableSection"
+        }
+      ],
+      "campusMapUrl": "Not reported",
+      "city": "Berea",
+      "cityPopulation": "16,287",
+      "freshmanHousingGuarantee": null,
+      "id": 502,
+      "name": "Berea College",
+      "nearestMetro": "Not reported",
+      "rain": null,
+      "slug": "Berea-College",
+      "website": "https://www.berea.edu/"
+    }
+  }
+}

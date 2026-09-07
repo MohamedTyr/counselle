@@ -1,5 +1,6 @@
 import { createBrowserRouter, Navigate } from "react-router";
 
+import { AdminGate } from "@/app/auth/AdminGate";
 import { GuestOnly } from "@/app/auth/GuestOnly";
 import { OnboardingGate } from "@/app/auth/OnboardingGate";
 import { RequireAuth } from "@/app/auth/RequireAuth";
@@ -8,6 +9,7 @@ import { RouteSurface } from "@/app/routes/RouteSurface";
 import { LoginRoute } from "@/features/auth/LoginRoute";
 import { OnboardingRoute } from "@/features/onboarding/OnboardingRoute";
 import { RegisterRoute } from "@/features/auth/RegisterRoute";
+import { AdminFactsPage } from "@/features/admin-facts/AdminFactsPage";
 import { AiPage } from "@/pages/ai-page";
 import { AiChatRoute } from "@/features/ai-chat/AiChatRoute";
 import { ActivitiesPage } from "@/pages/activities-page";
@@ -129,19 +131,24 @@ export function createAppRouter() {
                 },
                 {
                   /*
-                   * The CDS admin screens are parked (not deleted) as of
-                   * school-data-v3 Phase 0 — the admin dashboard moves to
-                   * `/app/admin/facts` (added in Phase 1). The superuser nav
-                   * entry that used to link here is hidden for this same
-                   * Phase 0 → Phase 1 window (`navigation.tsx`), so this
-                   * redirect exists only for a stale `/app/admin/cds/*`
-                   * bookmark or link: `/app/admin/facts` does not exist yet,
-                   * so until Phase 1 ships it, a hit here still falls
-                   * through to the generic `*` below and lands on
-                   * /app/tasks unexplained — same as if this redirect were
-                   * deleted outright. Keeping it re-pointed now means it
-                   * starts working the moment Phase 1 adds the route,
-                   * with no further edit here.
+                   * The school-data admin dashboard (plan §5.5, D12) that
+                   * replaces the parked CDS admin screens (ADR 0037,
+                   * PARKED.md) — superuser-gated the same way the CDS admin
+                   * routes were.
+                   */
+                  path: "admin/facts",
+                  element: (
+                    <AdminGate>
+                      <AdminFactsPage />
+                    </AdminGate>
+                  ),
+                },
+                {
+                  /*
+                   * The CDS admin screens are parked (not deleted, ADR
+                   * 0037/PARKED.md) — this redirect exists only for a stale
+                   * `/app/admin/cds/*` bookmark or link, now that
+                   * `/app/admin/facts` (above) exists.
                    */
                   path: "admin/cds/*",
                   element: <Navigate replace to="/app/admin/facts" />,

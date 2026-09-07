@@ -1,0 +1,928 @@
+{
+  "__N_SSP": true,
+  "pageProps": {
+    "isStateList": false,
+    "profile": {
+      "address": {
+        "city": "Columbus",
+        "state": "OH",
+        "street1": "Student Academic Services Building ",
+        "street2": "281 West Lane Avenue",
+        "zipCode": "43210"
+      },
+      "admissionDeadline": "January 15, 2027",
+      "admissionDeadlineDate": "2027-01-15",
+      "bodyContent": [
+        {
+          "data": {
+            "children": [
+              {
+                "data": {
+                  "value": "High School Preparation"
+                },
+                "type": "CategoryDivider"
+              },
+              {
+                "data": {
+                  "title": "High School Graduation",
+                  "value": [
+                    "High school diploma required and GED is accepted"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "High School Program",
+                  "value": [
+                    "College preparatory program is recommended"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "value": "High School Units Req or Recommended"
+                },
+                "type": "CategoryDivider"
+              },
+              {
+                "data": {
+                  "data": [
+                    {
+                      "label": "English",
+                      "values": [
+                        "4",
+                        "4"
+                      ]
+                    },
+                    {
+                      "label": "Mathematics",
+                      "values": [
+                        "3",
+                        "4"
+                      ]
+                    },
+                    {
+                      "label": "Science",
+                      "values": [
+                        "3",
+                        "3"
+                      ]
+                    },
+                    {
+                      "label": "Foreign Language",
+                      "values": [
+                        "2",
+                        "3"
+                      ]
+                    },
+                    {
+                      "label": "Social Studies",
+                      "values": [
+                        "2",
+                        "3"
+                      ]
+                    },
+                    {
+                      "label": "Academic Electives",
+                      "values": [
+                        "1",
+                        "1"
+                      ]
+                    }
+                  ],
+                  "keyTitle": "Subject",
+                  "tableTitle": "",
+                  "valueTitles": [
+                    "Req",
+                    "Reco"
+                  ]
+                },
+                "type": "LabeledTable"
+              },
+              {
+                "data": {
+                  "data": [
+                    {
+                      "label": "SAT or ACT",
+                      "values": [
+                        "Required",
+                        "January  15"
+                      ]
+                    },
+                    {
+                      "label": "SAT Only",
+                      "values": [
+                        "Not reported",
+                        "Not reported"
+                      ]
+                    },
+                    {
+                      "label": "ACT Only",
+                      "values": [
+                        "Not reported",
+                        "Not reported"
+                      ]
+                    },
+                    {
+                      "label": "SAT & SAT Subject Tests, or ACT",
+                      "values": [
+                        "Not reported",
+                        "Not reported"
+                      ]
+                    },
+                    {
+                      "label": "SAT Subject Tests Only",
+                      "values": [
+                        "Not reported",
+                        "Not reported"
+                      ]
+                    },
+                    {
+                      "label": "ACT Writing Test Policy",
+                      "values": [
+                        "Not reported",
+                        "Not reported"
+                      ]
+                    }
+                  ],
+                  "keyTitle": "Subject",
+                  "tableTitle": "Examinations",
+                  "valueTitles": [
+                    "Required Units",
+                    "Due in Admissions Office"
+                  ]
+                },
+                "type": "LabeledTable"
+              }
+            ],
+            "iconType": null,
+            "link": null,
+            "title": "Freshman Admission Reqs"
+          },
+          "type": "ExpandableSection"
+        },
+        {
+          "data": {
+            "children": [
+              {
+                "data": {
+                  "value": "Admissions Office"
+                },
+                "type": "CategoryDivider"
+              },
+              {
+                "data": {
+                  "title": "Address",
+                  "value": [
+                    "Student Academic Services Building , 281 West Lane Avenue",
+                    "Columbus",
+                    "OH",
+                    "43210"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Phone",
+                  "value": [
+                    "(614) 292-3980"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "value": "Application Dates & Fees"
+                },
+                "type": "CategoryDivider"
+              },
+              {
+                "data": {
+                  "title": "Regular Admission Deadline",
+                  "value": [
+                    "January 15, 2027"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Application Fee",
+                  "value": [
+                    "$60"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Application Fee Waiver",
+                  "value": [
+                    "Available"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Regular Admission Notification",
+                  "value": [
+                    "March 31"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Accept Offer of Admission",
+                  "value": [
+                    "Not reported"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Waiting List Used",
+                  "value": [
+                    "Yes"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Defer Admission",
+                  "value": [
+                    "Student can defer admission"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Transfer Admission",
+                  "value": [
+                    "Transfer applications accepted"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "value": "Early Admission"
+                },
+                "type": "CategoryDivider"
+              },
+              {
+                "data": {
+                  "title": "Early Decision Offered",
+                  "value": [
+                    "No"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Early Action Offered",
+                  "value": [
+                    "Yes"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Early Action Deadline",
+                  "value": [
+                    "November 1"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Early Action Notification",
+                  "value": [
+                    "January 31"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "value": "Application Form"
+                },
+                "type": "CategoryDivider"
+              },
+              {
+                "data": {
+                  "title": "Common Application",
+                  "value": [
+                    "Accepted"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "link": "Not reported",
+                  "text": "Not reported",
+                  "title": "Electronic Application"
+                },
+                "type": "TitleLink"
+              },
+              {
+                "data": {
+                  "value": "Other Application Requirements"
+                },
+                "type": "CategoryDivider"
+              },
+              {
+                "data": {
+                  "title": "Interview",
+                  "value": [
+                    "Not Required"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Essay or Personal Statement",
+                  "value": [
+                    "Required for all freshmen"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Financial Need",
+                  "value": [
+                    "Financial need is not a consideration in the admissions process"
+                  ]
+                },
+                "type": "TitleValue"
+              }
+            ],
+            "iconType": null,
+            "link": null,
+            "title": "Applying For Admission"
+          },
+          "type": "ExpandableSection"
+        },
+        {
+          "data": {
+            "children": [
+              {
+                "data": {
+                  "data": [
+                    {
+                      "label": "Rigor of Secondary School Record",
+                      "values": [
+                        "X",
+                        "",
+                        "",
+                        ""
+                      ]
+                    },
+                    {
+                      "label": "Academic GPA",
+                      "values": [
+                        "X",
+                        "",
+                        "",
+                        ""
+                      ]
+                    },
+                    {
+                      "label": "Standardized Tests",
+                      "values": [
+                        "X",
+                        "",
+                        "",
+                        ""
+                      ]
+                    },
+                    {
+                      "label": "Class Rank",
+                      "values": [
+                        "X",
+                        "",
+                        "",
+                        ""
+                      ]
+                    },
+                    {
+                      "label": "Recommendations",
+                      "values": [
+                        "",
+                        "X",
+                        "",
+                        ""
+                      ]
+                    },
+                    {
+                      "label": "Essay",
+                      "values": [
+                        "",
+                        "X",
+                        "",
+                        ""
+                      ]
+                    },
+                    {
+                      "label": "Interview",
+                      "values": [
+                        "",
+                        "",
+                        "",
+                        "X"
+                      ]
+                    },
+                    {
+                      "label": "Level of Applicant's Interest",
+                      "values": [
+                        "",
+                        "",
+                        "",
+                        "X"
+                      ]
+                    },
+                    {
+                      "label": "Extracurricular Activities",
+                      "values": [
+                        "",
+                        "X",
+                        "",
+                        ""
+                      ]
+                    },
+                    {
+                      "label": "Volunteer Work",
+                      "values": [
+                        "",
+                        "X",
+                        "",
+                        ""
+                      ]
+                    },
+                    {
+                      "label": "Particular Talent/Ability",
+                      "values": [
+                        "",
+                        "X",
+                        "",
+                        ""
+                      ]
+                    },
+                    {
+                      "label": "Character/Personal Qualities",
+                      "values": [
+                        "",
+                        "",
+                        "X",
+                        ""
+                      ]
+                    },
+                    {
+                      "label": "First Generation to Attend College",
+                      "values": [
+                        "",
+                        "X",
+                        "",
+                        ""
+                      ]
+                    },
+                    {
+                      "label": "State Residency",
+                      "values": [
+                        "",
+                        "",
+                        "X",
+                        ""
+                      ]
+                    },
+                    {
+                      "label": "Geographic Residence",
+                      "values": [
+                        "",
+                        "",
+                        "X",
+                        ""
+                      ]
+                    },
+                    {
+                      "label": "Relation with Alumnus",
+                      "values": [
+                        "",
+                        "",
+                        "",
+                        "X"
+                      ]
+                    },
+                    {
+                      "label": "Religious Affiliation/Commitment",
+                      "values": [
+                        "",
+                        "",
+                        "",
+                        "X"
+                      ]
+                    },
+                    {
+                      "label": "Work Experience",
+                      "values": [
+                        "",
+                        "X",
+                        "",
+                        ""
+                      ]
+                    }
+                  ],
+                  "keyTitle": "Factor",
+                  "tableTitle": "",
+                  "valueTitles": [
+                    "Very Important",
+                    "Important",
+                    "Considered",
+                    "Not Considered"
+                  ]
+                },
+                "type": "LabeledTable"
+              }
+            ],
+            "iconType": null,
+            "link": null,
+            "title": "Selection of Students"
+          },
+          "type": "ExpandableSection"
+        },
+        {
+          "data": {
+            "children": [
+              {
+                "data": {
+                  "children": [
+                    {
+                      "title": "Women",
+                      "value": [
+                        "49% of 41,882 applicants were admitted"
+                      ]
+                    },
+                    {
+                      "title": "Men",
+                      "value": [
+                        "49% of 39,510 applicants were admitted"
+                      ]
+                    }
+                  ],
+                  "topTitleValue": {
+                    "title": "Overall Admission Rate",
+                    "value": [
+                      "49% of 81,392 applicants were admitted"
+                    ]
+                  }
+                },
+                "type": "NestedTitleValue"
+              },
+              {
+                "data": {
+                  "children": [
+                    {
+                      "title": "Women",
+                      "value": [
+                        "4,725 (23%) of 20,603 admitted students enrolled"
+                      ]
+                    },
+                    {
+                      "title": "Men",
+                      "value": [
+                        "4,282 (22%) of 19,444 admitted students enrolled"
+                      ]
+                    }
+                  ],
+                  "topTitleValue": {
+                    "title": "Students Enrolled",
+                    "value": [
+                      "9,007 (22%) of 40,047 admitted students enrolled"
+                    ]
+                  }
+                },
+                "type": "NestedTitleValue"
+              },
+              {
+                "data": {
+                  "title": "Students Offered Wait List",
+                  "value": [
+                    "5,358"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Students Accepting Wait List Position",
+                  "value": [
+                    "2,278"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Students Admitted From Wait List",
+                  "value": [
+                    "2,049"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "value": "Grade Point Average of Enrolled Freshmen (4.0 Scale)"
+                },
+                "type": "CategoryDivider"
+              },
+              {
+                "data": {
+                  "data": [
+                    {
+                      "label": "4.00 and Above",
+                      "value": -1
+                    },
+                    {
+                      "label": "3.75 - 3.99",
+                      "value": -1
+                    },
+                    {
+                      "label": "3.25 - 3.49",
+                      "value": -1
+                    },
+                    {
+                      "label": "3.00 - 3.24",
+                      "value": -1
+                    },
+                    {
+                      "label": "2.50 - 2.99",
+                      "value": -1
+                    },
+                    {
+                      "label": "2.00 - 2.49",
+                      "value": -1
+                    }
+                  ],
+                  "title": ""
+                },
+                "type": "BarGraph"
+              },
+              {
+                "data": {
+                  "value": "SAT Scores of Enrolled Freshmen"
+                },
+                "type": "CategoryDivider"
+              },
+              {
+                "data": {
+                  "data": [
+                    {
+                      "label": "Score of 700 - 800",
+                      "value": 51
+                    },
+                    {
+                      "label": "Score of 600 - 700",
+                      "value": 37
+                    },
+                    {
+                      "label": "Score of 500 - 600",
+                      "value": 8
+                    },
+                    {
+                      "label": "Score of 400 - 500",
+                      "value": 3
+                    },
+                    {
+                      "label": "Score of 300 - 400",
+                      "value": 1
+                    },
+                    {
+                      "label": "Score of 200 - 300",
+                      "value": -1
+                    }
+                  ],
+                  "title": "SAT Math: 650-740 range of middle 50%"
+                },
+                "type": "BarGraph"
+              },
+              {
+                "data": {
+                  "data": [
+                    {
+                      "label": "Score of 700 - 800",
+                      "value": 41
+                    },
+                    {
+                      "label": "Score of 600 - 700",
+                      "value": 46
+                    },
+                    {
+                      "label": "Score of 500 - 600",
+                      "value": 9
+                    },
+                    {
+                      "label": "Score of 400 - 500",
+                      "value": 3
+                    },
+                    {
+                      "label": "Score of 300 - 400",
+                      "value": 1
+                    },
+                    {
+                      "label": "Score of 200 - 300",
+                      "value": -1
+                    }
+                  ],
+                  "title": "SAT EBRW: 640-720 range of middle 50%"
+                },
+                "type": "BarGraph"
+              },
+              {
+                "data": {
+                  "value": "ACT Scores of Enrolled Freshmen"
+                },
+                "type": "CategoryDivider"
+              },
+              {
+                "data": {
+                  "data": [
+                    {
+                      "label": "Score of 30 - 36",
+                      "value": 56
+                    },
+                    {
+                      "label": "Score of 24 - 29",
+                      "value": 34
+                    },
+                    {
+                      "label": "Score of 18 - 23",
+                      "value": 9
+                    },
+                    {
+                      "label": "Score of 12 - 17",
+                      "value": 1
+                    },
+                    {
+                      "label": "Score of 6 - 11",
+                      "value": -1
+                    },
+                    {
+                      "label": "Score of 5 or Below",
+                      "value": -1
+                    }
+                  ],
+                  "title": "27-32 range of middle 50%"
+                },
+                "type": "BarGraph"
+              },
+              {
+                "data": {
+                  "data": [
+                    {
+                      "label": "Score of 30 - 36",
+                      "value": 46
+                    },
+                    {
+                      "label": "Score of 24 - 29",
+                      "value": 43
+                    },
+                    {
+                      "label": "Score of 18 - 23",
+                      "value": 9
+                    },
+                    {
+                      "label": "Score of 12 - 17",
+                      "value": 2
+                    },
+                    {
+                      "label": "Score of 6 - 11",
+                      "value": -1
+                    },
+                    {
+                      "label": "Score of 5 or Below",
+                      "value": -1
+                    }
+                  ],
+                  "title": "ACT Math: Not reported"
+                },
+                "type": "BarGraph"
+              },
+              {
+                "data": {
+                  "data": [
+                    {
+                      "label": "Score of 30 - 36",
+                      "value": 51
+                    },
+                    {
+                      "label": "Score of 24 - 29",
+                      "value": 33
+                    },
+                    {
+                      "label": "Score of 18 - 23",
+                      "value": 13
+                    },
+                    {
+                      "label": "Score of 12 - 17",
+                      "value": 3
+                    },
+                    {
+                      "label": "Score of 6 - 11",
+                      "value": -1
+                    },
+                    {
+                      "label": "Score of 5 or Below",
+                      "value": -1
+                    }
+                  ],
+                  "title": "ACT Eng: Not reported"
+                },
+                "type": "BarGraph"
+              },
+              {
+                "data": {
+                  "value": "Other Qualifications of Enrolled Freshmen"
+                },
+                "type": "CategoryDivider"
+              },
+              {
+                "data": {
+                  "title": "High School Class Rank",
+                  "value": [
+                    "Top tenth:   73%",
+                    "Top quarter:   96%",
+                    "Top half:   99%"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "National Merit Scholar",
+                  "value": [
+                    "Not reported"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Valedictorian",
+                  "value": [
+                    "Not reported"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Class President",
+                  "value": [
+                    "Not reported"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Student Government Officer",
+                  "value": [
+                    "Not reported"
+                  ]
+                },
+                "type": "TitleValue"
+              }
+            ],
+            "iconType": null,
+            "link": null,
+            "title": "Profile of Fall Admission"
+          },
+          "type": "ExpandableSection"
+        }
+      ],
+      "chance": null,
+      "fullTimeFaculty": "3,363",
+      "id": 1807,
+      "name": "Ohio State University",
+      "partTimeFaculty": "1,062",
+      "phone": "(614) 292-3980",
+      "slug": "Ohio-State-University",
+      "undergraduateMajors": [],
+      "website": "https://www.osu.edu/"
+    }
+  }
+}

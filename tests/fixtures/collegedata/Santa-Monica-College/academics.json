@@ -1,0 +1,380 @@
+{
+  "__N_SSP": true,
+  "pageProps": {
+    "isStateList": false,
+    "profile": {
+      "bodyContent": [
+        {
+          "data": {
+            "children": [
+              {
+                "data": {
+                  "buttonText": "View All Majors (1)",
+                  "data": [
+                    "Visual and Performing Arts, Other"
+                  ],
+                  "title": "Undergraduate Majors"
+                },
+                "type": "SubscreenNavigator"
+              },
+              {
+                "data": {
+                  "title": "Most Popular Disciplines",
+                  "value": [
+                    "Business/marketing",
+                    "Communication technologies",
+                    "Computer and information sciences",
+                    "Family and consumer sciences",
+                    "Health professions and related sciences",
+                    "Interdisciplinary studies",
+                    "Liberal arts/general studies",
+                    "Other",
+                    "Social sciences",
+                    "Visual and performing arts"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Combined Liberal Arts/Professional Degree Programs",
+                  "value": [
+                    "None"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Special Programs",
+                  "value": [
+                    "Cooperative work study program",
+                    "Distance learning",
+                    "Honors program",
+                    "Independent study",
+                    "Internships",
+                    "Study abroad",
+                    "Summer session"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Study Abroad",
+                  "value": [
+                    "Offered"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Online Degrees",
+                  "value": [
+                    "Not Reported"
+                  ]
+                },
+                "type": "TitleValue"
+              }
+            ],
+            "iconType": null,
+            "link": null,
+            "title": "Undergraduate Education"
+          },
+          "type": "ExpandableSection"
+        },
+        {
+          "data": {
+            "children": [
+              {
+                "data": {
+                  "title": "General Education/Core Curriculum",
+                  "value": [
+                    "Required for most or all students"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Computer",
+                  "value": [
+                    "Not reported"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Foreign Language",
+                  "value": [
+                    "Not required"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Math/Science",
+                  "value": [
+                    "Required for all students"
+                  ]
+                },
+                "type": "TitleValue"
+              }
+            ],
+            "iconType": null,
+            "link": null,
+            "title": "Curriculum and Graduation Requirements"
+          },
+          "type": "ExpandableSection"
+        },
+        {
+          "data": {
+            "children": [
+              {
+                "data": {
+                  "title": "Full-Time Faculty",
+                  "value": [
+                    "350"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Part-Time Faculty",
+                  "value": [
+                    "858"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Full-Time Faculty with Ph.D./Terminal Degree",
+                  "value": [
+                    "Not Reported"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Regular Class Size",
+                  "value": [
+                    "Not reported"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Discussion Section/Lab Class Size",
+                  "value": [
+                    "Not reported"
+                  ]
+                },
+                "type": "TitleValue"
+              }
+            ],
+            "iconType": null,
+            "link": null,
+            "title": "Faculty and Instruction"
+          },
+          "type": "ExpandableSection"
+        },
+        {
+          "data": {
+            "children": [
+              {
+                "data": {
+                  "title": "International Baccalaureate",
+                  "value": [
+                    "Not reported"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Advanced Placement (AP) Examinations",
+                  "value": [
+                    "Accepted for placement and credit"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Sophomore Standing",
+                  "value": [
+                    "Available through AP examinations"
+                  ]
+                },
+                "type": "TitleValue"
+              }
+            ],
+            "iconType": null,
+            "link": null,
+            "title": "Advanced Placement"
+          },
+          "type": "ExpandableSection"
+        },
+        {
+          "data": {
+            "children": [
+              {
+                "data": {
+                  "title": "Library Available on Campus",
+                  "value": [
+                    "Yes"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Holdings",
+                  "value": [
+                    "443,719"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Computer Ownership",
+                  "value": [
+                    "Not reported"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Computers Available on Campus",
+                  "value": [
+                    "Not Reported"
+                  ]
+                },
+                "type": "TitleValue"
+              }
+            ],
+            "iconType": null,
+            "link": null,
+            "title": "Academic Resources"
+          },
+          "type": "ExpandableSection"
+        },
+        {
+          "data": {
+            "children": [
+              {
+                "data": {
+                  "title": "Remedial Instruction",
+                  "value": [
+                    "Offered"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Tutoring",
+                  "value": [
+                    "Not reported"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Services for Learning Disabled Students",
+                  "value": [
+                    "Available"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Services for Physically Disabled Students",
+                  "value": [
+                    "None"
+                  ]
+                },
+                "type": "TitleValue"
+              }
+            ],
+            "iconType": null,
+            "link": null,
+            "title": "Academic Support Services"
+          },
+          "type": "ExpandableSection"
+        },
+        {
+          "data": {
+            "children": [
+              {
+                "data": {
+                  "title": "Master's Degrees Offered",
+                  "value": [
+                    "Not Reported"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Doctoral Degrees Offered",
+                  "value": [
+                    "Not Reported"
+                  ]
+                },
+                "type": "TitleValue"
+              }
+            ],
+            "iconType": null,
+            "link": null,
+            "title": "Graduate/Professional School Education"
+          },
+          "type": "ExpandableSection"
+        }
+      ],
+      "campusMapUrl": null,
+      "chance": null,
+      "headerCardContent": [
+        {
+          "data": {
+            "value": "General Information"
+          },
+          "type": "CategoryDivider"
+        },
+        {
+          "data": {
+            "title": "Academic Calendar System",
+            "value": [
+              "Other"
+            ]
+          },
+          "type": "TitleValue"
+        },
+        {
+          "data": {
+            "title": "Summer Session",
+            "value": [
+              "Offered"
+            ]
+          },
+          "type": "TitleValue"
+        }
+      ],
+      "id": 4947,
+      "name": "Santa Monica College",
+      "slug": "Santa-Monica-College",
+      "website": "https://www.smc.edu/"
+    }
+  }
+}

@@ -1,0 +1,425 @@
+{
+  "__N_SSP": true,
+  "pageProps": {
+    "isStateList": false,
+    "profile": {
+      "attendanceCost": [
+        "Not reported",
+        "Not reported"
+      ],
+      "bodyContent": [
+        {
+          "data": {
+            "children": [
+              {
+                "data": {
+                  "link": "Not reported",
+                  "text": "Financial Aid Website",
+                  "title": "Website"
+                },
+                "type": "TitleLink"
+              },
+              {
+                "data": {
+                  "link": "https://www.westpoint.edu/parents",
+                  "text": "Tap Here",
+                  "title": "Net Price Calculator"
+                },
+                "type": "TitleLink"
+              },
+              {
+                "data": {
+                  "value": "Application Process"
+                },
+                "type": "CategoryDivider"
+              },
+              {
+                "data": {
+                  "title": "Application Deadline",
+                  "value": [
+                    "January 31"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Award Notification",
+                  "value": [
+                    "Not reported"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Methodology For Awarding Institutional Aid",
+                  "value": [
+                    "Not reported"
+                  ]
+                },
+                "type": "TitleValue"
+              }
+            ],
+            "iconType": null,
+            "link": null,
+            "title": "Applying For Financial Aid"
+          },
+          "type": "ExpandableSection"
+        },
+        {
+          "data": {
+            "children": [
+              {
+                "data": {
+                  "value": "Freshman"
+                },
+                "type": "CategoryDivider"
+              },
+              {
+                "data": {
+                  "title": "Financial Aid Applicants",
+                  "value": [
+                    "Not reported"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Found to Have Financial Need",
+                  "value": [
+                    "Not reported"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Received Financial Aid",
+                  "value": [
+                    "Not reported"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Need Fully Met",
+                  "value": [
+                    "Not reported"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Average Percent of Need Met",
+                  "value": [
+                    "Not reported"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "children": [
+                    {
+                      "title": "Need-Based Gift",
+                      "value": [
+                        "Not reported"
+                      ]
+                    },
+                    {
+                      "title": "Need-Based Self-Help",
+                      "value": [
+                        "Not reported"
+                      ]
+                    }
+                  ],
+                  "topTitleValue": {
+                    "title": "Average Award",
+                    "value": [
+                      "Not reported"
+                    ]
+                  }
+                },
+                "type": "NestedTitleValue"
+              },
+              {
+                "data": {
+                  "title": "Merit-Based Gift",
+                  "value": [
+                    "Not reported",
+                    "Not reported"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "value": "All Undergraduates"
+                },
+                "type": "CategoryDivider"
+              },
+              {
+                "data": {
+                  "title": "Financial Aid Applicants",
+                  "value": [
+                    "Not reported"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Found to Have Financial Need",
+                  "value": [
+                    "Not reported"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Received Financial Aid",
+                  "value": [
+                    "Not reported"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Need Fully Met",
+                  "value": [
+                    "Not reported"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Average Percent of Need Met",
+                  "value": [
+                    "Not reported"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "children": [
+                    {
+                      "title": "Need-Based Gift",
+                      "value": [
+                        "Not reported"
+                      ]
+                    },
+                    {
+                      "title": "Need-Based Self-Help",
+                      "value": [
+                        "Not reported"
+                      ]
+                    }
+                  ],
+                  "topTitleValue": {
+                    "title": "Average Award",
+                    "value": [
+                      "Not reported"
+                    ]
+                  }
+                },
+                "type": "NestedTitleValue"
+              },
+              {
+                "data": {
+                  "title": "Merit-Based Gift",
+                  "value": [
+                    "Not reported",
+                    "Not reported"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "value": "All Undergraduates"
+                },
+                "type": "CategoryDivider"
+              },
+              {
+                "data": {
+                  "title": "2024 Graduates Who Took Out Loans",
+                  "value": [
+                    "Not reported"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "children": [],
+                  "topTitleValue": {
+                    "title": "Average Indebtedness of 2024 Graduates",
+                    "value": [
+                      "Not reported"
+                    ]
+                  }
+                },
+                "type": "NestedTitleValue"
+              }
+            ],
+            "iconType": null,
+            "link": null,
+            "title": "Profile of  Financial Aid"
+          },
+          "type": "ExpandableSection"
+        },
+        {
+          "data": {
+            "children": [
+              {
+                "data": {
+                  "value": "Scholarships and Grants"
+                },
+                "type": "CategoryDivider"
+              },
+              {
+                "data": {
+                  "title": "Non-Need-Based Available",
+                  "value": [
+                    "None"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "value": "Non-Need Awards"
+                },
+                "type": "CategoryDivider"
+              },
+              {
+                "data": {
+                  "children": [
+                    {
+                      "title": "Number of Awards",
+                      "value": [
+                        "Not reported"
+                      ]
+                    }
+                  ],
+                  "topTitleValue": {
+                    "title": "Academic Interest/Achievement Award Areas",
+                    "value": [
+                      "Not reported"
+                    ]
+                  }
+                },
+                "type": "NestedTitleValue"
+              },
+              {
+                "data": {
+                  "children": [
+                    {
+                      "title": "Number of Awards",
+                      "value": [
+                        "Not reported"
+                      ]
+                    }
+                  ],
+                  "topTitleValue": {
+                    "title": "Creative Arts/Performance Award Areas",
+                    "value": [
+                      "Not reported"
+                    ]
+                  }
+                },
+                "type": "NestedTitleValue"
+              },
+              {
+                "data": {
+                  "children": [
+                    {
+                      "title": "Number of Awards",
+                      "value": [
+                        "Not reported"
+                      ]
+                    }
+                  ],
+                  "topTitleValue": {
+                    "title": "Special Achievements/Activities Award Areas",
+                    "value": [
+                      "Not reported"
+                    ]
+                  }
+                },
+                "type": "NestedTitleValue"
+              },
+              {
+                "data": {
+                  "children": [
+                    {
+                      "title": "Number of Awards",
+                      "value": [
+                        "Not reported"
+                      ]
+                    }
+                  ],
+                  "topTitleValue": {
+                    "title": "Special Characteristics Award Areas",
+                    "value": [
+                      "Not reported"
+                    ]
+                  }
+                },
+                "type": "NestedTitleValue"
+              },
+              {
+                "data": {
+                  "value": "Employment"
+                },
+                "type": "CategoryDivider"
+              },
+              {
+                "data": {
+                  "title": "Work-Study Programs",
+                  "value": [
+                    "Not reported"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Average Earnings from On-Campus Employment",
+                  "value": [
+                    "Not reported"
+                  ]
+                },
+                "type": "TitleValue"
+              }
+            ],
+            "iconType": null,
+            "link": null,
+            "title": "Financial Aid Programs"
+          },
+          "type": "ExpandableSection"
+        }
+      ],
+      "id": 165,
+      "name": "United States Military Academy",
+      "otherExpensesCost": "Not reported",
+      "paymentPlans": [],
+      "roomBoardCost": "Not reported",
+      "slug": "United-States-Military-Academy",
+      "suppliesCost": "Not reported",
+      "tuitionFeesCost": [
+        "Not reported",
+        "Not reported"
+      ],
+      "website": "https://www.westpoint.edu/"
+    }
+  }
+}

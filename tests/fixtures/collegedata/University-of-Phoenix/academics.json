@@ -1,0 +1,466 @@
+{
+  "__N_SSP": true,
+  "pageProps": {
+    "isStateList": false,
+    "profile": {
+      "bodyContent": [
+        {
+          "data": {
+            "children": [
+              {
+                "data": {
+                  "buttonText": "View All Majors (55)",
+                  "data": [
+                    "Accounting",
+                    "Accounting and Business/Management",
+                    "Applied Psychology",
+                    "Behavioral Sciences",
+                    "Biology/Biological Sciences, General",
+                    "Business Administration and Management, General",
+                    "Business/Corporate Communications, General",
+                    "Communication, General",
+                    "Community Organization and Advocacy",
+                    "Computer and Information Systems Security/Auditing/Information Assurance",
+                    "Computer Programming/Programmer, General",
+                    "Computer Science",
+                    "Computer Software Engineering",
+                    "Computer Support Specialist",
+                    "Computer Systems Analysis/Analyst",
+                    "Computer Systems Networking and Telecommunications",
+                    "Consumer Merchandising/Retailing Management",
+                    "Criminal Justice/Law Enforcement Administration",
+                    "Crisis/Emergency/Disaster Management",
+                    "Data Modeling/Warehousing and Database Administration",
+                    "Data Science, General",
+                    "Digital Communication and Media/Multimedia",
+                    "Early Childhood Education and Teaching",
+                    "E-Commerce/Electronic Commerce",
+                    "Elementary Education and Teaching",
+                    "English Language and Literature, General",
+                    "Entrepreneurship/Entrepreneurial Studies",
+                    "Environmental Studies",
+                    "Finance, General",
+                    "Health/Health Care Administration/Management",
+                    "Health Information/Medical Records Administration/Administrator",
+                    "Health Services Administration",
+                    "History, General",
+                    "Hospital and Health Care Facilities Administration/Management",
+                    "Hospitality Administration/Management, General",
+                    "Human Resources Management/Personnel Administration, General",
+                    "Human Services, General",
+                    "Industrial and Organizational Psychology",
+                    "Information Technology",
+                    "International Business/Trade/Commerce",
+                    "Licensed Practical/Vocational Nurse Training",
+                    "Long Term Care Administration/Management",
+                    "Management Information Systems, General",
+                    "Management Science",
+                    "Marketing/Marketing Management, General",
+                    "Network and System Administration/Administrator",
+                    "Operations Management and Supervision",
+                    "Organizational Behavior Studies",
+                    "Psychology, General",
+                    "Public Administration",
+                    "Registered Nursing/Registered Nurse",
+                    "Securities Services Administration/Management",
+                    "Social Work",
+                    "Web/Multimedia Management and Webmaster",
+                    "Web Page, Digital/Multimedia and Information Resources Design"
+                  ],
+                  "title": "Undergraduate Majors"
+                },
+                "type": "SubscreenNavigator"
+              },
+              {
+                "data": {
+                  "title": "Most Popular Disciplines",
+                  "value": [
+                    "Business/marketing",
+                    "Computer and information sciences",
+                    "Health professions and related sciences"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Combined Liberal Arts/Professional Degree Programs",
+                  "value": [
+                    "None"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Special Programs",
+                  "value": [
+                    "Accelerated program",
+                    "Distance learning",
+                    "Independent study"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Study Abroad",
+                  "value": [
+                    "Not offered"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Online Degrees",
+                  "value": [
+                    "Not Reported"
+                  ]
+                },
+                "type": "TitleValue"
+              }
+            ],
+            "iconType": null,
+            "link": null,
+            "title": "Undergraduate Education"
+          },
+          "type": "ExpandableSection"
+        },
+        {
+          "data": {
+            "children": [
+              {
+                "data": {
+                  "title": "General Education/Core Curriculum",
+                  "value": [
+                    "Required for most or all students"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Computer",
+                  "value": [
+                    "Students not required to own/lease a computer"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Foreign Language",
+                  "value": [
+                    "Not required"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Math/Science",
+                  "value": [
+                    "Required for all students"
+                  ]
+                },
+                "type": "TitleValue"
+              }
+            ],
+            "iconType": null,
+            "link": null,
+            "title": "Curriculum and Graduation Requirements"
+          },
+          "type": "ExpandableSection"
+        },
+        {
+          "data": {
+            "children": [
+              {
+                "data": {
+                  "title": "Full-Time Faculty",
+                  "value": [
+                    "88"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Part-Time Faculty",
+                  "value": [
+                    "2,160"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Full-Time Faculty with Ph.D./Terminal Degree",
+                  "value": [
+                    "2%"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Regular Class Size",
+                  "value": [
+                    "Not reported"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Discussion Section/Lab Class Size",
+                  "value": [
+                    "Not reported"
+                  ]
+                },
+                "type": "TitleValue"
+              }
+            ],
+            "iconType": null,
+            "link": null,
+            "title": "Faculty and Instruction"
+          },
+          "type": "ExpandableSection"
+        },
+        {
+          "data": {
+            "children": [
+              {
+                "data": {
+                  "title": "International Baccalaureate",
+                  "value": [
+                    "Not reported"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Advanced Placement (AP) Examinations",
+                  "value": [
+                    "Accepted for placement and credit"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Sophomore Standing",
+                  "value": [
+                    "Available through AP examinations"
+                  ]
+                },
+                "type": "TitleValue"
+              }
+            ],
+            "iconType": null,
+            "link": null,
+            "title": "Advanced Placement"
+          },
+          "type": "ExpandableSection"
+        },
+        {
+          "data": {
+            "children": [
+              {
+                "data": {
+                  "title": "Library Available on Campus",
+                  "value": [
+                    "Yes"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Holdings",
+                  "value": [
+                    "555,276"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Computer Ownership",
+                  "value": [
+                    "Students not required to own/lease a computer"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Computers Available on Campus",
+                  "value": [
+                    "Not Reported"
+                  ]
+                },
+                "type": "TitleValue"
+              }
+            ],
+            "iconType": null,
+            "link": null,
+            "title": "Academic Resources"
+          },
+          "type": "ExpandableSection"
+        },
+        {
+          "data": {
+            "children": [
+              {
+                "data": {
+                  "title": "Remedial Instruction",
+                  "value": [
+                    "Not Offered"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Tutoring",
+                  "value": [
+                    "Not reported"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Services for Learning Disabled Students",
+                  "value": [
+                    "Available"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Services for Physically Disabled Students",
+                  "value": [
+                    "None"
+                  ]
+                },
+                "type": "TitleValue"
+              }
+            ],
+            "iconType": null,
+            "link": null,
+            "title": "Academic Support Services"
+          },
+          "type": "ExpandableSection"
+        },
+        {
+          "data": {
+            "children": [
+              {
+                "data": {
+                  "title": "Master's Degrees Offered",
+                  "value": [
+                    "Master Of Arts In Education, Master Of Business Administration, Master Of Management, Master Of Public Administration, Master Of Science, Master Of Science In Nursing"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "buttonText": "View All Programs (34)",
+                  "data": [
+                    "Accounting",
+                    "Adult Education",
+                    "Business Administration and Management--General",
+                    "Clinical Psychology",
+                    "Counseling Psychology",
+                    "Counselor Education",
+                    "Criminal Justice and Criminology",
+                    "Curriculum and Instruction",
+                    "Early Childhood Education",
+                    "Educational Leadership and Administration",
+                    "Education--General",
+                    "Elementary Education",
+                    "Energy Management and Policy",
+                    "Family Nurse Practitioner Studies",
+                    "Gerontological Nursing",
+                    "Health Services Management and Hospital Administration",
+                    "Homeland Security",
+                    "Human Resources Management",
+                    "International Business",
+                    "Management of Technology",
+                    "Marketing",
+                    "Marriage and Family Therapy",
+                    "Medical Informatics",
+                    "Nursing Education",
+                    "Nursing--General",
+                    "Nursing Informatics",
+                    "Project Management",
+                    "Psychology--General",
+                    "Public Administration",
+                    "Reading Education",
+                    "Secondary Education",
+                    "Social Psychology",
+                    "Special Education",
+                    "Vocational and Technical Education"
+                  ],
+                  "title": "Master's Programs of Study"
+                },
+                "type": "SubscreenNavigator"
+              },
+              {
+                "data": {
+                  "title": "Doctoral Degrees Offered",
+                  "value": [
+                    "Not Reported"
+                  ]
+                },
+                "type": "TitleValue"
+              }
+            ],
+            "iconType": null,
+            "link": null,
+            "title": "Graduate/Professional School Education"
+          },
+          "type": "ExpandableSection"
+        }
+      ],
+      "campusMapUrl": "Not reported",
+      "chance": null,
+      "headerCardContent": [
+        {
+          "data": {
+            "value": "General Information"
+          },
+          "type": "CategoryDivider"
+        },
+        {
+          "data": {
+            "title": "Academic Calendar System",
+            "value": [
+              "Continuous"
+            ]
+          },
+          "type": "TitleValue"
+        },
+        {
+          "data": {
+            "title": "Summer Session",
+            "value": [
+              "Not offered"
+            ]
+          },
+          "type": "TitleValue"
+        }
+      ],
+      "id": 289,
+      "name": "University of Phoenix",
+      "slug": "University-of-Phoenix",
+      "website": "https://www.phoenix.edu/"
+    }
+  }
+}

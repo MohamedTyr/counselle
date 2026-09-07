@@ -1,0 +1,261 @@
+{
+  "__N_SSP": true,
+  "pageProps": {
+    "isStateList": false,
+    "profile": {
+      "avgJanTemp": null,
+      "avgSeptTemp": null,
+      "bodyContent": [
+        {
+          "data": {
+            "children": [
+              {
+                "data": {
+                  "title": "Activities and Organizations",
+                  "value": [
+                    "choral groups, drama theatre, radio station, student newspaper"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Sororities",
+                  "value": [
+                    "Not reported"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Fraternities",
+                  "value": [
+                    "Not reported"
+                  ]
+                },
+                "type": "TitleValue"
+              }
+            ],
+            "iconType": null,
+            "link": null,
+            "title": "Student Activities"
+          },
+          "type": "ExpandableSection"
+        },
+        {
+          "data": {
+            "children": [
+              {
+                "data": {
+                  "title": "Coeducational",
+                  "value": [
+                    "Yes"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "children": [
+                    {
+                      "title": "Women",
+                      "value": [
+                        "951 (21.1%)"
+                      ]
+                    },
+                    {
+                      "title": "Men",
+                      "value": [
+                        "3,556 (78.9%)"
+                      ]
+                    }
+                  ],
+                  "topTitleValue": {
+                    "title": "All Undergraduates",
+                    "value": [
+                      "4,507"
+                    ]
+                  }
+                },
+                "type": "NestedTitleValue"
+              },
+              {
+                "data": {
+                  "title": "Full-Time Undergraduates",
+                  "value": [
+                    "4,507"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "data": [
+                    {
+                      "label": "American Indian/Alaskan Native",
+                      "value": 0.8
+                    },
+                    {
+                      "label": "Asian",
+                      "value": 12.8
+                    },
+                    {
+                      "label": "Black/African-American",
+                      "value": 7.6
+                    },
+                    {
+                      "label": "Hispanic/Latino",
+                      "value": 11.9
+                    },
+                    {
+                      "label": "Multi-race (not Hispanic/Latino)",
+                      "value": 1.1
+                    },
+                    {
+                      "label": "Native Hawaiian/ Pacific Islander",
+                      "value": 0.7
+                    },
+                    {
+                      "label": "White",
+                      "value": 64
+                    },
+                    {
+                      "label": "Unknown",
+                      "value": 1.2
+                    }
+                  ],
+                  "title": "Ethnicity of Students from U.S."
+                },
+                "type": "BarGraph"
+              },
+              {
+                "data": {
+                  "title": "International Students",
+                  "value": [
+                    "1.3% from 27 countries"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "All Graduate Students",
+                  "value": [
+                    "Not reported"
+                  ]
+                },
+                "type": "TitleValue"
+              }
+            ],
+            "iconType": null,
+            "link": null,
+            "title": "Student Body"
+          },
+          "type": "ExpandableSection"
+        },
+        {
+          "data": {
+            "children": [
+              {
+                "data": {
+                  "title": "First-Year Students Returning",
+                  "value": [
+                    "95.0%"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Students Graduating Within 4 Years",
+                  "value": [
+                    "78.5%"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Students Graduating Within 5 Years",
+                  "value": [
+                    "84.5%"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Students Graduating Within 6 Years",
+                  "value": [
+                    "85.2%"
+                  ]
+                },
+                "type": "TitleValue"
+              }
+            ],
+            "iconType": null,
+            "link": null,
+            "title": "Undergraduate Retention & Graduation"
+          },
+          "type": "ExpandableSection"
+        },
+        {
+          "data": {
+            "children": [
+              {
+                "data": {
+                  "title": "Graduates Offered Full-Time Employment Within 6 Months",
+                  "value": [
+                    "100%"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Average Starting Salary",
+                  "value": [
+                    "$65,000"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Graduates Pursuing Advanced Study Directly",
+                  "value": [
+                    "5.1%"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Disciplines Pursued",
+                  "value": [
+                    "Not available"
+                  ]
+                },
+                "type": "TitleValue"
+              }
+            ],
+            "iconType": null,
+            "link": null,
+            "title": "After Graduation"
+          },
+          "type": "ExpandableSection"
+        }
+      ],
+      "city": "West  Point",
+      "cityPopulation": "6,763",
+      "freshmanHousingGuarantee": null,
+      "id": 165,
+      "name": "United States Military Academy",
+      "nearestMetro": "New York City",
+      "rain": null,
+      "slug": "United-States-Military-Academy",
+      "website": "https://www.westpoint.edu/"
+    }
+  }
+}

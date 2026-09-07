@@ -246,8 +246,11 @@ CREATE TABLE IF NOT EXISTS cds_library.school_explore_rows (
     sat_math_p75                  integer,
     sat_ebrw_p25                  integer,
     sat_ebrw_p75                  integer,
-    sat_total_p25                 integer,  -- computed: sat_math_p25 + sat_ebrw_p25
-    sat_total_p75                 integer,  -- computed: sat_math_p75 + sat_ebrw_p75
+    -- NO sat_total_* columns ever (R14): the 25th percentile of a total is
+    -- not the sum of two section 25th percentiles -- see D10/the plan's
+    -- exit test (`tests/app/facts/test_explore_projection.py`). A
+    -- fabricated `sat_math_p25 + sat_ebrw_p25` composite shipped here
+    -- once (Finding 2, 2026-09-07 hardening) and was removed.
     act_composite_p25             integer,
     act_composite_p75             integer,
     act_composite_avg             numeric,

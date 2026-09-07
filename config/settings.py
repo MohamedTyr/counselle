@@ -16,6 +16,7 @@ attributes hold real secrets.
 from __future__ import annotations
 
 import os
+import re
 from functools import lru_cache
 from pathlib import Path
 from typing import Annotated, Any, Literal
@@ -41,6 +42,12 @@ DEFAULT_DB_POOL_MAX = 5
 
 #: A JWT signing secret shorter than this is rejected (pyjwt 2.13 warns below 32).
 _MIN_JWT_SECRET_BYTES = 32
+
+#: The documented, never-real `facts_crawl_user_agent` placeholder (ADR 0037
+#: R0 Finding 1). Shared by both `facts_crawl_user_agent` validators below;
+#: also duplicated (by necessity, see the validators' docstrings) in
+#: `adapters/collegedata/fetch.py`.
+_FACTS_CRAWL_UA_PLACEHOLDER_MARKER = "<domain>"
 
 #: Fields whose values must never appear unmasked in repr/str/logs.
 _SECRET_FIELDS = frozenset(
@@ -280,6 +287,84 @@ class Settings(BaseSettings):
     # count — counselle_db.catalog.Catalog reads this at every load, so it is
     # a real Phase 0 consumer even though the crawler itself ships in Phase 1).
     facts_stale_days: int = Field(default=120, gt=0)
+    # The shared token-bucket rate for adapters/collegedata/fetch.py's
+    # CollegeDataFetcher — one request per (1 / facts_crawl_rps) seconds,
+    # shared across facts_crawl_concurrency schools in flight (plan §4.1/
+    # §4.3; ADR 0037 R0's rate-limit mitigation). 1 req/s, not 2 (Q9).
+    facts_crawl_rps: float = Field(default=1.0, gt=0)
+    # How many schools app/facts/crawl.py (Unit E) is *designed* to run
+    # concurrently against the same shared token bucket above — 1 means
+    # requests are strictly sequential (plan §4.1). NOT YET CONSUMED: the
+    # current app/facts/crawl.py loop always processes schools sequentially
+    # and never reads this field (school-data-v3 fix-review finding #4) —
+    # actual behavior is more conservative than this setting's name implies,
+    # never less. Kept rather than deleted because the plan's crawl-duration
+    # math (plan §4.1: "~4.3h at 1 req/s") and the shared-token-bucket design
+    # both name it as the real Unit E orchestration knob; wire it into
+    # app/facts/crawl.py when concurrent scheduling is actually built,
+    # rather than re-adding the setting from scratch.
+    facts_crawl_concurrency: int = Field(default=1, gt=0)
+    # Per-request httpx timeout, seconds (adapters/collegedata/fetch.py).
+    facts_crawl_request_timeout_s: float = Field(default=20.0, gt=0)
+    # The truthful, self-identifying User-Agent every collegedata.com
+    # request carries (ADR 0037 R0's identification mitigation) — boot-
+    # validated below to contain a contact URL and to not still be the
+    # documented `<domain>` placeholder. Consumed by
+    # adapters/collegedata/fetch.py's FetchConfig, which independently
+    # refuses the placeholder too (so a real crawl can never proceed on it
+    # even if Settings itself boots with the placeholder in `development`).
+    facts_crawl_user_agent: str = Field(
+        default="CounselleBot/1.0 (+https://<domain>/bot)", min_length=1
+    )
+    # How many distinct Next.js buildId rotations adapters/collegedata/
+    # fetch.py's CollegeDataFetcher tolerates in one crawl pass before
+    # raising BuildIdRotationLimitExceeded (plan §4.1) — app/facts/crawl.py
+    # (Unit E) closes the pass as 'aborted' when this is exceeded.
+    facts_crawl_max_build_rotations: int = Field(default=3, gt=0)
+    # Hard ceiling on any single fetched response body from collegedata.com
+    # (after gunzip, if applicable) — adapters/collegedata/fetch.py is the
+    # one module ingesting raw third-party HTTP content (CLAUDE.md: "never
+    # trust external data"), so every fetch path (robots.txt, sitemap XML,
+    # per-tab JSON) enforces this before handing bytes to a parser. Real
+    # traffic is far below this (plan §4.1: the whole ~15,522-request pass
+    # moves ~100 MB combined; no single response is more than a few MB) —
+    # this is a safety floor against a malformed/adversarial response, not a
+    # tuning knob for legitimate traffic.
+    facts_crawl_max_response_bytes: int = Field(default=20_000_000, gt=0)
+    # How often the in-process poller (app/facts/jobs.py, Unit E) sweeps
+    # expired leases / checks for claimable work / runs the daily enqueue
+    # tick when idle — mirrors cds_worker_poll_seconds's shape.
+    facts_worker_poll_seconds: int = Field(default=30, gt=0)
+    # A facts_jobs claim's lease window (claim/renew/sweep, plan §4.2/§4.3) —
+    # ~180s = three renewals at facts_worker_poll_seconds/3, covering worker
+    # liveness, never the pass duration itself.
+    facts_crawl_lease_seconds: int = Field(default=180, gt=0)
+    # How often a new crawl_pass is auto-enqueued (the idempotent daily
+    # enqueue tick, plan §4.2/appendix J-iii) — read only by the SQL
+    # statement in app/facts/jobs.py, never a Python timer.
+    facts_crawl_interval_hours: int = Field(default=24, gt=0)
+    # observed_at_spread's "compared at different times" threshold (days) —
+    # much tighter than facts_stale_days (120): two facts on the same
+    # school observed more than this many days apart get a spread caveat.
+    # Not yet consumed by any Phase 1 module; Phase 2's caveat renderer
+    # reads it (plan §4.3) — declared here so the name exists at boot.
+    facts_spread_days: int = Field(default=30, gt=0)
+    # Consecutive per-page fetch failures before a page is skipped for the
+    # rest of the pass (plan §4.1 "stuck pages") — app/facts/crawl.py.
+    facts_failure_threshold: int = Field(default=3, gt=0)
+    # How many page_snapshots rows adapters/facts_store.py keeps per
+    # (school_id, tab), newest first, pruning the rest in-pass (plan §3.4).
+    facts_snapshot_retention_per_page: int = Field(default=3, gt=0)
+    # crawl_runs.unmapped_label_count above this raises the
+    # facts_crawl_shape_drift error at end-of-pass (plan §4.2).
+    facts_unmapped_alert_threshold: int = Field(default=50, gt=0)
+    # How many recent crawl_runs app/facts/service_admin.py's
+    # FactsStatusResponse.history returns (plan §4.3/§5.5).
+    facts_admin_history_limit: int = Field(default=20, gt=0)
+    # Cap on FactsStatusResponse.unmapped_labels (plan §4.3/§5.5) — also the
+    # size of the bounded, frequency-sorted sample crawl_runs.unmapped_labels
+    # stores at end of pass.
+    facts_admin_unmapped_limit: int = Field(default=200, gt=0)
     # parked (ADR 0036) — read only by the parked adapters/cds_store.py.
     supported_packet_extractor_versions: Annotated[frozenset[str], NoDecode] = frozenset(
         {
@@ -454,7 +539,52 @@ class Settings(BaseSettings):
                 )
             if not self.cookie_secure:
                 raise ValueError("cookie_secure must be true outside development")
+            if _FACTS_CRAWL_UA_PLACEHOLDER_MARKER in self.facts_crawl_user_agent:
+                # Finding 1 (school-data-v3 fix review): the documented
+                # `<domain>` placeholder resolves to nothing — an operator
+                # who deploys without setting COUNSELLE_FACTS_CRAWL_USER_AGENT
+                # would otherwise boot clean and silently defeat ADR 0037
+                # R0's identification mitigation the moment a crawl runs.
+                # Deliberately placed here (a model validator gated on
+                # `environment`), not in `_facts_crawl_user_agent_has_contact_url`
+                # above: see that validator's docstring for why a stricter
+                # per-field check would instead fail every Settings() call,
+                # in every environment, including routine local dev and the
+                # test suite.
+                raise ValueError(
+                    "facts_crawl_user_agent is still the documented '<domain>' "
+                    "placeholder — set COUNSELLE_FACTS_CRAWL_USER_AGENT to your "
+                    "own real, reachable contact URL before deploying outside "
+                    "development (ADR 0037 R0)"
+                )
         return self
+
+    @field_validator("facts_crawl_user_agent")
+    @classmethod
+    def _facts_crawl_user_agent_has_contact_url(cls, value: str) -> str:
+        # ADR 0037 R0's identification mitigation: the fetcher must always
+        # be truthfully self-identifying with a reachable contact URL.
+        # Shared logic lives in adapters.collegedata.fetch (this module
+        # cannot import adapters/ without inverting ADR 0017's layering, so
+        # the one-line rule is duplicated there rather than imported here).
+        #
+        # This deliberately does NOT also reject the documented `<domain>`
+        # placeholder the way `adapters.collegedata.fetch.FetchConfig`'s
+        # equivalent validator does: unlike a plain `BaseModel`,
+        # `pydantic-settings` runs field validators against a field's own
+        # *default* value too (verified — not the plain-Pydantic behavior
+        # most validators assume), so a stricter check here would fail
+        # every Settings() construction, in every environment, the moment
+        # nobody overrides this one field — breaking local dev and most of
+        # the test suite. `_validate_deploy_auth_posture` below carries the
+        # placeholder-specific check instead, gated to fire only outside
+        # `development`, exactly like the cookie_secure/password_reset
+        # checks it already makes.
+        if not re.search(r"https?://\S+", value):
+            raise ValueError(
+                "facts_crawl_user_agent must contain a contact URL (http:// or https://)"
+            )
+        return value
 
     @field_validator("jwt_secret")
     @classmethod
@@ -598,3 +728,10 @@ def reset_config_caches() -> None:
     get_asset_settings.cache_clear()
     load_prompt.cache_clear()
     load_yaml_asset.cache_clear()
+    # Deferred import: `app/facts/crosswalk.py`'s CSV loader is the one
+    # non-`config/assets/` file cache this function also owns (plan §2/§4.6)
+    # — imported here, not at module load, so `config/` (read by every
+    # layer) never has a static import of `app/` (ADR 0017 layering).
+    from app.facts.crosswalk import load_crosswalk
+
+    load_crosswalk.cache_clear()

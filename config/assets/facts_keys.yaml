@@ -1,0 +1,280 @@
+# facts_keys.yaml — label -> fact_key routing for app/facts/mapper.py (plan §4.4).
+#
+# Rules are matched in file order; the first rule whose (tab, expandable_section,
+# divider, node_type, match) all agree with a leaf wins. `expandable_section`/
+# `divider` are wildcards when the key is omitted entirely (matches any value,
+# including None) — they are never used to express "must be null" on purpose
+# here (every rule that cares about a specific divider names it).
+#
+# `handler: drop` recognizes a label deliberately (a documented duplicate, a
+# structural field with its own bespoke handling in mapper.py, or a field the
+# plan excludes outright) without counting it as unmapped and without storing
+# a fact. Everything else that matches no rule at all becomes `unmapped:
+# <source_path>` (mapper.py's own fallback — not expressed here).
+#
+# See the Unit D report for the handful of one-owning-tab / dedupe decisions
+# this file encodes that the plan's appendix did not call out (fullTimeFaculty/
+# partTimeFaculty on admission's header duplicate academics' own body rows;
+# the admission body's "Regular Admission Deadline" duplicates the header
+# pair used to build deadlines.regular).
+version: 1
+rules:
+  # ===========================================================================
+  # overview — header only (body is a verbatim subset of the five topic tabs;
+  # skipped entirely by mapper.py, never even walked).
+  # ===========================================================================
+  - {tab: overview, node_type: header, match: description, handler: drop}
+  - {tab: overview, node_type: header, match: alternativeName, handler: drop}
+  - {tab: overview, node_type: header, match: universityType, handler: scalar, kind: enum, fact_key: identity.control_reported, section: campus-life}
+  - {tab: overview, node_type: header, match: populationType, handler: scalar, kind: enum, fact_key: identity.gender_model_reported, section: campus-life}
+  # undergradPopulation/gradPopulation/male|femalePercentage are dropped, not
+  # mapped: verified live (Unit D report) to be exact duplicates of the
+  # `students` tab's own richer "All Undergraduates" NestedTitleValue
+  # (students.undergraduate_total/_men_count/_men_pct/...) and "All Graduate
+  # Students" TitleValue (students.graduate_total) — one-owning-tab, students
+  # tab wins because it also carries the gender breakdown overview lacks.
+  - {tab: overview, node_type: header, match: undergradPopulation, handler: drop}
+  - {tab: overview, node_type: header, match: gradPopulation, handler: drop}
+  - {tab: overview, node_type: header, match: malePercentage, handler: drop}
+  - {tab: overview, node_type: header, match: femalePercentage, handler: drop}
+  - {tab: overview, node_type: header, match: address, handler: address_header, fact_key: identity.address, section: campus-life}
+  - {tab: overview, node_type: header, match: admissionsPhone, handler: scalar, kind: text, fact_key: applying.admissions_phone, section: applying}
+  - {tab: overview, node_type: header, match: admissionsFax, handler: scalar, kind: text, fact_key: applying.admissions_fax, section: applying}
+  - {tab: overview, node_type: header, match: admissionsEmail, handler: scalar, kind: text, fact_key: applying.admissions_email, section: applying}
+  # website is structural (never walked by parse.py) — mapper.py reads
+  # `raw_profile["website"]` directly on this tab; no rule needed here.
+
+  # ===========================================================================
+  # admission
+  # ===========================================================================
+  - {tab: admission, node_type: header, match: address, handler: drop}   # one-owning-tab: overview's copy dropped instead — see below, admission wins
+  - {tab: admission, node_type: header, match: phone, handler: drop}     # duplicate of overview's admissionsPhone (appendix E-ii §H)
+  - {tab: admission, node_type: header, match: fullTimeFaculty, handler: drop}   # duplicate of academics' own body row (discovered live; academics wins)
+  - {tab: admission, node_type: header, match: partTimeFaculty, handler: drop}
+  - {tab: admission, node_type: header, match: admissionDeadline, handler: drop}       # consumed by mapper.py's own deadlines.regular header-pair logic
+  - {tab: admission, node_type: header, match: admissionDeadlineDate, handler: drop}
+
+  - {tab: admission, expandable_section: "Applying For Admission", divider: "Admissions Office", node_type: TitleValue, match: Address, handler: address_body, fact_key: applying.admissions_address, section: applying}
+  - {tab: admission, expandable_section: "Applying For Admission", divider: "Admissions Office", node_type: TitleValue, match: Phone, handler: scalar, kind: text, fact_key: applying.admissions_phone_direct, section: applying}
+  - {tab: admission, expandable_section: "Applying For Admission", divider: "Admissions Office", node_type: TitleValue, match: Fax, handler: scalar, kind: text, fact_key: applying.admissions_fax_direct, section: applying}
+
+  - {tab: admission, expandable_section: "Applying For Admission", divider: "Application Dates & Fees", node_type: TitleValue, match: "Regular Admission Deadline", handler: drop}  # deadlines.regular comes from the header pair instead
+  - {tab: admission, expandable_section: "Applying For Admission", divider: "Application Dates & Fees", node_type: TitleValue, match: "Application Fee", handler: scalar, kind: money, fact_key: applying.application_fee, section: applying}
+  - {tab: admission, expandable_section: "Applying For Admission", divider: "Application Dates & Fees", node_type: TitleValue, match: "Application Fee Waiver", handler: scalar, kind: enum, fact_key: applying.application_fee_waiver, section: applying}
+  - {tab: admission, expandable_section: "Applying For Admission", divider: "Application Dates & Fees", node_type: TitleValue, match: "Regular Admission Notification", handler: scalar, kind: text, fact_key: deadlines.regular_notification, section: applying}
+  - {tab: admission, expandable_section: "Applying For Admission", divider: "Application Dates & Fees", node_type: TitleValue, match: "Accept Offer of Admission", handler: text_fallback_date, fact_key: deadlines.reply_by, section: applying}
+  - {tab: admission, expandable_section: "Applying For Admission", divider: "Application Dates & Fees", node_type: TitleValue, match: "Waiting List Used", handler: scalar, kind: bool, fact_key: admissions.waitlist_used, section: getting-in}
+  - {tab: admission, expandable_section: "Applying For Admission", divider: "Application Dates & Fees", node_type: TitleValue, match: "Defer Admission", handler: scalar, kind: text, fact_key: applying.deferred_enrollment, section: applying}
+  - {tab: admission, expandable_section: "Applying For Admission", divider: "Application Dates & Fees", node_type: TitleValue, match: "Transfer Admission", handler: scalar, kind: text, fact_key: applying.transfer_accepted, section: applying}
+
+  - {tab: admission, expandable_section: "Applying For Admission", divider: "Application Form", node_type: TitleValue, match: "Common Application", handler: scalar, kind: enum, fact_key: applying.accepts_common_app, section: applying}
+  - {tab: admission, expandable_section: "Applying For Admission", divider: "Application Form", node_type: TitleLink, match: "Electronic Application", handler: title_link_url, fact_key: applying.electronic_application_url, section: applying}
+
+  - {tab: admission, expandable_section: "Applying For Admission", divider: "Early Admission", node_type: TitleValue, match: "Early Decision Offered", handler: scalar, kind: bool, fact_key: admissions.early_decision_offered, section: applying}
+  - {tab: admission, expandable_section: "Applying For Admission", divider: "Early Admission", node_type: TitleValue, match: "Early Action Offered", handler: scalar, kind: bool, fact_key: admissions.early_action_offered, section: applying}
+  - {tab: admission, expandable_section: "Applying For Admission", divider: "Early Admission", node_type: TitleValue, match: "Early Decision Deadline", handler: text_fallback_date, fact_key: deadlines.early_decision, section: applying}
+  - {tab: admission, expandable_section: "Applying For Admission", divider: "Early Admission", node_type: TitleValue, match: "Early Action Deadline", handler: text_fallback_date, fact_key: deadlines.early_action, section: applying}
+  - {tab: admission, expandable_section: "Applying For Admission", divider: "Early Admission", node_type: TitleValue, match: "Early Action Notification", handler: scalar, kind: text, fact_key: deadlines.early_action_notification, section: applying}
+
+  - {tab: admission, expandable_section: "Applying For Admission", divider: "Other Application Requirements", node_type: TitleValue, match: Interview, handler: scalar, kind: enum, fact_key: admissions.interview_requirement, section: getting-in}
+  - {tab: admission, expandable_section: "Applying For Admission", divider: "Other Application Requirements", node_type: TitleValue, match: "Financial Need", handler: scalar, kind: text, fact_key: admissions.need_blind, section: getting-in}
+  - {tab: admission, expandable_section: "Applying For Admission", divider: "Other Application Requirements", node_type: TitleValue, match: "Essay or Personal Statement", handler: scalar, kind: enum, fact_key: admissions.essay_requirement, section: getting-in}
+  - {tab: admission, expandable_section: "Applying For Admission", divider: "Other Application Requirements", node_type: TitleValue, match: "Letters of Recommendation", handler: scalar, kind: enum, fact_key: admissions.recommendations_requirement, section: getting-in}
+  - {tab: admission, expandable_section: "Applying For Admission", divider: "Other Application Requirements", node_type: TitleValue, match: Other, handler: scalar, kind: text, fact_key: admissions.other_requirement, section: getting-in}
+
+  - {tab: admission, expandable_section: "Freshman Admission Reqs", divider: "High School Preparation", node_type: TitleValue, match: "High School Graduation", handler: scalar, kind: enum, fact_key: admissions.hs_graduation_requirement, section: getting-in}
+  - {tab: admission, expandable_section: "Freshman Admission Reqs", divider: "High School Preparation", node_type: TitleValue, match: "High School Program", handler: scalar, kind: enum, fact_key: admissions.hs_program_requirement, section: getting-in}
+  - {tab: admission, expandable_section: "Freshman Admission Reqs", node_type: LabeledTable, handler: hs_requirements_table, section: getting-in, key_prefixes: [admissions.units_required_, admissions.units_recommended_, admissions.test_policy_, deadlines.test_due_]}   # dispatches on columns; divider varies across schools (unit report #8)
+
+  - {tab: admission, expandable_section: "Profile of Fall Admission", divider: "Grade Point Average of Enrolled Freshmen (4.0 Scale)", node_type: BarGraph, handler: bar_graph_distribution, fact_key: class_profile.gpa, scale: gpa, unit: percent, section: getting-in}
+
+  - {tab: admission, expandable_section: "Profile of Fall Admission", node_type: NestedTitleValue, match: "Overall Admission Rate", handler: admission_rate_group, section: getting-in, produces: [admissions.admit_rate, admissions.applicants_total]}
+  - {tab: admission, expandable_section: "Profile of Fall Admission", node_type: NestedTitleValue, match: "Students Enrolled", handler: enrolled_group, section: getting-in, produces: [admissions.enrolled_total, admissions.yield_rate, admissions.admitted_total]}
+  - {tab: admission, expandable_section: "Profile of Fall Admission", node_type: TitleValue, match: "Students Offered Wait List", handler: scalar, kind: count, fact_key: admissions.waitlist_offered, section: getting-in}
+  - {tab: admission, expandable_section: "Profile of Fall Admission", node_type: TitleValue, match: "Students Accepting Wait List Position", handler: scalar, kind: count, fact_key: admissions.waitlist_accepted, section: getting-in}
+  - {tab: admission, expandable_section: "Profile of Fall Admission", node_type: TitleValue, match: "Students Admitted From Wait List", handler: scalar, kind: count, fact_key: admissions.waitlist_admitted, section: getting-in}
+
+  - {tab: admission, expandable_section: "Profile of Fall Admission", divider: "ACT Scores of Enrolled Freshmen", node_type: BarGraph, match: "^ACT Math:.*$", handler: bar_graph_distribution, fact_key: class_profile.act_math, scale: act_math, unit: percent, section: getting-in}
+  - {tab: admission, expandable_section: "Profile of Fall Admission", divider: "ACT Scores of Enrolled Freshmen", node_type: BarGraph, match: "^ACT Eng:.*$", handler: bar_graph_distribution, fact_key: class_profile.act_english, scale: act_english, unit: percent, section: getting-in}
+  - {tab: admission, expandable_section: "Profile of Fall Admission", divider: "ACT Scores of Enrolled Freshmen", node_type: BarGraph, handler: bar_graph_distribution, fact_key: class_profile.act_composite, scale: act_composite, unit: percent, section: getting-in}
+
+  - {tab: admission, expandable_section: "Profile of Fall Admission", divider: "SAT Scores of Enrolled Freshmen", node_type: BarGraph, match: "^SAT Math:.*$", handler: bar_graph_distribution, fact_key: class_profile.sat_math, scale: sat_math, unit: percent, section: getting-in}
+  - {tab: admission, expandable_section: "Profile of Fall Admission", divider: "SAT Scores of Enrolled Freshmen", node_type: BarGraph, match: "^SAT EBRW:.*$", handler: bar_graph_distribution, fact_key: class_profile.sat_ebrw, scale: sat_ebrw, unit: percent, section: getting-in}
+
+  - {tab: admission, expandable_section: "Profile of Fall Admission", divider: "Other Qualifications of Enrolled Freshmen", node_type: TitleValue, match: "High School Class Rank", handler: labelled_pairs, fact_key: class_profile.class_rank, section: getting-in}
+  - {tab: admission, expandable_section: "Profile of Fall Admission", divider: "Other Qualifications of Enrolled Freshmen", node_type: TitleValue, match: "National Merit Scholar", handler: scalar, kind: count, fact_key: class_profile.national_merit_count, section: getting-in}
+  - {tab: admission, expandable_section: "Profile of Fall Admission", divider: "Other Qualifications of Enrolled Freshmen", node_type: TitleValue, match: Valedictorian, handler: scalar, kind: count, fact_key: class_profile.valedictorian_count, section: getting-in}
+  - {tab: admission, expandable_section: "Profile of Fall Admission", divider: "Other Qualifications of Enrolled Freshmen", node_type: TitleValue, match: "Class President", handler: scalar, kind: count, fact_key: class_profile.class_president_count, section: getting-in}
+  - {tab: admission, expandable_section: "Profile of Fall Admission", divider: "Other Qualifications of Enrolled Freshmen", node_type: TitleValue, match: "Student Government Officer", handler: scalar, kind: count, fact_key: class_profile.student_government_count, section: getting-in}
+
+  - {tab: admission, expandable_section: "Selection of Students", node_type: LabeledTable, handler: ordinal_table, key_prefix: "admissions.selection_factor_", section: getting-in}
+
+  # ===========================================================================
+  # money-matters
+  # ===========================================================================
+  - {tab: money-matters, node_type: header, match: roomBoardCost, handler: scalar, kind: money, fact_key: costs.room_and_board, section: money}
+  - {tab: money-matters, node_type: header, match: suppliesCost, handler: scalar, kind: money, fact_key: costs.books_and_supplies, section: money}
+  - {tab: money-matters, node_type: header, match: otherExpensesCost, handler: scalar, kind: money, fact_key: costs.other_expenses, section: money}
+  - {tab: money-matters, node_type: header, match: attendanceCost, handler: paired_header, fact_key: costs.attendance, section: money}
+  - {tab: money-matters, node_type: header, match: tuitionFeesCost, handler: paired_header, fact_key: costs.tuition_fees, section: money}
+
+  - {tab: money-matters, expandable_section: "Applying For Financial Aid", node_type: TitleLink, match: Website, handler: title_link_url, fact_key: money.financial_aid_url, section: money}
+  - {tab: money-matters, expandable_section: "Applying For Financial Aid", node_type: TitleLink, match: "Net Price Calculator", handler: title_link_url, fact_key: money.net_price_calculator_url, section: money}
+  - {tab: money-matters, expandable_section: "Applying For Financial Aid", node_type: TitleLink, match: Email, handler: title_link_text, fact_key: money.financial_aid_email, section: money}
+
+  - {tab: money-matters, expandable_section: "Applying For Financial Aid", divider: "Application Process", node_type: TitleValue, match: "Application Deadline", handler: text_fallback_date, fact_key: deadlines.financial_aid, section: applying}
+  - {tab: money-matters, expandable_section: "Applying For Financial Aid", divider: "Application Process", node_type: TitleValue, match: "Award Notification", handler: scalar, kind: text, fact_key: deadlines.aid_award_notification, section: money}
+  - {tab: money-matters, expandable_section: "Applying For Financial Aid", divider: "Application Process", node_type: TitleValue, match: "High School Program", handler: drop}   # dedupe: same key as admission's own row (appendix ii §3)
+  - {tab: money-matters, expandable_section: "Applying For Financial Aid", divider: "Application Process", node_type: TitleValue, match: "Methodology For Awarding Institutional Aid", handler: scalar, kind: enum, fact_key: aid.need_analysis_methodology, section: money}
+  - {tab: money-matters, expandable_section: "Applying For Financial Aid", divider: "Application Process", node_type: LabeledTable, handler: forms_required_table, section: money, produces: [money.fafsa_code, money.css_profile_fee]}
+
+  - {tab: money-matters, expandable_section: "Financial Aid Programs", divider: Employment, node_type: TitleValue, match: "Work-Study Programs", handler: scalar, kind: enum, fact_key: aid.work_study_programs, section: money}
+  - {tab: money-matters, expandable_section: "Financial Aid Programs", divider: Employment, node_type: TitleValue, match: "Average Earnings from On-Campus Employment", handler: scalar, kind: money, fact_key: aid.on_campus_employment_avg, section: money}
+  - {tab: money-matters, expandable_section: "Financial Aid Programs", divider: Loans, node_type: TitleValue, match: "Federal Loans", handler: list_value, fact_key: aid.federal_loan_programs, section: money}
+  - {tab: money-matters, expandable_section: "Financial Aid Programs", divider: Loans, node_type: TitleValue, match: "Other Loans", handler: list_value, fact_key: aid.other_loan_programs, section: money}
+  - {tab: money-matters, expandable_section: "Financial Aid Programs", divider: Loans, node_type: TitleValue, match: "State Loans", handler: list_value, fact_key: aid.state_loan_programs, section: money}
+  - {tab: money-matters, expandable_section: "Financial Aid Programs", divider: "Scholarships and Grants", node_type: TitleValue, match: "Need-Based Available", handler: list_value, fact_key: aid.need_based_programs, section: money}
+  - {tab: money-matters, expandable_section: "Financial Aid Programs", divider: "Scholarships and Grants", node_type: TitleValue, match: "Non-Need-Based Available", handler: list_value, fact_key: aid.non_need_programs, section: money}
+
+  - {tab: money-matters, expandable_section: "Financial Aid Programs", divider: "Non-Need Awards", node_type: NestedTitleValue, match: "Academic Interest/Achievement Award Areas", handler: nested_list_count, area: academic, section: money, produces: [aid.non_need_academic_areas, aid.non_need_academic_count]}
+  - {tab: money-matters, expandable_section: "Financial Aid Programs", divider: "Non-Need Awards", node_type: NestedTitleValue, match: "Creative Arts/Performance Award Areas", handler: nested_list_count, area: creative_arts, section: money, produces: [aid.non_need_creative_arts_areas, aid.non_need_creative_arts_count]}
+  - {tab: money-matters, expandable_section: "Financial Aid Programs", divider: "Non-Need Awards", node_type: NestedTitleValue, match: "Special Achievements/Activities Award Areas", handler: nested_list_count, area: special_achievements, section: money, produces: [aid.non_need_special_achievements_areas, aid.non_need_special_achievements_count]}
+  - {tab: money-matters, expandable_section: "Financial Aid Programs", divider: "Non-Need Awards", node_type: NestedTitleValue, match: "Special Characteristics Award Areas", handler: nested_list_count, area: special_characteristics, section: money, produces: [aid.non_need_special_characteristics_areas, aid.non_need_special_characteristics_count]}
+
+  # "Profile of <...> Financial Aid" — divider Freshman / All Undergraduates
+  # sets the population dimension explicitly (never a regex capture: it's the
+  # node's own CategoryDivider, unit report #5).
+  - {tab: money-matters, divider: "All Undergraduates", node_type: TitleValue, match: "Financial Aid Applicants", handler: scalar, kind: text, fact_key: aid.applicants_all_undergraduates, section: money}
+  - {tab: money-matters, divider: "All Undergraduates", node_type: TitleValue, match: "Found to Have Financial Need", handler: scalar, kind: text, fact_key: aid.need_found_all_undergraduates, section: money}
+  - {tab: money-matters, divider: "All Undergraduates", node_type: TitleValue, match: "Received Financial Aid", handler: scalar, kind: text, fact_key: aid.received_all_undergraduates, section: money}
+  - {tab: money-matters, divider: "All Undergraduates", node_type: TitleValue, match: "Need Fully Met", handler: scalar, kind: text, fact_key: aid.need_fully_met_all_undergraduates, section: money}
+  - {tab: money-matters, divider: "All Undergraduates", node_type: TitleValue, match: "Average Percent of Need Met", handler: scalar, kind: percent, fact_key: aid.avg_percent_need_met_all_undergraduates, section: money}
+  - {tab: money-matters, divider: "All Undergraduates", node_type: TitleValue, match: "Merit-Based Gift", handler: merit_based_gift, population: all_undergraduates, section: money, produces: [aid.merit_to_need_recipients_all_undergraduates, aid.merit_to_need_recipients_pct_all_undergraduates, aid.merit_no_need_recipients_all_undergraduates, aid.merit_no_need_recipients_pct_all_undergraduates, aid.merit_no_need_avg_all_undergraduates]}
+  - {tab: money-matters, divider: "All Undergraduates", node_type: TitleValue, match: "^\\d{4} Graduates Who Took Out Loans$", handler: scalar, kind: percent, fact_key: outcomes.graduates_with_loans_pct, section: outcomes}
+  - {tab: money-matters, divider: "All Undergraduates", node_type: NestedTitleValue, match: "Average Award", handler: nested_award, population: all_undergraduates, section: money, produces: [aid.avg_award_all_undergraduates, aid.need_gift_recipients_all_undergraduates, aid.need_gift_recipients_pct_all_undergraduates, aid.need_gift_avg_all_undergraduates, aid.need_selfhelp_recipients_all_undergraduates, aid.need_selfhelp_recipients_pct_all_undergraduates, aid.need_selfhelp_avg_all_undergraduates]}
+  - {tab: money-matters, divider: "All Undergraduates", node_type: NestedTitleValue, match: "^Average Indebtedness of \\d{4} Graduates$", handler: scalar, kind: money, fact_key: outcomes.average_indebtedness, section: outcomes}
+
+  - {tab: money-matters, divider: Freshman, node_type: TitleValue, match: "Financial Aid Applicants", handler: scalar, kind: text, fact_key: aid.applicants_freshman, section: money}
+  - {tab: money-matters, divider: Freshman, node_type: TitleValue, match: "Found to Have Financial Need", handler: scalar, kind: text, fact_key: aid.need_found_freshman, section: money}
+  - {tab: money-matters, divider: Freshman, node_type: TitleValue, match: "Received Financial Aid", handler: scalar, kind: text, fact_key: aid.received_freshman, section: money}
+  - {tab: money-matters, divider: Freshman, node_type: TitleValue, match: "Need Fully Met", handler: scalar, kind: text, fact_key: aid.need_fully_met_freshman, section: money}
+  - {tab: money-matters, divider: Freshman, node_type: TitleValue, match: "Average Percent of Need Met", handler: scalar, kind: percent, fact_key: aid.avg_percent_need_met_freshman, section: money}
+  - {tab: money-matters, divider: Freshman, node_type: TitleValue, match: "Merit-Based Gift", handler: merit_based_gift, population: freshman, section: money, produces: [aid.merit_to_need_recipients_freshman, aid.merit_to_need_recipients_pct_freshman, aid.merit_no_need_recipients_freshman, aid.merit_no_need_recipients_pct_freshman, aid.merit_no_need_avg_freshman]}
+  - {tab: money-matters, divider: Freshman, node_type: NestedTitleValue, match: "Average Award", handler: nested_award, population: freshman, section: money, produces: [aid.avg_award_freshman, aid.need_gift_recipients_freshman, aid.need_gift_recipients_pct_freshman, aid.need_gift_avg_freshman, aid.need_selfhelp_recipients_freshman, aid.need_selfhelp_recipients_pct_freshman, aid.need_selfhelp_avg_freshman]}
+
+  # ===========================================================================
+  # academics
+  # ===========================================================================
+  - {tab: academics, node_type: header, match: campusMapUrl, handler: drop}   # one-owning-tab: campus-life wins
+
+  - {tab: academics, divider: "General Information", node_type: TitleValue, match: "Academic Calendar System", handler: scalar, kind: enum, fact_key: academics.calendar, section: academics}
+  - {tab: academics, divider: "General Information", node_type: TitleValue, match: "Summer Session", handler: scalar, kind: enum, fact_key: academics.summer_session, section: academics}
+
+  - {tab: academics, expandable_section: "Academic Resources", node_type: TitleValue, match: "Library Available on Campus", handler: scalar, kind: bool, fact_key: academics.library_on_campus, section: academics}
+  - {tab: academics, expandable_section: "Academic Resources", node_type: TitleValue, match: "Computer Ownership", handler: scalar, kind: enum, fact_key: academics.computer_ownership, section: academics}
+  - {tab: academics, expandable_section: "Academic Resources", node_type: TitleValue, match: "Computers Available on Campus", handler: scalar, kind: enum, fact_key: academics.computers_available, section: academics}
+  - {tab: academics, expandable_section: "Academic Resources", node_type: TitleValue, match: Holdings, handler: scalar, kind: count, fact_key: academics.library_holdings, section: academics}
+
+  - {tab: academics, expandable_section: "Academic Support Services", node_type: TitleValue, match: Tutoring, handler: scalar, kind: enum, fact_key: academics.support_tutoring, section: academics}
+  - {tab: academics, expandable_section: "Academic Support Services", node_type: TitleValue, match: "Services for Learning Disabled Students", handler: scalar, kind: text, fact_key: academics.support_learning_disabled, section: academics}
+  - {tab: academics, expandable_section: "Academic Support Services", node_type: TitleValue, match: "Services for Physically Disabled Students", handler: scalar, kind: text, fact_key: academics.support_physically_disabled, section: academics}
+  - {tab: academics, expandable_section: "Academic Support Services", node_type: TitleValue, match: "Remedial Instruction", handler: scalar, kind: enum, fact_key: academics.support_remedial_instruction, section: academics}
+
+  - {tab: academics, expandable_section: "Advanced Placement", node_type: TitleValue, match: "International Baccalaureate", handler: scalar, kind: enum, fact_key: academics.ib_policy, section: academics}
+  - {tab: academics, expandable_section: "Advanced Placement", node_type: TitleValue, match: "Sophomore Standing", handler: scalar, kind: enum, fact_key: academics.sophomore_standing, section: academics}
+  - {tab: academics, expandable_section: "Advanced Placement", node_type: TitleValue, match: "Advanced Placement \\(AP\\) Examinations", handler: scalar, kind: enum, fact_key: academics.ap_policy, section: academics}
+
+  - {tab: academics, expandable_section: "Curriculum and Graduation Requirements", node_type: TitleValue, match: "General Education/Core Curriculum", handler: scalar, kind: enum, fact_key: academics.required_coursework_general_education, section: academics}
+  - {tab: academics, expandable_section: "Curriculum and Graduation Requirements", node_type: TitleValue, match: Computer, handler: scalar, kind: enum, fact_key: academics.required_coursework_computer, section: academics}
+  - {tab: academics, expandable_section: "Curriculum and Graduation Requirements", node_type: TitleValue, match: "Foreign Language", handler: scalar, kind: enum, fact_key: academics.required_coursework_foreign_language, section: academics}
+  - {tab: academics, expandable_section: "Curriculum and Graduation Requirements", node_type: TitleValue, match: "Math/Science", handler: scalar, kind: enum, fact_key: academics.required_coursework_math_science, section: academics}
+
+  - {tab: academics, expandable_section: "Faculty and Instruction", node_type: TitleValue, match: "Full-Time Faculty", handler: scalar, kind: count, fact_key: faculty.full_time_count, section: academics}
+  - {tab: academics, expandable_section: "Faculty and Instruction", node_type: TitleValue, match: "Part-Time Faculty", handler: scalar, kind: count, fact_key: faculty.part_time_count, section: academics}
+  - {tab: academics, expandable_section: "Faculty and Instruction", node_type: TitleValue, match: "Full-Time Faculty with Ph.D./Terminal Degree", handler: scalar, kind: percent, fact_key: faculty.terminal_degree_pct, section: academics}
+  - {tab: academics, expandable_section: "Faculty and Instruction", node_type: TitleValue, match: "Regular Class Size", handler: scalar, kind: text, fact_key: class_size.regular_distribution, section: academics}
+  - {tab: academics, expandable_section: "Faculty and Instruction", node_type: TitleValue, match: "Discussion Section/Lab Class Size", handler: scalar, kind: text, fact_key: class_size.subsection_distribution, section: academics}
+  - {tab: academics, expandable_section: "Faculty and Instruction", node_type: BarGraph, match: "Regular Class Size", handler: bar_graph_distribution, fact_key: class_size.regular, scale: class_size, unit: percent, section: academics}
+  - {tab: academics, expandable_section: "Faculty and Instruction", node_type: BarGraph, match: "Discussion Section/Lab Class Size", handler: bar_graph_distribution, fact_key: class_size.subsection, scale: class_size, unit: percent, section: academics}
+
+  - {tab: academics, expandable_section: "Graduate/Professional School Education", node_type: TitleValue, match: "Master's Degrees Offered", handler: scalar, kind: text, fact_key: academics.masters_degrees, section: academics}
+  - {tab: academics, expandable_section: "Graduate/Professional School Education", node_type: TitleValue, match: "Doctoral Degrees Offered", handler: scalar, kind: text, fact_key: academics.doctoral_degrees, section: academics}
+  - {tab: academics, expandable_section: "Graduate/Professional School Education", node_type: SubscreenNavigator, match: "Master's Programs of Study", handler: subscreen_list, fact_key: academics.masters_programs, section: academics}
+  - {tab: academics, expandable_section: "Graduate/Professional School Education", node_type: SubscreenNavigator, match: "Doctoral Programs of Study", handler: subscreen_list, fact_key: academics.doctoral_programs, section: academics}
+
+  - {tab: academics, expandable_section: "Undergraduate Education", node_type: SubscreenNavigator, match: "Undergraduate Majors", handler: subscreen_list, fact_key: academics.undergraduate_majors, section: academics}
+  - {tab: academics, expandable_section: "Undergraduate Education", node_type: TitleValue, match: "Most Popular Disciplines", handler: list_value, fact_key: academics.popular_disciplines, section: academics}
+  - {tab: academics, expandable_section: "Undergraduate Education", node_type: TitleValue, match: "Combined Liberal Arts/Professional Degree Programs", handler: scalar, kind: enum, fact_key: academics.combined_degree_programs, section: academics}
+  - {tab: academics, expandable_section: "Undergraduate Education", node_type: TitleValue, match: "Special Programs", handler: list_value, fact_key: academics.special_programs, section: academics}
+  - {tab: academics, expandable_section: "Undergraduate Education", node_type: TitleValue, match: "Study Abroad", handler: scalar, kind: enum, fact_key: academics.study_abroad, section: academics}
+  - {tab: academics, expandable_section: "Undergraduate Education", node_type: TitleValue, match: "Online Degrees", handler: scalar, kind: enum, fact_key: academics.online_degrees, section: academics}
+
+  # ===========================================================================
+  # campus-life
+  # ===========================================================================
+  - {tab: campus-life, node_type: header, match: campusMapUrl, handler: scalar, kind: url, fact_key: campus.campus_map_url, section: campus-life}
+  - {tab: campus-life, node_type: header, match: city, handler: drop}   # duplicate of address.city (appendix E-ii §H)
+  - {tab: campus-life, node_type: header, match: cityPopulation, handler: scalar, kind: count, fact_key: campus.city_population, section: campus-life}
+  - {tab: campus-life, node_type: header, match: nearestMetro, handler: scalar, kind: text, fact_key: campus.nearest_metro, section: campus-life}
+
+  - {tab: campus-life, expandable_section: "Housing", node_type: TitleValue, match: "College Housing", handler: scalar, kind: enum, fact_key: campus.housing_offered, section: campus-life}
+  - {tab: campus-life, expandable_section: "Housing", node_type: TitleValue, match: "Types of Housing", handler: list_value, fact_key: campus.housing_types, section: campus-life}
+  - {tab: campus-life, expandable_section: "Housing", node_type: TitleValue, match: "Students in College Housing", handler: leading_percent, fact_key: campus.students_in_housing_pct, section: campus-life}
+  - {tab: campus-life, expandable_section: "Housing", node_type: TitleValue, match: "Students Living Off Campus/Commuting", handler: scalar, kind: percent, fact_key: campus.students_off_campus_pct, section: campus-life}
+  - {tab: campus-life, expandable_section: "Housing", node_type: TitleValue, match: "Off-Campus Housing Assistance", handler: scalar, kind: enum, fact_key: campus.off_campus_housing_assistance, section: campus-life}
+  - {tab: campus-life, expandable_section: "Housing", node_type: TitleValue, match: "Freshman Housing Guarantee", handler: scalar, kind: enum, fact_key: campus.freshman_housing_guarantee, section: campus-life}
+  - {tab: campus-life, expandable_section: "Housing", node_type: TitleValue, match: "Housing Requirements", handler: scalar, kind: enum, fact_key: campus.housing_requirement, section: campus-life}
+
+  - {tab: campus-life, expandable_section: "Location and Setting", node_type: TitleValue, match: ".+ Population$", handler: scalar, kind: count, fact_key: campus.city_population_body, section: campus-life}
+  - {tab: campus-life, expandable_section: "Location and Setting", node_type: TitleValue, match: "Nearest Metropolitan Area", handler: scalar, kind: text, fact_key: campus.nearest_metro_body, section: campus-life}
+  - {tab: campus-life, expandable_section: "Location and Setting", node_type: TitleValue, match: "Campus Size", handler: scalar, kind: count, fact_key: campus.campus_acres, section: campus-life}
+  - {tab: campus-life, expandable_section: "Location and Setting", divider: "Getting Around", node_type: TitleLink, match: "Campus Map", handler: title_link_url, fact_key: campus.campus_map_url_body, section: campus-life}
+  - {tab: campus-life, expandable_section: "Location and Setting", divider: "Getting Around", node_type: TitleValue, match: "Nearest Bus Station", handler: scalar, kind: text, fact_key: campus.nearest_bus_station, section: campus-life}
+  - {tab: campus-life, expandable_section: "Location and Setting", divider: "Getting Around", node_type: TitleValue, match: "Nearest Train Station", handler: scalar, kind: text, fact_key: campus.nearest_train_station, section: campus-life}
+
+  - {tab: campus-life, expandable_section: "Personal Support Services", node_type: TitleValue, match: "Health Service", handler: scalar, kind: enum, fact_key: campus.health_service, section: campus-life}
+  - {tab: campus-life, expandable_section: "Personal Support Services", node_type: TitleValue, match: "Personal Counseling", handler: scalar, kind: enum, fact_key: campus.personal_counseling, section: campus-life}
+  - {tab: campus-life, expandable_section: "Personal Support Services", node_type: TitleValue, match: "Child Care", handler: scalar, kind: enum, fact_key: campus.child_care, section: campus-life}
+
+  - {tab: campus-life, expandable_section: "Security", node_type: TitleValue, match: "24-Hour Emergency Phone/Alarm Devices", handler: scalar, kind: enum, fact_key: campus.security_emergency_phones, section: campus-life}
+  - {tab: campus-life, expandable_section: "Security", node_type: TitleValue, match: "24-Hour Security Patrols", handler: scalar, kind: enum, fact_key: campus.security_patrols_24h, section: campus-life}
+  - {tab: campus-life, expandable_section: "Security", node_type: TitleValue, match: "Late-Night Transport/Escort Services", handler: scalar, kind: enum, fact_key: campus.security_late_night_transport, section: campus-life}
+  - {tab: campus-life, expandable_section: "Security", node_type: TitleValue, match: "Electronically Operated Housing Entrances", handler: scalar, kind: enum, fact_key: campus.security_electronic_entrances, section: campus-life}
+  - {tab: campus-life, expandable_section: "Security", node_type: TitleValue, match: "Other", handler: scalar, kind: text, fact_key: campus.security_other, section: campus-life}
+
+  - {tab: campus-life, expandable_section: "Sports & Recreation", node_type: TitleValue, match: Mascot, handler: scalar, kind: text, fact_key: campus.mascot, section: campus-life}
+  - {tab: campus-life, expandable_section: "Sports & Recreation", node_type: TitleValue, match: "School Colors", handler: scalar, kind: text, fact_key: campus.school_colors, section: campus-life}
+  - {tab: campus-life, expandable_section: "Sports & Recreation", node_type: TitleValue, match: "Athletic Conferences", handler: scalar, kind: text, fact_key: campus.athletic_conferences, section: campus-life}
+  - {tab: campus-life, expandable_section: "Sports & Recreation", divider: "Club Sports", node_type: TitleValue, match: "Intramural Sports", handler: list_value, fact_key: campus.intramural_sports, section: campus-life}
+  - {tab: campus-life, expandable_section: "Sports & Recreation", divider: "Club Sports", node_type: IconTable, handler: icon_matrix, fact_key: campus.club_sports, columns: [women_offered, men_offered], section: campus-life}
+  - {tab: campus-life, expandable_section: "Sports & Recreation", divider: "Intercollegiate Sports & Scholarships", node_type: IconTable, handler: icon_matrix, fact_key: campus.varsity_sports, columns: [women_offered, women_scholarship, men_offered, men_scholarship], section: campus-life}
+
+  # ===========================================================================
+  # students
+  # ===========================================================================
+  - {tab: students, node_type: header, match: city, handler: drop}
+  - {tab: students, node_type: header, match: cityPopulation, handler: drop}
+  - {tab: students, node_type: header, match: nearestMetro, handler: drop}
+
+  - {tab: students, expandable_section: "After Graduation", node_type: TitleValue, match: "Graduates Offered Full-Time Employment Within 6 Months", handler: scalar, kind: percent, fact_key: outcomes.employed_within_6_months, section: outcomes}
+  - {tab: students, expandable_section: "After Graduation", node_type: TitleValue, match: "Average Starting Salary", handler: scalar, kind: money, fact_key: outcomes.average_starting_salary, section: outcomes}
+  - {tab: students, expandable_section: "After Graduation", node_type: TitleValue, match: "Graduates Pursuing Advanced Study Directly", handler: scalar, kind: percent, fact_key: outcomes.advanced_study_pct, section: outcomes}
+  - {tab: students, expandable_section: "After Graduation", node_type: TitleValue, match: "Disciplines Pursued", handler: list_value, fact_key: outcomes.disciplines_pursued, section: outcomes}
+
+  - {tab: students, expandable_section: "Student Activities", node_type: TitleValue, match: "Activities and Organizations", handler: list_value, fact_key: campus.activities, section: campus-life}
+  - {tab: students, expandable_section: "Student Activities", node_type: TitleValue, match: Sororities, handler: leading_percent, fact_key: campus.sorority_participation_pct, section: campus-life}
+  - {tab: students, expandable_section: "Student Activities", node_type: TitleValue, match: Fraternities, handler: leading_percent, fact_key: campus.fraternity_participation_pct, section: campus-life}
+  - {tab: students, expandable_section: "Student Activities", node_type: TitleValue, match: ROTC, handler: list_value, fact_key: campus.rotc, section: campus-life}
+
+  - {tab: students, expandable_section: "Student Body", node_type: BarGraph, match: "Ethnicity of Students from U.S.", handler: bar_graph_distribution, fact_key: students.ethnicity, scale: ethnicity, unit: percent, section: campus-life}
+  - {tab: students, expandable_section: "Student Body", node_type: NestedTitleValue, match: "All Undergraduates", handler: student_body_group, section: campus-life, produces: [students.undergraduate_total, students.undergraduate_men_count, students.undergraduate_men_pct, students.undergraduate_women_count, students.undergraduate_women_pct]}
+  - {tab: students, expandable_section: "Student Body", node_type: TitleValue, match: Coeducational, handler: scalar, kind: bool, fact_key: identity.coeducational, section: campus-life}
+  - {tab: students, expandable_section: "Student Body", node_type: TitleValue, match: "Full-Time Undergraduates", handler: scalar, kind: count, fact_key: students.undergraduate_full_time, section: campus-life}
+  - {tab: students, expandable_section: "Student Body", node_type: TitleValue, match: "International Students", handler: compound_countries, pct_key: students.international_pct, count_key: students.countries_represented, section: campus-life}
+  - {tab: students, expandable_section: "Student Body", node_type: TitleValue, match: "Average Age", handler: scalar, kind: count, fact_key: students.average_age, section: campus-life}
+  - {tab: students, expandable_section: "Student Body", node_type: TitleValue, match: "All Graduate Students", handler: scalar, kind: count, fact_key: students.graduate_total, section: campus-life}
+
+  - {tab: students, expandable_section: "Undergraduate Retention & Graduation", node_type: TitleValue, match: "First-Year Students Returning", handler: scalar, kind: percent, fact_key: outcomes.retention_first_year, section: outcomes}
+  - {tab: students, expandable_section: "Undergraduate Retention & Graduation", node_type: TitleValue, match: "Students Graduating Within 4 Years", handler: scalar, kind: percent, fact_key: outcomes.graduation_rate_4y, section: outcomes}
+  - {tab: students, expandable_section: "Undergraduate Retention & Graduation", node_type: TitleValue, match: "Students Graduating Within 5 Years", handler: scalar, kind: percent, fact_key: outcomes.graduation_rate_5y, section: outcomes}
+  - {tab: students, expandable_section: "Undergraduate Retention & Graduation", node_type: TitleValue, match: "Students Graduating Within 6 Years", handler: scalar, kind: percent, fact_key: outcomes.graduation_rate_6y, section: outcomes}

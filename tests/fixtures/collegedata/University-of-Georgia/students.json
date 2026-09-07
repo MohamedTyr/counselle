@@ -1,0 +1,279 @@
+{
+  "__N_SSP": true,
+  "pageProps": {
+    "isStateList": false,
+    "profile": {
+      "avgJanTemp": null,
+      "avgSeptTemp": null,
+      "bodyContent": [
+        {
+          "data": {
+            "children": [
+              {
+                "data": {
+                  "title": "Activities and Organizations",
+                  "value": [
+                    "choral groups, marching band, drama theatre, radio station, student newspaper, national fraternities, national sororities, socials fraternities and sororities, dungeons and dragons club at uga, dogs for paws, entertainment media industries club, indian cultural exchange"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Sororities",
+                  "value": [
+                    "36% of women participate"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Fraternities",
+                  "value": [
+                    "23% of men participate"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "ROTC",
+                  "value": [
+                    "Army ROTC is offered on campus, Airforce ROTC is offered on campus"
+                  ]
+                },
+                "type": "TitleValue"
+              }
+            ],
+            "iconType": null,
+            "link": null,
+            "title": "Student Activities"
+          },
+          "type": "ExpandableSection"
+        },
+        {
+          "data": {
+            "children": [
+              {
+                "data": {
+                  "title": "Coeducational",
+                  "value": [
+                    "Yes"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "children": [
+                    {
+                      "title": "Women",
+                      "value": [
+                        "18,699 (57.0%)"
+                      ]
+                    },
+                    {
+                      "title": "Men",
+                      "value": [
+                        "14,125 (43.0%)"
+                      ]
+                    }
+                  ],
+                  "topTitleValue": {
+                    "title": "All Undergraduates",
+                    "value": [
+                      "32,824"
+                    ]
+                  }
+                },
+                "type": "NestedTitleValue"
+              },
+              {
+                "data": {
+                  "title": "Full-Time Undergraduates",
+                  "value": [
+                    "31,310"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "data": [
+                    {
+                      "label": "American Indian/Alaskan Native",
+                      "value": 0.1
+                    },
+                    {
+                      "label": "Asian",
+                      "value": 14.2
+                    },
+                    {
+                      "label": "Black/African-American",
+                      "value": 6.5
+                    },
+                    {
+                      "label": "Hispanic/Latino",
+                      "value": 8.8
+                    },
+                    {
+                      "label": "Multi-race (not Hispanic/Latino)",
+                      "value": 4.6
+                    },
+                    {
+                      "label": "Native Hawaiian/ Pacific Islander",
+                      "value": 0
+                    },
+                    {
+                      "label": "White",
+                      "value": 64.6
+                    },
+                    {
+                      "label": "Unknown",
+                      "value": 1.2
+                    }
+                  ],
+                  "title": "Ethnicity of Students from U.S."
+                },
+                "type": "BarGraph"
+              },
+              {
+                "data": {
+                  "title": "International Students",
+                  "value": [
+                    "1.3% from 90 countries"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Average Age",
+                  "value": [
+                    "20"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "All Graduate Students",
+                  "value": [
+                    "9,852"
+                  ]
+                },
+                "type": "TitleValue"
+              }
+            ],
+            "iconType": null,
+            "link": null,
+            "title": "Student Body"
+          },
+          "type": "ExpandableSection"
+        },
+        {
+          "data": {
+            "children": [
+              {
+                "data": {
+                  "title": "First-Year Students Returning",
+                  "value": [
+                    "93.6%"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Students Graduating Within 4 Years",
+                  "value": [
+                    "74.9%"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Students Graduating Within 5 Years",
+                  "value": [
+                    "87.5%"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Students Graduating Within 6 Years",
+                  "value": [
+                    "89.1%"
+                  ]
+                },
+                "type": "TitleValue"
+              }
+            ],
+            "iconType": null,
+            "link": null,
+            "title": "Undergraduate Retention & Graduation"
+          },
+          "type": "ExpandableSection"
+        },
+        {
+          "data": {
+            "children": [
+              {
+                "data": {
+                  "title": "Graduates Offered Full-Time Employment Within 6 Months",
+                  "value": [
+                    "63%"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Average Starting Salary",
+                  "value": [
+                    "$55,475"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Graduates Pursuing Advanced Study Directly",
+                  "value": [
+                    "Not reported"
+                  ]
+                },
+                "type": "TitleValue"
+              },
+              {
+                "data": {
+                  "title": "Disciplines Pursued",
+                  "value": [
+                    "Not available"
+                  ]
+                },
+                "type": "TitleValue"
+              }
+            ],
+            "iconType": null,
+            "link": null,
+            "title": "After Graduation"
+          },
+          "type": "ExpandableSection"
+        }
+      ],
+      "city": "Athens",
+      "cityPopulation": "119,980",
+      "freshmanHousingGuarantee": null,
+      "id": 975,
+      "name": "University of Georgia",
+      "nearestMetro": "Atlanta",
+      "rain": null,
+      "slug": "University-of-Georgia",
+      "website": "https://www.uga.edu/"
+    }
+  }
+}
