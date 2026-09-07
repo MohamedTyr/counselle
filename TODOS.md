@@ -323,6 +323,44 @@
   `frontend/src/features/ai-chat/components/EssayDocumentPanel.tsx` (the two mount sites).
 - *(Logged from the essay AI panel branch, 2026-09-07.)*
 
+## Essay panel: the tracked-change markers are proven present, not proven well-spoken
+- **What:** the decorations used to carry `aria-label="Delete: …"` / `"Insert: …"` / the stale
+  sentence. That never reached any screen reader — `deletion`, `insertion` and `generic` all
+  prohibit an accessible name, so the browser discards the attribute (confirmed in Chrome's
+  accessibility tree: a labelled `<del>` exposes its text and no name). It is fixed: each change
+  is now bracketed by visually-hidden marker text, which **is** in the accessibility tree, verified
+  there for all three kinds.
+- **What is still unverified:** how each screen reader actually *reads* the result in continuous
+  mode — whether "Suggested deletion: good. End of suggested deletion. Suggested insertion: …"
+  lands as a clear boundary or as clutter a student learns to tune out, and whether the same
+  bracketing is too verbose on an essay carrying eight changes. Being in the tree is necessary,
+  not sufficient; only a real AT pairing answers the verbosity question. Check it in the same
+  session as the readout entry above.
+- **If it reads as too much:** the cheap knob is dropping the closing marker for a *replacement*
+  (the insertion's own opening marker already supplies the boundary) and keeping it only for a
+  pure deletion, which has nothing after it. That is a `SR_MARKERS` edit, not a redesign.
+- **Context (start here):** the `SR_MARKERS` comment in
+  `frontend/src/features/essays/suggestions/suggestionExtension.ts`, and the two bracketing tests
+  in `suggestionExtension.test.ts`.
+- *(Logged from the essay AI panel branch, 2026-09-07.)*
+
+## Two `aria-label`s sit on elements whose role prohibits a name (works in Chrome, off-spec)
+- **What:** axe 4.10.2 reports `aria-prohibited-attr` (incomplete, serious) on exactly two nodes
+  across the essay surfaces: the ProseMirror root (`.tiptap`, `aria-label="Essay body"`) and
+  `PageHeader`'s title row (a `<div aria-label="{essay title}">`). Neither declares a role, so both
+  resolve to name-prohibited roles on paper — but unlike the `<del>`/`<ins>` case above, Chrome
+  *does* expose both names in its accessibility tree (checked: `generic "Essay body"`), so no
+  student loses information today.
+- **Why it is left alone:** neither is this branch's code, `PageHeader` is shared by every route,
+  and the correct fix differs per case — the editor root wants `role="textbox"` (it is
+  `contenteditable`, and Chrome already treats it as one), while the header's label is simply
+  redundant beside the `<h1>` inside it and should probably just be deleted. Both are
+  `PageHeader`/editor-shell changes, not tracked-change changes, and doing them here would be an
+  unrelated refactor smuggled into an a11y fix.
+- **Context (start here):** `frontend/src/features/essays/useEssayEditor.ts` (where the editor root
+  gets its attributes) and `frontend/src/components/workspace/PageHeader.tsx`.
+- *(Logged from the essay AI panel branch, 2026-09-07.)*
+
 ## The page-hide keepalive essay save is last-write-wins, and now has two writers
 - **What:** the debounced autosave path sends `expected_updated_at` and is properly guarded
   (ADR 0030). The **page-hide keepalive** save deliberately does not: it calls
