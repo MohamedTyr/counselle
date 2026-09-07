@@ -32,9 +32,29 @@
     transition: background-color 150ms ease-out;
   }
 
+  /* THE STRUCK WORDS ARE THE STUDENT'S OWN, SO THE LINE IS RED AND THE TEXT IS
+     NOT. This is the rule the stale block below already states, applied to the
+     live deletion it was always equally true of: the text under a proposed
+     deletion is still the student's paragraph, still in their document, and
+     nothing has happened to it yet.
+
+     Recolouring it measured as the loudest thing on the page. The essay's own
+     prose is --document-foreground at chroma 0.01; --danger-fg is chroma 0.16,
+     so a struck sentence carried sixteen times the chroma of the sentences
+     around it and won every fixation. On a 580-word draft with five changes
+     that is three full lines of the student's opening paragraph rendered as
+     damage — a merge conflict, not an annotation.
+
+     The line alone still carries the claim. --essay-suggestion-delete-ink
+     measures 9.84:1 against the paper as text-decoration-color (verified in
+     the browser, not computed from the token), far above the 3:1 that WCAG
+     1.4.11 asks of a graphical state indicator, and the 2px thickness below is
+     now load-bearing rather than decorative — it is the whole signal. Against
+     the stale line it differs in two channels at once, solid vs dotted and red
+     vs grey, so the two states never collapse into each other. */
   .essay-editor-shell .ProseMirror .essay-suggestion-delete {
-    color: var(--essay-suggestion-delete-ink);
     cursor: pointer;
+    text-decoration-color: var(--essay-suggestion-delete-ink);
     text-decoration-line: line-through;
   }
 
@@ -62,8 +82,26 @@
      text nodes, so two changes far apart in one paragraph also pick up the
      0.2em — measured at 3.2px, absorbed into an existing word space. Narrowing
      it to genuinely-touching pairs would mean computing abutment in the
-     decoration builder, which is not worth it for that. */
-  .essay-editor-shell .ProseMirror [data-suggestion-id] + [data-suggestion-id] {
+     decoration builder, which is not worth it for that.
+
+     THE SECOND SELECTOR IS THE ONE THAT ACTUALLY FIRES ON A REPLACEMENT, and
+     the reason this rule read as correct while doing nothing. `bracket()` puts
+     the deletion's closing screen-reader marker at the same position as the
+     insertion widget, one `side` ahead of it, so the rendered order is
+     <del> <span.sr-only> <ins> — and those markers deliberately carry no
+     `data-suggestion-id`, which is exactly what breaks the `+` adjacency the
+     rule above depends on. Measured in the browser: `good` and `north` sat 0px
+     apart and read as one word, `goodnorth`, which is the precise failure the
+     comment above says this rule prevents. jsdom never renders it, so no test
+     could have caught it. One `.sr-only` hop covers every replacement; a pair
+     of separately-decidable changes abutting through two markers is the same
+     approximation the paragraph above already accepts. */
+  .essay-editor-shell .ProseMirror [data-suggestion-id] + [data-suggestion-id],
+  .essay-editor-shell
+    .ProseMirror
+    [data-suggestion-id]
+    + .sr-only
+    + [data-suggestion-id] {
     margin-inline-start: 0.2em;
   }
 

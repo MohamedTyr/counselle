@@ -1267,18 +1267,40 @@ essay until the student accepts it.
 
 | Token | Resolves to | Claim |
 |---|---|---|
-| `--essay-suggestion-insert-ink` | `--success-fg` (leaf-700, 7.90:1) | text being **added** |
+| `--essay-suggestion-insert-ink` | `--success-fg` (leaf-700, 7.87:1) | text being **added** — applied as **ink** |
 | `--essay-suggestion-insert-surface` | `--success-surface` | hover wash behind an insertion |
-| `--essay-suggestion-delete-ink` | `--danger-fg` (red-700, 9.85:1) | text being **removed** |
+| `--essay-suggestion-delete-ink` | `--danger-fg` (red-700, 9.84:1) | text being **removed** — applied as the **strike colour only** |
 | `--essay-suggestion-delete-surface` | `--danger-surface` | hover wash behind a deletion |
-| `--essay-suggestion-stale-ink` | `--ink-faint` (gray-700, 5.45:1) | a change that can no longer be applied |
+| `--essay-suggestion-stale-ink` | `--ink-faint` (gray-700, 5.45:1) | a change that can no longer be applied — the **dotted line only** |
 
 Success and danger are the right hues under §2.2 Law 2 (something added, something
 removed), but "ready" and "proposed" are two claims on one hue — so the decorations take
 their own family tokens in `essay.css` rather than the role tokens directly, and a
 suggestion can never read as a status. At rest a change is ink plus one line; the wash
 arrives on hover, because a permanent colour block through the student's own prose is
-harder to read than the prose it annotates. The rules are plain selectors, not React
+harder to read than the prose it annotates.
+
+**The two hues are not applied the same way, because the two spans do not have the same
+owner.** An insertion is the agent's words — not in the document, not the student's — so
+its *ink* is green, and the colour is carrying real information: these words are not
+yours yet. A deletion, a stale change, and everything under them is **the student's own
+sentence**, still theirs and still on the page, so only the *line* is coloured and the
+words keep the document's own ink. Recolouring them was measured as the loudest thing on
+the screen: the essay's prose is `--document-foreground` at chroma 0.01 and `--danger-fg`
+is chroma 0.16, so a struck sentence carried sixteen times the chroma of the sentences
+around it — on a 580-word draft with five changes, three full lines of the opening
+paragraph rendered as damage rather than as annotation. The line alone still carries the
+claim at 9.84:1, far past the 3:1 WCAG 1.4.11 asks of a graphical state indicator, and
+solid-red against dotted-grey keeps deletion and stale apart in two channels at once.
+**This is one rule, not two:** the student's words are always the student's ink, and the
+line is what says what is being proposed about them.
+
+Their DOM order matters to a rule that looks like it works and does not. `bracket()` puts
+a deletion's closing screen-reader marker between the `<del>` and the `<ins>`, and those
+markers deliberately carry no `data-suggestion-id` — so the `[data-suggestion-id] +
+[data-suggestion-id]` separator in `essay-suggestions.css` never matched a replacement,
+and `good`/`north` rendered 0px apart as one word. The selector carries a `.sr-only` hop
+for that. jsdom does not lay out, so only a browser can catch this class of bug. The rules are plain selectors, not React
 components — ProseMirror renders this DOM itself — so they live in
 `styles/essay-suggestions.css`, which carries its own `@layer components` wrapper so
 that the layer order `index.css` declares still decides when they apply. The
@@ -1308,6 +1330,16 @@ a ghost Reject reads as a recommendation, and the essay is not improved by defau
 same component owns the busy lock (`aria-disabled` plus `opacity-64`, never native
 `disabled` — §11.6) and the accessible name: a row's control is `Accept: Replace good →
 unforgettable`, never a sixth button called "Accept".
+
+**Neither icon is tinted**, for the same reason the variants match. The check used to take
+`--essay-suggestion-insert-ink` and the cross `--essay-suggestion-delete-ink`, which broke
+that symmetry and made two claims that are not true. Those tokens mean "text being added"
+and "text being removed" — but Accept is just as often accepting a *deletion*, so a green
+check on that row states the opposite of what the row does; and red marked the **safe**
+choice as the dangerous one, when rejecting changes nothing and accepting rewrites the
+student's sentence with no undo. Across a five-row queue it also put ten alarm-coloured
+glyphs in a 130px band, which is the merge-conflict chrome the decorations themselves are
+kept clear of. The words carry the meaning, as everywhere else in the app.
 
 **Nothing bulk before the list is open.** The pending-changes bar is collapsed by
 default, and its "Accept all"/"Reject all" only exist once it is expanded. Collapsed, the
@@ -1355,6 +1387,16 @@ control is Dismiss, which rejects that single change — a rejection cannot fail
 Reject-all would take the pending proposals with it. The list is capped at `max-h-64` and
 scrolls: eight pending changes is an ordinary revision pass, and an uncapped list of them
 pushes the essay it annotates off the bottom of the screen.
+
+**The row gap opens up on a coarse pointer, and only there** (`pointer-coarse:gap-y-5`).
+`ResolveButtons` works the *horizontal* touch arithmetic out carefully — measured 10px
+between the two hit areas once the labels collapse — but the vertical axis was left at the
+dense `gap-y-0.5` while `buttonVariants` grows every row control to a 44px target. Measured
+at 375px on a real touch context: a 32px button on a 34px row pitch, so each row's hit area
+**overlapped the next one's by 10px**, and what a stray thumb lands on is an Accept that
+rewrites the student's sentence with no undo. 20px takes the pitch to 52px and leaves a
+true 8px dead zone. Fine pointers keep the dense list, so the eight-row shape above is
+unchanged wherever it is actually real.
 
 ### 15.6.1 The essay chat panel
 

@@ -371,10 +371,24 @@ export function SuggestionsBar({
                 {/* Capped, and scrolled past the cap: eight pending changes is
                  * an ordinary revision pass, and an uncapped list of them
                  * pushes the essay it annotates off the bottom of the screen.
-                 * The container is what the rows' own labels collapse on. */}
+                 * The container is what the rows' own labels collapse on.
+                 *
+                 * THE ROW GAP OPENS UP ON A COARSE POINTER, and only there.
+                 * `ResolveButtons` works the horizontal arithmetic out
+                 * carefully — measured 10px between the two hit areas once the
+                 * labels collapse — but the vertical axis was left at the dense
+                 * 2px, and `buttonVariants` grows every one of these to a 44px
+                 * touch target. Measured at 375px: a 32px button on a 34px row
+                 * pitch, so each row's hit area OVERLAPPED the next one's by
+                 * 10px, and the thing a stray thumb lands on is an Accept that
+                 * rewrites the student's own sentence with no undo — the exact
+                 * failure the sibling file calls the one that matters most.
+                 * 20px takes the pitch to 52px and leaves a true 8px dead zone
+                 * between hit areas. Fine pointers keep the dense list, so the
+                 * eight-row shape above is unchanged where it is real. */}
                 <ul
                   className={cn(
-                    "@container/changes mt-1.5 flex flex-col gap-0.5 overflow-y-auto",
+                    "@container/changes mt-1.5 flex flex-col gap-y-0.5 overflow-y-auto pointer-coarse:gap-y-5",
                     LIST_MAX_HEIGHT,
                     LIST_FADE_CLASS,
                   )}

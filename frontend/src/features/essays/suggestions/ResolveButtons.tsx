@@ -14,6 +14,20 @@ import { cn } from "@/lib/utils";
  * The pair is deliberately symmetric. These are peers, not a recommendation
  * and an escape hatch — the student's essay is not improved by default, and a
  * bordered Accept next to a link-weight Reject reads as a nudge.
+ *
+ * WHICH IS ALSO WHY NEITHER ICON IS TINTED. The check used to take
+ * --essay-suggestion-insert-ink and the cross --essay-suggestion-delete-ink,
+ * which broke the symmetry the paragraph above spends its whole length
+ * establishing, and made two claims that are not true. Those tokens mean "text
+ * being added" and "text being removed" (DESIGN.md §2.2 Law 2, one claim per
+ * hue) — but Accept is just as often accepting a DELETION, so a green check on
+ * that row states the opposite of what the row does. And red marks the safe
+ * choice as the dangerous one: rejecting a proposal changes nothing, while
+ * accepting rewrites the student's own sentence and this surface offers no
+ * undo. Five rows of green tick and red cross also turned the queue into the
+ * merge-conflict chrome the decorations themselves were being kept clear of.
+ * The icons take the button's own ink; the words Accept and Reject carry the
+ * meaning, as they do everywhere else in the app.
  */
 
 /*
@@ -119,10 +133,7 @@ export function ResolveButtons({
         type="button"
         variant="outline"
       >
-        <Check
-          className="text-(--essay-suggestion-insert-ink)"
-          data-icon="inline-start"
-        />
+        <Check data-icon="inline-start" />
         <span className={labelClass}>{acceptLabel}</span>
       </Button>
       <Button
@@ -141,10 +152,7 @@ export function ResolveButtons({
         type="button"
         variant="outline"
       >
-        <X
-          className="text-(--essay-suggestion-delete-ink)"
-          data-icon="inline-start"
-        />
+        <X data-icon="inline-start" />
         <span className={labelClass}>{rejectLabel}</span>
       </Button>
     </div>

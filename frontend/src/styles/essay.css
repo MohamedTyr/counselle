@@ -73,18 +73,27 @@
    * a decoration ever read as a status.
    *
    * The two inks are the badge-text roles, measured against the raised surface
-   * the paper actually uses: leaf-700 at 7.90:1 and red-700 at 9.85:1.
-   * text-decoration-color inherits the ink, so the strike and the underline
-   * clear the same bar the text does.
+   * the paper actually uses: leaf-700 at 7.87:1 and red-700 at 9.84:1
+   * (re-measured in the browser against the painted paper).
+   *
+   * THE TWO ARE NOT APPLIED THE SAME WAY, because the two spans do not have the
+   * same owner. An insertion is the agent's words, which are not in the
+   * document and not the student's, so the INK is green and the colour is
+   * carrying real information: these words are not yours yet. A deletion is the
+   * student's own sentence, still theirs and still on the page, so only the
+   * LINE is red — see essay-suggestions.css for the measurement that forced
+   * that split. Both lines clear WCAG 1.4.11's 3:1 for a graphical state
+   * indicator with room to spare.
    *
    * The surfaces are hover-only wash. At rest the ink and the line carry the
    * whole signal — a permanently highlighted paragraph would read as a
    * marker pen through the student's own prose.
    *
-   * A stale change marks the LINE only, never the words — the text under it is
-   * the student's own essay, and dimming a paragraph of their writing to
-   * annotate a proposal that no longer applies would be the wrong thing to
-   * make hard to read. That leaves the dotted line as the single channel
+   * A stale change marks the LINE only too, and for the same reason one step
+   * further on: the text under it is the student's own essay, and dimming a
+   * paragraph of their writing to annotate a proposal that no longer applies
+   * would be the wrong thing to make hard to read. That leaves the dotted line
+   * as the single channel
    * carrying "stale", so it is a graphical state indicator under WCAG 1.4.11
    * and owes 3:1. --ink-disabled measures 2.64:1 and its exemption is for
    * disabled CONTROLS, which this is not; --ink-faint measures 5.45:1 on the
