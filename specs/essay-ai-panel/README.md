@@ -82,6 +82,26 @@ list-emptying row, accept-all, reject-all) — never `<body>`.
 
 ### Re-architected during implementation
 
+- **The content resync carries the suggestions meta too — the plan said it must
+  not.** Part 2 §1.2 separated the two `setContent` cases by *which code calls
+  them*: the accept path always attaching the suggestions meta so the plugin
+  recomputes anchors, `useEssayEditor`'s content resync never attaching it so the
+  plugin maps them, on the stated reasoning that the resync "is a no-op diff in
+  practice" and that mapping through it is therefore "safe by construction".
+  Both halves were wrong. The resync's own no-op guard compared
+  `JSON.stringify(editor.getJSON())` against a `content` prop that round-trips
+  through a Postgres `jsonb` column, which normalises object key order — so the
+  guard could never match on a document containing text, and the resync was never
+  a no-op: **every settled autosave replaced the whole document with a copy of
+  itself**, a second and a half after any keystroke, throwing the caret out of the
+  sentence being typed. And mapping through a replacement is not safe at all —
+  every position inside a replaced range lands on that range's boundary, so each
+  anchor collapsed to zero width, painted nothing, and was reported outdated while
+  the server still held rows that anchored perfectly. The shipped split is by what
+  the transaction *does*: anything that replaces the document carries the meta and
+  recomputes, and mapping is left to the ordinary edit, which carries no meta. Like
+  the hover mechanism below, this was **invisible to jsdom** — the tests passed
+  against it through several waves of review, and it took a real browser to see.
 - **The hover mechanism is plugin state, not a DOM attribute.** Part 2 §2.1/§3.2
   specified that hovering one fragment of a change writes
   `data-suggestion-hovered` onto every fragment sharing its id, so a plain
@@ -134,3 +154,16 @@ list-emptying row, accept-all, reject-all) — never `<body>`.
   does; it did not pin the *order* — call the tool, read what came back, report
   only that — or give the model a non-embarrassing script for the not-yet-edited
   case, which is what a finished-sounding false claim is written to avoid.
+- **A resolve re-invalidates the essay query after adopting the server's copy.**
+  Part 2 §3.5 reasoned carefully about one accept's response landing after
+  another's, and serialized resolution panel-wide to remove that class of race
+  structurally. It did not consider the *other* reader: a plain background read of
+  the same essay, issued by an agent turn settling in the docked panel or by any
+  workspace change event, before the resolve committed. Landing after the resolve's
+  own cache write, it overwrote it and put the change the student had just resolved
+  back on screen as pending, counted by the honesty readout, with the server right
+  throughout. The resolve therefore re-invalidates that key synchronously with its
+  write. Recorded here rather than only in the code because it is held by a
+  **deterministic test, not a reproduction** — the interleaving was never observed
+  in a browser, since the resolve's own change event re-reads the same key moments
+  later. `TODOS.md` records the three writers of that key and what that costs.

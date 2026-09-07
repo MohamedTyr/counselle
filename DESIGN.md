@@ -1278,8 +1278,12 @@ removed), but "ready" and "proposed" are two claims on one hue — so the decora
 their own family tokens in `essay.css` rather than the role tokens directly, and a
 suggestion can never read as a status. At rest a change is ink plus one line; the wash
 arrives on hover, because a permanent colour block through the student's own prose is
-harder to read than the prose it annotates. The rules live in `index.css` next to the
-ProseMirror essay typography (they are ProseMirror-rendered DOM, not React).
+harder to read than the prose it annotates. The rules are plain selectors, not React
+components — ProseMirror renders this DOM itself — so they live in
+`styles/essay-suggestions.css`, which carries its own `@layer components` wrapper so
+that the layer order `index.css` declares still decides when they apply. The
+`--essay-suggestion-*` tokens they resolve stay in `essay.css` with the rest of the
+essay family (§2.1 tier 3).
 
 **One change, one hover target.** A replacement paints as a struck span plus a proposed
 one, and a change crossing a paragraph break paints one fragment per block — so hovering

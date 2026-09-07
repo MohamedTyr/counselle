@@ -1462,7 +1462,7 @@ array, are specified in `docs/DATABASE_GUIDE.md` §10.
 **3 — Rendering as a tracked change.** The client paints suggestions as
 ProseMirror decorations inside the live document — insertions underlined,
 deletions struck through, each fragment of one change highlighting with its
-siblings on hover. Two properties are load-bearing:
+siblings on hover. Four properties are load-bearing:
 
 - **Anchoring searches the document; it never trusts a stored position.** The
   document round-trips through the server as Tiptap JSON, so an absolute offset
@@ -1473,6 +1473,20 @@ siblings on hover. Two properties are load-bearing:
   pipeline** — never as a DOM attribute written onto the rendered spans.
   Mutating attributes inside ProseMirror's managed DOM is treated as external
   interference and triggers an unbounded redraw loop.
+- **A transaction that replaces the whole document re-anchors; it never maps.**
+  Both the accept flow and the editor's content resync hand the editor a fresh
+  copy of the server's document, and every position inside a replaced range maps
+  onto that range's boundary — mapping would collapse each anchor to a zero-width
+  span that paints nothing and reads as outdated, while the server still holds a
+  row that anchors perfectly. Both therefore carry the suggestions meta on the
+  same transaction, which is what tells the plugin to recompute. Mapping is for
+  an ordinary edit, which carries no meta.
+- **The resync's "this is already the document on screen" guard compares
+  canonically.** The content it compares against round-trips through a `jsonb`
+  column, which normalises object key order, so a byte-exact comparison never
+  matches a document containing text — the guard would skip nothing and every
+  settled autosave would replace the document with a copy of itself, taking the
+  caret with it.
 
 `useSuggestionReview` is the one place that answers "where is this suggestion"
 and "can it still be applied" for every review surface, reading both from the
@@ -1494,6 +1508,19 @@ an autosave of the markdown-stripped plain text, and let that save land on top o
 the server's correctly formatted result. The server's returned content is the
 only content the editor is ever set from, and content and the remaining
 suggestion list land in one transaction.
+
+A resolve is also **not the only writer of the essay's cache entry** — an agent
+turn settling in the docked panel invalidates the same key, and so does every
+workspace change event the client receives. A read those issued *before* the resolve committed
+carries a document that still contains the change, and landing after the
+resolve's own cache write it would overwrite it: the resolved change back on
+screen as pending, counted by the readout, with the server right the whole time.
+The resolve therefore re-invalidates that key **synchronously with its own write,
+never separated from it by an await**. React Query's refetch cancels the in-flight
+read before its response can reach the cache and re-issues it rather than dropping
+it, so an essay the agent rewrote from the main chat still reaches the editor, and
+the replacement read is answered after the commit and can only carry that state or
+newer.
 
 **5 — Going stale.** A suggestion is stale when its anchor no longer matches the
 essay uniquely — zero matches, or more than one. There is no stored context to

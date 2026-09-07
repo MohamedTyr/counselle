@@ -1,11 +1,25 @@
 # TODOS
 
-## School-page-slim: `school_requirements` migration is written but not applied
+## School-page-slim: `school_requirements` migration was meant to stay unapplied, and did not
 - **What:** `migrations/0019_drop_school_requirements.sql` (+ `.rollback.sql`) drops
   `counselle.school_requirements`, its two indexes, and the
-  `protect_published_requirement_facts` trigger/function. It is written and reviewed
-  but **deliberately not run against any database.**
-- **Why:** per `CLAUDE.md` Status, the CDS extraction pipeline cutover (ADR 0036) is
+  `protect_published_requirement_facts` trigger/function. It was written and reviewed to be
+  **deliberately not run against any database** — and it has since been run against the local
+  Postgres on `localhost:5433` anyway. `_yoyo_migration` records `0019_drop_school_requirements`
+  applied at `2026-09-04 20:07:49 UTC`, and `to_regclass('counselle.school_requirements')`
+  returns nothing: the table, its indexes and its trigger are gone from that database.
+- **How it happened, and what is already fixed:** `migrations/0020_essay_sessions.sql` was
+  authored later that day declaring `-- depends: 0019_drop_school_requirements`, so applying the
+  essay-panel feature also applied this drop; commit `1adfd30` records that it did, and
+  re-points `0020` at `0018_drop_essay_prompt_drafts` so the two are independent siblings and
+  no feature migration can force this one again. That closes the mechanism, not the state.
+- **What is still open:** the drop this entry exists to hold back has already happened on the
+  only database there is, so the owner is being asked to sign off on something already done
+  rather than something pending. `0019_drop_school_requirements.rollback.sql` restores the DDL
+  if the state should be put back before that decision; the table was empty in every real
+  environment and nothing in the app reads or writes it, so nothing was lost, but "not applied
+  anywhere" is no longer a true description of it and should not be repeated.
+- **Why it was to be held in the first place:** per `CLAUDE.md` Status, the CDS extraction pipeline cutover (ADR 0036) is
   still awaiting owner acceptance, and the live `counselle`/`cds_library` databases are
   already drifted from source control pending that sign-off (see the sha256-index TODO
   below for the precedent this follows). Applying a second un-signed-off schema change
@@ -16,8 +30,11 @@
 - **Context (start here):** `plans/school-page-slim.md` Phase 3 and risk R2;
   `migrations/0019_drop_school_requirements.sql` for the drop and its ordering rationale;
   `migrations/0011_school_workspace.sql` lines ~100-224 for the original DDL the
-  rollback restores.
-- *(Logged from the school-page-slim refactor, Phase 3, 2026-09-04.)*
+  rollback restores. For the applied state, query `_yoyo_migration` and
+  `to_regclass('counselle.school_requirements')` on `localhost:5433` rather than trusting
+  either this file or the commit that added the migration.
+- *(Logged from the school-page-slim refactor, Phase 3, 2026-09-04; corrected from the essay AI
+  panel branch, 2026-09-07, on finding the migration applied.)*
 
 ## School-page-slim: optional follow-up column removals
 - **What:** `tasks.requirement_kind`, `applications.checklist`, `applications.platform`,
@@ -331,6 +348,38 @@
   `app/workspace/service_essays.py::_check_not_stale`;
   `frontend/src/features/ai-chat/components/EssayDocumentPanel.tsx` (the second mount site this
   branch added).
+- *(Logged from the essay AI panel branch, 2026-09-07.)*
+
+## Essay panel: three writers of one essay cache key, and a race held by a test rather than a reproduction
+- **What:** `workspaceKeys.essays.detail(id)` is written or invalidated from three places, and
+  two of them have an ordering requirement between them that nothing enforces:
+  1. `useEssaySuggestions.resolve` — adopts the server's post-resolve essay into the cache, then
+     re-invalidates the same key synchronously, on purpose.
+  2. `EssayEditorRoute.refetchEssay` — invalidates it whenever an agent turn settles in the
+     docked chat panel.
+  3. `api/workspace/events.ts` — invalidates it on **every** workspace SSE change event whose
+     object is an essay, including the resolve's own.
+  The bug that made this visible is fixed: a read issued by (2) or (3) *before* a resolve
+  committed would land after the resolve's cache write, overwrite it, and put the resolved
+  change back on screen as pending with the honesty readout counting it. The re-invalidation in
+  (1) closes it, resting on React Query's `refetchQueries` default `cancelRefetch: true` to
+  cancel the in-flight stale read and re-issue it.
+- **Why it is still recorded:** the fix rests on a **deterministic test, not on a
+  reproduction**. The interleaving was never observed in a real browser — (3) fires for the
+  resolve's own change event moments later and re-reads the same key, so the wrong state is
+  real but too short to catch by hand. A negative control is not evidence of absence, so what
+  actually carries this is the ordering argument, and the argument has to be re-read rather
+  than assumed if the resolve flow is ever restructured. The shape is also the durable part:
+  three writers of one key, one of which must run after another, with no type and no lint
+  saying so. Anything new that reads this essay must either not race a resolve or invalidate
+  after it.
+- **Context (start here):** `frontend/src/features/essays/suggestions/useEssaySuggestions.ts` —
+  the five-rule header comment and the invalidation inside `resolve`, both of which record the
+  reasoning at the call site;
+  `frontend/src/features/essays/suggestions/useEssaySuggestions.test.tsx` ("a background read
+  still in flight cannot re-show the accepted change");
+  `frontend/src/api/workspace/events.ts` (the `essay` case);
+  `frontend/src/features/essays/EssayEditorRoute.tsx` (`refetchEssay`).
 - *(Logged from the essay AI panel branch, 2026-09-07.)*
 
 ## Essay panel: the three plan requirements are built (closed 2026-09-07)
