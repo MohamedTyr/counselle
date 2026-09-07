@@ -200,38 +200,72 @@ function remapSuggestions(
   });
 }
 
-/*
- * NVDA and JAWS announce neither <ins> nor <del> at default verbosity, so
- * without a name a screen reader reads a proposed deletion as ordinary prose
- * and never says an edit is pending. The label carries the text itself, capped
- * so a paragraph-length change doesn't become a paragraph-length announcement.
- */
-const DECORATION_LABEL_MAX_CHARS = 80;
-
-/*
- * One string, two channels: the native tooltip and the accessible name. Stale
- * was otherwise carried by a dotted grey line and nothing else, which says
- * nothing at all to a screen reader.
- */
+/** The sighted mouse channel for a stale change; the dotted line's tooltip. */
 const STALE_LABEL =
   "Outdated suggestion: your text changed since this was suggested.";
 
-function decorationLabel(verb: string, text: string): string {
-  const capped =
-    text.length > DECORATION_LABEL_MAX_CHARS
-      ? `${text.slice(0, DECORATION_LABEL_MAX_CHARS).trimEnd()}…`
-      : text;
-  return `${verb}: ${capped}`;
+/*
+ * WHAT A SCREEN READER HEARS WHERE A SIGHTED STUDENT SEES A COLOURED LINE.
+ *
+ * NVDA and JAWS announce neither <ins> nor <del> at default verbosity, so
+ * without something extra a screen reader reads a proposed deletion as ordinary
+ * prose and never says an edit is pending — the student is read a document that
+ * is neither their essay nor the agent's version of it.
+ *
+ * `aria-label` CANNOT DO THIS JOB, which is what these decorations used to try.
+ * <del>, <ins> and a bare <span> map to the `deletion`, `insertion` and
+ * `generic` roles, and all three PROHIBIT an accessible name (ARIA 1.2), so the
+ * browser drops the attribute outright — verified in Chrome's own accessibility
+ * tree, where a labelled <del> exposes its text and no name at all. Text
+ * content is not prohibited, so the marker has to BE text.
+ *
+ * Hence a visually-hidden widget on each side of the range. Bracketing rather
+ * than prefixing, because a prefix alone leaves a pure deletion with no closing
+ * boundary and the words inside are the student's own sentence resuming. The
+ * markers are inert, carry no `data-suggestion-id` (`SuggestionPopover.place`
+ * measures its anchor from those, and a clipped 1px span would skew the union),
+ * and being decorations they never enter the document.
+ */
+const SR_MARKERS = {
+  delete: ["Suggested deletion: ", ". End of suggested deletion. "],
+  insert: ["Suggested insertion: ", ". End of suggested insertion. "],
+  stale: [
+    "Outdated suggestion, no longer applies: ",
+    ". End of outdated suggestion. ",
+  ],
+} as const;
+
+function srMarker(text: string) {
+  return () => {
+    const element = document.createElement("span");
+    element.className = "sr-only";
+    element.contentEditable = "false";
+    element.textContent = text;
+    return element;
+  };
+}
+
+/** Bracket an inline decoration's range with its screen-reader markers. */
+function bracket(
+  decorations: Decoration[],
+  from: number,
+  to: number,
+  [open, close]: readonly [string, string],
+) {
+  decorations.push(
+    Decoration.widget(from, srMarker(open), { marks: [], side: -1 }),
+    /* `side: 0` keeps this ahead of the insertion widget a replacement puts at
+     * the same position with `side: 1`, so the two changes never interleave. */
+    Decoration.widget(to, srMarker(close), { marks: [], side: 0 }),
+  );
 }
 
 function decorationAttributes(
   suggestion: EssaySuggestion,
   className: string,
-  label: string,
   hovered: boolean,
 ): Record<string, string> {
   return {
-    "aria-label": label,
     class: className,
     "data-suggestion-id": suggestion.id,
     "data-suggestion-kind": suggestion.kind,
@@ -257,11 +291,14 @@ function insertionWidget(
     element.contentEditable = "false";
     element.dataset.suggestionId = suggestion.id;
     element.dataset.suggestionKind = suggestion.kind;
-    element.setAttribute("aria-label", decorationLabel("Insert", text));
     if (hovered) {
       element.dataset.suggestionHovered = "";
     }
-    element.textContent = text;
+    /* Bracketed from the inside, because this element is ours to build — the
+     * deletion side has to do it with sibling widgets. Same markers, same
+     * reason: see SR_MARKERS. */
+    const [open, close] = SR_MARKERS.insert;
+    element.append(srMarker(open)(), text, srMarker(close)());
     return element;
   };
 }
@@ -290,12 +327,12 @@ function buildDecorations(
             ...decorationAttributes(
               suggestion,
               "essay-suggestion-stale",
-              STALE_LABEL,
               hovered,
             ),
             title: STALE_LABEL,
           }),
         );
+        bracket(decorations, from, to, SR_MARKERS.stale);
       }
       continue;
     }
@@ -328,12 +365,12 @@ function buildDecorations(
           ...decorationAttributes(
             suggestion,
             "essay-suggestion-delete",
-            decorationLabel("Delete", diff.oldMiddle),
             hovered,
           ),
           nodeName: "del",
         }),
       );
+      bracket(decorations, removedFrom, removedTo, SR_MARKERS.delete);
     }
 
     if (diff.newMiddle !== "") {

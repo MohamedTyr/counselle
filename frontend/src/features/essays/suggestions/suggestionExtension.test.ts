@@ -435,13 +435,43 @@ describe("decorations", () => {
     expect(resolved(editor)[0].stale).toBe(true);
     expect(html).toContain("essay-suggestion-stale");
     // Both channels, not just the tooltip: the dotted line is the only visual
-    // signal, so a screen reader needs the name to hear "stale" at all.
+    // signal, so a screen reader needs its own way to hear "stale" at all.
     expect(html).toContain(
       'title="Outdated suggestion: your text changed since this was suggested."',
     );
-    expect(html).toContain(
-      'aria-label="Outdated suggestion: your text changed since this was suggested."',
+    // Text, never `aria-label`: `generic` prohibits an accessible name and the
+    // browser drops the attribute, so the marker has to be readable content.
+    expect(html).not.toContain("aria-label");
+    expect(editor.view.dom.textContent).toContain(
+      "Outdated suggestion, no longer applies: ",
     );
+    expect(editor.view.dom.textContent).toContain(
+      ". End of outdated suggestion. ",
+    );
+  });
+
+  /*
+   * The honesty case for assistive technology: reading the essay straight
+   * through must never blend a proposal into the student's own sentence. The
+   * markers are bracketed text because `deletion` and `insertion` prohibit an
+   * accessible name — a labelled <del> reaches no screen reader at all.
+   */
+  test("a replacement brackets both halves with screen-reader-only markers", () => {
+    const editor = makeEditor(paragraphs("I like cold pizza."), [
+      suggestion({ newTextPlain: "warm pizza.", oldTextPlain: "cold pizza." }),
+    ]);
+
+    const text = editor.view.dom.textContent ?? "";
+    expect(text).toContain("Suggested deletion: cold. End of suggested deletion.");
+    expect(text).toContain("Suggested insertion: warm. End of suggested insertion.");
+    expect(editor.view.dom.innerHTML).not.toContain("aria-label");
+    // The markers must stay out of the popover's anchor measurement, which
+    // unions every element carrying the change's id.
+    expect(
+      [...editor.view.dom.querySelectorAll("[data-suggestion-id]")].every(
+        (element) => !element.classList.contains("sr-only"),
+      ),
+    ).toBe(true);
   });
 
   /*
