@@ -395,7 +395,10 @@ export function EssayEditorPage({ essay, onBack }: EssayEditorPageProps) {
           inert={panelOpen && !panelDocked}
         >
           <div className="mx-auto flex w-full max-w-[1440px] px-4 pt-6 pb-12 lg:px-7 lg:pt-8 lg:pb-16">
-            <main className="min-w-0 flex-1">
+            {/* A plain column, not a second <main>: `SidebarInset` already
+             * renders the page's one main landmark, and nesting another put two
+             * of them in the tree — DESIGN.md §16.1, and axe flags it twice. */}
+            <div className="min-w-0 flex-1">
               <SuggestionsBar
                 controller={suggestions}
                 onQueueCleared={focusDocument}
@@ -421,7 +424,7 @@ export function EssayEditorPage({ essay, onBack }: EssayEditorPageProps) {
                 suggestions={essay.pendingSuggestions}
                 syncContent={!autosave.isDirty}
               />
-            </main>
+            </div>
           </div>
         </div>
         {/*
