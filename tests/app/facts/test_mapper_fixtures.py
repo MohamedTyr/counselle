@@ -100,6 +100,29 @@ def test_all_eleven_fixtures_are_present_on_disk() -> None:
             assert path.is_file(), f"missing fixture: {path}"
 
 
+def test_identity_website_survives_an_unparseable_source_value() -> None:
+    """`website` is a top-level profile field, not a header/body leaf, so it
+    never went through the engine's `NormalizeError` -> `unmapped:` routing
+    (school-data-v3 fix review). Before the fix, a school whose raw website
+    string didn't parse as a URL crashed `map_snapshot` for the *whole*
+    school, losing every fact from the pass, not just this one field -- two
+    live schools hit exactly this in the full crawl. This must degrade to a
+    dropped `unmapped:` fact instead."""
+    pages = _load_pages("Yale-University")
+    top_level = json.loads((FIXTURE_ROOT / "Yale-University" / "overview.json").read_text())
+    top_level["pageProps"]["profile"]["website"] = "not a url at all"
+    pages["overview"] = parse_page("overview", top_level)
+
+    result = map_snapshot(pages)
+
+    source_path = "overview/@profile/website"
+    website_facts = [f for f in result.facts if f.source_path == source_path]
+    assert len(website_facts) == 1
+    assert website_facts[0].fact_key == f"unmapped:{source_path}"
+    assert website_facts[0].value is None
+    assert "identity.website" not in {f.fact_key for f in result.facts}
+
+
 def test_zero_unmapped_labels_across_all_eleven_fixtures(
     results: Mapping[str, MapResult],
 ) -> None:

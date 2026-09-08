@@ -11,7 +11,9 @@ Two input sources, combined into one dict keyed by
 - **CollegeData-derived columns** — projected from the school's *current*
   `school_facts` rows (not just this pass's diff — plan §4.2: the explore
   row reflects the full current fact state) via a fixed `fact_key ->
-  column` table.
+  column` table, with **one exception**: `need_fully_met_pct`, the plan's
+  one sanctioned stored derived ratio, computed from two raw-count facts
+  rather than mapped 1:1 (see `_leading_count`).
 
 This unit does **not** attempt the SAT/ACT-percentile, admit-rate, or
 sports-by-gender columns appendix E-iv drafts — those live inside
@@ -23,6 +25,7 @@ projected" state, never invented. See Unit E's final report.
 
 from __future__ import annotations
 
+import re
 from collections.abc import Callable, Mapping
 from typing import Any
 
@@ -30,7 +33,22 @@ import asyncpg
 
 from adapters.facts_store import EXPLORE_COLUMNS
 
-__all__ = ["project_explore_row"]
+__all__ = ["UnmappedControlError", "ipeds_filter_columns", "project_explore_row"]
+
+
+class UnmappedControlError(Exception):
+    """`classification.control` is missing or not one of the three IPEDS
+    values this projection maps (plan §5.3). `school_explore_rows.control`
+    is `NOT NULL` with no `not_reported` member -- there is no honest
+    fallback, so the caller must abort this school's facts write rather
+    than commit a guessed owner. Carries `(source_path, label)` so the
+    caller can feed it into the same unmapped-label bookkeeping
+    `app/facts/crawl.py` threads through for unmapped fact keys."""
+
+    def __init__(self, label: str) -> None:
+        self.source_path = "classification.control"
+        self.label = label
+        super().__init__(f"unmapped classification.control: {label!r}")
 
 
 def _as_int(record: asyncpg.Record) -> int | None:
@@ -119,32 +137,76 @@ _FACT_KEY_MAP: Mapping[str, tuple[str, Callable[[asyncpg.Record], Any]]] = {
     "academics.calendar": ("calendar", _as_display),
     "academics.undergraduate_majors": ("majors", _as_list),
     "academics.special_programs": ("special_programs", _as_list),
+    "aid.merit_no_need_recipients_pct_all_undergraduates": ("merit_aid_pct", _as_float),
 }
 
+# The **one** sanctioned stored derived ratio (plan §5.3):
+# `need_fully_met_pct` = `aid.need_fully_met_all_undergraduates` ÷
+# `aid.received_all_undergraduates`. Neither fact is itself an explore
+# column (both are free-text scalars, e.g. "1,695 (25.5%) of aid
+# recipients" -- the printed percentage is against a different base than
+# the ratio the plan wants), so this is computed here, from the leading
+# headcount in each `value_text`, rather than mapped through
+# `_FACT_KEY_MAP` like every other column.
+_NEED_FULLY_MET_KEY = "aid.need_fully_met_all_undergraduates"
+_RECEIVED_KEY = "aid.received_all_undergraduates"
+_LEADING_COUNT_RE = re.compile(r"^\s*([\d,]+)")
 
-def _control_from_classification(control: str | None, sector: str | None) -> str:
+
+def _leading_count(text: str | None) -> int | None:
+    if text is None:
+        return None
+    match = _LEADING_COUNT_RE.match(text)
+    return int(match.group(1).replace(",", "")) if match else None
+
+
+def _control_from_classification(control: str | None) -> str:
     if control == "Public":
         return "public"
-    if sector and "for-profit" in sector.lower():
+    if control == "Private for-profit":
         return "private_for_profit"
-    return "private"
+    if control == "Private not-for-profit":
+        return "private"
+    # `school_explore_rows.control` is NOT NULL and CHECK-constrained to
+    # exactly these three values (plan §5.3) -- there is no "unknown"
+    # bucket to fall back to here, and never a `sector` substring guess
+    # (that would match "for-profit" inside "not-for-profit"). Verified
+    # against live IPEDS data: `control` is always one of the three values
+    # above, so this branch is not currently reached. If it ever is
+    # (missing/unrecognised `control`), raise so the caller aborts this
+    # school's facts write rather than commit a false owner -- it is
+    # counted with the dashboard's unmapped labels and the mapping gains
+    # its member deliberately.
+    raise UnmappedControlError(control if control is not None else "<missing>")
 
 
-def _ipeds_filter_columns(basic_profile: Mapping[str, Any]) -> dict[str, Any]:
+def ipeds_filter_columns(basic_profile: Mapping[str, Any]) -> dict[str, Any]:
+    """The IPEDS-derived subset of `EXPLORE_COLUMNS` (plan §3.1). Exposed
+    separately from `project_explore_row` so `app/facts/crawl.py` can call
+    it (and let an `UnmappedControlError` propagate) before writing any
+    facts for this school -- never after, which would leave a committed
+    fact write with no matching, honest explore row."""
     location = basic_profile.get("location") or {}
     classification = basic_profile.get("classification") or {}
     identity = basic_profile.get("identity_and_mission") or {}
-    gender_model = "coed"
-    if identity.get("men_only"):
+    men_only = identity.get("men_only")
+    women_only = identity.get("women_only")
+    # `coed` ("admits all genders") is itself a claim -- IPEDS makes it only
+    # when it positively rules out both single-gender flags. Neither flag
+    # reported (both `None`) means "not known", not "coed": leave it `None`
+    # rather than invent the answer (plan §5.3's gender_model honesty rule).
+    if men_only is None and women_only is None:
+        gender_model = None
+    elif men_only:
         gender_model = "men"
-    elif identity.get("women_only"):
+    elif women_only:
         gender_model = "women"
+    else:
+        gender_model = "coed"
     return {
         "region": location.get("region") or "Unknown",
         "locale": location.get("locale"),
-        "control": _control_from_classification(
-            classification.get("control"), classification.get("sector")
-        ),
+        "control": _control_from_classification(classification.get("control")),
         "institution_level": classification.get("institution_level"),
         "gender_model": gender_model,
         "religious_affiliation": identity.get("religious_affiliation"),
@@ -160,13 +222,24 @@ def project_explore_row(
 ) -> dict[str, Any]:
     """Every `EXPLORE_COLUMNS` key, `None` for anything not derivable."""
     values: dict[str, Any] = dict.fromkeys(EXPLORE_COLUMNS)
-    values.update(_ipeds_filter_columns(basic_profile))
+    values.update(ipeds_filter_columns(basic_profile))
+    facts_by_key = {record["fact_key"]: record for record in current_facts}
     for record in current_facts:
         mapping = _FACT_KEY_MAP.get(record["fact_key"])
         if mapping is None:
             continue
         column, extractor = mapping
         values[column] = extractor(record)
+    need_fully_met_count = _leading_count(
+        (facts_by_key[_NEED_FULLY_MET_KEY]["value_text"])
+        if _NEED_FULLY_MET_KEY in facts_by_key
+        else None
+    )
+    received_count = _leading_count(
+        (facts_by_key[_RECEIVED_KEY]["value_text"]) if _RECEIVED_KEY in facts_by_key else None
+    )
+    if need_fully_met_count is not None and received_count:
+        values["need_fully_met_pct"] = round(need_fully_met_count / received_count * 100, 1)
     majors = values.get("majors")
     values["majors_count"] = len(majors) if isinstance(majors, list) else None
     # NO sat_total_p25/p75 (R14/D10): the 25th percentile of a combined SAT

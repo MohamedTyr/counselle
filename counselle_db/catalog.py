@@ -31,6 +31,73 @@ def _freeze(value: Any) -> Any:
     return value
 
 
+@dataclass(frozen=True)
+class SectionFact:
+    """One `facts:` entry — a key this school's page always declares, present or absent
+    (plan §5.2: "``label:`` is what the page renders for every declared key")."""
+
+    key: str
+    label: str
+    tab: str
+
+
+@dataclass(frozen=True)
+class SectionGroup:
+    """One layout group. ``foot``/``foot_ref`` are mutually exclusive (a Phase 1 test
+    pins this on the asset itself); at most one of the two is ever non-``None``.
+
+    The committed ``facts_sections.yaml`` (Phase 1) does not yet carry the
+    plan's ``chart:``/group-level ``headline`` layout hints described in §5.2
+    — every group here reads its authored ``title:`` as ``label`` and no
+    group carries a ``chart``. See this unit's final report.
+    """
+
+    id: str
+    label: str
+    foot: str | None
+    foot_ref: str | None
+    facts: tuple[SectionFact, ...]
+
+
+@dataclass(frozen=True)
+class FactsSection:
+    id: str
+    title: str
+    tabs: tuple[str, ...]
+    groups: tuple[SectionGroup, ...]
+
+
+def _load_sections() -> Mapping[str, FactsSection]:
+    """Parse `config/assets/facts_sections.yaml` (Phase 1) into `FactsSection`s.
+
+    The asset has exactly one loader (this function) — `app/facts/service.py`
+    reads `Catalog.snapshot.sections`, never the yaml file itself (plan §5.2).
+    """
+    raw = load_yaml_asset("facts_sections")
+    sections: dict[str, FactsSection] = {}
+    for section in raw["sections"]:
+        groups = tuple(
+            SectionGroup(
+                id=group["id"],
+                label=group["title"],
+                foot=group.get("foot"),
+                foot_ref=group.get("foot_ref"),
+                facts=tuple(
+                    SectionFact(key=fact["key"], label=fact["label"], tab=fact["tab"])
+                    for fact in group["facts"]
+                ),
+            )
+            for group in section["groups"]
+        )
+        sections[section["id"]] = FactsSection(
+            id=section["id"],
+            title=section["title"],
+            tabs=tuple(section["tabs"]),
+            groups=groups,
+        )
+    return MappingProxyType(sections)
+
+
 _PROFILES_SQL = """SELECT id,name,aliases,city,state,search_name,official_domain,is_main_campus,
  basic_profile,profile_version,profile_snapshot_date,profile_sha256
  FROM cds_library.school_profiles ORDER BY id"""
@@ -98,9 +165,7 @@ class CatalogSnapshot:
 
 
 class Catalog:
-    def __init__(
-        self, pool: asyncpg.Pool, snapshot: CatalogSnapshot, *, settings: Any = None
-    ):
+    def __init__(self, pool: asyncpg.Pool, snapshot: CatalogSnapshot, *, settings: Any = None):
         self.pool = pool
         self._snapshot = snapshot
         self._last_attempt = snapshot.refreshed_at
@@ -212,7 +277,7 @@ class Catalog:
             facts_updated_max=max(updated_ats) if updated_ats else None,
             stale_facts_count=stale_facts_count,
             fact_keys=MappingProxyType({}),
-            sections=MappingProxyType({}),
+            sections=_load_sections(),
         )
 
     async def maybe_refresh(self, *, force: bool = False) -> CatalogSnapshot:

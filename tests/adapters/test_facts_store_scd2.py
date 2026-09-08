@@ -11,8 +11,15 @@ critical core of Unit E:
 - a metadata-only change (display/source_path/snapshot_id, same value)
   updates in place instead of closing+reinserting.
 
-Uses Berea College (`school_id=156295`) on the live v3 Postgres, cleaned up
-before and after every test.
+Uses a permanently reserved, entirely test-owned synthetic school id
+(never a real IPEDS unitid -- those are always positive) on the live v3
+Postgres, cleaned up before and after every test. Previously hardcoded a
+real school (Berea College, `school_id=156295`); the scoped-by-id
+`DELETE FROM school_facts WHERE school_id = 156295` was still destructive
+once the full crawl gave that school real `school_facts` rows -- every
+test run wiped and never restored them. See
+`tests/adapters/test_crawl_poison_pill.py`, which established the
+reserved-synthetic-id pattern first for the same reason.
 """
 
 from __future__ import annotations
@@ -28,16 +35,56 @@ from domain.facts.models import FactRow, NormalizedValue
 
 pytestmark = pytest.mark.live_db
 
-_SCHOOL_ID = 156295  # Berea College
+# A permanently reserved, entirely test-owned school id -- never a real
+# IPEDS unitid. Distinct from test_crawl_poison_pill.py's -900001/-900002
+# and test_facts_store_jobs.py's -900003.
+_SCHOOL_ID = -900004
 _TAB = "admission"
 _OTHER_TAB = "money-matters"
 _SHA = hashlib.sha256(b"scd2-test").digest()
 
 
-async def _wipe(pool: asyncpg.Pool) -> None:
+async def _wipe_test_school(pool: asyncpg.Pool) -> None:
     async with pool.acquire() as conn, conn.transaction():
         await conn.execute(
             "DELETE FROM cds_library.school_facts WHERE school_id = $1", _SCHOOL_ID
+        )
+        await conn.execute(
+            "DELETE FROM cds_library.school_explore_rows WHERE school_id = $1", _SCHOOL_ID
+        )
+        await conn.execute(
+            "DELETE FROM cds_library.school_pages WHERE school_id = $1", _SCHOOL_ID
+        )
+        await conn.execute(
+            "DELETE FROM cds_library.page_snapshots WHERE school_id = $1", _SCHOOL_ID
+        )
+        await conn.execute(
+            "DELETE FROM cds_library.collegedata_schools WHERE school_id = $1", _SCHOOL_ID
+        )
+        await conn.execute("DELETE FROM cds_library.schools WHERE id = $1", _SCHOOL_ID)
+
+
+async def _insert_test_school(pool: asyncpg.Pool) -> None:
+    """Minimal identity profile -- `write_school_facts` only FKs
+    `school_facts.school_id -> schools.id`, so no `collegedata_schools`
+    row is needed for this file's tests. Same minimal shape as
+    `test_crawl_poison_pill.py`'s fixture."""
+    name = f"SCD2 Test Fixture School {_SCHOOL_ID}"
+    async with pool.acquire() as conn, conn.transaction():
+        await conn.execute(
+            """
+            INSERT INTO cds_library.schools
+                (id, name, search_name, basic_profile, profile_provenance,
+                 profile_version, profile_snapshot_date, profile_sha256)
+            VALUES (
+                $1::integer, $2::text,
+                lower(trim(regexp_replace($2::text, '[[:space:]]+', ' ', 'g'))),
+                jsonb_build_object('id', $1::integer, 'name', $2::text), '{}'::jsonb,
+                'test-fixture', CURRENT_DATE, decode(repeat('00', 32), 'hex')
+            )
+            """,
+            _SCHOOL_ID,
+            name,
         )
 
 
@@ -47,11 +94,14 @@ async def clean_school(
 ) -> AsyncIterator[asyncpg.Pool]:
     # `cds_library_app` has no DELETE grant on school_facts (plan §3.3) --
     # cleanup runs as the admin role; the test body itself uses pipeline_pool.
-    await _wipe(admin_pool)
+    # Pre-clean first: idempotent against residue left by a previous test
+    # run that crashed before its own teardown ran.
+    await _wipe_test_school(admin_pool)
+    await _insert_test_school(admin_pool)
     try:
         yield pipeline_pool
     finally:
-        await _wipe(admin_pool)
+        await _wipe_test_school(admin_pool)
 
 
 def _row(fact_key: str, *, tab: str = _TAB, value: NormalizedValue | None, **kw: object) -> FactRow:

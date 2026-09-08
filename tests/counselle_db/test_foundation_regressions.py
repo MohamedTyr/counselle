@@ -90,7 +90,7 @@ async def test_query_database_passes_params_separately_and_applies_row_cap(
 ) -> None:
     catalog, connection = _query_catalog([{"id": 1}, {"id": 2}, {"id": 3}])
     monkeypatch.setattr(
-        "counselle_db.service.get_settings",
+        "counselle_db.sql_guard.get_settings",
         lambda: SimpleNamespace(
             db_row_cap=2,
             query_database_max_bytes=10_000,
@@ -114,7 +114,7 @@ async def test_query_database_caps_complete_serialized_payload(
         [{"very_long_column_name": "x" * 800}, {"very_long_column_name": "ok"}]
     )
     monkeypatch.setattr(
-        "counselle_db.service.get_settings",
+        "counselle_db.sql_guard.get_settings",
         lambda: SimpleNamespace(
             db_row_cap=500,
             query_database_max_bytes=700,
@@ -135,7 +135,7 @@ async def test_query_database_rejects_nested_binary_values(
 ) -> None:
     catalog, _ = _query_catalog([{"packet": {"content": memoryview(b"pdf")}}])
     monkeypatch.setattr(
-        "counselle_db.service.get_settings",
+        "counselle_db.sql_guard.get_settings",
         lambda: SimpleNamespace(
             db_row_cap=500,
             query_database_max_bytes=10_000,
@@ -160,7 +160,7 @@ async def test_query_database_rejects_pdf_projection_before_fetch(
 ) -> None:
     catalog, connection = _query_catalog([])
     monkeypatch.setattr(
-        "counselle_db.service.get_settings",
+        "counselle_db.sql_guard.get_settings",
         lambda: SimpleNamespace(
             db_row_cap=500,
             query_database_max_bytes=10_000,

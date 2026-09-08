@@ -8,6 +8,8 @@ import {
 } from "react-router";
 import { toast } from "sonner";
 
+import { isTransportError } from "@/api/http/errors";
+import { useSchoolFacts } from "@/api/schools/hooks";
 import {
   useApplication,
   useApplications,
@@ -36,9 +38,12 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsPanel, TabsTab } from "@/components/ui/tabs";
 import { PageContainer } from "@/components/workspace/PageContainer";
 import { SchoolFactsPanel } from "@/features/schools/facts/SchoolFactsPanel";
-import { schoolFactsFixture } from "@/features/schools/facts/school-facts-fixtures";
+import { SchoolFactsSkeleton } from "@/features/schools/facts/SchoolFactsSkeleton";
 import { identityMeta } from "@/features/schools/facts/school-facts-format";
-import type { SchoolIdentity } from "@/features/schools/facts/school-facts-types";
+import type {
+  SchoolFactsResponse,
+  SchoolIdentity,
+} from "@/features/schools/facts/school-facts-types";
 import { SchoolAvatar } from "@/features/schools/school-cells";
 import { SchoolWorkspace } from "@/features/schools/SchoolWorkspace";
 
@@ -124,25 +129,47 @@ function SchoolDetail({
   isLoading: boolean;
   unitid: number;
 }) {
+  const facts = useSchoolFacts(unitid);
+
+  /* A pending query renders the skeleton, never a redirect (plan §5.2) —
+   * this branch has to come before anything that could read `facts.data`. */
+  if (isLoading || facts.isPending) return <SchoolDetailSkeleton />;
+
+  if (facts.isError) {
+    /* An unknown unitid is a 404, and a 404 is not a failure: it renders
+     * the "We don't have this school" Empty primitive, never the error
+     * card. Only 5xx/network reaches the error card. */
+    if (isTransportError(facts.error) && facts.error.status === 404) {
+      return <SchoolNotFound />;
+    }
+    return (
+      <div className="flex min-h-0 flex-1 items-center justify-center p-6">
+        <ErrorCard
+          headingLevel="h1"
+          message="The workspace could not reach the school data service."
+          onRetry={() => void facts.refetch()}
+          role="alert"
+          title="Could not load this school's facts"
+        />
+      </div>
+    );
+  }
+
+  return <SchoolDetailLoaded application={application} data={facts.data} />;
+}
+
+function SchoolDetailLoaded({
+  application,
+  data,
+}: {
+  application: ApplicationView | null;
+  data: SchoolFactsResponse;
+}) {
   const [searchParams, setSearchParams] = useSearchParams();
   const detail = useApplication(application?.id ?? null);
-  const facts = schoolFactsFixture(unitid);
   const tab: Tab =
     searchParams.get("tab") === "application" ? "application" : "about";
-
-  if (isLoading) return <SchoolDetailSkeleton />;
-  if (!facts && !application) return <Navigate replace to="/app/schools" />;
-
-  const identity = facts?.identity ?? {
-    unitid,
-    name: application?.school_name ?? "School",
-    city: application?.school_city ?? null,
-    state: application?.school_state ?? null,
-    control: null,
-    undergraduates: null,
-    websiteUrl: application?.website_url ?? null,
-    domain: null,
-  };
+  const identity = data.identity;
   const openItems = application
     ? application.progress.total - application.progress.completed
     : 0;
@@ -152,7 +179,7 @@ function SchoolDetail({
       actions={
         <SchoolActions
           application={application}
-          websiteUrl={identity.websiteUrl}
+          websiteUrl={identity.website_url}
         />
       }
       /*
@@ -196,11 +223,7 @@ function SchoolDetail({
           </TabsTab>
         </TabsList>
         <TabsPanel className="pt-4" value="about">
-          {facts ? (
-            <SchoolFactsPanel data={facts} />
-          ) : (
-            <NoFactsYet name={identity.name} />
-          )}
+          <SchoolFactsPanel data={data} />
         </TabsPanel>
         <TabsPanel className="pt-4" value="application">
           <ApplicationTab
@@ -241,7 +264,7 @@ function SchoolIdentityBlock({ identity }: { identity: SchoolIdentity }) {
   const meta = identityMeta(identity);
   return (
     <div className="flex min-w-0 items-center gap-3">
-      <SchoolAvatar name={identity.name} websiteUrl={identity.websiteUrl} />
+      <SchoolAvatar name={identity.name} websiteUrl={identity.website_url} />
       <div className="flex min-w-0 flex-col gap-1">
         <h1 className="truncate text-xl leading-none font-semibold tracking-tight">
           {identity.name}
@@ -356,28 +379,25 @@ function ApplicationTab({
   return <SchoolWorkspace detail={detail} onRetry={onRetry} />;
 }
 
-function NoFactsYet({ name }: { name: string }) {
+/** An unknown unitid — the school is not in our database at all. Distinct
+ * from `has_collegedata === false` (a real school we just have no crawled
+ * facts for), which `SchoolFactsPanel` handles on the About tab instead. */
+function SchoolNotFound() {
   return (
-    <Empty>
-      <EmptyHeader>
-        <EmptyTitle>No Common Data Set on file</EmptyTitle>
-        <EmptyDescription>
-          We haven't been able to read a Common Data Set for {name}.
-        </EmptyDescription>
-      </EmptyHeader>
-      <EmptyContent>
-        <Button
-          render={
-            <Link
-              state={{ draftPrompt: `What can you tell me about ${name}?` }}
-              to="/app/ai"
-            />
-          }
-        >
-          Ask Counselle about {name}
-        </Button>
-      </EmptyContent>
-    </Empty>
+    <div className="flex min-h-0 flex-1 items-center justify-center p-6">
+      <Empty>
+        <EmptyHeader>
+          <EmptyTitle>We don't have this school</EmptyTitle>
+          <EmptyDescription>
+            Counselle doesn't have a school with that id. Search by name to
+            find it.
+          </EmptyDescription>
+        </EmptyHeader>
+        <EmptyContent>
+          <Button render={<Link to="/app/schools" />}>Browse schools</Button>
+        </EmptyContent>
+      </Empty>
+    </div>
   );
 }
 
@@ -398,10 +418,7 @@ export function SchoolDetailSkeleton() {
         ))}
       </div>
       <Skeleton className="h-8 w-56" />
-      <div className="grid items-start gap-6 md:grid-cols-[200px_minmax(0,1fr)] lg:gap-8">
-        <Skeleton className="h-80" />
-        <Skeleton className="h-96" />
-      </div>
+      <SchoolFactsSkeleton />
     </section>
   );
 }

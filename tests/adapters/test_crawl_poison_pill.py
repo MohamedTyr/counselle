@@ -16,7 +16,7 @@ machinery is exercised for real, exactly as the poller runs it.
 from __future__ import annotations
 
 import json
-from collections.abc import AsyncIterator, Mapping
+from collections.abc import AsyncIterator, Callable, Mapping
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, cast
@@ -42,6 +42,18 @@ pytestmark = pytest.mark.live_db
 _TABS = cast("tuple[TabName, ...]", TAB_NAMES)
 _FIXTURE_DIR = Path(__file__).resolve().parents[1] / "fixtures" / "collegedata" / "Berea-College"
 
+# Two permanently reserved, entirely test-owned school ids -- never a real
+# IPEDS unitid (those are always positive), so these can never collide with
+# crosswalk-matched crawl data no matter how much of the real crawl has run
+# (a full 2,587-school crawl left zero "never-crawled" schools for the old
+# "pick two real pristine schools" fixture to find -- see the module
+# docstring history). Each test creates and destroys its own `schools` +
+# `collegedata_schools` rows for these two ids; nothing else in the
+# database can ever reference them.
+_TEST_SCHOOL_A: tuple[int, str] = (-900001, "zz-poison-pill-test-school-1")
+_TEST_SCHOOL_B: tuple[int, str] = (-900002, "zz-poison-pill-test-school-2")
+_TEST_SCHOOLS: tuple[tuple[int, str], ...] = (_TEST_SCHOOL_A, _TEST_SCHOOL_B)
+
 
 def _load_fixture_profiles() -> dict[TabName, dict[str, Any]]:
     """One real, known-good fixture body per tab (reused verbatim for every
@@ -54,10 +66,17 @@ def _load_fixture_profiles() -> dict[TabName, dict[str, Any]]:
     return profiles
 
 
-async def _wipe_schools(pool: asyncpg.Pool, school_ids: list[int]) -> None:
+async def _wipe_test_schools(pool: asyncpg.Pool, schools: tuple[tuple[int, str], ...]) -> None:
+    """Delete everything this test file could ever have written for its two
+    reserved school ids -- in FK order -- plus the synthetic `schools`/
+    `collegedata_schools` rows themselves (this fixture creates those too,
+    unlike the old fixture, which reused pre-existing real rows). Never
+    touches any other school, and never touches `crawl_runs`/`facts_jobs`
+    (those are cleaned per-job-id by `crawl_job_cleanup` below, since they
+    also hold real production/other-process history that must not be
+    blanket-deleted)."""
+    school_ids = [school_id for school_id, _slug in schools]
     async with pool.acquire() as conn, conn.transaction():
-        await conn.execute("DELETE FROM cds_library.crawl_runs")
-        await conn.execute("DELETE FROM cds_library.facts_jobs")
         await conn.execute(
             "DELETE FROM cds_library.school_facts WHERE school_id = ANY($1::int[])", school_ids
         )
@@ -66,46 +85,132 @@ async def _wipe_schools(pool: asyncpg.Pool, school_ids: list[int]) -> None:
             school_ids,
         )
         # `school_pages.latest_snapshot_id` FK-references `page_snapshots.id`
-        # -- clear the referencing row before the referenced one.
+        # ON DELETE RESTRICT -- clear the referencing row before the
+        # referenced one.
         await conn.execute(
             "DELETE FROM cds_library.school_pages WHERE school_id = ANY($1::int[])", school_ids
         )
         await conn.execute(
             "DELETE FROM cds_library.page_snapshots WHERE school_id = ANY($1::int[])", school_ids
         )
+        # `collegedata_schools.school_id` FK-references `schools.id` --
+        # clear it before deleting the `schools` row it points to.
+        await conn.execute(
+            "DELETE FROM cds_library.collegedata_schools WHERE school_id = ANY($1::int[])",
+            school_ids,
+        )
+        await conn.execute("DELETE FROM cds_library.schools WHERE id = ANY($1::int[])", school_ids)
 
 
-async def _pick_two_pristine_schools(pool: asyncpg.Pool) -> list[tuple[int, str]]:
-    """Two real, crosswalk-matched schools with **no** existing
-    `school_pages` rows -- safe to overwrite and fully wipe in cleanup
-    without needing to restore any prior real crawl data."""
-    rows = await pool.fetch(
-        """
-        SELECT cs.school_id, cs.slug
-        FROM cds_library.collegedata_schools cs
-        WHERE cs.retired_at IS NULL AND cs.school_id IS NOT NULL
-          AND NOT EXISTS (
-              SELECT 1 FROM cds_library.school_pages sp WHERE sp.school_id = cs.school_id
-          )
-        ORDER BY cs.school_id
-        LIMIT 2
-        """
-    )
-    assert len(rows) == 2, "need two never-crawled schools in cds_library for this test"
-    return [(row["school_id"], row["slug"]) for row in rows]
+async def _insert_test_schools(pool: asyncpg.Pool, schools: tuple[tuple[int, str], ...]) -> None:
+    """Create this test file's own `schools` + `collegedata_schools` rows
+    for its two reserved ids. `basic_profile` carries only `id`/`name`/a
+    minimal `classification.control` -- the `schools_projection_matches`
+    trigger requires every typed column to match its projection out of
+    `basic_profile` (search_name included), but every IPEDS-derived field
+    this test doesn't set beyond `control` (aliases/city/region/hbcu/...)
+    is either absent-safe in that trigger or already defaulted gracefully
+    by the real explore projection (`app/facts/explore_projection.py`'s
+    `ipeds_filter_columns`: region -> 'Unknown', hbcu/tribal/land_grant ->
+    False, gender_model -> `None` when unset). `control` is the one
+    exception: it is `NOT NULL` with no fallback (plan §5.3) and an
+    unmapped/missing value now raises `UnmappedControlError` and aborts
+    the school's facts write entirely -- so this fixture must supply a
+    real value to keep exercising the poison-pill mapper/parser/fetch
+    machinery this test is actually about, not the IPEDS projection."""
+    async with pool.acquire() as conn, conn.transaction():
+        for school_id, slug in schools:
+            name = f"Poison-Pill Test Fixture School {school_id}"
+            await conn.execute(
+                """
+                INSERT INTO cds_library.schools
+                    (id, name, search_name, basic_profile, profile_provenance,
+                     profile_version, profile_snapshot_date, profile_sha256)
+                VALUES (
+                    $1::integer, $2::text,
+                    lower(trim(regexp_replace($2::text, '[[:space:]]+', ' ', 'g'))),
+                    jsonb_build_object(
+                        'id', $1::integer, 'name', $2::text,
+                        'classification', jsonb_build_object('control', 'Public')
+                    ),
+                    '{}'::jsonb,
+                    'test-fixture', CURRENT_DATE, decode(repeat('00', 32), 'hex')
+                )
+                """,
+                school_id,
+                name,
+            )
+            await conn.execute(
+                """
+                INSERT INTO cds_library.collegedata_schools
+                    (slug, school_id, match_method, matched_at)
+                VALUES ($1, $2, 'manual', now())
+                """,
+                slug,
+                school_id,
+            )
+
+
+async def _ensure_advisory_lock_free(pool: asyncpg.Pool) -> None:
+    """`run_crawl_pass` (app/facts/crawl.py) holds a non-blocking
+    `pg_try_advisory_lock` on `_ADVISORY_LOCK_KEY` for its whole duration
+    -- `run_remap_pass` never takes it, so a concurrently running
+    `python -m app.facts remap` cannot trip this. Take-and-immediately-
+    release it here on its own probe connection before this fixture does
+    anything else: if a real crawl pass (or a leaked lock from a killed
+    previous test run) is genuinely holding it, fail loudly and clearly
+    right now, instead of letting the test limp through to `run_crawl_pass`'s
+    own graceful `pass_already_running` fallback and a confusing
+    downstream `assert job_row["status"] == "done"` failure."""
+    async with pool.acquire() as conn:
+        got_lock = await conn.fetchval(
+            "SELECT pg_try_advisory_lock(hashtext($1))", crawl._ADVISORY_LOCK_KEY
+        )
+        if not got_lock:
+            pytest.fail(
+                "the crawl-pass advisory lock ('facts_crawl_pass') is held by "
+                "another process (a live crawl pass -- not the remap job, which "
+                "never takes this lock) -- rerun this test once it releases",
+                pytrace=False,
+            )
+        await conn.execute("SELECT pg_advisory_unlock(hashtext($1))", crawl._ADVISORY_LOCK_KEY)
 
 
 @pytest.fixture
 async def two_schools(
     pipeline_pool: asyncpg.Pool, admin_pool: asyncpg.Pool
 ) -> AsyncIterator[list[tuple[int, str]]]:
-    schools = await _pick_two_pristine_schools(pipeline_pool)
-    school_ids = [school_id for school_id, _slug in schools]
-    await _wipe_schools(admin_pool, school_ids)
+    await _ensure_advisory_lock_free(pipeline_pool)
+    # Pre-clean first: idempotent against residue left by a previous test
+    # run that crashed before its own teardown ran.
+    await _wipe_test_schools(admin_pool, _TEST_SCHOOLS)
+    await _insert_test_schools(admin_pool, _TEST_SCHOOLS)
     try:
-        yield schools
+        yield list(_TEST_SCHOOLS)
     finally:
-        await _wipe_schools(admin_pool, school_ids)
+        await _wipe_test_schools(admin_pool, _TEST_SCHOOLS)
+
+
+@pytest.fixture
+async def crawl_job_cleanup(admin_pool: asyncpg.Pool) -> AsyncIterator[Callable[[int], None]]:
+    """Tracks the exact `facts_jobs.id`(s) a test creates so teardown can
+    delete precisely those rows (and their `crawl_runs`) -- never a
+    blanket wipe of these two tables, which also hold real crawl/remap job
+    history from other processes (the old fixture's `DELETE FROM
+    cds_library.crawl_runs`/`facts_jobs` with no WHERE clause was safe only
+    while the database had no such history; it does now)."""
+    created: list[int] = []
+    try:
+        yield created.append
+    finally:
+        if created:
+            async with admin_pool.acquire() as conn, conn.transaction():
+                await conn.execute(
+                    "DELETE FROM cds_library.crawl_runs WHERE job_id = ANY($1::int[])", created
+                )
+                await conn.execute(
+                    "DELETE FROM cds_library.facts_jobs WHERE id = ANY($1::int[])", created
+                )
 
 
 class _FakeFetcher:
@@ -183,7 +288,10 @@ def _patch_fetcher_and_pending(
 
 
 async def test_a_mapper_failure_is_recorded_and_the_pass_completes(
-    monkeypatch: pytest.MonkeyPatch, two_schools: list[tuple[int, str]], pipeline_pool: asyncpg.Pool
+    monkeypatch: pytest.MonkeyPatch,
+    two_schools: list[tuple[int, str]],
+    pipeline_pool: asyncpg.Pool,
+    crawl_job_cleanup: Callable[[int], None],
 ) -> None:
     """A school whose mapped shape breaks a handler (the real bug: `paired_
     header`/`address_from_body_array`/`_single` raising `NormalizeError`
@@ -210,9 +318,14 @@ async def test_a_mapper_failure_is_recorded_and_the_pass_completes(
     pool = pipeline_pool
     settings = get_settings()
     enqueued = await facts_jobs_store.enqueue_now(pool, kind="crawl_pass")
-    assert enqueued
+    assert enqueued, (
+        "a 'crawl_pass' job is already queued/running -- a real crawl pass "
+        "or a stale job from a crashed previous test run is occupying the "
+        "single-live-job slot (facts_jobs_one_live_pass_idx)"
+    )
     job = await facts_jobs_store.claim_next_job(pool, lease_seconds=180)
     assert job is not None and job.started_at is not None
+    crawl_job_cleanup(job.id)
 
     await crawl.run_crawl_pass(
         pool, settings, job_id=job.id, claimed_started_at=job.started_at
@@ -249,7 +362,10 @@ async def test_a_mapper_failure_is_recorded_and_the_pass_completes(
 
 
 async def test_b_parser_failure_is_recorded_and_the_pass_completes(
-    monkeypatch: pytest.MonkeyPatch, two_schools: list[tuple[int, str]], pipeline_pool: asyncpg.Pool
+    monkeypatch: pytest.MonkeyPatch,
+    two_schools: list[tuple[int, str]],
+    pipeline_pool: asyncpg.Pool,
+    crawl_job_cleanup: Callable[[int], None],
 ) -> None:
     """A school with one tab whose body no longer fits any of the nine
     closed `bodyContent` shapes (`ParseError`, real cause: CollegeData
@@ -272,9 +388,14 @@ async def test_b_parser_failure_is_recorded_and_the_pass_completes(
     pool = pipeline_pool
     settings = get_settings()
     enqueued = await facts_jobs_store.enqueue_now(pool, kind="crawl_pass")
-    assert enqueued
+    assert enqueued, (
+        "a 'crawl_pass' job is already queued/running -- a real crawl pass "
+        "or a stale job from a crashed previous test run is occupying the "
+        "single-live-job slot (facts_jobs_one_live_pass_idx)"
+    )
     job = await facts_jobs_store.claim_next_job(pool, lease_seconds=180)
     assert job is not None and job.started_at is not None
+    crawl_job_cleanup(job.id)
 
     await crawl.run_crawl_pass(
         pool, settings, job_id=job.id, claimed_started_at=job.started_at
@@ -313,7 +434,10 @@ async def test_b_parser_failure_is_recorded_and_the_pass_completes(
 
 
 async def test_c_fetch_failure_is_recorded_and_the_pass_completes(
-    monkeypatch: pytest.MonkeyPatch, two_schools: list[tuple[int, str]], pipeline_pool: asyncpg.Pool
+    monkeypatch: pytest.MonkeyPatch,
+    two_schools: list[tuple[int, str]],
+    pipeline_pool: asyncpg.Pool,
+    crawl_job_cleanup: Callable[[int], None],
 ) -> None:
     """Finding 1 (school-data-v3 fix review): a per-school fetch failure --
     `ResponseTooLargeError`/`BuildIdNotFoundError` raised out of
@@ -341,9 +465,14 @@ async def test_c_fetch_failure_is_recorded_and_the_pass_completes(
     pool = pipeline_pool
     settings = get_settings()
     enqueued = await facts_jobs_store.enqueue_now(pool, kind="crawl_pass")
-    assert enqueued
+    assert enqueued, (
+        "a 'crawl_pass' job is already queued/running -- a real crawl pass "
+        "or a stale job from a crashed previous test run is occupying the "
+        "single-live-job slot (facts_jobs_one_live_pass_idx)"
+    )
     job = await facts_jobs_store.claim_next_job(pool, lease_seconds=180)
     assert job is not None and job.started_at is not None
+    crawl_job_cleanup(job.id)
 
     await crawl.run_crawl_pass(
         pool, settings, job_id=job.id, claimed_started_at=job.started_at
@@ -391,7 +520,10 @@ async def test_c_fetch_failure_is_recorded_and_the_pass_completes(
 
 
 async def test_d_robots_disallowed_aborts_the_pass_gracefully(
-    monkeypatch: pytest.MonkeyPatch, two_schools: list[tuple[int, str]], pipeline_pool: asyncpg.Pool
+    monkeypatch: pytest.MonkeyPatch,
+    two_schools: list[tuple[int, str]],
+    pipeline_pool: asyncpg.Pool,
+    crawl_job_cleanup: Callable[[int], None],
 ) -> None:
     """Finding 1's other half: a pass-fatal cause (`RobotsDisallowedError`
     here, standing in for the site withdrawing permission for a path every
@@ -413,9 +545,14 @@ async def test_d_robots_disallowed_aborts_the_pass_gracefully(
     pool = pipeline_pool
     settings = get_settings()
     enqueued = await facts_jobs_store.enqueue_now(pool, kind="crawl_pass")
-    assert enqueued
+    assert enqueued, (
+        "a 'crawl_pass' job is already queued/running -- a real crawl pass "
+        "or a stale job from a crashed previous test run is occupying the "
+        "single-live-job slot (facts_jobs_one_live_pass_idx)"
+    )
     job = await facts_jobs_store.claim_next_job(pool, lease_seconds=180)
     assert job is not None and job.started_at is not None
+    crawl_job_cleanup(job.id)
 
     await crawl.run_crawl_pass(
         pool, settings, job_id=job.id, claimed_started_at=job.started_at

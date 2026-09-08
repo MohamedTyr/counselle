@@ -53,6 +53,7 @@ from api.routes import (
     memories,
     onboarding,
     profile,
+    schools_facts,
     sessions,
     system,
     tasks,
@@ -267,6 +268,7 @@ def create_app() -> FastAPI:
     app.include_router(me.router, prefix="/v1")
     app.include_router(config_routes.router, prefix="/v1")
     app.include_router(applications.router, prefix="/v1")
+    app.include_router(schools_facts.router, prefix="/v1")
     app.include_router(tasks.router, prefix="/v1")
     app.include_router(essays.router, prefix="/v1")
     app.include_router(activities.router, prefix="/v1")

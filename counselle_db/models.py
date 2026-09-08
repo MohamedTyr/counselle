@@ -102,7 +102,7 @@ class DomainRow(FrozenModel):
     display: str | None
     available: bool
     availability_status: str | None = None
-    unit: str | None = None            # the manifest's declared unit for this metric
+    unit: str | None = None  # the manifest's declared unit for this metric
     value: Any = None
     vintage: str
     caveat_kinds: tuple[str, ...] = ()
@@ -145,3 +145,55 @@ class QueryResult(FrozenModel):
     truncated: bool
     as_of: datetime
     warning: str
+
+
+# --- CollegeData facts store (school-data-v3 Phase 2) ---
+# `FactValueRow`/`SchoolFactsStatus`/`FactsQueryResult` are the raw, typed
+# shape of `cds_library.current_school_facts` + `school_data_status` —
+# `counselle_db.service.get_facts`'s return value. They deliberately do not
+# know about layout (sections/groups/kind) or student-facing copy: that is
+# `app/facts/service.py`'s job, reading `Catalog.snapshot.sections` on top
+# of this. `explore()`/`majors()` return raw `asyncpg.Record`s instead of a
+# typed model — `school_explore_rows` is ~70 nullable columns and a second
+# 70-field pydantic mirror of a table `app/facts/service_explore.py` already
+# reads by name would be the "two homes for one shape" case CLAUDE.md's
+# one-source-of-truth rule forbids; the type boundary is drawn at the
+# response model instead (`app/facts/response_models.py`).
+
+
+class FactValueRow(FrozenModel):
+    """One row of `cds_library.current_school_facts` (a fact this school has a value for)."""
+
+    fact_key: str
+    tab: str
+    section: str
+    label: str
+    value: Any
+    display: str
+    unit: str | None
+    value_type: str
+    value_num: float | None
+    value_text: str | None
+    value_bool: bool | None
+    value_date: date | None
+    reported_period: str | None
+    reported_period_year: int | None
+    observed_at: datetime
+
+
+class SchoolFactsStatus(FrozenModel):
+    """One row of `cds_library.school_data_status` — exists for every school, even one
+    with no crosswalk row at all (`has_collegedata=False`) or no completed pass
+    (`tabs` all `never_fetched`)."""
+
+    school_id: int
+    has_collegedata: bool
+    facts_updated_at: datetime | None
+    fact_count: int
+    tabs: dict[str, str]
+
+
+class FactsQueryResult(FrozenModel):
+    school: SchoolBasics
+    status: SchoolFactsStatus
+    rows: tuple[FactValueRow, ...]

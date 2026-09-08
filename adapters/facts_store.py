@@ -102,11 +102,25 @@ async def get_current_facts(conn: asyncpg.Connection, *, school_id: int) -> list
 async def previous_run_started_at(
     conn: asyncpg.Connection, *, exclude_run_id: int
 ) -> datetime | None:
-    """The `started_at` of the run immediately before `exclude_run_id` —
-    `retire_absent_slugs`'s "two consecutive passes" reference point."""
+    """The `started_at` of the previous **sitemap-discovering crawl pass**
+    (never a `remap` run, and never an aborted/crashed crawl pass) —
+    `retire_absent_slugs`'s "two consecutive passes" reference point.
+
+    `sitemap_slugs` is only ever set by `_run_crawl_pass_locked`'s own
+    end-of-pass `close_run` call, once `touch_seen_slugs` has already run
+    for that pass (`app/facts/crawl.py`). A `remap` pass never calls
+    `touch_seen_slugs` and never passes `sitemap_slugs` to `close_run`, so
+    its `crawl_runs` row is always `sitemap_slugs IS NULL`; the same is
+    true of a pass that `_abort_pass`/`mark_job_crashed` closed before (or
+    without) reaching that end-of-pass call. Filtering on `sitemap_slugs
+    IS NOT NULL` excludes all of them in one condition, rather than
+    special-casing `remap` via `job_id`/`facts_jobs.kind` (which is also
+    unreliable here: `crawl_runs.job_id` is nullable, so a run with no job
+    row would silently fall through a `job_id`-based join)."""
     return await conn.fetchval(  # type: ignore[no-any-return]
         "SELECT started_at FROM cds_library.crawl_runs "
-        "WHERE id <> $1 ORDER BY started_at DESC LIMIT 1",
+        "WHERE id <> $1 AND sitemap_slugs IS NOT NULL "
+        "ORDER BY started_at DESC LIMIT 1",
         exclude_run_id,
     )
 
@@ -471,6 +485,8 @@ EXPLORE_COLUMNS: tuple[str, ...] = (
     "act_composite_avg",
     "gpa_avg",
     "need_met_pct",
+    "need_fully_met_pct",
+    "merit_aid_pct",
     "cost_attendance_in_state",
     "cost_attendance_out_of_state",
     "tuition_in_state",
@@ -560,14 +576,49 @@ async def insert_unmatched_slugs(conn: asyncpg.Connection, *, slugs: Sequence[st
 
 
 async def retire_absent_slugs(
-    conn: asyncpg.Connection, *, previous_run_started_at: datetime
+    conn: asyncpg.Connection,
+    *,
+    previous_run_started_at: datetime,
+    max_fraction: float,
+    min_floor: int,
 ) -> list[str]:
     """Retire every slug the sitemap has not listed for two consecutive
     passes (plan §4.1): not touched by this pass's `touch_seen_slugs`
     (checked by the caller running this *before* that call would defeat
     the purpose, so this reads `last_seen_in_sitemap_at` **before** this
     pass's discovery step stamps it) and already missing as of the start
-    of the previous pass."""
+    of the previous pass.
+
+    Defense in depth (school-data-v3 fix review): refuses -- raises
+    `FactsStoreError`, writes nothing -- rather than silently retiring an
+    implausible fraction of the live crosswalk in one pass. `max_fraction`/
+    `min_floor` are always the caller's `Settings.facts_retirement_max_fraction`/
+    `facts_retirement_min_floor` (never defaulted here, CLAUDE.md "no magic
+    values"): the ceiling only engages once the live crosswalk is bigger
+    than `min_floor`, so a fresh/small/test database can still legitimately
+    retire "most" or "all" of its handful of rows. This is the backstop for
+    the defect *class* (a `previous_run_started_at` bug once retired all
+    2,587 live rows in one pass, unnoticed), not a fix for this one bug."""
+    total_live = await conn.fetchval(
+        "SELECT count(*) FROM cds_library.collegedata_schools WHERE retired_at IS NULL"
+    )
+    candidate = await conn.fetchval(
+        "SELECT count(*) FROM cds_library.collegedata_schools "
+        "WHERE retired_at IS NULL AND last_seen_in_sitemap_at < $1",
+        previous_run_started_at,
+    )
+    if candidate == 0:
+        return []
+    if total_live > min_floor and candidate / total_live > max_fraction:
+        raise FactsStoreError(
+            f"refusing to retire {candidate}/{total_live} "
+            f"({candidate / total_live:.1%}) of the live collegedata_schools "
+            f"crosswalk in one pass -- exceeds facts_retirement_max_fraction "
+            f"({max_fraction:.0%}) with crosswalk size {total_live} above "
+            f"facts_retirement_min_floor ({min_floor}). This usually means "
+            "previous_run_started_at pointed at the wrong crawl_runs row -- "
+            "investigate before raising the ceiling or re-running."
+        )
     rows = await conn.fetch(
         """
         UPDATE cds_library.collegedata_schools

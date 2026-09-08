@@ -1,50 +1,74 @@
-import { AlertTriangle } from "lucide-react";
-import { Fragment } from "react";
-
 import { Badge } from "@/components/ui/badge";
+import type { ExploreFields } from "@/api/schools/explore";
 import { listTypeVariant } from "@/features/schools/schools-config";
-import { caveatSeverity } from "@/features/schools/explore/classify-fit";
-import {
-  ABSENT_LABEL,
-  admitLabel,
-  formatPercent,
-  formatTestBand,
-} from "@/features/schools/explore/explore-format";
-import type {
-  ExploreSchool,
-  FitVerdict,
-  StudentProfile,
-} from "@/features/schools/explore/explore-types";
-import { cn } from "@/lib/utils";
+import { ABSENT_LABEL, formatBand, formatPercent } from "@/features/schools/explore/explore-format";
+import type { FitVerdict, StudentProfile } from "@/features/schools/explore/explore-types";
 
 /*
  * The verdict zone: the card's answer to "can I get in", between two
  * neutral hairlines on the card's own white surface.
  *
- * It used to be a full-bleed tinted strip — Reach amber, Target blue,
- * Safety green — and the tint was doing too much: a saturated band 340px
- * wide is the loudest thing in a grid of twenty-four cards, so the page
- * read as a wall of colour blocks with numbers in them rather than as a
- * set of schools. The fit ladder keeps its colour, but concentrated into
- * the badge, which is where My list already carries it. Same three roles,
- * one hundredth of the area, and the pill reads properly on white in a way
- * it could never read on a tint of its own hue.
+ * The verdict WORD is small and the admit RATE is large, and that
+ * ordering is the honesty argument expressed as type scale: the rate is
+ * the observed evidence, the word is our conclusion about it.
  *
- * The verdict WORD is small and the admit RATE is large, and that ordering
- * is the honesty argument expressed as type scale: the rate is the observed
- * evidence, the word is our conclusion about it. METRICS-KEEP.md licenses
- * the categorical verdict precisely because it classifies risk instead of
- * emitting a fake probability, so the number the school actually published
- * outranks the label we attached to it.
- *
- * The rate is also the card's ONE oversized element. A card where every
- * zone is set at the same weight has no read order and is the thing that
- * makes a data card feel machine-assembled; this one has a single anchor
- * and everything else is dense, quiet data hung off it.
+ * `EvidenceLine` is a fixed, stateless one-band rule now (plan §5.3, "Band
+ * trust (honesty)"): `submitted_percent` has no source under v3, so there
+ * is no trust threshold left to gate a severity ladder on, and the old
+ * ladder (severe/mild caveats, a score-based ladder shift) is deleted
+ * rather than left dark. What's left is: pick the one band the student's
+ * own scores can actually be compared against, show it, and show the
+ * comparison when there is one.
  */
 
-const SEVERE_CAVEAT =
-  "Fewer than half this class submitted scores, so the range describes the top third rather than the middle.";
+type Band = { label: "SAT Math" | "SAT EBRW" | "ACT"; p25: number; p75: number; you: number | null };
+
+/**
+ * Which section's band a card shows. Deterministic from the school's own
+ * data plus the student's profile -- never from anything ambient -- so two
+ * browsers opening the same Explore URL render the same band on the same
+ * card. A section the student entered a score for is preferred, in
+ * ACT-then-SAT-Math-then-SAT-EBRW order (arbitrary but fixed); with no
+ * score at all, the same order picks whichever band the school publishes.
+ */
+export function pickBand(fields: ExploreFields, profile: StudentProfile): Band | null {
+  const act: Band | null =
+    fields.act_composite_p25 !== null && fields.act_composite_p75 !== null
+      ? { label: "ACT", p25: fields.act_composite_p25, p75: fields.act_composite_p75, you: profile.act }
+      : null;
+  const satMath: Band | null =
+    fields.sat_math_p25 !== null && fields.sat_math_p75 !== null
+      ? {
+          label: "SAT Math",
+          p25: fields.sat_math_p25,
+          p75: fields.sat_math_p75,
+          you: profile.satMath,
+        }
+      : null;
+  const satEbrw: Band | null =
+    fields.sat_ebrw_p25 !== null && fields.sat_ebrw_p75 !== null
+      ? {
+          label: "SAT EBRW",
+          p25: fields.sat_ebrw_p25,
+          p75: fields.sat_ebrw_p75,
+          you: profile.satEbrw,
+        }
+      : null;
+
+  if (profile.act !== null && act) return act;
+  if (profile.satMath !== null && satMath) return satMath;
+  if (profile.satEbrw !== null && satEbrw) return satEbrw;
+
+  return act ?? satMath ?? satEbrw;
+}
+
+/** Whether a card for this school, under this profile, would show a band
+ *  at all -- what the results header uses to decide whether the wire's
+ *  band caption is relevant on this screen (plan §5.3: it renders "whenever
+ *  at least one rendered card shows a score band"). */
+export function hasScoreBand(fields: ExploreFields, profile: StudentProfile): boolean {
+  return pickBand(fields, profile) !== null;
+}
 
 function Separator() {
   return (
@@ -54,104 +78,68 @@ function Separator() {
   );
 }
 
-/**
- * The evidence line: the test band, the student's own score against it, and
- * how much of the class the band actually covers — three data, dot-joined,
- * no prose. Severity is carried by ink weight plus a glyph rather than by a
- * sentence, because a sentence on a comparison card is something you read
- * once and then have to skip past on the other twenty-three cards.
- */
+/** The evidence line: the band and the student's own score against it --
+ *  two data, dot-joined, no prose. The qualifying sentence lives once, on
+ *  the screen, in the wire's `band_caption` -- `bandCaptionId` is that
+ *  node's id, so a screen reader hears the qualifier without it being
+ *  repeated on every card. */
 function EvidenceLine({
-  school,
+  fields,
   profile,
+  bandCaptionId,
 }: {
-  school: ExploreSchool;
+  fields: ExploreFields;
   profile: StudentProfile;
+  bandCaptionId: string | null;
 }) {
-  const band = formatTestBand(school.testBand);
-  const submitted = school.testBand?.submittedPercent ?? null;
-  const severity = caveatSeverity(school);
+  const band = pickBand(fields, profile);
+  const formatted = formatBand(band);
 
-  if (band === null) {
+  if (formatted === null || band === null) {
     return (
-      <p className="mt-2 text-xs text-[var(--school-value-absent)]">
-        test range {ABSENT_LABEL}
-      </p>
+      <p className="mt-2 text-xs text-[var(--school-value-absent)]">test range {ABSENT_LABEL}</p>
     );
   }
 
-  /* Caveats are structurally inseparable from the number they qualify
-   * (filters spec §7.3), so the submitted share renders on the same line as
-   * the band it describes — never in a tooltip, never a row of its own. */
-  const parts = [
-    <span className="text-[var(--ink-secondary)]" key="band">
-      {band}
-    </span>,
-    profile.satScore === null ? null : (
-      <span className="font-medium text-[var(--ink)]" key="score">
-        you {profile.satScore}
-      </span>
-    ),
-    submitted === null || severity === "none" ? null : (
-      <span
-        className={cn(
-          "inline-flex items-center gap-1",
-          severity === "severe"
-            ? "font-medium text-[var(--ink)]"
-            : "text-[var(--ink-muted)]",
-        )}
-        key="submitted"
-        title={severity === "severe" ? SEVERE_CAVEAT : undefined}
-      >
-        {severity === "severe" ? (
-          <AlertTriangle aria-hidden="true" className="size-3 shrink-0" />
-        ) : null}
-        {submitted}% submitted
-      </span>
-    ),
-  ].filter(Boolean);
-
   return (
-    <p className="mt-2 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs tabular-nums">
-      {parts.map((part, index) => (
-        <Fragment key={index}>
-          {index > 0 ? <Separator /> : null}
-          {part}
-        </Fragment>
-      ))}
+    <p
+      aria-describedby={bandCaptionId ?? undefined}
+      className="mt-2 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs tabular-nums"
+    >
+      <span className="text-[var(--ink-secondary)]">{formatted}</span>
+      {band.you === null ? null : (
+        <>
+          <Separator />
+          <span className="font-medium text-[var(--ink)]">you {band.you}</span>
+        </>
+      )}
     </p>
   );
 }
 
 export function VerdictBand({
-  school,
+  fields,
   profile,
   verdict,
+  bandCaptionId,
 }: {
-  school: ExploreSchool;
+  fields: ExploreFields;
   profile: StudentProfile;
   verdict: FitVerdict;
+  /** The id of the once-per-screen band caption node (`ExploreResultsHeader`),
+   *  or null when no card on screen shows a band at all. */
+  bandCaptionId: string | null;
 }) {
-  const rate = formatPercent(school.admitRate?.value ?? null);
-  const severity = caveatSeverity(school);
+  const rate = formatPercent(fields.admit_rate);
 
   return (
     <div
-      /* The reason sentence lives here rather than on the card: a screen
-       * reader gets the full argument, the eye gets only numbers. */
-      aria-label={`Fit: ${verdict.category === "Unknown" ? "not classified" : verdict.category}. ${verdict.reason}${severity === "severe" ? ` ${SEVERE_CAVEAT}` : ""}`}
+      // The reason sentence lives here rather than on the card: a screen
+      // reader gets the full argument, the eye gets only numbers.
+      aria-label={`Fit: ${verdict.category === "Unknown" ? "not classified" : verdict.category}. ${verdict.reason}`}
       className="-mx-4 border-y px-4 py-3"
       role="group"
     >
-      {/* The rate leads, hard left. It used to sit in the top-right corner,
-       * which is where a card puts a price tag, not where it puts its
-       * headline: right-aligned it answered to nothing, floated away from
-       * the evidence line explaining it, and left the eye starting the zone
-       * on a badge. On the left it starts the line the reader already
-       * starts on, and it stacks into a spine with the test band beneath it
-       * and the cost figure beneath that — one column of numbers down the
-       * card's left edge. The badge takes the corner instead, where a
-       * status marker belongs. */}
       <div className="flex items-center justify-between gap-3">
         {rate === null ? (
           <span className="min-w-0 truncate text-sm text-[var(--school-value-absent)]">
@@ -162,29 +150,21 @@ export function VerdictBand({
             <span className="text-[1.625rem] leading-none font-medium tracking-[-0.02em] tabular-nums">
               {rate}
             </span>
-            <span className="truncate text-xs text-[var(--ink-muted)]">
-              {admitLabel(school.admitRate?.basis ?? null)}
-            </span>
+            <span className="truncate text-xs text-[var(--ink-muted)]">admit rate</span>
           </span>
         )}
-        {/* The one place the fit ladder is coloured. listTypeVariant is the
-         * same map My list's rows use, so a school added from Explore lands
-         * there wearing the badge it already had. */}
         {verdict.category === "Unknown" ? (
           <Badge className="shrink-0" variant="secondary">
             Not classified
           </Badge>
         ) : (
-          <Badge
-            className="shrink-0"
-            variant={listTypeVariant[verdict.category]}
-          >
+          <Badge className="shrink-0" variant={listTypeVariant[verdict.category]}>
             {verdict.category}
           </Badge>
         )}
       </div>
 
-      <EvidenceLine profile={profile} school={school} />
+      <EvidenceLine bandCaptionId={bandCaptionId} fields={fields} profile={profile} />
     </div>
   );
 }

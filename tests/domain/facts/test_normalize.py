@@ -139,6 +139,39 @@ def test_normalize_url_rejects_non_url() -> None:
         normalize_url("Not reported")
 
 
+@pytest.mark.parametrize(
+    "raw",
+    [
+        "www.bmtc.edu/",  # real full-crawl failure: Bais Medrash Toras Chesed
+        "www.rabbinicalcollegeohryisroel.com/",  # real failure: Rabbinical College Ohr Yisroel
+        "example.edu",  # bare domain, no "www."
+        "www.example.edu/admissions?x=1",  # path + query survive
+    ],
+)
+def test_normalize_url_accepts_schemeless_host(raw: str) -> None:
+    """CollegeData often prints a school's own site without a scheme -- that
+    is a real URL, not free text, and must not be rejected (school-data-v3
+    fix review: two live schools' entire fact set was lost this way)."""
+    value = normalize_url(raw)
+    assert value.display == raw, "display must stay faithful to the source text"
+    assert value.value_text == f"https://{raw}", "value_text needs a scheme to be a usable link"
+
+
+@pytest.mark.parametrize(
+    "raw",
+    [
+        "Not reported",
+        "555-123-4567",
+        "info@example.com",  # an email, not a URL
+        "3.11.2024",  # numeric-only labels, not a domain
+        "Visit our campus in New York",
+    ],
+)
+def test_normalize_url_rejects_non_url_shapes(raw: str) -> None:
+    with pytest.raises(NormalizeError):
+        normalize_url(raw)
+
+
 def test_normalize_date_anchored() -> None:
     value = normalize_date("2027-01-02")
     assert value.value_date is not None

@@ -1,43 +1,38 @@
 import type { Option } from "@/domain/shared";
 import type {
-  CalendarFilter,
-  ControlFilter,
-  DataWindow,
-  ExploreFilters,
-  ExploreSchool,
-  GenderFilter,
-  GreekFilter,
+  Control,
+  Gender,
   NumericRange,
   RangeKey,
+  ScoreFit,
   SizeBucket,
   SortKey,
   StudentProfile,
-  TestFitPreset,
-  TestPolicyFilter,
+  TestPolicy,
 } from "@/features/schools/explore/explore-types";
+import type { ExploreFilters } from "@/features/schools/explore/explore-types";
 
 /*
- * One source of truth for the Explore filter set. Every filter's label,
- * URL key, control shape, and matching rule is declared here so the filter
- * bar, the panel, the active count, the URL codec, and the coverage
- * disclosure all read the same list instead of four hand-kept copies.
- *
- * Which metrics are allowed to back a filter at all is decided in
- * plans/schools-explore-filters.md — that document owns the four gates and
- * the banned list. This file only encodes what survived them.
+ * One source of truth for the Explore filter set's static shape: labels,
+ * bounds, and the closed-enum option lists. The metrics themselves --
+ * which values a range or facet actually holds -- are computed server-side
+ * (`app/facts/service_explore.py`), including `SIZE_BUCKETS`'s boundaries:
+ * this file keeps only `value`/`label` for the size filter, never the
+ * min/max the backend owns (the single-owner rule, plan §5.3).
  */
 
 /* ---- ranges ---- */
 
 export type RangeDescriptor = {
   key: RangeKey;
-  /** Shown on the filter control. */
+  /** Shown on the filter control and the sort menu. The exclusion chip's
+   *  own noun phrase (`metric_label`) rides the wire instead -- see
+   *  `Exclusion.metric_label` -- so it is never duplicated here. */
   label: string;
-  /** Shown in the exclusion chip: "38 hidden — no {metricLabel}". */
-  metricLabel: string;
+  /** A muted one-line disclosure under the control, for the two metrics
+   *  that are Counselle's own calculation rather than a printed figure. */
+  description?: string;
   unit: "percent" | "currency" | "ratio";
-  /** Null means the school did not publish it. Never 0. */
-  read: (school: ExploreSchool, profile: StudentProfile) => number | null;
   /** Only the two Tier-1 ranges take both bounds; the rest take one. */
   bounds: "both" | "min" | "max";
   max?: number;
@@ -45,218 +40,224 @@ export type RangeDescriptor = {
 };
 
 export const rangeDescriptors: RangeDescriptor[] = [
-  {
-    key: "admit",
-    label: "Admit rate",
-    metricLabel: "admit rate",
-    unit: "percent",
-    bounds: "both",
-    max: 100,
-    read: (school) => school.admitRate?.value ?? null,
-  },
+  { key: "admit", label: "Admit rate", unit: "percent", bounds: "both", max: 100 },
   {
     key: "cost",
     label: "Your cost",
-    metricLabel: "published cost",
     unit: "currency",
     bounds: "both",
     max: 100_000,
     step: 1_000,
-    read: (school) => school.cost?.amount ?? null,
   },
   {
     key: "needMet",
-    label: "Need fully met, at least",
-    metricLabel: "need-met figure",
+    label: "Average share of need met, at least",
     unit: "percent",
     bounds: "min",
     max: 100,
-    read: (school) => school.needMet,
   },
   {
-    key: "meritAid",
-    label: "Got merit aid, at least",
-    metricLabel: "merit-aid figure",
+    key: "needFullyMet",
+    label: "Students whose need was fully met, at least",
+    description: "Counselle's calculation from the school's own counts.",
     unit: "percent",
     bounds: "min",
     max: 100,
-    read: (school) => school.meritAid,
+  },
+  { key: "meritAid", label: "Got merit aid, at least", unit: "percent", bounds: "min", max: 100 },
+  {
+    key: "gradFour",
+    label: "Graduates in 4 years, at least",
+    unit: "percent",
+    bounds: "min",
+    max: 100,
   },
   {
-    key: "gradRate",
+    key: "gradSix",
     label: "Graduates in 6 years, at least",
-    metricLabel: "graduation rate",
     unit: "percent",
     bounds: "min",
     max: 100,
-    read: (school) => school.gradSixYear,
   },
   {
     key: "retention",
     label: "First-year retention, at least",
-    metricLabel: "retention rate",
     unit: "percent",
     bounds: "min",
     max: 100,
-    read: (school) => school.retention,
   },
   {
     key: "ratio",
-    label: "Students per faculty, at most",
-    metricLabel: "student-faculty ratio",
+    label: "Undergraduates per full-time faculty member, at most",
+    description: "Counselle's own calculation, not the ratio the school publishes.",
     unit: "ratio",
     bounds: "max",
     max: 40,
-    read: (school) => school.studentsPerFaculty,
   },
-  {
-    key: "housing",
-    label: "Lives on campus, at least",
-    metricLabel: "on-campus housing figure",
-    unit: "percent",
-    bounds: "min",
-    max: 100,
-    read: (school) => school.housingPercent,
-  },
-  {
-    key: "outOfState",
-    label: "From out of state, at least",
-    metricLabel: "out-of-state share",
-    unit: "percent",
-    bounds: "min",
-    max: 100,
-    read: (school) => school.outOfStatePercent,
-  },
+  { key: "housing", label: "Lives on campus, at least", unit: "percent", bounds: "min", max: 100 },
   {
     key: "international",
     label: "International students, at least",
-    metricLabel: "international share",
     unit: "percent",
     bounds: "min",
     max: 100,
-    read: (school) => school.internationalPercent,
   },
 ];
 
-export const rangeDescriptorByKey: Record<RangeKey, RangeDescriptor> =
-  Object.fromEntries(
-    rangeDescriptors.map((descriptor) => [descriptor.key, descriptor]),
-  ) as Record<RangeKey, RangeDescriptor>;
+export const rangeDescriptorByKey: Record<RangeKey, RangeDescriptor> = Object.fromEntries(
+  rangeDescriptors.map((descriptor) => [descriptor.key, descriptor]),
+) as Record<RangeKey, RangeDescriptor>;
 
 export const emptyRange: NumericRange = { min: null, max: null };
 
-/* ---- enum options ---- */
+/* ---- enum options ----
+ *
+ * `sizeBucket`, `control`, `testPolicy` and `gender` are closed CHECK-set
+ * enums (plan §5.3) -- their members are code, not data, so they keep a
+ * frontend option list rather than riding `filter_options`.
+ */
 
-export const sizeBucketOptions: (Option<SizeBucket> & {
-  min: number;
-  max: number | null;
-})[] = [
-  { value: "lt2k", label: "Under 2,000", min: 0, max: 2_000 },
-  { value: "2k-10k", label: "2,000 – 10,000", min: 2_000, max: 10_000 },
-  { value: "10k-25k", label: "10,000 – 25,000", min: 10_000, max: 25_000 },
-  { value: "gt25k", label: "25,000 and up", min: 25_000, max: null },
+export const sizeBucketOptions: Option<SizeBucket>[] = [
+  { value: "lt2k", label: "Under 2,000" },
+  { value: "2k-10k", label: "2,000 – 10,000" },
+  { value: "10k-25k", label: "10,000 – 25,000" },
+  { value: "gt25k", label: "25,000 and up" },
 ];
 
-export const controlOptions: Option<ControlFilter>[] = [
+export const controlOptions: Option<Control | "any">[] = [
   { value: "any", label: "Any" },
   { value: "public", label: "Public" },
-  { value: "private", label: "Private" },
+  { value: "private", label: "Private (nonprofit)" },
+  { value: "private_for_profit", label: "Private (for-profit)" },
 ];
 
-/** Presets, not a raw slider: a raw SAT range invites filtering on numbers
- *  that describe submitters only (filters spec §2, #6). */
-export const testFitOptions: Option<TestFitPreset>[] = [
-  { value: "any", label: "Any" },
-  { value: "above75", label: "At or above the 75th percentile" },
-  { value: "middle50", label: "Inside the middle 50%" },
-  { value: "above25", label: "At or above the 25th percentile" },
-];
-
-export const testPolicyOptions: Option<TestPolicyFilter>[] = [
+export const testPolicyOptions: Option<TestPolicy | "any">[] = [
   { value: "any", label: "Any" },
   { value: "required", label: "Required" },
-  { value: "optional", label: "Optional" },
-  { value: "blind", label: "Blind" },
+  { value: "considered", label: "Considered but not required" },
+  { value: "not_required", label: "Not required" },
+  { value: "not_reported", label: "No policy on file" },
 ];
 
-export const greekOptions: Option<GreekFilter>[] = [
-  { value: "any", label: "Any" },
-  { value: "little", label: "Little or none" },
-  { value: "substantial", label: "Substantial" },
-];
-
-export const genderOptions: Option<GenderFilter>[] = [
+export const genderOptions: Option<Gender | "any">[] = [
   { value: "any", label: "Any" },
   { value: "coed", label: "Coed" },
   { value: "women", label: "Women's" },
   { value: "men", label: "Men's" },
 ];
 
-export const calendarOptions: Option<CalendarFilter>[] = [
+export const scoreFitOptions: Option<ScoreFit>[] = [
   { value: "any", label: "Any" },
+  { value: "at_or_above_p75", label: "At or above the 75th percentile" },
+  { value: "inside_band", label: "Inside the band" },
+  { value: "at_or_above_p25", label: "At or above the 25th percentile" },
+];
+
+/**
+ * `entrance_difficulty` and `calendar` hold no DB CHECK in the shipped
+ * schema (unlike the four enums above) -- both are slugified verbatim from
+ * whatever CollegeData prints, so nothing here structurally guarantees the
+ * crawl can never emit a new one. Live-verified against the running crawl
+ * (2026-09-08, 910/2,587 schools): every row so far is one of these five /
+ * six values. A value outside this list simply fails to match any option
+ * -- it is never coerced into a neighbour -- so a future new slug shows up
+ * as "the filter matched nothing" rather than a wrong answer. See this
+ * unit's final report: `filter_options` should grow these two server-side,
+ * the same way it already derives region/campus_setting/religious_affiliation.
+ */
+export const entranceDifficultyOptions: Option<string>[] = [
+  { value: "most_difficult", label: "Most difficult" },
+  { value: "very_difficult", label: "Very difficult" },
+  { value: "moderately_difficult", label: "Moderately difficult" },
+  { value: "minimally_difficult", label: "Minimally difficult" },
+  { value: "noncompetitive", label: "Noncompetitive" },
+];
+
+export const calendarOptions: Option<string>[] = [
   { value: "semester", label: "Semester" },
   { value: "quarter", label: "Quarter" },
   { value: "trimester", label: "Trimester" },
-];
-
-export const dataWindowOptions: Option<DataWindow>[] = [
-  { value: "any", label: "Any" },
-  { value: "recent", label: "Within 2 years" },
-  { value: "current", label: "Current only" },
+  { value: "4_1_4", label: "4-1-4" },
+  { value: "continuous", label: "Continuous" },
+  { value: "other", label: "Other" },
 ];
 
 export const sortOptions: Option<SortKey>[] = [
-  { value: "admit", label: "Admit rate" },
   { value: "name", label: "Name" },
+  { value: "admit", label: "Admit rate" },
   { value: "cost", label: "Your cost" },
-  { value: "size", label: "Size" },
-  { value: "gradRate", label: "Graduation rate" },
+  { value: "undergraduates", label: "Size" },
+  { value: "needMet", label: "Share of need met" },
+  { value: "gradFour", label: "4-year graduation rate" },
+  { value: "gradSix", label: "6-year graduation rate" },
+  { value: "retention", label: "Retention rate" },
   { value: "deadline", label: "Next deadline" },
 ];
 
-/** Greek life: "little or no Greek life" is a common ask, and the joiner
- *  percentages are the only thing the data supports saying about it. */
-export const LITTLE_GREEK_MAX_PERCENT = 10;
-
-/** The data-quality lens. `recent` keeps the last two editions. */
-export const CURRENT_CDS_YEAR = 2025;
-export const RECENT_CDS_YEAR_SPAN = 2;
+/**
+ * `school_explore.state` has no `filter_options` entry on the wire (only
+ * region/campus_setting/religious_affiliation are server-derived, plan
+ * §5.3) -- this is a plain 51-jurisdiction list rather than data this unit
+ * can query. Every entry is a real IPEDS jurisdiction, so the gap is never
+ * an option matching zero schools, only a possible option for a state the
+ * crawl has not reached yet on the current filter set (the same shape as
+ * `exclusions`, already disclosed there). See this unit's final report.
+ */
+export const US_STATES: string[] = [
+  "AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE", "DC", "FL",
+  "GA", "HI", "ID", "IL", "IN", "IA", "KS", "KY", "LA", "ME",
+  "MD", "MA", "MI", "MN", "MS", "MO", "MT", "NE", "NV", "NH",
+  "NJ", "NM", "NY", "NC", "ND", "OH", "OK", "OR", "PA", "RI",
+  "SC", "SD", "TN", "TX", "UT", "VT", "VA", "WA", "WV", "WI",
+  "WY", "PR", "VI", "GU", "AS", "MP",
+];
 
 export const defaultProfile: StudentProfile = {
+  act: null,
   homeState: null,
-  satScore: null,
+  satEbrw: null,
+  satMath: null,
 };
 
 export const defaultFilters: ExploreFilters = {
-  query: "",
-  states: [],
-  sizes: [],
+  calendar: null,
+  campusSetting: [],
   control: "any",
-  testFit: "any",
-  testPolicy: "any",
-  greek: "any",
+  deadlineBefore: null,
+  entranceDifficulty: null,
   gender: "any",
-  calendar: "any",
+  hbcu: false,
+  hsi: false,
+  includeMissing: [],
+  includeRolling: false,
+  landGrant: false,
+  major: null,
   noApplicationFee: false,
-  offersEarlyDecision: false,
   offersEarlyAction: false,
-  excludeRestrictiveEarlyAction: false,
-  rollingAdmission: false,
-  dataWindow: "any",
+  offersEarlyDecision: false,
+  query: "",
   ranges: Object.fromEntries(
     rangeDescriptors.map((descriptor) => [descriptor.key, emptyRange]),
   ) as ExploreFilters["ranges"],
-  includeMissing: [],
+  region: [],
+  religiousAffiliation: null,
+  rollingAdmission: false,
+  scoreFit: "any",
+  sizeBucket: [],
+  states: [],
+  testPolicy: "any",
+  tribal: false,
 };
 
+export const defaultSortKey: SortKey = "name";
+
 /* ---- Tier-2 panel groups ----
- * Grouped by the question they answer, not by CDS domain. Six groups so the
- * grid is a clean 3x2 — the data-quality lens docks into the panel footer
- * instead of taking a seventh slot, because it is a lens over the whole
- * result set rather than a property of a school.
+ * Grouped by the question they answer, not by CDS domain. Six groups so
+ * the grid is a clean 3x2 -- the data-quality lens from the CDS-era plan
+ * is retired (`dataWindow` had no v3 backing field), so the footer is now
+ * just the active-count / clear-all / done row.
  */
-export type PanelGroupId =
-  "money" | "rounds" | "testing" | "outcomes" | "campus" | "body";
+export type PanelGroupId = "money" | "rounds" | "testing" | "outcomes" | "campus" | "body";
 
 export const panelGroups: { id: PanelGroupId; label: string }[] = [
   { id: "money", label: "Money" },

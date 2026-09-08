@@ -13,11 +13,13 @@ own ``{"detail": ...}`` error shape (login 400, etc.) untouched.
 
 from __future__ import annotations
 
+import hashlib
 from typing import Any
 from uuid import UUID
 
 from fastapi import Depends, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
+from pydantic import BaseModel
 
 from api.auth import current_active_user
 from api.users_db import UserDB
@@ -66,6 +68,26 @@ async def require_json(request: Request) -> None:
     content_type = request.headers.get("content-type", "")
     if content_type.split(";")[0].strip().lower() != "application/json":
         raise EnvelopeError(415, "Content-Type must be application/json.")
+
+
+def etag_response(
+    request: Request, model: BaseModel, *, vintage: str | None, cache_control: str
+) -> Response:
+    """Render `model` with a weak `ETag` derived from `vintage` (plan §5.2's
+    facts route: a weak ETag from `observed_at`) and honor `If-None-Match`
+    with a bare 304 -- the app's first ETag helper. `vintage=None` (nothing
+    observed yet) never mints an ETag: a 304 would tell the client its
+    cached copy of "nothing observed" is still current, which is true of
+    every such school and therefore not a cache signal at all.
+    """
+    body = model.model_dump(mode="json")
+    if vintage is None:
+        return JSONResponse(content=body, headers={"Cache-Control": cache_control})
+    etag = 'W/"' + hashlib.sha256(vintage.encode()).hexdigest()[:32] + '"'
+    headers = {"Cache-Control": cache_control, "ETag": etag}
+    if request.headers.get("if-none-match") == etag:
+        return Response(status_code=304, headers=headers)
+    return JSONResponse(content=body, headers=headers)
 
 
 async def owned_session(

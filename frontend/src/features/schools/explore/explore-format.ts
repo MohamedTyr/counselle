@@ -1,14 +1,18 @@
 /*
  * Display formatting for Explore. Every one of these takes a nullable and
- * returns `null` for absence rather than a placeholder string — the caller
- * renders the absence, because the treatment differs by surface (a card
- * stat says "not published" in --school-value-absent; a chip just omits
- * itself). What none of them ever do is substitute 0.
+ * returns `null` for absence rather than a placeholder string -- the
+ * caller renders the absence, because the treatment differs by surface (a
+ * card stat says "not available" in --school-value-absent; a chip just
+ * omits itself). What none of them ever do is substitute 0.
  */
 
 /** The literal string a missing metric renders as. Never "—", never "0",
- *  never an empty cell — a blank reads as zero, and zero is a lie. */
-export const ABSENT_LABEL = "not published";
+ *  never an empty cell -- a blank reads as zero, and zero is a lie
+ *  (AGENTS.md principle 3). "not available", not "not published": the
+ *  school may well publish the figure -- we may simply not have read it
+ *  yet, and "published" would be a claim about the school where the only
+ *  claim we can make is about our own data (plan §5.3). */
+export const ABSENT_LABEL = "not available";
 
 const currency = new Intl.NumberFormat("en-US", {
   currency: "USD",
@@ -60,33 +64,15 @@ export function formatCompactCount(value: number | null): string | null {
   return value === null ? null : abbreviated.format(value).toLowerCase();
 }
 
-/** "SAT 1500–1560". An en dash, not a hyphen: it is a range, not a minus. */
-export function formatTestBand(
-  band: { p25: number; p75: number } | null,
+/** "SAT Math 620–700". An en dash, not a hyphen: it is a range, not a
+ *  minus. */
+export function formatBand(
+  band: { label: string; p25: number; p75: number } | null,
 ): string | null {
-  return band === null ? null : `SAT ${band.p25}–${band.p75}`;
+  return band === null ? null : `${band.label} ${band.p25}–${band.p75}`;
 }
 
-/*
- * The two basis labels below encode a qualifier INTO the label rather than
- * hanging it under the value as a third line. Same information, one line
- * instead of two, and the stat cells stay a single rhythm across the grid —
- * which is the whole reason the measure row is three fixed columns.
- */
-
-/** Which tuition row the amount came from. "private" needs no qualifier —
- *  a private school charges one price — so it keeps the neutral label. */
-export function costLabel(basis: string | null): string {
-  if (basis === "in-state") {
-    return "in-state cost";
-  }
-
-  return basis === "out-of-state" ? "out-of-state cost" : "sticker cost";
-}
-
-/** Which cohort the admit rate describes. */
-export function admitLabel(basis: string | null): string {
-  return basis === "overall" || basis === null
-    ? "admit rate"
-    : `${basis} admit rate`;
+/** Which tuition row the amount came from. */
+export function costLabel(basis: "in-state" | "out-of-state" | null): string {
+  return basis === "in-state" ? "in-state cost" : "out-of-state cost";
 }

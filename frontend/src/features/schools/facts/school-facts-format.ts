@@ -1,84 +1,34 @@
-import type {
-  DomainCoverage,
-  FactState,
-  SchoolIdentity,
-} from "@/features/schools/facts/school-facts-types";
+import type { SchoolIdentity } from "@/features/schools/facts/school-facts-types";
 
 /*
- * The copy deck, in code.
+ * The value-formatting notes this file still owns.
  *
- * Every string a student reads about the SHAPE of our data is decided here
- * and nowhere else. Scattering these across components is how "not reported"
- * quietly becomes "—" on the one screen nobody re-read.
+ * Every STATE word — "Not reported", "Not checked", "Not on file", the
+ * section lines, the deadline foot, the band caption — is composed
+ * server-side (`domain/facts/state.py`, `app/facts/service.py`) and arrives
+ * on the wire in `display`/`line`/`foot`. This file authors none of that; it
+ * only formats identity metadata, which is not a fact and carries no state.
  */
 
 /**
- * Six states, six different sentences. The words are the whole point: each
- * one is a different claim about why there is no number, and a reader who
- * is choosing where to apply deserves to know which claim we are making.
- *
- * Never an empty cell, an em dash, a `0`, `N/A`, `null`, or a hidden row.
+ * The second, page-level freshness clause. A frontend literal, not a wire
+ * field: it names no upstream source (D3) and interpolates nothing, so it
+ * needs no slot on the response (plan §5.2).
  */
-export const ABSENCE_COPY: Record<
-  Exclude<FactState["kind"], "reported">,
-  string
-> = {
-  not_reported: "not reported",
-  not_applicable: "not applicable",
-  suppressed: "withheld by the school",
-  not_in_template_version: "not in this form edition",
-  no_verified_value: "no verified value",
-};
-
-/** A derived value whose inputs are incomplete. Distinct from all six above. */
-export const DERIVED_UNAVAILABLE_COPY = "not available";
-
-export const ROUND_NOT_OFFERED_COPY = "not offered";
-
-export const ABSENT_TOPIC_EXPLANATION =
-  "Not a Common Data Set field. Counselle checks the school's site when you ask.";
-
-export function factStateCopy(state: FactState): string {
-  return state.kind === "reported" ? state.display : ABSENCE_COPY[state.kind];
-}
-
-export type ReportedState = Extract<FactState, { kind: "reported" }>;
-
-/** A type guard, so `state.display` is reachable without a cast. */
-export function isReported(state: FactState): state is ReportedState {
-  return state.kind === "reported";
-}
+export const FRESHNESS_MEASURED_NOTE =
+  "“Checked” is when we last saw a value published, not when it was measured.";
 
 /**
- * What this section's numbers rest on, in one line under the heading.
- *
- * Two counts, never one ratio: "verified of configured" is how much of the
- * form we could read, and `notInTemplate` is a separate sentence because it
- * is a different claim — the school's edition of the CDS never asked, so
- * those values are not missing, they do not exist. Folding K into the
- * shortfall would turn "the form didn't ask" into "the school didn't say".
- *
- * Deliberately plain text and NOT a Meter: a meter is a progress-toward-a-
- * goal primitive, and CDS coverage is not a goal a student is progressing
- * toward. A near-full bar would also read as a quality score for the school
- * rather than a statement about our reading of a document.
+ * The section-level explanation for a fact with no `reported_period`. This
+ * IS a wire field (`FactSection.foot`) — kept here only as the doc anchor a
+ * reviewer would look for; nothing constructs the sentence client-side.
  */
-export function coverageSentence(coverage: DomainCoverage): string {
-  const read =
-    coverage.configured === 0
-      ? "No values from this section of the Common Data Set are on file"
-      : `${coverage.verified.toLocaleString()} of ${coverage.configured.toLocaleString()} published values on file`;
-  if (coverage.notInTemplate === 0) return `${read}.`;
-  const k = coverage.notInTemplate;
-  return `${read}. ${k.toLocaleString()} more ${k === 1 ? "isn't" : "aren't"} in this edition of the form.`;
-}
 
 export function identityMeta(identity: SchoolIdentity): string {
   /*
-   * An absent identity part is DROPPED rather than rendered as "unknown".
-   * These are not metrics — nobody is deciding where to apply based on
-   * whether we know the city — and running the absence grammar here would
-   * spend the reader's attention on the one line where it buys nothing.
+   * An absent identity part is DROPPED rather than rendered as "unknown" —
+   * these are not metrics a student is choosing a school by, so the absence
+   * grammar buys nothing here.
    */
   const place = [identity.city, identity.state].filter(Boolean).join(", ");
   const control =
@@ -86,7 +36,9 @@ export function identityMeta(identity: SchoolIdentity): string {
       ? "Public"
       : identity.control === "private"
         ? "Private"
-        : null;
+        : identity.control === "private_for_profit"
+          ? "Private (for-profit)"
+          : null;
   const size =
     identity.undergraduates === null
       ? null

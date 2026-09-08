@@ -45,7 +45,7 @@ a primitive (bypassing semantic.css) is a bug, not a shortcut.
 
 3. **Component/feature families** — `shell.css`, `workspace.css`,
    `task.css`, `onboarding.css`, `activity.css`, `essay.css`, `profile.css`,
-   `shadcn.css`. Every value here is a `var()` onto tier 2 (or another
+   `schools.css`, `shadcn.css`. Every value here is a `var()` onto tier 2 (or another
    token in the same tier — the existing alias chains, e.g.
    `--task-doing-card: var(--task-todo-card)`, are fine and expected).
    **Never** reference a primitive directly, never a literal — if you find

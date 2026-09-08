@@ -139,10 +139,21 @@ async def test_catalog_load_is_one_atomic_read_and_builds_the_full_snapshot() ->
     assert snapshot.facts_updated_min == fresh
     assert snapshot.facts_updated_max == fresh
     assert snapshot.stale_facts_count == 0
-    # Both empty in Phase 0: fact_keys fills from fact_coverage in Phase 3,
-    # sections fills from facts_sections.yaml in Phase 2.
+    # fact_keys fills from fact_coverage in Phase 3 (still empty here);
+    # sections fills from facts_sections.yaml in Phase 2 (this phase) — the
+    # real committed asset, six sections keyed by id.
     assert snapshot.fact_keys == {}
-    assert snapshot.sections == {}
+    assert set(snapshot.sections) == {
+        "getting-in",
+        "money",
+        "academics",
+        "campus-life",
+        "outcomes",
+        "applying",
+    }
+    getting_in = snapshot.sections["getting-in"]
+    assert getting_in.title == "Getting in"
+    assert any(group.id == "selectivity-rating" for group in getting_in.groups)
 
 
 async def test_catalog_counts_a_school_stale_only_when_older_than_the_configured_cutoff(

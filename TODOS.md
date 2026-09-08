@@ -1,5 +1,74 @@
 # TODOS
 
+## `cds_library.school_explore` view ownership drifted from the seed (live DB fix applied, source not)
+- **What:** the live v3 database's `cds_library.school_explore` view was owned by `postgres`
+  instead of `cds_library_owner`, so `cds_library_reader`'s (checked-in) `GRANT SELECT` never
+  reached it and `GET /v1/schools/explore` could not read the view at all. Applied a same-session
+  `GRANT SELECT ON cds_library.school_explore TO cds_library_reader` directly against the live DB
+  to unblock Phase 2 verification — additive, no ownership change, no data touched. **This is a
+  workaround, not a fix**: `deploy/seed/cds_library_schema.sql`'s `CREATE OR REPLACE VIEW` will
+  fail again next time `scripts/seed_reader_db.py` runs against this database ("must be owner of
+  view school_explore") until the view's ownership itself is corrected
+  (`ALTER VIEW cds_library.school_explore OWNER TO cds_library_owner`, then re-run the seed).
+- **Why:** likely created once by hand under the admin role during Phase 1's explore work rather
+  than through the seed's `SET ROLE cds_library_owner` bootstrap. Fixing ownership is a live-DB
+  schema change beyond Unit A/B's (school-data-v3 Phase 2) assigned surface; flagged rather than
+  applied.
+- **Context:** `deploy/seed/cds_library_schema.sql`'s `school_explore` view + its grant block;
+  `scripts/seed_reader_db.py`'s always-run DDL phase.
+- *(Logged from the school-data-v3 Phase 2 backend implementation, 2026-09-08.)*
+
+## `counselle_db/service.py` exceeds the 800-line file limit (Phase 3's own split closes this)
+- **What:** adding `get_facts`/`explore`/`majors` (school-data-v3 Phase 2) pushed
+  `counselle_db/service.py` to ~940 lines, over CLAUDE.md's 800-line ceiling. The plan's own
+  Phase 3 already schedules exactly this split — `counselle_db/service.py` (resolve, profile,
+  get_facts, explore, majors, name search) + `counselle_db/sql_guard.py` (`_guard_sql`, the
+  allow-lists, `query_database`), ~300 lines each.
+- **Why not fixed here:** the split touches `counselle_db/server.py`, `evals/runner.py`,
+  `app/viz.py`, `app/workspace/service_applications.py`, and four test files' imports (one of
+  which imports the private `_guard_sql` directly) — a wider surface than Phase 2's Units A/B, and
+  redoing it early risked breaking those callers without Phase 3's own verification pass. Left for
+  Phase 3 as planned.
+- *(Logged from the school-data-v3 Phase 2 backend implementation, 2026-09-08.)*
+
+## Facts write can commit with no matching Explore row (pre-existing, deliberately deferred)
+- **What:** in `app/facts/crawl.py::_process_school_live` (and `_process_school_remap`), the
+  broad `except Exception:` sits *inside* the `async with pool.acquire() as conn,
+  conn.transaction():` block, so it runs before the transaction's `__aexit__` — the transaction
+  **commits** rather than rolling back. A failure occurring after `write_school_facts` has
+  succeeded but before/within `project_explore_row`/`upsert_explore_row` would leave a committed
+  `school_facts` row with no matching `school_explore_rows` row: a school that renders on its own
+  detail page but silently disappears from Explore browse.
+- **Why not fixed here:** predates school-data-v3 Phase 2 and was not introduced by it. It has
+  never fired — facts and explore rows are at exact 2,239/2,239 parity today — and triggering it
+  requires a bug that does not currently exist; the `UnmappedControlError` path specifically is
+  provably zero-write, since `ipeds_filter_columns` raises before `write_school_facts` runs. The
+  fix means restructuring the deliberately-designed poison-pill handler that already cost this
+  project one livelock (`tests/adapters/test_crawl_poison_pill.py` is the regression coverage for
+  that incident) — real regression risk for an issue that has never fired, and it does not force a
+  future rewrite.
+- **Context (start here):** `app/facts/crawl.py::_process_school_live` and
+  `_process_school_remap` (the `except Exception:` inside the `async with pool.acquire() as conn,
+  conn.transaction():` block); `adapters/facts_store.py::write_school_facts`. Minimal fix if it
+  ever matters: re-raise (or roll back explicitly) before recording `mapper_error`, or move the
+  explore-row upsert into a savepoint that reverts on any exception, not just the recognized type.
+- *(Logged from the school-data-v3 Phase 2 audit, 2026-09-08.)*
+
+## No range guard on the derived `need_fully_met_pct`
+- **What:** `app/facts/explore_projection.py` computes `need_fully_met_pct` by regex-parsing
+  leading headcounts out of two free-text CollegeData facts and dividing them. Nothing in code
+  enforces the `[0, 100]` range — it holds only because of the current shape of the source text. A
+  CollegeData format change could silently write an impossible percentage that a student would
+  then see.
+- **Why not fixed here:** verified safe today across all 1,425 populated rows — every distinct
+  source value is digit-led, no zero denominators, observed range 0.019%-100.0%, and the computed
+  ratio was cross-checked against the source text's own embedded percentage with zero mismatches.
+  Flagged as the one spot in this area where upstream format drift is unguarded, not fixed
+  preemptively for a shape that hasn't happened yet.
+- **Context (start here):** `app/facts/explore_projection.py` (the `need_fully_met_pct`
+  computation, and `merit_aid_pct`, which shares the same regex-divide pattern from free text).
+- *(Logged from the school-data-v3 Phase 2 audit, 2026-09-08.)*
+
 ## School-page-slim: `school_requirements` migration is written but not applied
 - **What:** `migrations/0019_drop_school_requirements.sql` (+ `.rollback.sql`) drops
   `counselle.school_requirements`, its two indexes, and the
@@ -198,18 +267,8 @@
 - *(Logged from the CDS admin polish-2 batch, 2026-09-02 — found at baseline, not introduced by
   it.)*
 
-## `COUNSELLE_DB_RESET_NOTICE_DATE` — documented in an earlier round, not yet wired up
-- **What:** `.env.example` briefly documented `COUNSELLE_DB_RESET_NOTICE_DATE` as a value
-  "surfaced to operators," but no such field exists on `config/settings.py`'s `Settings` and
-  nothing in the tree reads it — the entry was removed from `.env.example` rather than leaving
-  undocumented behavior alongside it. It's genuine future work: the plan wires it to a new
-  `GET /v1/config/public` endpoint and a sign-in reset notice.
-- **Why:** an operator who set the date expecting the sign-in notice to appear would see
-  nothing, with no code path to explain why — `.env.example` must never describe behavior that
-  doesn't exist yet (per `CLAUDE.md`'s honesty rule). Re-add the env var to `.env.example`
-  *together with* its `Settings` field and the `/v1/config/public` consumer in the same change,
-  not ahead of it.
-- **Context (start here):** `plans/school-data-v3.md` §4.3 (the `Settings` field and
-  `GET /v1/config/public` shape) and §5.6 (the sign-in reset notice UI); `config/settings.py`
-  for where the field belongs.
-- *(Logged from the school-data-v3 review, 2026-09-07.)*
+## Resolved: `COUNSELLE_DB_RESET_NOTICE_DATE` is now wired up (school-data-v3 Phase 2)
+`Settings.db_reset_notice_date`/`db_reset_notice_days` exist, `.env.example` documents both, and
+the unauthenticated `GET /v1/config/public` (`api/routes/config.py`) serves the date — the
+consumer this entry was waiting on. `AuthLayout`'s sign-in notice UI (frontend, §5.6) is Unit E's
+follow-up in the same phase; this entry is closed on the backend side.

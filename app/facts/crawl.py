@@ -46,7 +46,11 @@ from adapters.collegedata.parse import (
     parse_page,
     snapshot_body,
 )
-from app.facts.explore_projection import project_explore_row
+from app.facts.explore_projection import (
+    UnmappedControlError,
+    ipeds_filter_columns,
+    project_explore_row,
+)
 from app.facts.mapper import load_facts_keys, map_snapshot
 from config.settings import Settings
 from domain.facts.models import TAB_NAMES, TabName
@@ -131,8 +135,16 @@ async def _write_school(
     """Map + SCD2-write + explore-row upsert, all inside the caller's
     per-school transaction (plan §4.2). Returns the write result and
     `(source_path, label)` for every unmapped fact this school produced
-    this pass."""
+    this pass.
+
+    `ipeds_filter_columns` is called (and allowed to raise
+    `UnmappedControlError`) *before* any facts are written for this school:
+    an unmapped `classification.control` must abort this school's write
+    entirely (plan §5.3), never leave facts committed with no matching,
+    honest explore row."""
     map_result = map_snapshot(pages, fallback_cycle_year=fallback_cycle_year)
+    basic_profile = await facts_store.get_school_basic_profile(conn, school_id=school_id)
+    ipeds_filter_columns(basic_profile)
     write_result = await facts_store.write_school_facts(
         conn,
         school_id=school_id,
@@ -142,7 +154,6 @@ async def _write_school(
         snapshot_sha256=snapshot_sha256,
         mapper_version=mapper_version,
     )
-    basic_profile = await facts_store.get_school_basic_profile(conn, school_id=school_id)
     current_facts = await facts_store.get_current_facts(conn, school_id=school_id)
     explore_values = project_explore_row(basic_profile, current_facts)
     await facts_store.upsert_explore_row(
@@ -313,6 +324,18 @@ async def _process_school_live(
                 )
                 counters.facts_changed = write_result.inserted + write_result.closed_withdrawn
                 counters.unmapped = unmapped
+            except UnmappedControlError as exc:
+                # Not a mapper crash -- a genuinely unmapped IPEDS value.
+                # No facts were written for this school (the check runs
+                # before any write, plan §5.3); surfaced only via the
+                # dashboard's unmapped labels, same as an unmapped fact key.
+                logger.warning(
+                    "facts_crawl_unmapped_control",
+                    school_id=school_id,
+                    slug=slug,
+                    label=exc.label,
+                )
+                counters.unmapped = [(exc.source_path, exc.label)]
             except Exception:
                 logger.exception(
                     "facts_crawl_mapper_failed", school_id=school_id, slug=slug
@@ -391,6 +414,11 @@ async def _process_school_remap(
             )
             counters.facts_changed = write_result.inserted + write_result.closed_withdrawn
             counters.unmapped = unmapped
+        except UnmappedControlError as exc:
+            logger.warning(
+                "facts_remap_unmapped_control", school_id=school_id, label=exc.label
+            )
+            counters.unmapped = [(exc.source_path, exc.label)]
         except Exception:
             logger.exception("facts_remap_mapper_failed", school_id=school_id)
             counters.failure_kinds.append("mapper_error")
@@ -576,7 +604,10 @@ async def _run_crawl_pass_locked(
         await facts_store.rewrite_fact_coverage_counts(conn)
         if previous_started_at is not None:
             await facts_store.retire_absent_slugs(
-                conn, previous_run_started_at=previous_started_at
+                conn,
+                previous_run_started_at=previous_started_at,
+                max_fraction=settings.facts_retirement_max_fraction,
+                min_floor=settings.facts_retirement_min_floor,
             )
         status: Literal["succeeded", "partial"] = (
             "partial" if totals.pages_failed > 0 or totals.failures_by_kind else "succeeded"

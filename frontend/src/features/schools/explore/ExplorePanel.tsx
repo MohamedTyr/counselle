@@ -1,11 +1,13 @@
 import { SearchX } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
-import { useAddApplication, useApplications } from "@/api/workspace/hooks";
-import { useArchiveApplication } from "@/api/workspace/hooks";
-import type { ListType, Round } from "@/api/workspace/types";
+import type { ExploreQueryInput, ExploreSchoolCard } from "@/api/schools/explore";
+import { useExplore } from "@/api/schools/explore";
+import { useAddApplication, useApplications, useArchiveApplication } from "@/api/workspace/hooks";
+import type { Round } from "@/api/workspace/types";
 import { Button } from "@/components/ui/button";
+import { ErrorCard } from "@/components/ui/error-card";
 import {
   Empty,
   EmptyContent,
@@ -14,49 +16,46 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
-import { classifyFit } from "@/features/schools/explore/classify-fit";
-import {
-  countActiveFilters,
-  relaxFilter,
-  runExplore,
-} from "@/features/schools/explore/explore-filter";
-import {
-  exploreFixtures,
-  exploreStates,
-} from "@/features/schools/explore/explore-fixtures";
-import type {
-  ExploreSchool,
-  NarrowestFilter,
-} from "@/features/schools/explore/explore-types";
+import { countActiveFilters } from "@/features/schools/explore/explore-filter";
+import { rangeDescriptors } from "@/features/schools/explore/explore-config";
 import { ExploreFilterBar } from "@/features/schools/explore/ExploreFilterBar";
 import { ExploreFilterPanel } from "@/features/schools/explore/ExploreFilterPanel";
 import { ExploreResultsHeader } from "@/features/schools/explore/ExploreResultsHeader";
 import { ExploreSearchField } from "@/features/schools/explore/ExploreSearchField";
+import type { Narrowest } from "@/api/schools/explore";
+import type { ExploreFilters, RangeKey } from "@/features/schools/explore/explore-types";
 import { SchoolResultCard } from "@/features/schools/explore/SchoolResultCard";
 import { SchoolResultCardSkeleton } from "@/features/schools/explore/SchoolResultCardSkeleton";
+import { hasScoreBand } from "@/features/schools/explore/VerdictBand";
 import { useExploreFilters } from "@/features/schools/explore/useExploreFilters";
 
 /*
- * Explore — composition and state.
- *
- * Data is fixtures in this pass (see explore-fixtures.ts, which is loud
- * about it). The seam for the real query is the `catalog` memo below: it
- * takes the raw rows and joins the user's real applications onto them, so
- * swapping fixtures for a fetch is a one-line change and everything
- * downstream already handles nulls, exclusions, and the on-list state.
+ * Explore -- composition and state. Filter/sort/page state lives in the
+ * URL (`useExploreFilters`); the catalog itself is a real query
+ * (`useExplore`) against `GET /v1/schools/explore`, which owns filtering,
+ * sorting, and every exclusion/narrowest/facet-count computation. This
+ * file's job is: build the request, join the student's own application
+ * list onto the response for the on-list badge, and render.
  */
 
-const PAGE_SIZE = 8;
+const BAND_CAPTION_ID = "explore-band-caption";
 /** Stagger is capped so a large result set doesn't become a slideshow. */
 const STAGGER_CAP = 8;
 const STAGGER_STEP_MS = 30;
+/** The query text is debounced separately from the URL write (300ms,
+ *  `useExploreFilters`): this is what stops every keystroke from firing a
+ *  request (plan §5.3: "`q` debounced 250ms client-side"). */
+const QUERY_DEBOUNCE_MS = 250;
 
-function earliestRound(school: ExploreSchool) {
-  const dated = school.rounds
-    .filter((round) => round.deadline !== null)
-    .sort((a, b) => (a.deadline ?? "").localeCompare(b.deadline ?? ""));
+function useDebouncedValue<T>(value: T, delayMs: number): T {
+  const [debounced, setDebounced] = useState(value);
 
-  return dated[0] ?? school.rounds[0] ?? null;
+  useEffect(() => {
+    const timer = setTimeout(() => setDebounced(value), delayMs);
+    return () => clearTimeout(timer);
+  }, [value, delayMs]);
+
+  return debounced;
 }
 
 export function ExplorePanel() {
@@ -66,6 +65,8 @@ export function ExplorePanel() {
   const {
     clearAll,
     filters,
+    loadMore,
+    page,
     profile,
     setFilters,
     setProfile,
@@ -76,12 +77,71 @@ export function ExplorePanel() {
   } = useExploreFilters();
 
   const [panelOpen, setPanelOpen] = useState(false);
-  const [addingUnitid, setAddingUnitid] = useState<string | null>(null);
+  const [addingUnitid, setAddingUnitid] = useState<number | null>(null);
+  const debouncedQuery = useDebouncedValue(filters.query, QUERY_DEBOUNCE_MS);
 
-  /** Real applications joined onto the catalog rows, so a school the student
-   *  has already added shows the on-list treatment. The card's link no longer
-   *  depends on this: every school has a page now, keyed by unitid, whether
-   *  or not it is on the list. */
+  const queryInput: ExploreQueryInput = useMemo(
+    () => ({
+      act: profile.act,
+      admit_max: filters.ranges.admit.max,
+      admit_min: filters.ranges.admit.min,
+      calendar: filters.calendar,
+      campus_setting: filters.campusSetting,
+      control: filters.control === "any" ? null : filters.control,
+      cost_max: filters.ranges.cost.max,
+      cost_min: filters.ranges.cost.min,
+      deadline_before: filters.deadlineBefore,
+      entrance_difficulty: filters.entranceDifficulty,
+      gender: filters.gender === "any" ? null : filters.gender,
+      grad_four_max: filters.ranges.gradFour.max,
+      grad_four_min: filters.ranges.gradFour.min,
+      grad_six_max: filters.ranges.gradSix.max,
+      grad_six_min: filters.ranges.gradSix.min,
+      hbcu: filters.hbcu,
+      home_state: profile.homeState,
+      housing_max: filters.ranges.housing.max,
+      housing_min: filters.ranges.housing.min,
+      hsi: filters.hsi,
+      include_missing: filters.includeMissing,
+      include_rolling: filters.includeRolling,
+      international_max: filters.ranges.international.max,
+      international_min: filters.ranges.international.min,
+      land_grant: filters.landGrant,
+      major: filters.major,
+      merit_aid_max: filters.ranges.meritAid.max,
+      merit_aid_min: filters.ranges.meritAid.min,
+      need_fully_met_max: filters.ranges.needFullyMet.max,
+      need_fully_met_min: filters.ranges.needFullyMet.min,
+      need_met_max: filters.ranges.needMet.max,
+      need_met_min: filters.ranges.needMet.min,
+      no_application_fee: filters.noApplicationFee,
+      offers_early_action: filters.offersEarlyAction,
+      offers_early_decision: filters.offersEarlyDecision,
+      q: debouncedQuery || null,
+      ratio_max: filters.ranges.ratio.max,
+      ratio_min: filters.ranges.ratio.min,
+      region: filters.region,
+      religious_affiliation: filters.religiousAffiliation,
+      retention_max: filters.ranges.retention.max,
+      retention_min: filters.ranges.retention.min,
+      rolling_admission: filters.rollingAdmission,
+      sat_ebrw: profile.satEbrw,
+      sat_math: profile.satMath,
+      score_fit: filters.scoreFit,
+      size_bucket: filters.sizeBucket,
+      sort: `${sort.key}:${sort.direction}`,
+      state: filters.states,
+      test_policy: filters.testPolicy === "any" ? null : filters.testPolicy,
+      tribal: filters.tribal,
+    }),
+    [debouncedQuery, filters, profile, sort],
+  );
+
+  const explore = useExplore(queryInput, page);
+  const data = explore.data;
+
+  /** Real applications joined onto the catalog rows, so a school the
+   *  student has already added shows the on-list treatment. */
   const applicationIdByUnitid = useMemo(() => {
     const map = new Map<number, string>();
 
@@ -92,57 +152,36 @@ export function ExplorePanel() {
     return map;
   }, [applications.data]);
 
-  const catalog = useMemo(
-    () =>
-      exploreFixtures.map((school) => ({
-        ...school,
-        onList:
-          school.onList || applicationIdByUnitid.has(Number(school.unitid)),
-      })),
-    [applicationIdByUnitid],
-  );
-
-  const result = useMemo(
-    () => runExplore(catalog, filters, profile, sort),
-    [catalog, filters, profile, sort],
-  );
+  const schools = data?.schools ?? [];
   const activeCount = useMemo(() => countActiveFilters(filters), [filters]);
-
-  /* Pagination is derived, not synced. Holding the result set it belongs to
-   * means a filter change resets the page during the same render that
-   * produced the new results — no effect, no cascading second render, no
-   * frame where 24 stale cards are still on screen. */
-  const [pagination, setPagination] = useState({
-    count: PAGE_SIZE,
-    of: result,
-  });
-  const visibleCount = pagination.of === result ? pagination.count : PAGE_SIZE;
+  const showBandCaption = schools.some((school) => hasScoreBand(school.fields, profile));
 
   /* Stagger the opening view and nothing else. Cards are keyed by unitid,
-   * so a card that survives a filter change keeps its DOM node and never
-   * re-animates; this only has to stop a *filtered* set from cascading in,
-   * which is the reflex that turns a fast filter into a slideshow. */
-  const shouldStagger = activeCount === 0 && filters.query === "";
+   * so a card that survives a filter change keeps its DOM node. */
+  const shouldStagger = activeCount === 0 && filters.query === "" && page === 1;
 
-  async function handleAdd(school: ExploreSchool) {
-    const round = earliestRound(school);
-    const verdict = classifyFit(school, profile);
-    const deadline = round?.deadline ?? null;
+  async function handleAdd(school: ExploreSchoolCard) {
+    const { deadline_regular, is_rolling, offers_early_decision, offers_early_action } =
+      school.fields;
+    const round: Round = is_rolling
+      ? "Rolling"
+      : offers_early_decision
+        ? "ED"
+        : offers_early_action
+          ? "EA"
+          : "RD";
 
     setAddingUnitid(school.unitid);
 
     try {
       const created = await addApplication.mutateAsync({
-        cycle_year: deadline
-          ? Number(deadline.slice(0, 4))
+        cycle_year: deadline_regular
+          ? Number(deadline_regular.slice(0, 4))
           : new Date().getFullYear() + 1,
-        deadline,
-        list_type:
-          verdict.category === "Unknown"
-            ? "Target"
-            : (verdict.category as ListType),
-        round: (round?.code ?? "RD") as Round,
-        unitid: Number(school.unitid),
+        deadline: deadline_regular,
+        list_type: "Target",
+        round,
+        unitid: school.unitid,
       });
 
       toast.success(`${created.application.school_name} added to your list`, {
@@ -160,8 +199,6 @@ export function ExplorePanel() {
     }
   }
 
-  const visible = result.schools.slice(0, visibleCount);
-
   return (
     <div className="flex flex-col gap-4">
       <ExploreSearchField
@@ -172,105 +209,107 @@ export function ExplorePanel() {
       <div className="flex flex-col gap-3">
         <ExploreFilterBar
           activeCount={activeCount}
-          controlCounts={result.controlCounts}
+          controlCounts={data?.control_counts ?? { private: 0, private_for_profit: 0, public: 0 }}
           filters={filters}
           onChange={setFilters}
           onRangeChange={setRange}
           onTogglePanel={() => setPanelOpen((open) => !open)}
           panelOpen={panelOpen}
           profile={profile}
-          states={exploreStates}
+          regionOptions={data?.filter_options.region ?? []}
         />
         <ExploreFilterPanel
           activeCount={activeCount}
+          campusSettingOptions={data?.filter_options.campus_setting ?? []}
+          entranceDifficultyNote={data?.entrance_difficulty_note ?? null}
           filters={filters}
           onChange={setFilters}
           onClearAll={clearAll}
           onOpenChange={setPanelOpen}
           onRangeChange={setRange}
           open={panelOpen}
+          religiousAffiliationNote={data?.religious_affiliation_note ?? null}
+          religiousAffiliationOptions={data?.filter_options.religious_affiliation ?? []}
         />
       </div>
 
-      <ExploreResultsHeader
-        count={result.schools.length}
-        exclusions={result.exclusions}
-        onIncludeMissing={toggleIncludeMissing}
-        onProfileChange={setProfile}
-        onSortChange={setSort}
-        profile={profile}
-        sort={sort}
-        states={exploreStates}
-      />
+      {explore.isError ? (
+        <ErrorCard
+          message="The workspace could not reach the school catalog."
+          onRetry={() => void explore.refetch()}
+          title="Could not load schools"
+        />
+      ) : (
+        <ExploreResultsHeader
+          bandCaption={data?.band_caption ?? ""}
+          bandCaptionId={BAND_CAPTION_ID}
+          browsableTotal={data?.browsable_total ?? 0}
+          catalogTotal={data?.catalog_total ?? 0}
+          exclusions={data?.exclusions ?? []}
+          factsObservedFrom={data?.facts_observed_from ?? null}
+          onIncludeMissing={toggleIncludeMissing}
+          onProfileChange={setProfile}
+          onSortChange={setSort}
+          profile={profile}
+          showBandCaption={showBandCaption}
+          sort={sort}
+          sortedNullTail={data?.sorted_null_tail ?? null}
+          total={data?.total ?? 0}
+          totalIsCapped={data?.total_is_capped ?? false}
+        />
+      )}
 
-      {applications.isLoading ? (
+      {explore.isError ? null : explore.isLoading ? (
         <ResultsGrid>
           {Array.from({ length: 6 }, (_, index) => (
             <SchoolResultCardSkeleton key={index} />
           ))}
         </ResultsGrid>
-      ) : result.schools.length === 0 ? (
+      ) : data && data.total === 0 ? (
         <NoResults
           activeCount={activeCount}
-          narrowest={result.narrowest}
+          narrowest={data.narrowest}
           onClearAll={clearAll}
           onRelax={(key) => setFilters((current) => relaxFilter(current, key))}
         />
-      ) : (
+      ) : data ? (
         <>
           <ResultsGrid>
-            {visible.map((school, index) => {
-              return (
-                // `grid` so the stagger wrapper passes the row's stretch
-                // through to the card (otherwise the card collapses to
-                // content height and the row goes ragged), and `min-w-0`
-                // because the track's minimum is an explicit 340px rather
-                // than `auto` — without it a grid item wider than its track
-                // overflows and paints over its neighbour.
-                <div
-                  className="grid min-w-0 animate-in fade-in slide-in-from-bottom-1 fill-mode-both duration-150 motion-reduce:animate-none"
-                  key={school.unitid}
-                  style={{
-                    animationDelay: shouldStagger
-                      ? `${Math.min(index, STAGGER_CAP) * STAGGER_STEP_MS}ms`
-                      : undefined,
-                  }}
-                >
-                  <SchoolResultCard
-                    /* Every result links to its school page now, on your
-                     * list or not — browsing a school you have not added is
-                     * the entire point of this surface. */
-                    href={`/app/schools/${school.unitid}`}
-                    isAdding={addingUnitid === school.unitid}
-                    onAdd={handleAdd}
-                    profile={profile}
-                    school={school}
-                  />
-                </div>
-              );
-            })}
+            {schools.map((school, index) => (
+              <div
+                className="grid min-w-0 animate-in fade-in slide-in-from-bottom-1 fill-mode-both duration-150 motion-reduce:animate-none"
+                key={school.unitid}
+                style={{
+                  animationDelay: shouldStagger
+                    ? `${Math.min(index, STAGGER_CAP) * STAGGER_STEP_MS}ms`
+                    : undefined,
+                }}
+              >
+                <SchoolResultCard
+                  bandCaptionId={showBandCaption ? BAND_CAPTION_ID : null}
+                  href={`/app/schools/${school.unitid}`}
+                  isAdding={addingUnitid === school.unitid}
+                  onAdd={handleAdd}
+                  onList={applicationIdByUnitid.has(school.unitid)}
+                  profile={profile}
+                  school={school}
+                />
+              </div>
+            ))}
           </ResultsGrid>
 
-          {visibleCount < result.schools.length ? (
+          {schools.length < data.total ? (
             <div className="flex items-center justify-between gap-4">
               <p className="text-xs text-[var(--ink-muted)] tabular-nums">
-                Showing {visible.length} of {result.schools.length}
+                Showing {schools.length} of {data.total_is_capped ? `${data.total}+` : data.total}
               </p>
-              <Button
-                onClick={() =>
-                  setPagination({
-                    count: visibleCount + PAGE_SIZE,
-                    of: result,
-                  })
-                }
-                variant="outline"
-              >
+              <Button onClick={loadMore} variant="outline">
                 Load more
               </Button>
             </div>
           ) : null}
         </>
-      )}
+      ) : null}
     </div>
   );
 }
@@ -283,9 +322,75 @@ function ResultsGrid({ children }: { children: React.ReactNode }) {
   );
 }
 
+/** Resets exactly the one filter `narrowest.key` named -- the wire key,
+ *  not a client-invented one, so it always exists on `ExploreFilters`. A
+ *  range key relaxes to no bound; every other kind relaxes to its own
+ *  default. `satMath`/`satEbrw`/`act` name the score-fit predicate, not
+ *  the profile scores themselves -- relaxing them turns `scoreFit` back to
+ *  "any" rather than clearing the student's own numbers. */
+function relaxFilter(filters: ExploreFilters, key: string): ExploreFilters {
+  if (rangeDescriptors.some((descriptor) => descriptor.key === key)) {
+    return {
+      ...filters,
+      ranges: { ...filters.ranges, [key as RangeKey]: { max: null, min: null } },
+    };
+  }
+
+  switch (key) {
+    case "q":
+      return { ...filters, query: "" };
+    case "state":
+      return { ...filters, states: [] };
+    case "region":
+      return { ...filters, region: [] };
+    case "sizeBucket":
+      return { ...filters, sizeBucket: [] };
+    case "control":
+      return { ...filters, control: "any" };
+    case "testPolicy":
+      return { ...filters, testPolicy: "any" };
+    case "campusSetting":
+      return { ...filters, campusSetting: [] };
+    case "religiousAffiliation":
+      return { ...filters, religiousAffiliation: null };
+    case "gender":
+      return { ...filters, gender: "any" };
+    case "hbcu":
+      return { ...filters, hbcu: false };
+    case "hsi":
+      return { ...filters, hsi: false };
+    case "tribal":
+      return { ...filters, tribal: false };
+    case "landGrant":
+      return { ...filters, landGrant: false };
+    case "entranceDifficulty":
+      return { ...filters, entranceDifficulty: null };
+    case "calendar":
+      return { ...filters, calendar: null };
+    case "major":
+      return { ...filters, major: null };
+    case "noApplicationFee":
+      return { ...filters, noApplicationFee: false };
+    case "offersEarlyDecision":
+      return { ...filters, offersEarlyDecision: false };
+    case "offersEarlyAction":
+      return { ...filters, offersEarlyAction: false };
+    case "rollingAdmission":
+      return { ...filters, rollingAdmission: false };
+    case "deadlineBefore":
+      return { ...filters, deadlineBefore: null };
+    case "satMath":
+    case "satEbrw":
+    case "act":
+      return { ...filters, scoreFit: "any" };
+    default:
+      return filters;
+  }
+}
+
 /** Names the culprit and hands over the fix. A generic "no results found"
- *  is a dead end, and the student has no way to know which of nine active
- *  filters did the damage. */
+ *  is a dead end, and the student has no way to know which of a dozen
+ *  active filters did the damage. */
 function NoResults({
   activeCount,
   narrowest,
@@ -293,9 +398,9 @@ function NoResults({
   onRelax,
 }: {
   activeCount: number;
-  narrowest: NarrowestFilter | null;
+  narrowest: Narrowest | null;
   onClearAll: () => void;
-  onRelax: (key: NarrowestFilter["key"]) => void;
+  onRelax: (key: string) => void;
 }) {
   return (
     <Empty className="rounded-xl border bg-card">
@@ -306,21 +411,15 @@ function NoResults({
         <EmptyTitle>No schools match</EmptyTitle>
         <EmptyDescription>
           {narrowest
-            ? `${narrowest.label} is the narrowest filter — ${narrowest.remainingWithoutIt} schools match everything else.`
+            ? `${narrowest.label} is the narrowest filter — ${narrowest.remaining_without_it} schools match everything else.`
             : "Nothing in the catalog matches this combination."}
         </EmptyDescription>
       </EmptyHeader>
       <EmptyContent>
         {narrowest ? (
-          <Button onClick={() => onRelax(narrowest.key)}>
-            Relax {narrowest.label.toLowerCase()}
-          </Button>
+          <Button onClick={() => onRelax(narrowest.key)}>Relax {narrowest.label.toLowerCase()}</Button>
         ) : null}
-        <Button
-          disabled={activeCount === 0}
-          onClick={onClearAll}
-          variant="outline"
-        >
+        <Button disabled={activeCount === 0} onClick={onClearAll} variant="outline">
           Clear all filters
         </Button>
       </EmptyContent>

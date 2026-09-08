@@ -16,6 +16,7 @@ import type {
   SchoolSearchResult,
   Task,
 } from "@/api/workspace/types";
+import type { SchoolFactsResponse } from "@/features/schools/facts/school-facts-types";
 
 export const authUserFixture: MeData = {
   id: "00000000-0000-4000-8000-000000000001",
@@ -105,6 +106,69 @@ export const workspaceSchoolSearchFixture: SchoolSearchResult = {
   active_cycle_years: [],
   has_legacy_application: false,
 };
+
+/** `GET /v1/schools/{unitid}/facts` — every workspace test navigates a
+ * school detail page through this route now that identity comes from the
+ * facts response, not a workspace fallback (school-data-v3 Phase 2). A
+ * healthy, empty-sections fixture keeps existing workspace-tab tests
+ * (which assert nothing about the About tab) from crashing on `undefined`. */
+export function schoolFactsResponseFixture(
+  overrides: Partial<SchoolFactsResponse> = {},
+): SchoolFactsResponse {
+  return {
+    identity: {
+      unitid: workspaceApplicationFixture.school_unitid,
+      name: workspaceApplicationFixture.school_name,
+      city: workspaceApplicationFixture.school_city,
+      state: workspaceApplicationFixture.school_state,
+      control: null,
+      undergraduates: null,
+      website_url: workspaceApplicationFixture.website_url,
+      domain: null,
+    },
+    has_collegedata: false,
+    observed_at: null,
+    is_stale: false,
+    freshness_line: null,
+    deadlines: { rows: [], foot: "Confirm on the school's site before you apply." },
+    sections: [],
+    caveats: [],
+    ...overrides,
+  };
+}
+
+function factsUnitid(url: string): string | null {
+  return /\/v1\/schools\/(\d+)\/facts$/.exec(url)?.[1] ?? null;
+}
+
+/** Builds a facts fixture whose identity matches whichever `ApplicationView`
+ * the request's unitid resolves to, so a test's own school name (e.g.
+ * "Alpha College") renders on the page it navigates to instead of a
+ * fixture that only matches the module default. */
+function factsResponseForApplications(
+  unitid: string,
+  applications: readonly ApplicationView[],
+): SchoolFactsResponse {
+  const application = applications.find(
+    (item) => String(item.school_unitid) === unitid,
+  );
+  return schoolFactsResponseFixture(
+    application
+      ? {
+          identity: {
+            unitid: application.school_unitid,
+            name: application.school_name,
+            city: application.school_city,
+            state: application.school_state,
+            control: null,
+            undergraduates: null,
+            website_url: application.website_url,
+            domain: null,
+          },
+        }
+      : { identity: { ...schoolFactsResponseFixture().identity, unitid: Number(unitid) } },
+  );
+}
 
 export const workspaceTaskFixture: Task = {
   id: "20000000-0000-4000-8000-000000000001",
@@ -241,6 +305,10 @@ export function createWorkspaceFetchPreset(
 
   return (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
+    const factsUnit = factsUnitid(url);
+    if (factsUnit !== null) {
+      return jsonResponse(factsResponseForApplications(factsUnit, applications));
+    }
     if (url.includes("/v1/schools/search"))
       return jsonResponse(data.schoolSearch);
     if (url.endsWith("/v1/applications")) {
@@ -772,6 +840,12 @@ export function defaultAuthenticatedFetch(
   }
   if (url.endsWith("/v1/sessions?limit=50")) {
     return jsonResponse({ sessions: [], next_cursor: null });
+  }
+  const factsUnit = factsUnitid(url);
+  if (factsUnit !== null) {
+    return jsonResponse(
+      factsResponseForApplications(factsUnit, [workspaceApplicationFixture]),
+    );
   }
   if (url.includes("/v1/schools/search")) {
     return jsonResponse([workspaceSchoolSearchFixture]);

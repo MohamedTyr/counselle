@@ -1,48 +1,44 @@
 import type React from "react";
-import { useState } from "react";
-import { ChevronDown } from "lucide-react";
 
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
-import { FactTable } from "@/features/schools/facts/FactTable";
-import {
-  hasSevereCaveat,
-  type FactTableRow,
-} from "@/features/schools/facts/school-facts-rows";
-import { coverageSentence } from "@/features/schools/facts/school-facts-format";
-import { FactBarChart } from "@/features/schools/facts/charts/FactBarChart";
+import { ChartFoot } from "@/features/schools/facts/charts/chart-shell";
+import { FactDistributionChart } from "@/features/schools/facts/charts/FactDistributionChart";
 import { FactOrdinal } from "@/features/schools/facts/charts/FactOrdinal";
 import { FactRangeChart } from "@/features/schools/facts/charts/FactRangeChart";
-import { ChartFoot } from "@/features/schools/facts/charts/chart-shell";
+import { FactTable } from "@/features/schools/facts/FactTable";
 import {
-  sectionBlocks,
-  type SectionBlock,
+  groupBlocks,
+  type FactBlock,
 } from "@/features/schools/facts/school-facts-blocks";
-import type { SectionConfig } from "@/features/schools/facts/school-facts-sections";
-import type { SchoolFacts } from "@/features/schools/facts/school-facts-types";
-import { cn } from "@/lib/utils";
+import {
+  compressAbsences,
+  toFactRow,
+} from "@/features/schools/facts/school-facts-rows";
+import { SchoolFactsDeadlines } from "@/features/schools/facts/SchoolFactsDeadlines";
+import { TableBlock } from "@/features/schools/facts/TableBlock";
+import type {
+  DeadlinesBlock,
+  Fact,
+  FactGroup,
+  FactSection,
+} from "@/features/schools/facts/school-facts-types";
 
-/**
+/*
  * One section of the About tab.
  *
- * ONE raised panel holding a list of blocks, each either a chart or a
- * name/value table. Not six cards: the section is the container, the groups
- * are bands inside it, and the panel's padding is the single left edge every
- * row, title and chart shares. The headline leads at one density step up —
- * never as a hero number, which is a template rather than a hierarchy.
+ * ONE raised panel holding a list of groups, each a band inside it — not six
+ * cards. Every student-facing sentence here (`section.line`, `group.foot`)
+ * is already composed server-side; this component only lays it out.
  */
 export function SchoolFactsSection({
-  data,
+  deadlines,
   section,
 }: {
-  data: SchoolFacts;
-  section: SectionConfig;
+  /** Only read for `section.id === "applying"` — the deadlines block is the
+   * section's first group everywhere else on the wire (plan §5.2). */
+  deadlines: DeadlinesBlock;
+  section: FactSection;
 }): React.ReactElement {
-  const blocks = sectionBlocks(data, section);
-  const coverage = data.coverage[section.id];
+  const isApplying = section.id === "applying";
 
   return (
     <section
@@ -56,224 +52,128 @@ export function SchoolFactsSection({
         >
           {section.title}
         </h2>
-        {/* What the section rests on, in words. Plain text rather than a
-         * meter — see coverageSentence. */}
-        {coverage ? (
-          <p className="text-xs leading-5 text-[var(--ink-secondary)]">
-            {coverageSentence(coverage)}
+        {/* `line` is null exactly when `fetch_state === "ok"` — the resolved
+         * failure/re-check/not-published sentence, composed once server-side
+         * (plan §5.1/§5.2). Never a client-authored word. */}
+        {section.line ? (
+          <p className="text-sm leading-6 text-[var(--ink-secondary)]">
+            {section.line}
           </p>
         ) : null}
       </header>
-      {blocks.length > 0 ? (
-        <div className="flex flex-col px-4 sm:px-6">
-          {pairBlocks(blocks).map((band, index) => (
-            <Band band={band} key={band[0].id} showDivider={index > 0} />
-          ))}
-        </div>
-      ) : (
-        /*
-         * A section with nothing in it says so in words. Rendering an empty
-         * frame would read as "we looked and there is nothing here", which is
-         * a stronger claim than the one we can make.
-         */
-        <p className="px-4 py-6 text-sm leading-6 sm:px-6 text-[var(--ink-secondary)]">
-          {data.identity.name}'s Common Data Set doesn't cover this section, or
-          we haven't been able to read it. We don't fill the gap from an older
-          edition.
+      <div className="flex flex-col divide-y divide-[var(--school-fact-divider)] px-4 sm:px-6">
+        {isApplying && deadlines.rows.length > 0 ? (
+          <div className="py-6">
+            <SchoolFactsDeadlines deadlines={deadlines} />
+          </div>
+        ) : null}
+        {section.groups.map((group) => (
+          <Group group={group} key={group.id} />
+        ))}
+      </div>
+      {/* The section-level period foot — "Where no year is shown, we don't
+       * know which year the figure covers." — emitted once, server-side,
+       * whenever this section holds at least one fact with no
+       * `reported_period` (plan §5.2). Independent of `fetch_state`: an
+       * `ok` section still needs it. Rendered once here, never per fact. */}
+      {section.foot ? (
+        <p className="border-t border-[var(--school-fact-divider)] px-4 py-4 text-xs leading-5 text-[var(--ink-muted)] sm:px-6">
+          {section.foot}
         </p>
-      )}
+      ) : null}
     </section>
   );
 }
 
-/** How many rows a group may have and still share a band with another. */
-const PAIRABLE_ROWS = 8;
+function Group({ group }: { group: FactGroup }): React.ReactElement | null {
+  if (group.facts.length === 0) return null;
+  const blocks = groupBlocks(group.facts);
 
-/**
- * Two short, unrelated tables side by side instead of queued vertically.
- *
- * "Required high-school units", "Class rank" and "Waitlist" are sixteen rows
- * between them with no dependency on each other, and stacked they are half a
- * screen of scrolling before the applicant pool. Only plain row groups pair —
- * a chart owns its full width, and the headline is the lead band.
- *
- * The pair is a BAND, not two cards. Both halves keep the same rows, the same
- * hairlines and the same left edge they would have alone; the only thing that
- * changes is that one sits beside the other from `lg:` up. A border or a fill
- * per half would be a card inside the section panel, which is the exact defect
- * this whole pass removed.
- */
-function pairBlocks(blocks: readonly SectionBlock[]): SectionBlock[][] {
-  const pairable = (block: SectionBlock) =>
-    block.kind === "rows" &&
-    !block.emphasis &&
-    !block.collapsible &&
-    block.title !== null &&
-    block.rows.length <= PAIRABLE_ROWS;
-
-  const bands: SectionBlock[][] = [];
-  for (let i = 0; i < blocks.length; ) {
-    const block = blocks[i];
-    const next = blocks[i + 1];
-    if (next && pairable(block) && pairable(next)) {
-      bands.push([block, next]);
-      i += 2;
-      continue;
-    }
-    bands.push([block]);
-    i += 1;
-  }
-  return bands;
-}
-
-function Band({
-  band,
-  showDivider,
-}: {
-  band: SectionBlock[];
-  showDivider: boolean;
-}): React.ReactElement {
   return (
-    <div
-      className={cn(
-        "py-6",
-        band.length > 1 && "grid gap-6 lg:grid-cols-2 lg:gap-x-10",
-        /* The band separator. A rule between groups, never a border around
-         * one — the panel already owns the only perimeter in the section. */
-        showDivider && "border-t border-[var(--school-fact-divider)]",
-      )}
-    >
-      {band.map((block) => (
-        <Block block={block} key={block.id} />
+    <div className="flex flex-col gap-3 py-6">
+      {group.label ? (
+        <h3 className="text-sm font-medium text-[var(--ink-secondary)]">
+          {group.label}
+        </h3>
+      ) : null}
+      {blocks.map((block, index) => (
+        <Block block={block} key={index} />
       ))}
+      {/* The merged foot slot — an authored `foot:` or a resolved
+       * `foot_ref:` (e.g. `BAND_CAPTION`) — renders under the group's
+       * content, whenever the group renders at all. One slot, one
+       * position, so a group never has two homes for its qualifier. */}
+      {group.foot ? <ChartFoot>{group.foot}</ChartFoot> : null}
     </div>
   );
 }
 
-function Block({ block }: { block: SectionBlock }): React.ReactElement {
+function Block({ block }: { block: FactBlock }): React.ReactElement | null {
+  switch (block.renderKind) {
+    case "rows":
+      return <FactTable rows={compressAbsences(block.facts.map(toFactRow))} />;
+    case "ordinal":
+      return <OrdinalBlock facts={block.facts} />;
+    case "band":
+      return <BandBlock facts={block.facts} />;
+    case "distribution":
+      return <DistributionBlock facts={block.facts} />;
+    case "table":
+      return (
+        <div className="flex flex-col gap-4">
+          {block.facts.map((fact) => (
+            <TableBlock fact={fact} key={fact.key} />
+          ))}
+        </div>
+      );
+  }
+}
+
+/** Every non-`value` band/distribution fact still renders — as a row naming
+ * the state, never dropped and never a zero-width mark (plan §5.1/§7). */
+function partitionByValue(facts: readonly Fact[]): [Fact[], Fact[]] {
+  const value: Fact[] = [];
+  const absent: Fact[] = [];
+  for (const fact of facts) (fact.state === "value" ? value : absent).push(fact);
+  return [value, absent];
+}
+
+function BandBlock({ facts }: { facts: Fact[] }): React.ReactElement {
+  const [value, absent] = partitionByValue(facts);
   return (
-    <div className="flex flex-col gap-3">
-      {block.title ? <GroupTitle>{block.title}</GroupTitle> : null}
-      <div className="empty:hidden">
-        <Mark block={block} />
-      </div>
-      {/* Directly under the mark it qualifies. A qualifier separated from
-       * its chart by a table of other values is a qualifier for nothing. */}
-      {block.foot ? <ChartFoot>{block.foot}</ChartFoot> : null}
-      {/*
-       * Everything the chart could not plot. Never omitted, never a zero-width
-       * bar — the value renders as the sentence naming which kind of nothing
-       * it is, in the same table as every other row on the page.
-       */}
-      {block.kind === "rows" && block.collapsible ? (
-        <OverflowRows rows={block.rows} />
-      ) : block.rows.length > 0 ? (
-        <FactTable
-          emphasis={block.kind === "rows" && block.emphasis}
-          rows={block.rows}
-        />
+    <div className="flex flex-col gap-5">
+      {value.map((fact) => (
+        <FactRangeChart fact={fact} key={fact.key} />
+      ))}
+      {absent.length > 0 ? (
+        <FactTable rows={compressAbsences(absent.map(toFactRow))} />
       ) : null}
     </div>
   );
 }
 
-/** Rows shown before the fold in the overflow bucket. */
-const OVERFLOW_VISIBLE = 8;
-
-function partition<T>(
-  items: readonly T[],
-  matches: (item: T) => boolean,
-): [T[], T[]] {
-  const yes: T[] = [];
-  const no: T[] = [];
-  for (const item of items) (matches(item) ? yes : no).push(item);
-  return [yes, no];
-}
-
-/**
- * The overflow bucket, folded.
- *
- * This is the ONLY group on the tab that collapses, and only past eight rows.
- * Curated groups stay open — folding one would hide the thing the page exists
- * to show — but "Other published values" is by construction the metrics the
- * config had no place for, and a long tail of them stands between a student
- * and the next section.
- *
- * The count is on the trigger, never a bare "Show more": how much is behind a
- * fold is itself information, and a disclosure that will not say how much it
- * is holding is asking to be trusted rather than read.
- */
-function OverflowRows({
-  rows,
-}: {
-  rows: readonly FactTableRow[];
-}): React.ReactElement {
-  const [open, setOpen] = useState(false);
-  /*
-   * Nothing severe goes behind the fold. A severe caveat is by definition
-   * the sentence without which its number cannot be read correctly, so a
-   * row carrying one is hoisted above the toggle rather than folded — the
-   * same rule DESIGN §15.2 states for errors, applied to the one warning
-   * this page has.
-   */
-  const [urgent, ordinary] = partition(rows, hasSevereCaveat);
-  if (ordinary.length <= OVERFLOW_VISIBLE) {
-    return <FactTable rows={[...urgent, ...ordinary]} />;
-  }
-
-  const hidden = ordinary.length - OVERFLOW_VISIBLE;
+function DistributionBlock({ facts }: { facts: Fact[] }): React.ReactElement {
+  const [value, absent] = partitionByValue(facts);
   return (
-    <Collapsible onOpenChange={setOpen} open={open}>
-      <FactTable
-        rows={[...urgent, ...ordinary.slice(0, OVERFLOW_VISIBLE)]}
-      />
-      <CollapsibleContent>
-        <FactTable rows={ordinary.slice(OVERFLOW_VISIBLE)} />
-      </CollapsibleContent>
-      <CollapsibleTrigger
-        className="mt-3 inline-flex items-center gap-1.5 rounded-[10px] px-2 py-1.5 text-sm text-[var(--ink-secondary)] transition-colors duration-150 hover:bg-[var(--surface-hover)] hover:text-[var(--ink)] focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] focus-visible:outline-none"
-        data-slot="overflow-toggle"
-      >
-        <ChevronDown
-          aria-hidden="true"
-          className={cn(
-            "size-4 transition-transform duration-150",
-            open && "rotate-180",
-          )}
-        />
-        {open ? `Show ${hidden} fewer` : `Show ${hidden} more`}
-      </CollapsibleTrigger>
-    </Collapsible>
+    <div className="flex flex-col gap-4">
+      {value.map((fact) => (
+        <FactDistributionChart fact={fact} key={fact.key} />
+      ))}
+      {absent.length > 0 ? (
+        <FactTable rows={compressAbsences(absent.map(toFactRow))} />
+      ) : null}
+    </div>
   );
 }
 
-function Mark({ block }: { block: SectionBlock }): React.ReactElement | null {
-  switch (block.kind) {
-    case "bars":
-      return <FactBarChart block={block} />;
-    case "bands":
-      return <FactRangeChart block={block} />;
-    case "ordinal":
-      return <FactOrdinal block={block} />;
-    default:
-      /* A rows block's values ARE its rows, rendered by `Block`. */
-      return null;
-  }
-}
-
-/**
- * A group heading. Space above it is the separator — no rule, no eyebrow, no
- * number, no icon. Three of those would be decoration on a page whose job is
- * to be believed.
- */
-function GroupTitle({
-  children,
-}: {
-  children: React.ReactNode;
-}): React.ReactElement {
+function OrdinalBlock({ facts }: { facts: Fact[] }): React.ReactElement {
+  const [, absent] = partitionByValue(facts);
   return (
-    <h3 className="text-sm font-medium text-[var(--ink-secondary)]">
-      {children}
-    </h3>
+    <div className="flex flex-col gap-3">
+      <FactOrdinal facts={facts} />
+      {absent.length > 0 ? (
+        <FactTable rows={compressAbsences(absent.map(toFactRow))} />
+      ) : null}
+    </div>
   );
 }

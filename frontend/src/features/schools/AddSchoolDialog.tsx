@@ -1,4 +1,4 @@
-import { AlertCircle, ArrowLeft, Check, Plus } from "lucide-react";
+import { AlertCircle, ArrowLeft, CalendarPlus, Check, Plus } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -47,6 +47,21 @@ const roundOptions: Round[] = [
 const MIN_CYCLE_YEAR = 2020;
 const MAX_CYCLE_YEAR = 2100;
 
+// The facts store distinguishes a deadline fact only for these three rounds
+// (plan §5.6) — ED2, REA, Priority and Rolling have no round-specific date
+// CollegeData publishes separately, so a prefill for them would either be a
+// neighboring round's date or a guess. Values are the deadline fact_key
+// suffix (`deadlines.<suffix>`) the facts store emits on each deadline row.
+const DEADLINE_FACT_ROUND: Partial<Record<Round, string>> = {
+  EA: "early_action",
+  ED: "early_decision",
+  RD: "regular",
+};
+
+// Matches the facts page's facts staleTime (Q19, §5.6) — the deadline
+// prefill reads the same slow-moving data.
+const DEADLINE_FACTS_STALE_TIME_MS = 5 * 60 * 1000;
+
 function validCycleYear(value: number) {
   return (
     Number.isFinite(value) &&
@@ -55,6 +70,45 @@ function validCycleYear(value: number) {
     value <= MAX_CYCLE_YEAR
   );
 }
+
+/** "2027" -> "2026-27" — the application-cycle label shown throughout this
+ * dialog and the one `reported_period` string a matching deadline fact
+ * carries (§5.6: "reported_period = {cycle_year-1}-{cycle_year mod 100}"). */
+function cycleLabel(year: number) {
+  return `${year - 1}-${String(year).slice(-2)}`;
+}
+
+function formatMonthYear(iso: string) {
+  return new Intl.DateTimeFormat("en-US", {
+    month: "long",
+    year: "numeric",
+  }).format(new Date(`${iso}T00:00:00`));
+}
+
+function formatMonthDayYear(iso: string) {
+  return new Intl.DateTimeFormat("en-US", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  }).format(new Date(`${iso}T00:00:00`));
+}
+
+/** The wire shape of one row in `GET /v1/schools/{unitid}/facts`'s
+ * top-level `deadlines` block (plan §5.2). That endpoint is Phase 2's
+ * backend-agent work and may not exist yet; a fetch failure or a missing
+ * `deadlines` field resolves to "no offer", never a guess. */
+type FactsDeadlineRow = {
+  round: string;
+  date: string | null;
+  display: string;
+  reported_period: string | null;
+  state: string;
+  observed_at: string | null;
+};
+
+type SchoolFactsDeadlines = {
+  deadlines?: { rows: FactsDeadlineRow[]; foot: string };
+};
 
 function schoolLocation(school: SchoolSearchResult) {
   if (school.city && school.state) {
@@ -67,7 +121,7 @@ function schoolLocation(school: SchoolSearchResult) {
 function trackedCycleLabel(school: SchoolSearchResult) {
   if (school.active_cycle_years.length > 0) {
     const cycles = school.active_cycle_years
-      .map((year) => `${year - 1}-${String(year).slice(-2)}`)
+      .map((year) => cycleLabel(year))
       .join(", ");
     return `Tracked for ${cycles} · choose a cycle`;
   }
@@ -133,6 +187,38 @@ export function AddSchoolDialog({
         application.cycle_year === selectedCycleYear,
     ),
   );
+
+  const schoolFacts = useQuery({
+    queryKey: ["schools", selectedSchool?.unitid, "facts", "deadlines"],
+    queryFn: () =>
+      requestJson<SchoolFactsDeadlines>(
+        `/schools/${selectedSchool!.unitid}/facts`,
+      ),
+    enabled: isConfirmStep,
+    staleTime: DEADLINE_FACTS_STALE_TIME_MS,
+  });
+  const deadlineOffer = useMemo(() => {
+    const factRound = DEADLINE_FACT_ROUND[round];
+    if (!factRound || !isCycleYearValid) {
+      return null;
+    }
+    const row = schoolFacts.data?.deadlines?.rows?.find(
+      (candidate) => candidate.round === factRound,
+    );
+    // A row that's missing, unmatched, or whose cycle we can't confirm
+    // (state isn't "value", or reported_period is absent) is never offered
+    // — "unknown" never silently becomes "matching" (plan §5.6).
+    if (
+      !row ||
+      row.state !== "value" ||
+      !row.date ||
+      !row.reported_period ||
+      !row.observed_at
+    ) {
+      return null;
+    }
+    return row.reported_period === cycleLabel(selectedCycleYear) ? row : null;
+  }, [round, isCycleYearValid, schoolFacts.data, selectedCycleYear]);
 
   const searchResults = useMemo(() => search.data ?? [], [search.data]);
 
@@ -251,11 +337,30 @@ export function AddSchoolDialog({
             />
           </label>
 
+          {deadlineOffer ? (
+            <div className="flex flex-col gap-1.5 rounded-md border border-dashed bg-[var(--surface-inset)] p-2.5 text-xs text-muted-foreground">
+              <p>
+                From Counselle&rsquo;s facts — {cycleLabel(selectedCycleYear)}{" "}
+                cycle, checked {formatMonthYear(deadlineOffer.observed_at!)}.
+                Confirm on the school&rsquo;s site.
+              </p>
+              <Button
+                className="self-start"
+                onClick={() => setDeadline(deadlineOffer.date!)}
+                size="xs"
+                type="button"
+                variant="outline"
+              >
+                <CalendarPlus data-icon="inline-start" />
+                Use {formatMonthDayYear(deadlineOffer.date!)}
+              </Button>
+            </div>
+          ) : null}
+
           {isDuplicateCycle ? (
             <p className="text-sm text-destructive" role="alert">
               This school is already in your workspace for the{" "}
-              {selectedCycleYear - 1}-{String(selectedCycleYear).slice(-2)}{" "}
-              cycle.
+              {cycleLabel(selectedCycleYear)} cycle.
             </p>
           ) : null}
 
@@ -273,7 +378,7 @@ export function AddSchoolDialog({
               value={effectiveCycleYear}
             />
             <span className="text-xs font-normal text-muted-foreground">
-              This selects the correct admissions-cycle catalog. It cannot be
+              This is the cycle you&rsquo;re applying in. It cannot be
               guessed safely.
             </span>
             {effectiveCycleYear && !isCycleYearValid ? (

@@ -32,14 +32,6 @@ export function createAppRouter() {
           },
         },
         {
-          path: "/dev/school-facts",
-          lazy: async () => {
-            const module =
-              await import("@/features/dev-school-facts-gallery/SchoolFactsGalleryPage");
-            return { Component: module.SchoolFactsGalleryPage };
-          },
-        },
-        {
           path: "/dev/onboarding-shell",
           lazy: async () => {
             const module =

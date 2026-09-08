@@ -34,7 +34,7 @@ from app.workspace.service_documents import create_document
 from app.workspace.service_memory import create_memories
 from config.logging import setup_logging
 from config.settings import get_settings
-from counselle_db.service import (
+from counselle_db.sql_guard import (
     _join_has_exact_document_keys,
     _ordered_column,
 )

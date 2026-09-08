@@ -180,16 +180,35 @@ def normalize_text(raw: str) -> NormalizedValue:
     return NormalizedValue(kind="text", display=cleaned, value_text=cleaned)
 
 
-_URL_RE = re.compile(r"^https?://", re.IGNORECASE)
+_URL_RE = re.compile(r"^https?://\S+$", re.IGNORECASE)
+# A schemeless host CollegeData prints verbatim ("www.bmtc.edu/") -- a
+# real, dotted hostname with an alphabetic final label (a TLD shape),
+# optionally followed by a path/query, and never containing whitespace or
+# an "@" (which would make it an email address, not a site). Rejects free
+# text, phone numbers, and anything without a domain-like shape.
+_SCHEMELESS_HOST_RE = re.compile(
+    r"^[a-z0-9-]+(?:\.[a-z0-9-]+)*\.[a-z]{2,}(?:/\S*)?$", re.IGNORECASE
+)
 
 
 def normalize_url(href: str, *, text: str | None = None) -> NormalizedValue:
-    """A link; `display` is the link text when the source gives one, else the URL itself."""
+    """A link; `display` is the link text when the source gives one, else the URL
+    exactly as the source printed it -- schemeless hosts are accepted as valid
+    (a school printing "www.example.edu/" is an ordinary way to publish a URL)
+    but `display` is never rewritten. `value_text`, the functional link the
+    frontend renders as `<a href>`, gets an `https://` scheme added when the
+    source omitted one, since a browser resolves a bare `www.example.edu/`
+    href as relative, not absolute -- storage needs a usable link, display
+    needs a faithful one, and this is the one place they diverge."""
     cleaned = href.strip()
-    if not _URL_RE.match(cleaned):
+    if _URL_RE.match(cleaned):
+        value_text = cleaned
+    elif _SCHEMELESS_HOST_RE.match(cleaned):
+        value_text = f"https://{cleaned}"
+    else:
         raise NormalizeError(f"not a URL: {href!r}")
     display = (text or cleaned).strip() or cleaned
-    return NormalizedValue(kind="url", display=display, value_text=cleaned)
+    return NormalizedValue(kind="url", display=display, value_text=value_text)
 
 
 _MONTH_NAMES = (

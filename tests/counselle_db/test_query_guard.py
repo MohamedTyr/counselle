@@ -1,7 +1,7 @@
 import pytest
 
 from counselle_db.models import ServiceError
-from counselle_db.service import _guard_sql
+from counselle_db.sql_guard import _guard_sql
 
 
 def test_query_guard_requires_qualified_allowlisted_view_and_bound_params() -> None:

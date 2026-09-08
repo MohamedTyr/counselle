@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import os
 import re
+from datetime import date
 from functools import lru_cache
 from pathlib import Path
 from typing import Annotated, Any, Literal
@@ -355,6 +356,18 @@ class Settings(BaseSettings):
     # How many page_snapshots rows adapters/facts_store.py keeps per
     # (school_id, tab), newest first, pruning the rest in-pass (plan §3.4).
     facts_snapshot_retention_per_page: int = Field(default=3, gt=0)
+    # `adapters/facts_store.py.retire_absent_slugs`'s safety ceiling
+    # (school-data-v3 fix review): above `facts_retirement_min_floor` live
+    # `collegedata_schools` rows, a single pass refuses to retire more than
+    # this fraction of them rather than silently mass-retiring the
+    # crosswalk (a `previous_run_started_at` bug once retired all 2,587
+    # live rows in one pass, unnoticed).
+    facts_retirement_max_fraction: float = Field(default=0.10, gt=0, le=1)
+    # Below this many live `collegedata_schools` rows,
+    # `facts_retirement_max_fraction` is not enforced at all -- a fresh,
+    # small, or test crosswalk legitimately retiring "most" or "all" of a
+    # handful of rows is not a bug.
+    facts_retirement_min_floor: int = Field(default=50, ge=0)
     # crawl_runs.unmapped_label_count above this raises the
     # facts_crawl_shape_drift error at end-of-pass (plan §4.2).
     facts_unmapped_alert_threshold: int = Field(default=50, gt=0)
@@ -365,6 +378,35 @@ class Settings(BaseSettings):
     # size of the bounded, frequency-sorted sample crawl_runs.unmapped_labels
     # stores at end of pass.
     facts_admin_unmapped_limit: int = Field(default=200, gt=0)
+    # --- Facts page + Explore (school-data-v3 Phase 2) ---
+    # counselle_db.service.get_facts's row cap for a *narrowing* call (a
+    # `sections=`/`keys=` argument was not given). Not yet consumed: the
+    # Phase 2 HTTP facts route always calls get_facts unfiltered for the
+    # whole page (no narrowing, no cap — a page is 200-260 facts, well under
+    # the 150 KB budget); this cap exists for the Phase 3 agent tool, whose
+    # `get_facts(unitid)` with neither `sections` nor `keys` must stay small
+    # enough to be a useful default rather than a whole-school dump.
+    get_facts_max_rows: int = Field(default=60, gt=0)
+    # GET /v1/schools/explore's default and max page size (plan §5.3's
+    # request model; "Load more" appends pages of this size, Q18).
+    facts_explore_page_size: int = Field(default=24, gt=0)
+    facts_explore_max_page_size: int = Field(default=100, gt=0)
+    # Hard ceiling on ExploreResponse.total (plan §5.3) — must exceed the
+    # real browsable universe (~2,300-2,400 schools) so it never binds on a
+    # real corpus; it exists only as a runaway guard against a future
+    # filter bug that matches everything.
+    facts_explore_max_count: int = Field(default=3000, gt=0)
+    # The sign-in reset notice (plan §5.6, Q14): the date the `counselle`
+    # schema was last rebuilt, surfaced by the unauthenticated
+    # GET /v1/config/public for AuthLayout's dismissible notice. `None`
+    # (the default) means no notice renders — this field was documented in
+    # .env.example once before any consumer existed (TODOS.md) and was
+    # removed rather than left describing dead behavior; it is re-added
+    # here together with its consumer (api/routes/config.py's
+    # GET /v1/config/public and, on the frontend, AuthLayout).
+    db_reset_notice_date: date | None = None
+    # How many days after db_reset_notice_date the notice keeps rendering.
+    db_reset_notice_days: int = Field(default=30, gt=0)
     # parked (ADR 0036) — read only by the parked adapters/cds_store.py.
     supported_packet_extractor_versions: Annotated[frozenset[str], NoDecode] = frozenset(
         {

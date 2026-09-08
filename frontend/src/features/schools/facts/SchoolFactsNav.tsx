@@ -6,8 +6,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { SectionId } from "@/features/schools/facts/school-facts-types";
 import { cn } from "@/lib/utils";
+
+/** A section id is a plain string on the wire (plan §5.2) — the catalog's
+ * six ids today, but the client asserts nothing about which ones exist. */
+type SectionId = string;
 
 /*
  * The rail.

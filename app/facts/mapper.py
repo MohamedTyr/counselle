@@ -37,7 +37,13 @@ from config.settings import load_yaml_asset
 from domain.envelope import JsonValue
 from domain.facts import period as P
 from domain.facts.models import FactRow, NormalizedValue, TabName
-from domain.facts.normalize import absence_display, normalize_date, normalize_decimal, normalize_url
+from domain.facts.normalize import (
+    NormalizeError,
+    absence_display,
+    normalize_date,
+    normalize_decimal,
+    normalize_url,
+)
 
 __all__ = ["MapResult", "load_facts_keys", "map_snapshot"]
 
@@ -464,19 +470,40 @@ def _overview_body_extras(pages: Mapping[TabName, ParsedPage]) -> Iterator[FactR
 
 
 def _identity_website(pages: Mapping[TabName, ParsedPage]) -> FactRow | None:
+    """Unlike every other value here, `website` never went through
+    `_Engine.process`'s per-leaf rule dispatch (it's a top-level profile
+    field, not a header/body leaf), so it never got that dispatch's
+    `NormalizeError` -> `unmapped:` routing either -- a school whose raw
+    website string didn't parse (e.g. a stray non-URL value) crashed this
+    school's entire fact write for the pass instead of just dropping one
+    fact (school-data-v3 fix review). Match the documented contract: a
+    value that fails to normalize becomes `unmapped:<source_path>`, not a
+    fatal error for the whole school."""
     overview = pages.get("overview")
     if overview is None:
         return None
     website = overview.raw_profile.get("website")
     if not isinstance(website, str) or not website:
         return None
+    source_path = "overview/@profile/website"
+    try:
+        value = normalize_url(website)
+    except NormalizeError:
+        return FactRow(
+            fact_key=f"unmapped:{source_path}",
+            tab="overview",
+            section="campus-life",
+            label="website",
+            value=None,
+            source_path=source_path,
+        )
     return FactRow(
         fact_key="identity.website",
         tab="overview",
         section="campus-life",
         label="website",
-        value=normalize_url(website),
-        source_path="overview/@profile/website",
+        value=value,
+        source_path=source_path,
     )
 
 

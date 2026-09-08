@@ -89,9 +89,7 @@ def _default_source_config(user: UserDB, settings: Any) -> dict[str, Any]:
 
 
 @router.get("/config")
-async def get_config(
-    request: Request, user: UserDB = Depends(current_active_user)
-) -> JSONResponse:
+async def get_config(request: Request, user: UserDB = Depends(current_active_user)) -> JSONResponse:
     """The authed home-screen config (wire-contract §3)."""
     settings = request.app.state.settings
     copy = _season_copy(datetime.now(UTC).date())
@@ -110,3 +108,19 @@ async def get_config(
             "response_modes": _response_modes(settings),
         }
     )
+
+
+@router.get("/config/public")
+async def get_public_config(request: Request) -> JSONResponse:
+    """The one unauthenticated config slice (plan school-data-v3 §5.6, Q14):
+    the sign-in reset notice's date, and nothing else. Deliberately
+    unauthenticated -- the notice's whole audience is people who, by
+    construction, no longer have an account (the database reset that
+    triggered it also deleted every account), so gating it behind
+    `current_active_user` would mean it never renders for the one person it
+    was written for. Mounted beside the existing authed `/config`, which is
+    unchanged.
+    """
+    settings = request.app.state.settings
+    date = settings.db_reset_notice_date
+    return JSONResponse(content={"db_reset_notice_date": date.isoformat() if date else None})
