@@ -292,17 +292,48 @@
   the tasks redesign put a 288px `EssayTasksSection` rail on the same row, keyed to Tailwind's
   viewport `xl` (also 1280px), so the two thresholds fired together and neither could see the
   other. At a 1280px viewport with the sidebar expanded the row is 968px, the rail took 288 and
-  the panel 380, and the essay was left **120px of paper — eleven characters a line** beside a
-  rail holding nothing but "Tasks" and an empty quick-add. Nothing clipped, nothing overflowed,
-  every test and typecheck passed, which is exactly why it survived the merge.
-- **Fixed for the rail (2026-09-08):** the `aside` is now `@4xl/essay-canvas:block` instead of
-  `xl:block` — keyed to the measured `@container/essay-canvas` column, which excludes the
-  docked panel because the panel is an in-flow flex sibling (verified: the container's content
-  box goes 1278 → 898 when the panel opens at 1600/expanded). Same container ladder
+  the panel 380, and the essay was left **130px of paper — eighteen characters a line** beside a
+  rail holding nothing but "Tasks" and an empty quick-add. (1440/expanded was the second bad
+  cell, at 274px/43ch.) Nothing clipped, nothing overflowed, every test and typecheck passed,
+  which is exactly why it survived the merge — and **no test in CI can ever hold this**, because
+  jsdom does not evaluate container queries at all. The threshold is only checkable in a browser.
+- **Fixed for the rail (2026-09-08):** the `aside` is keyed to the measured
+  `@container/essay-canvas` column instead of the viewport, at `@4xl` (896px). The container
+  excludes the docked panel because the panel is an in-flow flex sibling (verified: the
+  container's content box goes 1288 → 908 when the panel opens at 1600/expanded, in a headless
+  Chromium that paints no scrollbar; 1278 → 898 where one is painted). Same container ladder
   `essay-paper-inset.ts` already steps on, so no second threshold was introduced. Re-measured in
   Chromium across {1280,1440,1600,1920} × {sidebar expanded, collapsed} × {panel open, closed}:
-  the worst measure went from 120px to 392px, every panel-closed cell is unchanged to the pixel,
-  and no cell overflows. The rail now yields before the paper does.
+  the worst measure went from 130px/18ch to 392px/61ch, every panel-closed cell is unchanged to
+  the pixel, and no cell overflows. The rail now yields before the paper does.
+- **What the container key also changes, deliberately:** it makes the rail *appear* at widths
+  where `xl:block` hid it unconditionally. Swept 700→1300 in 25px steps: the rail now arrives at
+  a **~944px viewport with the sidebar collapsed and ~1208px expanded**, so a 1024px tablet on
+  the sidebar rail gets a task rail on the essay page for the first time. Kept, because the grid
+  says it is the better half: where the rail shows, the paper measures 61–74ch; where it does
+  not, the paper sits on its `max-w-[820px]` cap at 108–115ch. The rail arriving earlier is what
+  holds the measure inside DESIGN.md rule 17, not what costs it.
+- **Known consequence, recorded not fixed:** at 1280/sidebar-collapsed/panel-open the measure
+  went 61ch → 108ch, because that is the one cell where the rail used to be accidentally holding
+  it legal. The root cause is older than this change — `max-w-[820px]` yields ~108ch on its own,
+  so most panel-closed cells already violate rule 17. Capping the paper by measure rather than by
+  pixels is the real fix and is out of scope here.
+- **Known thin margin:** at 1600/expanded/panel-open the column measures 898px against the 896px
+  threshold — 2px. It does not flip at runtime, but 3px on `--sidebar-width`, `--scrollbar-size`
+  or the row's `lg:px-7` moves the paper ~330px with no code change. Left on the ladder on
+  purpose; the arithmetic and the alternatives are written out at the `aside` itself.
+- **Also fixed (2026-09-08), a defect the container key introduced:** the panel toggle crosses
+  the rail's threshold, so a binary `hidden`/`block` put a 320px step inside the panel's 200ms
+  reflow. rAF-sampled and resampled onto a 16.7ms frame at 1280/expanded, closing grew the paper
+  to 722px and then took **321px back in a single frame** ~148ms in; opening handed 272px back
+  the same way. The `aside` now transitions its own width (and `visibility`, so a 0-width rail is
+  not still tabbable) over 200ms `ease-in-out` — the accordion carve-out of DESIGN.md §12.1 rule
+  2. The rail's own worst frame is now 59px at 1280/expanded and 0–27px elsewhere, under the
+  **67–71px the panel's own ease-out already moves the paper** in the same interaction. A control
+  cell where the rail never toggles (1600/expanded) measures 64–71px closing and −267…−288px
+  opening — the opening figure is main-thread jank from mounting the chat panel, is pre-existing,
+  and is why a flat "no frame moves more than 40px" bar is not reachable here without changing
+  the panel's own curve.
 - **Still open — the dock threshold itself.** `useIsPanelDocked` is unchanged and still keys on
   `window.innerWidth`. The fix, if it is ever worth doing: key on the measured width of the row,
   the way the main chat's document panel already does — `EssayDocumentPanel.tsx` uses a

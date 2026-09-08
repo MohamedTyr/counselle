@@ -494,18 +494,25 @@ export function EssayEditorPage({ essay, onBack }: EssayEditorPageProps) {
                 "invisible w-0 shrink-0 overflow-hidden",
                 "@4xl/essay-canvas:visible @4xl/essay-canvas:w-80",
                 /*
-                 * A width, on the panel's own 200ms ease-out — the accordion
+                 * A width, at the panel's own 200ms tier — the accordion
                  * carve-out of DESIGN.md §12.1 rule 2, the same one §15.6.1
                  * already spends on the panel beside it, and for the same
                  * reason: the paper has to follow the edge frame for frame.
                  *
                  * The panel toggle crosses this threshold, so `hidden`/`block`
-                 * put a 320px step inside a 200ms reflow. Measured by rAF
-                 * sampling at 1280/expanded: closing grew the paper to 722px
-                 * and then took 322px back in a single frame ~148ms in;
-                 * opening handed it 272px in one frame the other way. Spread
-                 * over the same 200ms the worst frame is ~27px, and the paper
-                 * only ever eases.
+                 * put a 320px step inside a 200ms reflow. rAF-sampled at
+                 * 1280/expanded, resampled onto a 16.7ms frame: closing grew
+                 * the paper to 722px and then took 321px back in one frame
+                 * ~148ms in; opening handed back 272px the same way. Spread
+                 * over 200ms the rail's own worst frame is 59px, and 0–27px in
+                 * the other cells.
+                 *
+                 * `ease-in-out`, which the rest of the app does not use, and
+                 * not the house `ease-out`: this segment does not start from
+                 * rest. It picks up from a panel that is already decelerating,
+                 * so a curve with its speed at the front spikes exactly where
+                 * the two meet — measured 84px there against 59px here. It
+                 * ends at rest, so it settles rather than stops.
                  *
                  * `visibility` rides along because a 0-width box is still
                  * tabbable and still read aloud, which `hidden` was quietly
