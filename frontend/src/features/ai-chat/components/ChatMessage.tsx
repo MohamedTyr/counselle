@@ -303,14 +303,15 @@ function AssistantBody({
           {message.streamError.message}
         </p>
       )}
-      {message.clarify !== undefined && isLegacyClarifySpec(message.clarify) && (
-        <ClarifyWidget
-          answer={message.clarifyAnswer}
-          frozen={clarifyFrozen}
-          onAnswer={(answer) => onClarifyAnswer?.(answer)}
-          spec={message.clarify}
-        />
-      )}
+      {message.clarify !== undefined &&
+        isLegacyClarifySpec(message.clarify) && (
+          <ClarifyWidget
+            answer={message.clarifyAnswer}
+            frozen={clarifyFrozen}
+            onAnswer={(answer) => onClarifyAnswer?.(answer)}
+            spec={message.clarify}
+          />
+        )}
     </>
   );
 }
@@ -376,15 +377,16 @@ function ChatMessageComponent({
           onClarifyAnswer={onClarifyAnswer}
           onOpenCitation={onOpenCitation}
         />
-        {settled && <MessageSources message={message} onOpen={onOpenSources} />}
       </MessageContent>
-      {settled && !suppressActions && (
+      {settled && (
         <MessageActions>
-          <CopyAction
-            answerText={message.text}
-            runMarkdown={message.runMarkdown}
-          />
-          {onFeedback !== undefined && (
+          {!suppressActions && (
+            <CopyAction
+              answerText={message.text}
+              runMarkdown={message.runMarkdown}
+            />
+          )}
+          {!suppressActions && onFeedback !== undefined && (
             <>
               <MessageAction
                 aria-pressed={message.feedback?.rating === "thumbsUp"}
@@ -414,15 +416,20 @@ function ChatMessageComponent({
               </MessageAction>
             </>
           )}
-          {canRegenerateThisMessage && onRegenerate !== undefined && (
-            <MessageAction
-              label="Regenerate"
-              onClick={onRegenerate}
-              tooltip="Regenerate"
-            >
-              <RotateCcwIcon className="size-3.5" />
-            </MessageAction>
-          )}
+          {!suppressActions &&
+            canRegenerateThisMessage &&
+            onRegenerate !== undefined && (
+              <MessageAction
+                label="Regenerate"
+                onClick={onRegenerate}
+                tooltip="Regenerate"
+              >
+                <RotateCcwIcon className="size-3.5" />
+              </MessageAction>
+            )}
+          {/* The sources chip closes the row: the answer's provenance sits
+              beside the response actions, to their right. */}
+          <MessageSources message={message} onOpen={onOpenSources} />
         </MessageActions>
       )}
     </Message>
