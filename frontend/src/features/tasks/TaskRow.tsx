@@ -105,13 +105,13 @@ const REVEAL_ON_ROW_HOVER = cn(
 );
 
 /**
- * A coarse pointer has no hover and no right-click, so the split is different
- * there: the shortcuts collapse and `...` — which opens the whole list — is
- * the single always-visible action. They also don't merely fade out, they
- * leave: on a 390px row every 20px they would reserve comes straight out of
- * the task's title.
+ * A coarse pointer has no hover and no right-click, so nothing that waits for
+ * hover is reachable there at all. Since the `...` menu now carries only what
+ * the row cannot do (TaskRowMenu), hiding these on touch would leave a phone
+ * with no path to flag or to schedule — so they stay up at rest instead. The
+ * cost is ~40px of title width on a 390px row; the alternative was burying
+ * the two most-used verbs two taps deep on the device where they matter most.
  */
-const HOVER_ONLY_SHORTCUT = cn(REVEAL_ON_ROW_HOVER, "pointer-coarse:hidden");
 const ALWAYS_ON_TOUCH = cn(REVEAL_ON_ROW_HOVER, "pointer-coarse:opacity-100");
 
 /** The overdue `aria-label`'s long-form date, e.g. `1 January`. */
@@ -211,6 +211,18 @@ export function TaskRow({
   const [syncedIsDone, setSyncedIsDone] = useState(isDone);
   const timeoutsRef = useRef<number[]>([]);
 
+  // `Set deadline…` in the row menu opens the same SchedulerPopover the When
+  // chip and the detail panel use — presets, a calendar and `Anytime` — rather
+  // than a submenu that could only offer presets. Its trigger is a zero-size
+  // anchor in the row's right cluster, so the popover lands on the row it
+  // belongs to. Opening is deferred a frame because the menu restores focus to
+  // its own trigger as it closes, and the popover autofocuses its first row.
+  const [isDeadlinePickerOpen, setIsDeadlinePickerOpen] = useState(false);
+
+  function openDeadlinePicker() {
+    requestAnimationFrame(() => setIsDeadlinePickerOpen(true));
+  }
+
   // DESIGN.md §17.5 — "armed by pointerdown on a grip handle only." The row
   // is only `draggable` for the brief window between that pointerdown and
   // the drag ending, so a click anywhere else on the row never starts one.
@@ -273,7 +285,11 @@ export function TaskRow({
   const isAgentCreated = task.created_by_actor === "counselle";
 
   return (
-    <TaskRowContextMenu actions={actions} task={task}>
+    <TaskRowContextMenu
+      actions={actions}
+      onPickDeadline={openDeadlinePicker}
+      task={task}
+    >
       <motion.li
         animate={{ opacity: isRowExiting ? 0 : 1 }}
         className={cn(
@@ -485,7 +501,7 @@ export function TaskRow({
                 aria-label={`Add a when date to "${task.title}"`}
                 className={cn(
                   ACTION_BUTTON_CLASS,
-                  HOVER_ONLY_SHORTCUT,
+                  ALWAYS_ON_TOUCH,
                   "data-[popup-open]:bg-[var(--surface-inset)] data-[popup-open]:opacity-100",
                 )}
                 onClick={(event) => event.stopPropagation()}
@@ -519,7 +535,7 @@ export function TaskRow({
               "order-2",
               task.flagged
                 ? "text-[var(--task-flag-ink)] opacity-100"
-                : HOVER_ONLY_SHORTCUT,
+                : ALWAYS_ON_TOUCH,
             )}
             onClick={(event) => {
               event.stopPropagation();
@@ -534,7 +550,28 @@ export function TaskRow({
             />
           </button>
 
-          <TaskRowActionsMenu actions={actions} task={task}>
+          {/* The deadline picker's anchor: no size, no tab stop, no ink —
+              it exists so the popover has a position on this row. */}
+          <SchedulerPopover
+            field="deadline_on"
+            onChange={(value) => onSchedule(task.id, "deadline_on", value)}
+            onOpenChange={setIsDeadlinePickerOpen}
+            open={isDeadlinePickerOpen}
+            value={task.deadline_on}
+          >
+            {/* Absolute, so it does not take a slot in the cluster's flex row
+                — a zero-width child still consumes the `gap-2`. */}
+            <span
+              aria-hidden="true"
+              className="absolute top-1/2 right-2 size-0"
+            />
+          </SchedulerPopover>
+
+          <TaskRowActionsMenu
+            actions={actions}
+            onPickDeadline={openDeadlinePicker}
+            task={task}
+          >
             <button
               aria-label={`More actions for "${task.title}"`}
               className={cn(

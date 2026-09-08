@@ -47,9 +47,21 @@ import { cn } from "@/lib/utils";
  * Measured, not guessed. Below it the panel's 380px comes out of a column that
  * is already carrying the sidebar: docking at 1024px leaves the paper 276px
  * wide and the prose eighteen characters a line, which is not a document a
- * student can read their own sentences in. Above it the measure holds
- * (56 characters at 1280, 74 at 1440). So below this the panel covers the
+ * student can read their own sentences in. So below this the panel covers the
  * document instead of splitting it.
+ *
+ * What holds above it is the *paper*, not this number. The original measure
+ * here (56 characters at 1280, 74 at 1440) was taken on a branch with no task
+ * rail; merged, the rail took another 288px and the same cells measured 130px
+ * (18 characters) at 1280 and 274px (43) at 1440, sidebar expanded. The rail
+ * is keyed to the column that actually shrinks now (see the `aside` below), so
+ * those two cells re-measure at 450px/67ch and 594px/95ch, and no cell in the
+ * grid falls below 392px/61ch.
+ *
+ * This threshold is still viewport-keyed, and still wrong by a whole sidebar
+ * in one of its two states — it costs an avoidable overlay between roughly
+ * 1141 and 1280px with the sidebar collapsed, and it is the open item in
+ * TODOS.md. It is not what starved the paper.
  */
 const PANEL_DOCK_BREAKPOINT_PX = 1280;
 
@@ -395,7 +407,10 @@ export function EssayEditorPage({ essay, onBack }: EssayEditorPageProps) {
            * content nobody should be able to Tab into. */
           inert={panelOpen && !panelDocked}
         >
-          <div className="mx-auto flex w-full max-w-[1440px] gap-8 px-4 pt-6 pb-12 lg:px-7 lg:pt-8 lg:pb-16">
+          {/* No `gap`: the rail carries its own 24px gutter inside its box, so
+           * the space between the paper and the rail can collapse with the
+           * rail rather than outliving it by 32px. */}
+          <div className="mx-auto flex w-full max-w-[1440px] px-4 pt-6 pb-12 lg:px-7 lg:pt-8 lg:pb-16">
             {/* A plain column, not a second <main>: `SidebarInset` already
              * renders the page's one main landmark, and nesting another put two
              * of them in the tree — DESIGN.md §16.1, and axe flags it twice. */}
@@ -426,11 +441,84 @@ export function EssayEditorPage({ essay, onBack }: EssayEditorPageProps) {
                 syncContent={!autosave.isDirty}
               />
             </div>
-            {/* Hidden below `xl`: the editor toolbar already scrolls sideways
-             * under pressure, and a task rail is the thing that should give up
-             * the width first on a document-focused page (spec §6.6). */}
-            <aside className="hidden w-72 shrink-0 xl:block">
-              <EssayTasksSection essayId={essay.id} />
+            {/*
+             * Shown on the SCROLL COLUMN's own width, never the viewport — the
+             * same question `essay-paper-inset.ts` answers one level down, on
+             * the same `@container/essay-canvas` ladder.
+             *
+             * `xl:block` was the bug. The viewport cannot see the 380px panel,
+             * so at a 1280px viewport with the sidebar expanded the rail and
+             * the panel each claimed their width out of a 968px row and left
+             * the paper 130px — eighteen characters a line, beside a rail
+             * holding "Tasks" and an empty quick-add. Keyed to the column, the
+             * rail yields before the paper does: across {1280,1440,1600,1920}
+             * × {sidebar expanded, collapsed} × {panel open, closed} the worst
+             * cell is 392px/61ch rather than 130px/18ch, and every
+             * panel-closed cell is identical to the pixel.
+             *
+             * WHY 896, as arithmetic and not as the inset step it happens to
+             * share: it is the narrowest column at which the rail-ON branch
+             * still leaves a legal measure. 896 − 56 (`lg:px-7`) − 320 (this
+             * box) − 128 (`@4xl:px-16` on the paper) = 392px, which measures
+             * 61 characters — just inside the 60–65ch long-form band of
+             * DESIGN.md §6.5. One ladder step down (`@3xl`, 768px) the same
+             * sum is 296px/46ch, and there the rail would be costing the
+             * measure more than the rail is worth (spec §6.6: on a
+             * document-focused page the task rail gives up width first).
+             *
+             * It also reaches WIDER than `xl:block` did, deliberately. The
+             * rail now appears from a ~944px viewport with the sidebar
+             * collapsed and ~1208px expanded, where `xl:` hid it below 1280
+             * unconditionally — so a 1024px tablet with the sidebar collapsed
+             * gets a rail it never used to. That is the better half of the
+             * trade: where the rail shows, the paper measures 61–74ch; where
+             * it does not, the paper sits on its `max-w-[820px]` cap at
+             * 108–115ch, outside rule 17 entirely. The rail arriving earlier
+             * is what holds the measure legal, not what costs it.
+             *
+             * Known thin margin: at 1600 with the sidebar expanded and the
+             * panel docked the column is 898px in a browser that paints a
+             * scrollbar (908 without one) — this one cell clears 896 by 2px,
+             * and 3px on `--sidebar-width`, `--scrollbar-size` or `lg:px-7`
+             * flips it, moving the paper ~330px. Left on the ladder anyway:
+             * the only other rung is ruled out above, and an off-ladder value
+             * below 896 would make the paper *narrow* by 16px as the window
+             * widens past 896, where the inset steps to `px-16` under a rail
+             * that is already in.
+             */}
+            <aside
+              className={cn(
+                /* 320 = the rail's 288 plus the 24px gutter it carries below,
+                 * with 8px left over for the row hover background's `-mx-2`
+                 * bleed, which `overflow-hidden` would otherwise square off. */
+                "invisible w-0 shrink-0 overflow-hidden",
+                "@4xl/essay-canvas:visible @4xl/essay-canvas:w-80",
+                /*
+                 * A width, on the panel's own 200ms ease-out — the accordion
+                 * carve-out of DESIGN.md §12.1 rule 2, the same one §15.6.1
+                 * already spends on the panel beside it, and for the same
+                 * reason: the paper has to follow the edge frame for frame.
+                 *
+                 * The panel toggle crosses this threshold, so `hidden`/`block`
+                 * put a 320px step inside a 200ms reflow. Measured by rAF
+                 * sampling at 1280/expanded: closing grew the paper to 722px
+                 * and then took 322px back in a single frame ~148ms in;
+                 * opening handed it 272px in one frame the other way. Spread
+                 * over the same 200ms the worst frame is ~27px, and the paper
+                 * only ever eases.
+                 *
+                 * `visibility` rides along because a 0-width box is still
+                 * tabbable and still read aloud, which `hidden` was quietly
+                 * handling before. It is the one property whose interpolation
+                 * does the right thing unasked: visible from the first frame
+                 * on the way in, held until the last frame on the way out.
+                 */
+                "motion-safe:transition-[width,visibility] motion-safe:duration-200 motion-safe:ease-in-out",
+              )}
+            >
+              <div className="ml-6 w-72">
+                <EssayTasksSection essayId={essay.id} />
+              </div>
             </aside>
           </div>
         </div>

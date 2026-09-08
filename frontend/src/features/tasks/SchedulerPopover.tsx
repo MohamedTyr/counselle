@@ -11,7 +11,10 @@ import { Kbd } from "@/components/ui/kbd";
 import { Popover, PopoverPopup, PopoverTrigger } from "@/components/ui/popover";
 import { getNowDate } from "@/lib/time";
 import { cn } from "@/lib/utils";
-import { schedulerOptions, type SchedulerOption } from "@/features/tasks/task-config";
+import {
+  schedulerOptions,
+  type SchedulerOption,
+} from "@/features/tasks/task-config";
 import { getDateKey, parseDateOnly } from "@/features/tasks/task-dates";
 import { Check, ChevronLeft } from "lucide-react";
 
@@ -22,6 +25,14 @@ type SchedulerPopoverProps = {
   field: SchedulerField;
   onChange: (value: string | null) => void;
   children: ReactNode;
+  /**
+   * Optional controlled open state, for the one caller that opens this from
+   * somewhere other than its own trigger — the row's `Deadline…` menu item,
+   * whose trigger is a zero-size anchor (TaskRow). Left out, the popover owns
+   * its own state exactly as before.
+   */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 };
 
 /** The blur+fade duration for the list↔calendar swap (design doc §6.3). */
@@ -57,8 +68,11 @@ export function SchedulerPopover({
   field,
   onChange,
   children,
+  open: controlledOpen,
+  onOpenChange,
 }: SchedulerPopoverProps) {
-  const [open, setOpen] = useState(false);
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
+  const open = controlledOpen ?? uncontrolledOpen;
   const [mode, setMode] = useState<"list" | "calendar">("list");
   const [transitioning, setTransitioning] = useState(false);
   const resetTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -89,7 +103,8 @@ export function SchedulerPopover({
   }
 
   function handleOpenChange(nextOpen: boolean) {
-    setOpen(nextOpen);
+    setUncontrolledOpen(nextOpen);
+    onOpenChange?.(nextOpen);
     if (!nextOpen) {
       // Reset to list mode after the exit transition so a re-open never
       // flashes the calendar.
@@ -164,8 +179,7 @@ export function SchedulerPopover({
           <div
             className={cn(
               "-m-4 p-1.5 transition-[filter,opacity] ease-out",
-              transitioning &&
-                "opacity-0 blur-[2px] motion-reduce:blur-none",
+              transitioning && "opacity-0 blur-[2px] motion-reduce:blur-none",
             )}
             onKeyDown={handleListKeyDown}
             role="listbox"
@@ -188,7 +202,9 @@ export function SchedulerPopover({
                 option.id !== "anytime" &&
                 Boolean(option.resolveDate);
               const resolvedDate = showResolvedDate
-                ? formatResolvedDate(option.resolveDate!(referenceDate) ?? todayKey)
+                ? formatResolvedDate(
+                    option.resolveDate!(referenceDate) ?? todayKey,
+                  )
                 : undefined;
 
               return (
@@ -213,7 +229,9 @@ export function SchedulerPopover({
                     <span
                       className={cn(
                         "flex-1 text-chrome",
-                        current ? "text-[var(--brand-subtle-ink)]" : "text-[var(--ink)]",
+                        current
+                          ? "text-[var(--brand-subtle-ink)]"
+                          : "text-[var(--ink)]",
                       )}
                     >
                       {label}
@@ -237,8 +255,7 @@ export function SchedulerPopover({
           <div
             className={cn(
               "p-2 transition-[filter,opacity] ease-out",
-              transitioning &&
-                "opacity-0 blur-[2px] motion-reduce:blur-none",
+              transitioning && "opacity-0 blur-[2px] motion-reduce:blur-none",
             )}
             style={{
               transitionDuration: prefersReducedMotion()
