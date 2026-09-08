@@ -81,7 +81,7 @@
    * weight; a bar that is mostly dark IS the top-heavy list the nudge
    * underneath is about to warn you about, before you read a word of it.
    * The legend below the bar draws the same three values as swatch dots,
-   * which is why the lightest step is wine-300 and not wine-200 — see the
+   * which is why the lightest step is lime-500 and not a paler tint — see the
    * note on --brand-scale-* in semantic.css. */
   --school-balance-track: var(--control-track);
   --school-balance-reach: var(--brand-scale-3);

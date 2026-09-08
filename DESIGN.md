@@ -151,7 +151,7 @@ Corollaries:
 
 `--{family}-{role}[-{state}]` — e.g. `--workspace-composer-control-hover-border`,
 `--school-filter-chip-active-ink`. Primitives are `--{ramp}-{position}`
-(`--gray-400`, `--wine-600`). Semantic roles are bare nouns (`--canvas`, `--ink-muted`,
+(`--gray-400`, `--lime-500`). Semantic roles are bare nouns (`--canvas`, `--ink-muted`,
 `--danger-solid`).
 
 ### 2.4 Where a new token goes
@@ -178,7 +178,7 @@ if any step moves.
 | Ramp | Hue | What it is |
 |---|---|---|
 | `--gray-*` | 50 | every surface, every border, every word of text |
-| `--wine-*` | 15 | the brand |
+| `--lime-*` | 132 | the brand |
 | `--red-*` | 25 | danger |
 | `--amber-*` | 80 | warning |
 | `--leaf-*` | 143 | success |
@@ -215,12 +215,31 @@ need one of the four surface roles.
 | `--gray-0` | `100% 0 0` | `#ffffff` | outside the ramp — only as ink ON a saturated fill |
 | `--gray-1000` | `11% 0 0` | — | outside the ramp — only as the base a scrim mixes from |
 
-**The brand ramp.** Hue 15, deep burgundy. Steps 600/700/50/100 are contractual values
-from the sidebar design; the rest is interpolated along the same hue for span.
-`--wine-600` (`#751e2d`, 10.65:1) is the brand. `--wine-500` (7.01:1) is the focus ring
-— deliberately a step lighter than the brand so the ring reads as a ring, not as fill.
-`--wine-ink-on-50` and `--wine-ink-on-100` are reduced-chroma inks for drawing on the
-two brand tints; they are not ramp steps.
+**The brand ramp.** Hue 132, bright yellow-green. One contractual value — `--lime-500`
+is `#7ccf00` exactly, i.e. `oklch(77.09% 0.2156 132.45)` — and every other step is
+derived from it along that hue.
+
+Three things about this ramp are not like the brands before it, and each is load-bearing:
+
+- **The brand is the `-500` step, not `-600`.** At L 0.77 nothing numbered below it can
+  be darker, and a ramp is monotonic — parking the accent at `-600` would leave the
+  focus ring and the ordered scale as pastels with no contrast to spend.
+- **`--on-brand` is `--gray-950`, not white.** White on `#7ccf00` is 1.95:1. Near-black
+  ink measures 8.27:1 at rest, 6.35 hovered, 4.85 pressed — and that last figure is why
+  `--brand-active` stops at `--lime-700` instead of going deeper.
+- **`--focus-ring` is `--lime-800` (5.74:1 on canvas), three steps past the brand rather
+  than one step off it.** The brand itself is 1.95:1 on the page, under the 3:1 non-text
+  floor, so the ring cannot be a near-copy of the fill here.
+
+`--lime-ink-on-50` and `--lime-ink-on-100` are reduced-chroma inks for drawing on the
+two brand tints, and `--lime-950` exists only to tint the CTA shadow; none of the three
+are ramp steps.
+
+**Known collision.** The brand (132) sits eleven degrees from `--leaf` (143, success).
+The pale ends are indistinguishable — `--lime-50`, the selected nav pill, against
+`--leaf-50`, the done chip, is 1.04:1. Placement is the only thing keeping them apart
+(nav pills in the rail, status chips in content). Never draw a brand tint and a success
+tint in one row; never let a success signal rest on colour alone.
 
 ### 3.2 Colour space rules
 
@@ -280,8 +299,8 @@ Depth is carried by **surface fill first**, border second, shadow last.
 | `--elevation-1` | `0 1px 2px @6%`, `0 1px 1px @4%` | a raised card sitting on canvas |
 | `--elevation-2` | `0 4px 12px @10%`, `0 2px 4px @6%` | menus, popovers, dropdowns |
 | `--elevation-3` | `0 16px 40px @16%`, `0 6px 16px @10%` | modals, sheets |
-| `--elevation-cta` | tinted from `--wine-900` | the primary button at rest |
-| `--elevation-cta-hover` | tinted from `--wine-900` | the primary button on hover |
+| `--elevation-cta` | tinted from `--lime-950` | the primary button at rest |
+| `--elevation-cta-hover` | tinted from `--lime-950` | the primary button on hover |
 
 All percentages are `color-mix` of `--gray-900` into `transparent`.
 
@@ -290,7 +309,7 @@ All percentages are `color-mix` of `--gray-900` into `transparent`.
 - **`--elevation-1` (blur ≤ 2px) is the only tier safe to pair with a border on the
   same element.** `--elevation-2`/`-3` (blur ≥ 12px) belong on borderless surfaces.
   A 1px border plus a 16px-blur shadow on one element is the banned "glassy" look.
-- The CTA shadow is tinted from `--wine-900` — the near-black end of the brand ramp —
+- The CTA shadow is tinted from `--lime-950` — the near-black end of the brand ramp —
   **not** from `--brand`. A mid-brand low-alpha wash reads as a glow, not a shadow.
 - **Never escalate shadow on hover** for cards. Hover changes border colour (§11.2).
 
@@ -549,6 +568,14 @@ Tailwind v4 defaults, no overrides. `useIsMobile()` uses `768` to match `md`.
 wearing a viewport-query costume. Prefer container queries (`@container`) for
 component-internal reflow; `SearchToolWidget` already does this correctly.
 
+**A viewport prefix is wrong wherever something else on the row can take width the
+viewport cannot see.** The essay editor's task rail was `xl:block`, the same 1280px as
+the chat panel's dock threshold, so at a 1280px viewport with the sidebar expanded the
+rail and the panel each claimed their width out of a 968px row and left the paper 130px
+— eighteen characters a line. It is keyed to `@4xl/essay-canvas` now (§15.6.1). Note
+that no test can hold this: jsdom does not evaluate container queries, so a threshold
+like this is only ever checkable in a browser.
+
 ---
 
 ## 8. Content max-widths
@@ -609,7 +636,7 @@ it will not work.
   · account row (10px, `mt-auto`).
 - **Nav row:** `h-9`, `rounded-[10px]`, `px-3`, `gap-[11px]`, `text-sm`, 17px icons,
   stacked at `gap-px`.
-- **Active state** is a `--chrome-active` (`--wine-50`) fill plus `font-medium` plus
+- **Active state** is a `--chrome-active` (`--lime-50`) fill plus `font-medium` plus
   `--on-chrome-active` ink. **There is no left bar** — it was removed once hover and
   active got distinct fills, because a bar on top of a fill and a weight change is the
   third redundant signal.
@@ -835,7 +862,7 @@ runs a real state machine: a rim-light inset shadow at rest
 **Every interactive element has a visible focus ring. No exceptions.**
 
 - Form controls: `focus-visible:border-ring focus-visible:ring-[3px]` at
-  `--focus-ring` (`--wine-500`).
+  `--focus-ring` (`--lime-800`).
 - Buttons, badges, sidebar rows: `focus-visible:ring-2` with
   `ring-offset-1 ring-offset-background` on badges.
 - Composers: `focus-within:ring-2 ring-[var(--focus-ring)]/30` — deliberately softer,
@@ -855,7 +882,7 @@ already there; the older set (checkbox, radio-group, sidebar, dropdown-menu,
 onboarding-setup) is still on `opacity-50`. There is no semantic difference; it is an
 unfinished migration. Move files to 64 as you touch them.
 
-**Do not fade a saturated brand fill to produce a disabled state.** A 64%-opacity wine
+**Do not fade a saturated brand fill to produce a disabled state.** A 64%-opacity brand
 button reads as a colour someone chose on purpose. Disabled uses the quiet control fill
 plus `--ink-disabled` — see `composer-control.ts`, which documents exactly this.
 
@@ -935,6 +962,12 @@ or twice — treat them as outliers, not precedent.
 - `ease-out` for anything entering or responding to input. This is the default.
 - `cubic-bezier(0.22, 1, 0.36, 1)` — the route/shared-element curve.
 - `cubic-bezier(0.16, 1, 0.3, 1)` — the expo-out list-entrance curve.
+- `ease-in-out` (Tailwind's `cubic-bezier(0.4, 0, 0.2, 1)`) — **one use only**, and the
+  test for a second is narrow: a segment that *continues* motion already in flight
+  rather than starting it. The essay task rail's width picks up from a panel that is
+  already decelerating (§15.6.1); every curve above carries its speed at the front, so
+  they spike exactly where the two meet — measured 84px in a frame against 59px here.
+  If the motion starts from rest, it is `ease-out`.
 - Springs, for physical reordering: `{stiffness: 420, damping: 34, mass: 0.8}` (tasks),
   `{stiffness: 520, damping: 40, mass: 0.7}` (activities).
 
@@ -1043,7 +1076,7 @@ drive any UI). **No `Badge` variant appears in the task list body at all** — z
 status badges, zero priority badges, zero category chips. Two deliberate refinements
 of the old mapping below, cross-checked in full against this section in
 `plans/tasks-redesign-design.md` §9.4:
-- **The flag is `--brand` (wine), not `--danger-fg` (error).** `flagged` is the
+- **The flag is `--brand` (lime), not `--danger-fg` (error).** `flagged` is the
   student's own mark on the task, the same claim `--brand` already makes for "the
   current selection" — and keeping it out of red is what lets red mean exactly one
   thing on the page: a date the world has already passed.
@@ -1439,8 +1472,24 @@ label starts where the sentence it describes starts). Viewport steps were the bu
 `lg:px-16` keyed off the window kept paying 64px margins on a sheet of paper that no
 longer had the room.
 
+The page's task rail is keyed to that same container, at `@4xl` (896px) — **never to the
+viewport**, which cannot see the panel. 896 is where the rail-on branch still leaves a
+legal measure: `896 − 56` (the row's `lg:px-7`) `− 320` (the rail and its gutter) `− 128`
+(`@4xl:px-16` on the paper) `= 392px`, 61 characters, just inside §6.5's long-form band.
+One rung down it is 46 characters and the rail costs more than it is worth (§6.6: on a
+document-focused page the task rail gives up width first). Keying it to the column also
+makes it *appear* below 1280 — from a ~944px viewport with the sidebar collapsed — which
+is kept, because with the rail the paper measures 61–74ch and without it the paper sits
+on its `max-w-[820px]` cap at 108–115ch.
+
 Opening animates the panel's **width** over 200ms `ease-out` — the accordion carve-out of
-§12.1 rule 2, so the paper follows it frame for frame. The paper's own `layoutId` gets
+§12.1 rule 2, so the paper follows it frame for frame. The rail spends the same carve-out
+on the same 200ms tier, because the panel toggle crosses its threshold: binary
+`hidden`/`block` put a 320px step inside that reflow, measured as a single frame taking
+321px back off the paper after letting it swell to 722px. Its curve is `ease-in-out`, not
+`ease-out` — it continues the panel's motion rather than starting its own (§12.3) — and
+it transitions `visibility` alongside `width`, because a 0-width rail is otherwise still
+tabbable and still read aloud. The paper's own `layoutId` gets
 `layoutDependency={density}`, which pins its 420ms shared-element curve to a change of
 *surface*; without a dependency a panel toggle fired that curve on one edge while the bar
 resized on the next frame. Density is constant within the editor route, so the toggle is
@@ -1742,7 +1791,7 @@ rg -n '#[0-9a-fA-F]{3,8}\b|rgba?\(|hsla?\(|oklch\(' src --glob '!src/styles/prim
 rg -n '\b(bg|text|border|ring)-(slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)-[0-9]{2,3}\b' src
 
 # Tier violations — primitives reached from a family file (expect: 0)
-rg -n -- '--(gray|wine|red|amber|leaf)-[0-9]' \
+rg -n -- '--(gray|lime|red|amber|leaf)-[0-9]' \
   src/styles/{shell,workspace,task,onboarding,activity,essay,profile,schools,shadcn}.css
 
 # Banned motion

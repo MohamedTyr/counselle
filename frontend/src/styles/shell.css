@@ -96,7 +96,7 @@
   --shell-sidebar-control-foreground: var(--chrome-ink-muted);
   --shell-sidebar-control-hover-foreground: var(--chrome-ink-hover);
   /* A neutral, not the brand: the brand tint marks exactly one thing on
-   * this rail — the selected row — so a wine resizer handle would compete
+   * this rail — the selected row — so a brand-tinted resizer handle would compete
    * with that single signal. --edge-strong is the app's hovered-perimeter
    * weight, which is what this handle is. Decorative, not text: no formal
    * AA requirement, but it should read as a real affordance rather than an

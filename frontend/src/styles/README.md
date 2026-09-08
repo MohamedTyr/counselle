@@ -15,7 +15,7 @@ a primitive (bypassing semantic.css) is a bug, not a shortcut.
    | Ramp        | Hue | What it is                                         |
    | ----------- | --- | -------------------------------------------------- |
    | `--gray-*`  | 50  | every surface, every border and every word of text |
-   | `--wine-*`  | 15  | the brand                                          |
+   | `--lime-*`  | 132 | the brand                                          |
    | `--red-*`   | 25  | danger                                             |
    | `--amber-*` | 80  | warning                                            |
    | `--leaf-*`  | 143 | success                                            |
@@ -88,7 +88,7 @@ it after tier 4.
 
 `--{family}-{role}[-{state}]`, e.g. `--workspace-composer-control-hover-border`,
 `--school-filter-chip-active-ink`. Primitives are `--{ramp}-{position}`, e.g.
-`--gray-400`, `--wine-600`. Semantic roles are bare nouns, e.g.
+`--gray-400`, `--lime-500`. Semantic roles are bare nouns, e.g.
 `--canvas`, `--ink-muted`, `--danger-solid`.
 
 ## The three laws
