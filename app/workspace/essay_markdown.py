@@ -489,6 +489,17 @@ def to_tiptap(markdown: str) -> dict[str, Any]:
     return {"type": "doc", "content": blocks or [{"type": "paragraph"}]}
 
 
+def to_plain_text(markdown: str) -> str:
+    """A markdown fragment as the plain text a browser would render it into.
+
+    The space a suggestion's ``_plain`` fields live in: the live editor
+    carries formatting as marks, so ``"I love **pizza**."`` never anchors in
+    a document reading ``"I love pizza."`` (plan Part 0 C3). Blocks join with
+    no separator, matching ProseMirror's ``textContent`` — never reparsed.
+    """
+    return "".join(t for b in _parse_markdown_blocks(markdown) for t in _collect_text(b))
+
+
 def _parse_markdown_blocks(markdown: str) -> list[dict[str, Any]]:
     if not markdown.strip():
         return []

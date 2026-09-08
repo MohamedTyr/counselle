@@ -50,6 +50,8 @@ export type ChatMessageProps = {
   onRegenerate?: () => void;
   onFeedback?: (rating: FeedbackRating) => void;
   onOpenSources?: (payload: MessageSourcesPayload) => void;
+  /** A settled essay mutation receipt becomes a door into the document panel. */
+  onOpenEssay?: (essayId: string) => void;
   onOpenCitation?: (focus: SourceFocus) => void;
   onClarifyAnswer?: (answer: ClarifyWidgetAnswer) => void;
   clarifyDraft?: ClarifyDraftController;
@@ -167,6 +169,7 @@ function SegmentBeat({
   sources,
   onClarifyAnswer,
   onOpenCitation,
+  onOpenEssay,
   schoolDomains,
 }: {
   clarifyDraft?: ClarifyDraftController;
@@ -176,6 +179,7 @@ function SegmentBeat({
   sources: AssistantChatMessage["sources"];
   onClarifyAnswer?: (answer: ClarifyWidgetAnswer) => void;
   onOpenCitation?: (focus: SourceFocus) => void;
+  onOpenEssay?: (essayId: string) => void;
   schoolDomains: Map<number, string>;
 }) {
   switch (segment.type) {
@@ -207,7 +211,11 @@ function SegmentBeat({
       );
     case "tool":
       return segment.step.kind === "write_plan" ? null : (
-        <ToolStepBeat isLiveSegment={isLiveSegment} step={segment.step} />
+        <ToolStepBeat
+          isLiveSegment={isLiveSegment}
+          onOpenEssay={onOpenEssay}
+          step={segment.step}
+        />
       );
     case "answer":
       return segment.text.length === 0 ? null : (
@@ -243,12 +251,14 @@ function AssistantBody({
   message,
   onClarifyAnswer,
   onOpenCitation,
+  onOpenEssay,
   clarifyFrozen,
 }: {
   clarifyDraft?: ClarifyDraftController;
   message: AssistantChatMessage;
   onClarifyAnswer?: (answer: ClarifyWidgetAnswer) => void;
   onOpenCitation?: (focus: SourceFocus) => void;
+  onOpenEssay?: (essayId: string) => void;
   clarifyFrozen: boolean;
 }) {
   const showEmptyLiveThinking =
@@ -288,6 +298,7 @@ function AssistantBody({
           key={segmentKey(segment, index)}
           onClarifyAnswer={onClarifyAnswer}
           onOpenCitation={onOpenCitation}
+          onOpenEssay={onOpenEssay}
           schoolDomains={schoolDomains}
           segment={segment}
           sources={message.sources}
@@ -322,6 +333,7 @@ function ChatMessageComponent({
   onRegenerate,
   onFeedback,
   onOpenSources,
+  onOpenEssay,
   onOpenCitation,
   onClarifyAnswer,
   clarifyDraft,
@@ -376,6 +388,7 @@ function ChatMessageComponent({
           message={message}
           onClarifyAnswer={onClarifyAnswer}
           onOpenCitation={onOpenCitation}
+          onOpenEssay={onOpenEssay}
         />
       </MessageContent>
       {settled && (

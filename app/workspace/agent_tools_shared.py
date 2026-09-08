@@ -150,6 +150,13 @@ class HonorDraft(BaseModel):
     levels: list[RecognitionLevel] = Field(default_factory=list)
 
 
+#: How this turn's essay content writes land. ``direct`` commits new content
+#: (today's behavior, and the only mode on the chat surface); ``suggest``
+#: appends reviewable suggestions to ``essays.suggestions`` instead of touching
+#: content (essay panel, plan Part 1 §5.2). A per-turn property, not per-tool.
+WriteMode = Literal["direct", "suggest"]
+
+
 @dataclass(frozen=True)
 class ToolCtx:
     app_pool: asyncpg.Pool
@@ -157,6 +164,10 @@ class ToolCtx:
     workspace_events: WorkspaceEventBus
     user_id: UUID
     tool_overflow: ToolMiddlewareContext | None
+    write_mode: WriteMode = "direct"
+    #: The agent turn that authored a suggestion, for traceability back to the
+    #: conversation. ``None`` outside a live turn (tests, CLI).
+    turn_message_id: str | None = None
 
 
 def today() -> str:
@@ -260,6 +271,31 @@ def stale_version_error() -> dict[str, Any]:
         "The essay changed since you read it (the student may be typing right now).",
         retryable=True,
         recovery="Call read_essay again and rebuild your edit against the current text.",
+    )
+
+
+def essay_edit_error(
+    index: int,
+    reason: Literal["not_found", "ambiguous"],
+    detail: str,
+    *,
+    recovery_suffix: str = "",
+) -> dict[str, Any]:
+    """One ``EssayEditError`` as the tool-layer payload, for both write modes.
+
+    ``index`` is the edit's position in the caller's own batch — suggest mode
+    validates one edit at a time, so the raised error's index is always 0 and
+    must be remapped here or the model is told the wrong edit failed.
+    """
+    recovery = (
+        "Re-check old_text against the essay's current markdown and retry."
+        if reason == "not_found"
+        else "Add more surrounding text to old_text to make it unique and retry."
+    )
+    return error(
+        f"edits[{index}]: {detail}",
+        retryable=True,
+        recovery=recovery + recovery_suffix,
     )
 
 

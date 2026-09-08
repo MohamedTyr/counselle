@@ -16,6 +16,17 @@ type Draft = {
 
 type SavedDraft = {
   content: TiptapContent;
+  /**
+   * The essay's `updated_at` as last read from the server. Sent back as
+   * `expected_updated_at` so a save built against a stale read is rejected
+   * instead of silently winning: without it the backend's staleness check is
+   * a documented no-op and every autosave is last-write-wins, which is how an
+   * in-flight save built before an accepted suggestion could land after it and
+   * quietly erase the accepted edit. Omitted only by callers that have no
+   * server state to guard (the library's inline drafts) — and by the keepalive
+   * save, which must stay last-write-wins for the reason spelled out there.
+   */
+  updatedAt?: string;
   wordCount: number;
 };
 
@@ -60,6 +71,52 @@ function draftKey(content: TiptapContent, wordCount: number) {
   return JSON.stringify({ content: normalizeDraftValue(content), wordCount });
 }
 
+/* Is `candidate` a strictly newer version of the essay than `current`?
+ *
+ * COMPARED AS INSTANTS, NEVER AS STRINGS. These look like sortable ISO-8601,
+ * but the backend serialises a whole second with no fractional part at all, so
+ * `2026-09-05T10:15:00Z` sorts AFTER `2026-09-05T10:15:00.500000Z` — `'.'`
+ * (0x2E) precedes `'Z'` (0x5A) — while being half a second EARLIER. Any pair
+ * that lands on the same second with only one of them fractional compares
+ * backwards, which is exactly the pair a save and an accept produce.
+ *
+ * An unreadable timestamp is never "later": it can neither win a version race
+ * nor make a fresh server response look stale. Both remaining failure modes
+ * then surface as a visible, retryable save conflict rather than as a
+ * student's work quietly leaving the screen. */
+export function isLaterVersion(candidate: string, current: string): boolean {
+  const candidateTime = Date.parse(candidate);
+  const currentTime = Date.parse(current);
+  return (
+    Number.isFinite(candidateTime) &&
+    Number.isFinite(currentTime) &&
+    candidateTime > currentTime
+  );
+}
+
+/* An essay's `updated_at` only ever moves forward, and every value here came
+ * from the server, so the newest one we have seen is always the right one to
+ * write against. Taking the later of the two means a stale prop arriving after
+ * a save response can't walk the version backwards and leave every subsequent
+ * save failing its staleness check forever. */
+function laterVersion(a: string | null, b: string | null) {
+  if (a === null) return b;
+  if (b === null) return a;
+  return isLaterVersion(a, b) ? a : b;
+}
+
+/* Omitted rather than sent as null when we have no server version to guard
+ * with — an explicit null means exactly what leaving the field out means, and
+ * a patch should not carry a field that says nothing. */
+function contentPatch(
+  content: TiptapContent,
+  expectedUpdatedAt: string | null,
+) {
+  return expectedUpdatedAt === null
+    ? { content }
+    : { content, expected_updated_at: expectedUpdatedAt };
+}
+
 export function useEssayAutosave(essayId: string, savedDraft?: SavedDraft) {
   const queryClient = useQueryClient();
   const [dirty, setDirty] = useState(false);
@@ -71,6 +128,16 @@ export function useEssayAutosave(essayId: string, savedDraft?: SavedDraft) {
   );
   const pendingDraftRef = useRef<Draft | null>(null);
   const latestSavedEssayRef = useRef<Essay | null>(null);
+  /* The version every save is written against — see `SavedDraft.updatedAt`.
+   * Null means "we have no server version to guard with", which falls back to
+   * the old last-write-wins behaviour rather than blocking the save. */
+  const expectedUpdatedAtRef = useRef<string | null>(
+    savedDraft?.updatedAt ?? null,
+  );
+  /* What `flush()` hands back. Every issued request replaces it, so a caller
+   * that arrives while a save is already in flight awaits that save rather
+   * than an already-resolved placeholder. */
+  const inFlightSaveRef = useRef<Promise<void>>(Promise.resolve());
   const latestSavedDraftRef = useRef<Draft | null>(
     savedDraft && savedDraftKey
       ? {
@@ -98,12 +165,30 @@ export function useEssayAutosave(essayId: string, savedDraft?: SavedDraft) {
     return false;
   }, []);
 
+  /* Adopt whatever the server now holds — including a write this hook did not
+   * issue, such as an accepted suggestion, which rewrites the essay through
+   * its own endpoint and bumps `updated_at`. Adopting is what stops the next
+   * autosave from being written against a version the server has already moved
+   * past and failing its staleness check for a conflict that isn't real.
+   *
+   * THE GUARD IS THE POINT, so keep this the only place that touches
+   * `expectedUpdatedAtRef` from a prop. A version may be adopted only when
+   * there is no locally-authored draft still waiting to be sent: a draft
+   * written against the OLD content, paired with the NEW version, passes the
+   * backend's staleness check and silently overwrites the server write it was
+   * never based on — the accepted edit reverts with no error and no toast.
+   * `dirty || pendingDraftRef.current` is exactly that condition. An unguarded
+   * copy of this adoption living anywhere else reopens that hole. */
   useEffect(() => {
     if (savedDraftKey === null || dirty || pendingDraftRef.current) {
       return;
     }
 
     latestSavedDraftKeyRef.current = savedDraftKey;
+    expectedUpdatedAtRef.current = laterVersion(
+      savedDraft?.updatedAt ?? null,
+      expectedUpdatedAtRef.current,
+    );
     latestSavedDraftRef.current = savedDraft
       ? {
           content: savedDraft.content,
@@ -179,9 +264,9 @@ export function useEssayAutosave(essayId: string, savedDraft?: SavedDraft) {
     }
   }, [syncDraftCache, syncEssayCache]);
 
-  const saveDraftRef = useRef<(draft: Draft, options?: SaveOptions) => void>(
-    () => {},
-  );
+  const saveDraftRef = useRef<
+    (draft: Draft, options?: SaveOptions) => Promise<void>
+  >(() => Promise.resolve());
 
   const settlePendingSavedDraft = useCallback(() => {
     const pending = pendingDraftRef.current;
@@ -196,7 +281,7 @@ export function useEssayAutosave(essayId: string, savedDraft?: SavedDraft) {
 
     if (pendingSavedDraftNeedsSaveRef.current) {
       pendingSavedDraftNeedsSaveRef.current = false;
-      saveDraftRef.current(pending);
+      void saveDraftRef.current(pending);
       return;
     }
 
@@ -209,9 +294,31 @@ export function useEssayAutosave(essayId: string, savedDraft?: SavedDraft) {
   }, [hasConflictingInFlight, syncLatestSavedCache]);
 
   const markSaveFailed = useCallback(() => {
-    void queryClient.invalidateQueries({
-      queryKey: workspaceKeys.essays.detail(essayId),
-    });
+    /* Refetch, then adopt whatever version the server actually holds.
+     *
+     * A save can now fail because someone else moved the essay under us — most
+     * often the student accepting a suggestion, which rewrites the content and
+     * bumps `updated_at`. Retrying with the version we already knew to be
+     * stale would fail identically forever, so "Retry" would be a button that
+     * can never work. Re-reading the version means a retry sends the student's
+     * text against the current server state and succeeds. Their typing is
+     * never dropped and never silently overwritten: the save visibly failed,
+     * nothing is retried automatically, and it takes their explicit click to
+     * make their version the one that wins.
+     */
+    void queryClient
+      .invalidateQueries({ queryKey: workspaceKeys.essays.detail(essayId) })
+      .then(() => {
+        const refreshed = queryClient.getQueryData<Essay>(
+          workspaceKeys.essays.detail(essayId),
+        );
+        if (refreshed) {
+          expectedUpdatedAtRef.current = laterVersion(
+            refreshed.updated_at,
+            expectedUpdatedAtRef.current,
+          );
+        }
+      });
     void queryClient.invalidateQueries({
       queryKey: workspaceKeys.essays.list(),
     });
@@ -226,6 +333,15 @@ export function useEssayAutosave(essayId: string, savedDraft?: SavedDraft) {
   const handleSaveSuccess = useCallback(
     (draft: Draft, essay: Essay) => {
       inFlightDraftKeysRef.current.delete(draft.key);
+      /* Unconditional, and deliberately not inside `syncEssayCache`: the
+       * server's version advanced whether or not this response is the one we
+       * end up displaying, and the next save has to be written against it.
+       * `syncEssayCache` is also replayed with an older cached essay, which
+       * would walk the version backwards and 409 every subsequent save. */
+      expectedUpdatedAtRef.current = laterVersion(
+        essay.updated_at,
+        expectedUpdatedAtRef.current,
+      );
 
       if (pendingDraftRef.current?.key === draft.key) {
         syncEssayCache(essay);
@@ -268,13 +384,19 @@ export function useEssayAutosave(essayId: string, savedDraft?: SavedDraft) {
     [markSaveFailed, settlePendingSavedDraft, syncLatestSavedCache],
   );
 
+  /* Returns a promise that settles only once the request it stands for — and
+   * any save queued behind it — has landed. Callers that fire and forget can
+   * keep ignoring it; the accept/reject flow needs to await the flush before
+   * it POSTs, or it would act against a copy of the essay the server has not
+   * seen yet. It resolves on failure too: "the save finished" is the question,
+   * and `saveState` already carries the answer to "did it work". */
   const saveDraft = useCallback(
-    (draft: Draft, options: SaveOptions = {}) => {
+    (draft: Draft, options: SaveOptions = {}): Promise<void> => {
       if (inFlightDraftKeysRef.current.has(draft.key)) {
         if (directInFlightDraftKeyRef.current === draft.key) {
           queuedDirectDraftRef.current = null;
         }
-        return;
+        return inFlightSaveRef.current;
       }
 
       if (directInFlightDraftKeyRef.current) {
@@ -282,7 +404,9 @@ export function useEssayAutosave(essayId: string, savedDraft?: SavedDraft) {
         if (options.updateState !== false && mountedRef.current) {
           setSaveState("saving");
         }
-        return;
+        // The in-flight save chains its queued successor, so awaiting it
+        // covers this draft too.
+        return inFlightSaveRef.current;
       }
 
       if (
@@ -293,7 +417,7 @@ export function useEssayAutosave(essayId: string, savedDraft?: SavedDraft) {
         if (options.updateState !== false && mountedRef.current) {
           setSaveState("saving");
         }
-        return;
+        return inFlightSaveRef.current;
       }
 
       directInFlightDraftKeyRef.current = draft.key;
@@ -301,27 +425,35 @@ export function useEssayAutosave(essayId: string, savedDraft?: SavedDraft) {
       if (options.updateState !== false && mountedRef.current) {
         setSaveState("saving");
       }
-      updateEssay(essayId, {
-        content: draft.content,
-      })
+
+      // Returning the queued save from the continuation is what makes the
+      // outer promise cover the whole cascade rather than just the first hop.
+      function drainQueue() {
+        const queuedDraft = queuedDirectDraftRef.current;
+        if (!queuedDraft) {
+          return;
+        }
+        queuedDirectDraftRef.current = null;
+        return saveDraftRef.current(queuedDraft);
+      }
+
+      const save = updateEssay(
+        essayId,
+        contentPatch(draft.content, expectedUpdatedAtRef.current),
+      )
         .then((essay) => {
           directInFlightDraftKeyRef.current = null;
           handleSaveSuccess(draft, essay);
-          const queuedDraft = queuedDirectDraftRef.current;
-          if (queuedDraft) {
-            queuedDirectDraftRef.current = null;
-            saveDraftRef.current(queuedDraft);
-          }
+          return drainQueue();
         })
         .catch(() => {
           directInFlightDraftKeyRef.current = null;
           handleSaveError(draft);
-          const queuedDraft = queuedDirectDraftRef.current;
-          if (queuedDraft) {
-            queuedDirectDraftRef.current = null;
-            saveDraftRef.current(queuedDraft);
-          }
+          return drainQueue();
         });
+
+      inFlightSaveRef.current = save;
+      return save;
     },
     [essayId, handleSaveError, handleSaveSuccess, hasConflictingInFlight],
   );
@@ -352,9 +484,18 @@ export function useEssayAutosave(essayId: string, savedDraft?: SavedDraft) {
       if (options.updateState !== false && mountedRef.current) {
         setSaveState("saving");
       }
-      void updateEssayKeepalive(essayId, {
-        content: draft.content,
-      })
+      /* Deliberately UNGUARDED — no `expected_updated_at`, unlike the debounced
+       * path above. This fires on pagehide with `allowConflictingInFlight`, so
+       * it can carry the student's newest text while an older save is still in
+       * flight against the same, not-yet-bumped version. Guarded, the older
+       * save lands first and bumps the version, and the newest text is the one
+       * rejected — at the single write site that structurally cannot retry,
+       * because the page is gone and the student never sees the failure.
+       *
+       * This reopens nothing: an accepted suggestion arrives through
+       * `setContent(..., { emitUpdate: false })`, which fires no `onUpdate`, so
+       * an accept never dirties the pending draft this sends. */
+      void updateEssayKeepalive(essayId, { content: draft.content })
         .then((essay) => {
           clearQueuedDirectDraft(draft);
           handleSaveSuccess(draft, essay);
@@ -370,15 +511,15 @@ export function useEssayAutosave(essayId: string, savedDraft?: SavedDraft) {
     ],
   );
 
-  const flush = useCallback(() => {
+  const flush = useCallback((): Promise<void> => {
     window.clearTimeout(timeoutRef.current);
     const draft = pendingDraftRef.current;
 
     if (!draft) {
-      return;
+      return Promise.resolve();
     }
 
-    saveDraft(draft);
+    return saveDraft(draft);
   }, [saveDraft]);
 
   const flushOnUnmount = useCallback(() => {
@@ -397,7 +538,7 @@ export function useEssayAutosave(essayId: string, savedDraft?: SavedDraft) {
       return;
     }
 
-    saveDraft(draft, { updateState: false });
+    void saveDraft(draft, { updateState: false });
   }, [hasConflictingInFlight, saveDraft, saveDraftKeepalive]);
 
   const flushKeepalive = useCallback(() => {
@@ -445,7 +586,7 @@ export function useEssayAutosave(essayId: string, savedDraft?: SavedDraft) {
       setSaveState("saving");
       window.clearTimeout(timeoutRef.current);
       timeoutRef.current = window.setTimeout(
-        () => saveDraft(draft),
+        () => void saveDraft(draft),
         AUTOSAVE_DELAY_MS,
       );
     },
@@ -453,7 +594,7 @@ export function useEssayAutosave(essayId: string, savedDraft?: SavedDraft) {
   );
 
   const retry = useCallback(() => {
-    flush();
+    void flush();
   }, [flush]);
 
   const flushOnUnmountRef = useRef(flushOnUnmount);

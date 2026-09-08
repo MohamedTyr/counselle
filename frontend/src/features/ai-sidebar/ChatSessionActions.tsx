@@ -45,6 +45,12 @@ export function ChatSessionActions({
 
   async function submitRename(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    /* `Button`'s busy state is `aria-disabled`, not the native attribute, so
+     * it no longer suppresses implicit submission — Enter in the field can
+     * still reach here while the first rename is in flight. */
+    if (isBusy) {
+      return;
+    }
     setError(null);
     const renamed = await onRename(draftTitle.trim() || UNTITLED_CHAT_TITLE);
     if (renamed) {

@@ -9,6 +9,7 @@ import type {
   ChatSessionSummary,
   ChatTransport,
   CreatedSession,
+  EssayTurnContext,
   ProtocolEvent,
   ResponseMode,
   SendMessageInput,
@@ -62,6 +63,29 @@ type SessionMetadataWire = {
 
 function responseModeFromWire(value: unknown): ResponseMode {
   return isResponseMode(value) ? value : "quick";
+}
+
+/*
+ * `essayContext` -> the wire's nested `surface` + `essay_context`, the same
+ * shape and the same place `toWireSourceConfig` already handles for source
+ * settings. Narrowed to the selected TEXT here and nowhere else: this is the
+ * boundary, so whatever the editor carries internally stops at it.
+ *
+ * Absent for every main-chat turn, which keeps that payload byte-identical to
+ * what it has always been.
+ */
+function toWireEssayContext(context: EssayTurnContext | null | undefined) {
+  if (!context) {
+    return {};
+  }
+
+  return {
+    essay_context: {
+      essay_id: context.essayId,
+      selection: context.selection,
+    },
+    surface: "essay",
+  };
 }
 
 type SessionDetailResponseWire = SessionMetadataWire & {
@@ -345,6 +369,7 @@ export const chatTransport: ChatTransport = {
     sessionId,
     text,
     sourceConfig,
+    essayContext,
     skills,
     signal,
     replaceMessageId,
@@ -355,6 +380,10 @@ export const chatTransport: ChatTransport = {
     clearStoredCursor(sessionId);
     const isClarificationAnswer =
       inReplyTo !== undefined || clarifyResponse !== undefined;
+    /* Sent on EVERY turn from the panel, including a clarify continuation and
+     * a regenerate — otherwise the same thread would answer with the essay
+     * agent or the main agent depending on which control the student used. */
+    const surface = toWireEssayContext(essayContext);
     const body = isClarificationAnswer
       ? {
           ...(text.trim().length > 0 ? { text: text.trim() } : {}),
@@ -362,8 +391,10 @@ export const chatTransport: ChatTransport = {
           ...(clarifyResponse !== undefined
             ? { clarify_response: clarifyResponse }
             : {}),
+          ...surface,
         }
       : {
+          ...surface,
           text: text.trim(),
           source_config:
             sourceConfig === undefined

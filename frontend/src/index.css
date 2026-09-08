@@ -35,6 +35,14 @@
 @import "./styles/shadcn.css";
 @import "./styles/theme.css";
 
+/*
+ * Component classes that live in src/styles/ rather than in this file's
+ * @layer components block, because that block passed the 800-line limit.
+ * Each one carries its own @layer components wrapper, so the layer order
+ * declared above still decides when it applies.
+ */
+@import "./styles/essay-suggestions.css";
+
 @source "../node_modules/streamdown/dist/*.js";
 
 /*

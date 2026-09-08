@@ -5,6 +5,7 @@ import { chatKeys } from "@/api/chat/hooks";
 import { chatTransport } from "@/api/chat/transport";
 import type {
   ChatTransport,
+  EssayTurnContext,
   ProtocolEvent,
   ResponseMode,
   SourceConfig,
@@ -76,6 +77,14 @@ export type SubmitMessageOptions = {
   executionResponseMode: ResponseMode;
   replaceMessageId?: string;
   clarifyReplyTo?: string;
+  /**
+   * Set by the essay panel on every submit; never by the main chat. Held for
+   * the session rather than consumed once, so a retry, a regenerate, or a
+   * clarify continuation stays on the same surface the thread started on —
+   * the alternative is one thread answering as two different agents depending
+   * on which control the student happened to press.
+   */
+  essayContext?: EssayTurnContext | null;
 };
 
 export type SubmitClarifyResponseOptions = {
@@ -277,6 +286,10 @@ export function useTurnEngine({
   const liveTurnRef = useRef(liveTurn);
   const persistedRef = useRef(persistedMessages);
   const sourceConfigRef = useRef(sourceConfig);
+  /* Read at send time, exactly like `sourceConfigRef` above. Only ever written
+   * by a caller that passes `essayContext`, so it stays null for the whole
+   * life of a main-chat engine. */
+  const essayContextRef = useRef<EssayTurnContext | null>(null);
   const lastStartedSessionIdRef = useRef<string | null>(null);
   const lastStartedUserMessageIdRef = useRef<string | null>(null);
   const cancelInFlightRef = useRef(false);
@@ -532,6 +545,7 @@ export function useTurnEngine({
           stream: transport.sendMessage({
             sessionId: activeSessionId,
             text,
+            essayContext: essayContextRef.current,
             sourceConfig: isClarifyContinuation
               ? undefined
               : committedSourceConfig,
@@ -766,7 +780,11 @@ export function useTurnEngine({
       executionResponseMode,
       replaceMessageId,
       clarifyReplyTo,
+      essayContext,
     }: SubmitMessageOptions): Promise<SubmitMessageResult> => {
+      if (essayContext !== undefined) {
+        essayContextRef.current = essayContext;
+      }
       const { skills, modeSkill, taskSkills } = normalizeSkills({
         skills: skillsOption,
         modeSkill: modeSkillOption,

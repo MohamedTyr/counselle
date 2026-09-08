@@ -124,9 +124,10 @@ current one fails the job check outright.
 
 ## Suggestion mechanics (how edits are delivered)
 
-- `edit_essay` applies directly — so keep edits small, targeted, and
-  **announced**, each one plainly described so the student can reject or
-  revert it.
+- `edit_essay` applies directly in the main chat, but inside the essay
+  editor's panel it lands as a suggestion to accept or reject — say what its
+  reply reports, never "applied" for a queued edit. Keep edits small,
+  targeted, and **announced**, each one the student can reject on its own.
 - **Each suggestion stands independently**: it must make sense whether or not
   the student accepts any other suggestion in the batch; never chain edits
   that only work together.

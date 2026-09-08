@@ -32,6 +32,7 @@ from api.routes import system as system_routes
 from app import transcript as transcript_mod
 from app.run_handle import RunHandleStore
 from app.turns import TurnRegistry
+from domain.surface import Surface
 from tests.api.conftest import TEST_USER_ID, _test_user
 
 # Fake session rows in these unit tests are owned by the override's test user.
@@ -91,6 +92,7 @@ def make_test_app(
         usage_accounting=True,
         model_prices={},
         agent_tool_result_max_chars=8_000,
+        essay_context_max_chars=8_000,
         agent_mcp_read_timeout_s=60.0,
         agent_max_model_requests=80,
         agent_max_total_tokens=2_000_000,
@@ -667,8 +669,14 @@ def test_stream_yields_error_event_when_enrich_usage_raises() -> None:
 # ---------------------------------------------------------------------------
 
 
-def _known_session_app(run_turn_fn: Any = None) -> tuple[Any, str]:
-    """A test app whose fake pool knows one session row."""
+def _known_session_app(
+    run_turn_fn: Any = None, *, essay_id: str | None = None
+) -> tuple[Any, str]:
+    """A test app whose fake pool knows one session row.
+
+    ``essay_id`` mirrors the column ``get_session`` now selects: ``None`` is a
+    main-chat session, a uuid is an essay panel's own dedicated thread.
+    """
     session_id = "00000000-0000-4000-8000-000000000042"
     _, app_conn = _make_pool()
     app_conn.fetchrow.return_value = {
@@ -678,6 +686,7 @@ def _known_session_app(run_turn_fn: Any = None) -> tuple[Any, str]:
         "source_config": None,
         "created_at": None,
         "updated_at": None,
+        "essay_id": essay_id,
     }
     app_pool = MagicMock()
     app_pool.acquire.return_value.__aenter__ = AsyncMock(return_value=app_conn)
@@ -1392,3 +1401,115 @@ async def test_409_does_not_overwrite_source_config_or_title() -> None:
         finally:
             gate.set()
             await registry.cancel(session_id)
+
+
+# ---------------------------------------------------------------------------
+# _parse_surface_request: the essay-panel route boundary
+# ---------------------------------------------------------------------------
+
+_ESSAY_ID = "11111111-2222-3333-4444-555555555555"
+
+
+def _parse(body: dict[str, Any], *, max_selection_chars: int = 8) -> Any:
+    return session_routes._parse_surface_request(
+        session_routes.MessageBody(text="hi", **body),
+        max_selection_chars=max_selection_chars,
+    )
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        {"surface": "essays"},  # unknown surface value
+        {"surface": "essay"},  # essay_context required iff surface == essay
+        {"surface": "essay", "essay_context": "nope"},  # not a dict
+        {"surface": "essay", "essay_context": {}},  # no essay_id
+        {"surface": "essay", "essay_context": {"essay_id": "not-a-uuid"}},
+        {"surface": "essay", "essay_context": {"essay_id": _ESSAY_ID, "selection": 7}},
+        {"surface": "essay", "essay_context": {"essay_id": _ESSAY_ID, "selection": "x" * 9}},
+        # Anti-smuggling: essay state may never ride a chat turn, explicit or default.
+        {"essay_context": {"essay_id": _ESSAY_ID}},
+        {"surface": "chat", "essay_context": {"essay_id": _ESSAY_ID}},
+    ],
+)
+def test_parse_surface_request_rejects_malformed_or_smuggled_essay_context(
+    body: dict[str, Any],
+) -> None:
+    """This is the only validation the essay-panel input gets before it becomes
+    turn state, so every shape here must fail closed (the route's 422) rather
+    than start a turn on unchecked values."""
+    assert _parse(body) is None
+
+
+def test_parse_surface_request_flattens_a_valid_essay_turn() -> None:
+    assert _parse(
+        {
+            "surface": "essay",
+            "essay_context": {"essay_id": _ESSAY_ID, "selection": "my opener"},
+        },
+        max_selection_chars=8_000,
+    ) == (Surface.ESSAY, _ESSAY_ID, "my opener")
+
+
+def test_parse_surface_request_defaults_an_ordinary_turn_to_chat() -> None:
+    assert _parse({}) == (Surface.CHAT, None, None)
+    assert _parse({"surface": "chat"}) == (Surface.CHAT, None, None)
+
+
+# ---------------------------------------------------------------------------
+# Plan §7.2: an essay turn must name the essay its own session belongs to
+# ---------------------------------------------------------------------------
+
+_OTHER_ESSAY_ID = "99999999-8888-7777-6666-555555555555"
+
+
+def _post_essay_turn(app: Any, session_id: str, essay_id: str) -> tuple[Any, Any]:
+    """POST one essay-surface turn with the registry claim stubbed out.
+
+    Returns ``(response, start_mock)`` so a caller can assert both the status
+    and whether the turn was ever claimed.
+    """
+
+    async def _empty_stream() -> Any:
+        no_events: list[Any] = []  # an async iterator that ends immediately
+        for event in no_events:
+            yield event
+
+    start = AsyncMock(return_value=_empty_stream())
+    with (
+        patch.object(app.state.turn_registry, "start", new=start),
+        TestClient(app, raise_server_exceptions=False) as tc,
+    ):
+        response = tc.post(
+            f"/v1/sessions/{session_id}/messages",
+            json={
+                "text": "tighten my opener",
+                "surface": "essay",
+                "essay_context": {"essay_id": essay_id},
+            },
+        )
+    return response, start
+
+
+@pytest.mark.parametrize("session_essay_id", [_OTHER_ESSAY_ID, None])
+def test_post_message_rejects_an_essay_turn_foreign_to_its_session(
+    session_essay_id: str | None,
+) -> None:
+    """The session row's own ``essay_id`` is authoritative, not the body's.
+
+    A stale session id would otherwise queue essay A's suggestion onto essay B
+    with no trace in either transcript. A main-chat session (``essay_id`` NULL)
+    fails closed the same way. Rejected before the claim.
+    """
+    app, session_id = _known_session_app(essay_id=session_essay_id)
+    response, start = _post_essay_turn(app, session_id, _ESSAY_ID)
+    assert response.status_code == 422
+    assert response.json()["error"]["message"] == "That essay doesn't match this chat."
+    start.assert_not_awaited()
+
+
+def test_post_message_accepts_an_essay_turn_on_its_own_session() -> None:
+    app, session_id = _known_session_app(essay_id=_ESSAY_ID)
+    response, start = _post_essay_turn(app, session_id, _ESSAY_ID)
+    assert response.status_code == 200
+    assert start.await_args.kwargs["essay_id"] == _ESSAY_ID

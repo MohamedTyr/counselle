@@ -19,7 +19,7 @@ from app.workspace.agent_tools_essays_content import (
 from app.workspace.agent_tools_shared import ToolCtx
 from app.workspace.changes import WorkspaceEventBus
 from app.workspace.models import EssayCreate, EssayPatch
-from app.workspace.service_essays import create_essay, update_essay
+from app.workspace.service_essays import create_essay, get_essay, update_essay
 from config.settings import get_settings
 from counselle_db.catalog import Catalog
 from counselle_db.db import create_pool
@@ -281,3 +281,134 @@ async def test_write_essay_refuses_empty_content(
 
     reread = await read_tool.function(essay_id=str(essay.id))
     assert reread["content_markdown"] == "Keep me."
+
+
+def _suggest_ctx(app_pool: asyncpg.Pool, catalog: Catalog, user_id: UUID) -> ToolCtx:
+    return ToolCtx(
+        app_pool=app_pool,
+        catalog=catalog,
+        workspace_events=WorkspaceEventBus(),
+        user_id=user_id,
+        tool_overflow=None,
+        write_mode="suggest",
+        turn_message_id=str(uuid4()),
+    )
+
+
+async def test_edit_essay_in_suggest_mode_proposes_without_writing_content(
+    app_pool: asyncpg.Pool, catalog: Catalog, make_user: Callable[[], Awaitable[UUID]]
+) -> None:
+    """The essay panel's sink: the same tool call, a reviewable outcome.
+
+    The stored ``_plain`` twins are what the editor anchors against — a bold
+    span is a mark there, not literal ``**`` — so they must carry the rendered
+    text, not the markdown (plan Part 0 C3).
+    """
+    user_id = await make_user()
+    essay = await create_essay(
+        app_pool,
+        catalog,
+        WorkspaceEventBus(),
+        user_id=user_id,
+        actor="student",
+        data=EssayCreate(title="Draft", content=_content("I love pizza.")),
+    )
+    ctx = _suggest_ctx(app_pool, catalog, user_id)
+    read_tool = make_read_essay_tool(ctx)
+    edit_tool = make_edit_essay_tool(ctx)
+
+    read_result = await read_tool.function(essay_id=str(essay.id))
+    result = await edit_tool.function(
+        essay_id=str(essay.id),
+        expected_version=read_result["version"],
+        edits=[
+            EditItem(
+                old_text="I love pizza.",
+                new_text="I love **pizza**.",
+                rationale="leans on the one concrete noun",
+            )
+        ],
+    )
+
+    assert result["status"] == "ok"
+    assert len(result["suggestion_ids"]) == 1
+
+    stored = await get_essay(app_pool, catalog, user_id=user_id, essay_id=essay.id)
+    assert stored.content == _content("I love pizza.")
+    (suggestion,) = stored.suggestions
+    assert suggestion["id"] == result["suggestion_ids"][0]
+    assert suggestion["new_text"] == "I love **pizza**."
+    assert suggestion["new_text_plain"] == "I love pizza."
+    assert suggestion["old_text_plain"] == "I love pizza."
+    assert suggestion["rationale"] == "leans on the one concrete noun"
+    assert suggestion["actor"] == "counselle"
+    assert suggestion["turn_message_id"] == ctx.turn_message_id
+    # Never persisted: a resolved suggestion is removed, so every stored row is
+    # pending, and the kind follows from an empty new_text.
+    assert "status" not in suggestion
+    assert "kind" not in suggestion
+
+
+async def test_suggest_mode_stores_nothing_when_one_edit_in_the_batch_fails(
+    app_pool: asyncpg.Pool, catalog: Catalog, make_user: Callable[[], Awaitable[UUID]]
+) -> None:
+    user_id = await make_user()
+    essay = await create_essay(
+        app_pool,
+        catalog,
+        WorkspaceEventBus(),
+        user_id=user_id,
+        actor="student",
+        data=EssayCreate(title="Draft", content=_content("The board hissed.")),
+    )
+    ctx = _suggest_ctx(app_pool, catalog, user_id)
+    read_tool = make_read_essay_tool(ctx)
+    edit_tool = make_edit_essay_tool(ctx)
+
+    read_result = await read_tool.function(essay_id=str(essay.id))
+    result = await edit_tool.function(
+        essay_id=str(essay.id),
+        expected_version=read_result["version"],
+        edits=[
+            EditItem(old_text="board", new_text="panel"),
+            EditItem(old_text="not in the essay", new_text="x"),
+        ],
+    )
+
+    assert result["status"] == "error"
+    assert result["error"].startswith("edits[1]:")
+
+    stored = await get_essay(app_pool, catalog, user_id=user_id, essay_id=essay.id)
+    assert stored.suggestions == []
+    assert stored.content == _content("The board hissed.")
+
+
+async def test_write_essay_in_suggest_mode_proposes_a_whole_draft_replacement(
+    app_pool: asyncpg.Pool, catalog: Catalog, make_user: Callable[[], Awaitable[UUID]]
+) -> None:
+    user_id = await make_user()
+    essay = await create_essay(
+        app_pool,
+        catalog,
+        WorkspaceEventBus(),
+        user_id=user_id,
+        actor="student",
+        data=EssayCreate(title="Draft", content=_content("Old draft.")),
+    )
+    ctx = _suggest_ctx(app_pool, catalog, user_id)
+    read_tool = make_read_essay_tool(ctx)
+    write_tool = make_write_essay_tool(ctx)
+
+    read_result = await read_tool.function(essay_id=str(essay.id))
+    result = await write_tool.function(
+        essay_id=str(essay.id),
+        expected_version=read_result["version"],
+        content_markdown="Brand new full draft.",
+    )
+
+    assert result["status"] == "ok"
+    stored = await get_essay(app_pool, catalog, user_id=user_id, essay_id=essay.id)
+    assert stored.content == _content("Old draft.")
+    (suggestion,) = stored.suggestions
+    assert suggestion["old_text"] == "Old draft."
+    assert suggestion["new_text"] == "Brand new full draft."

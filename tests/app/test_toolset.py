@@ -19,6 +19,7 @@ from app.sources import SourceRegistry
 from app.tool_specs import build_tool_specs, gateable_tool_names
 from app.toolset import (
     _DEFAULT_AGENT_MCP_READ_TIMEOUT_SECONDS,
+    ESSAY_SURFACE_DENIED_MCP_TOOLS,
     GATEABLE_TOOLS,
     ToolDeps,
     _allowed_subreddits,
@@ -29,6 +30,7 @@ from app.toolset import (
 from domain.envelope import Citation, CitationEnvelope
 from domain.events import StepDetail
 from domain.specs import SourceConfig
+from domain.surface import Surface
 
 TODAY = date(2026, 6, 10)
 MENU = ["ApplyingToCollege", "chanceme", "financialaid", "{school}"]
@@ -388,3 +390,39 @@ class TestMcpToolset:
         result = await annotate_mcp_result(ctx, call_tool, "get_data_calendar", {})  # type: ignore[arg-type]
 
         assert result == {"ok": True}
+
+    @pytest.mark.parametrize("name", sorted(ESSAY_SURFACE_DENIED_MCP_TOOLS))
+    async def test_essay_surface_denies_metric_db_tools_before_the_round_trip(
+        self, name: str
+    ) -> None:
+        """The MCPToolset is one object over all four DB tools, so these two are
+        denied in this hook instead of being left unmounted (plan Part 0 C7).
+        The denial must land BEFORE ``call_tool`` — in code, never in a prompt."""
+        ctx = SimpleNamespace(deps=SimpleNamespace(surface=Surface.ESSAY))
+        called: list[str] = []
+
+        async def call_tool(name: str, args: dict[str, Any], *, metadata: Any = None) -> Any:
+            called.append(name)
+            return {"ok": True}
+
+        result: Any = await annotate_mcp_result(ctx, call_tool, name, {})  # type: ignore[arg-type]
+
+        assert called == []
+        assert result["error"] == "tool_error"
+
+    @pytest.mark.parametrize("name", ["resolve_school", "get_school_profile"])
+    async def test_essay_surface_keeps_the_school_identity_tools(self, name: str) -> None:
+        ctx = SimpleNamespace(deps=SimpleNamespace(surface=Surface.ESSAY))
+
+        async def call_tool(name: str, args: dict[str, Any], *, metadata: Any = None) -> Any:
+            return {"ok": True}
+
+        assert await annotate_mcp_result(ctx, call_tool, name, {}) == {"ok": True}  # type: ignore[arg-type]
+
+    async def test_chat_surface_still_gets_the_metric_db_tools(self) -> None:
+        ctx = SimpleNamespace(deps=SimpleNamespace(surface=Surface.CHAT))
+
+        async def call_tool(name: str, args: dict[str, Any], *, metadata: Any = None) -> Any:
+            return {"ok": True}
+
+        assert await annotate_mcp_result(ctx, call_tool, "get_domain", {}) == {"ok": True}  # type: ignore[arg-type]

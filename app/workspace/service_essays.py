@@ -8,6 +8,7 @@ from uuid import UUID
 
 import asyncpg
 
+from app.workspace import essay_markdown
 from app.workspace.changes import WorkspaceEventBus, make_change_event, record_change
 from app.workspace.models import (
     Actor,
@@ -59,6 +60,15 @@ LEFT JOIN counselle.applications a
   ON a.id = e.application_id AND a.user_id = e.user_id
 WHERE e.user_id = $1 AND e.id = ANY($2::uuid[])
 """
+
+#: Shown when a pending suggestion no longer matches the essay's current text
+#: (the student edited around it, or a sibling suggestion moved it). Must not
+#: contain "already active" — ``map_workspace_errors`` reserves that phrase for
+#: 409; everything else, including this, is a 422.
+STALE_SUGGESTION_MESSAGE = (
+    "This suggestion no longer matches the essay's current text — it may be stale. "
+    "Reject it and ask the assistant to look again."
+)
 
 
 async def list_essays(
@@ -233,6 +243,186 @@ async def update_essay(
     publish_events(event_bus, user_id, events)
     after = await get_essay(app_pool, catalog, user_id=user_id, essay_id=essay.id)
     return (after, before) if with_before else after
+
+
+async def append_suggestions(
+    app_pool: asyncpg.Pool,
+    event_bus: WorkspaceEventBus,
+    *,
+    user_id: UUID,
+    actor: Actor,
+    essay_id: UUID,
+    suggestions: list[dict[str, Any]],
+) -> Essay:
+    """Append pending suggestions to the essay's review queue (plan §5.3).
+
+    Content is deliberately untouched: this is the suggest-mode sink for
+    ``edit_essay``/``write_essay``. Returns the post-append essay so the tool
+    layer can report the new version without a second, racy read.
+    """
+    events: list[ChangeEvent] = []
+    async with app_pool.acquire() as conn, conn.transaction():
+        await _require_essay(conn, user_id, essay_id, for_update=True)
+        row = await conn.fetchrow(
+            """
+            UPDATE counselle.essays
+            SET suggestions = suggestions || $3::jsonb, updated_at = now()
+            WHERE id = $1 AND user_id = $2 AND archived_at IS NULL
+            RETURNING *
+            """,
+            essay_id,
+            user_id,
+            suggestions,
+        )
+        if row is None:
+            raise WorkspaceNotFoundError()
+        essay = Essay.model_validate(dict(row))
+        events.append(await _record_essay_change(conn, user_id, actor, essay, "updated"))
+    publish_events(event_bus, user_id, events)
+    return essay
+
+
+async def resolve_suggestion(
+    app_pool: asyncpg.Pool,
+    catalog: Catalog,
+    event_bus: WorkspaceEventBus,
+    *,
+    user_id: UUID,
+    actor: Actor,
+    essay_id: UUID,
+    suggestion_id: UUID,
+    accept: bool,
+) -> Essay:
+    """Accept or reject one pending suggestion (plan §6.2).
+
+    Accept applies the suggestion's edit to the content and drops it from the
+    queue; reject only drops it. Both take the essay's row lock for the whole
+    read-then-write, so two simultaneous resolves serialize and the second one
+    sees the first one's result — a double-accept is a 404, never a second
+    application. A suggestion whose ``old_text`` no longer matches uniquely is
+    stale: the essay is left exactly as it was and the caller gets a
+    validation error (422 through ``map_workspace_errors``).
+    """
+    events: list[ChangeEvent] = []
+    async with app_pool.acquire() as conn, conn.transaction():
+        essay = Essay.model_validate(dict(await _require_essay(conn, user_id, essay_id)))
+        suggestion = _find_suggestion(essay.suggestions, suggestion_id)
+        if suggestion is None:
+            raise WorkspaceNotFoundError()
+        remaining = [s for s in essay.suggestions if s.get("id") != str(suggestion_id)]
+
+        content = essay.content
+        if accept:
+            try:
+                content = _apply_suggestion(content, suggestion)
+            except essay_markdown.EssayEditError as exc:
+                raise WorkspaceValidationError(STALE_SUGGESTION_MESSAGE) from exc
+
+        row = await _write_resolution(conn, user_id, essay_id, content, remaining)
+        events.append(
+            await _record_essay_change(
+                conn, user_id, actor, Essay.model_validate(dict(row)), "updated"
+            )
+        )
+    publish_events(event_bus, user_id, events)
+    return await get_essay(app_pool, catalog, user_id=user_id, essay_id=essay_id)
+
+
+async def resolve_all_suggestions(
+    app_pool: asyncpg.Pool,
+    catalog: Catalog,
+    event_bus: WorkspaceEventBus,
+    *,
+    user_id: UUID,
+    actor: Actor,
+    essay_id: UUID,
+    accept: bool,
+) -> dict[str, Any]:
+    """Accept or reject every pending suggestion in one transaction (plan §6.2).
+
+    Unlike an ``edit_essay`` batch, these are independently authored
+    suggestions, so one stale item must not sink the rest: an item that no
+    longer applies is left pending and reported in ``skipped``. Rejection
+    cannot fail, so ``reject-all`` always clears the queue with an empty
+    ``skipped``. Returns ``{"essay", "applied", "skipped"}``.
+    """
+    events: list[ChangeEvent] = []
+    skipped: list[dict[str, str]] = []
+    async with app_pool.acquire() as conn, conn.transaction():
+        essay = Essay.model_validate(dict(await _require_essay(conn, user_id, essay_id)))
+        content = essay.content
+        remaining: list[dict[str, Any]] = []
+        for suggestion in essay.suggestions:
+            if not accept:
+                continue
+            try:
+                content = _apply_suggestion(content, suggestion)
+            except essay_markdown.EssayEditError as exc:
+                skipped.append({"id": str(suggestion.get("id")), "reason": exc.reason})
+                remaining.append(suggestion)
+        applied = len(essay.suggestions) - len(remaining)
+
+        row = await _write_resolution(conn, user_id, essay_id, content, remaining)
+        events.append(
+            await _record_essay_change(
+                conn, user_id, actor, Essay.model_validate(dict(row)), "updated"
+            )
+        )
+    publish_events(event_bus, user_id, events)
+    return {
+        "essay": await get_essay(app_pool, catalog, user_id=user_id, essay_id=essay_id),
+        "applied": applied,
+        "skipped": skipped,
+    }
+
+
+def _find_suggestion(
+    suggestions: list[dict[str, Any]], suggestion_id: UUID
+) -> dict[str, Any] | None:
+    return next((s for s in suggestions if s.get("id") == str(suggestion_id)), None)
+
+
+def _apply_suggestion(content: dict[str, Any], suggestion: dict[str, Any]) -> dict[str, Any]:
+    """Apply one suggestion's markdown edit, raising ``EssayEditError`` if stale.
+
+    Accept works entirely in markdown space — the ``_plain`` fields exist only
+    for the client's anchoring math (plan Part 0 C3) and are never read here.
+    """
+    result = essay_markdown.apply_edits(
+        content,
+        [
+            essay_markdown.Edit(
+                old_text=str(suggestion.get("old_text") or ""),
+                new_text=str(suggestion.get("new_text") or ""),
+            )
+        ],
+    )
+    return result.new_doc
+
+
+async def _write_resolution(
+    conn: asyncpg.Connection,
+    user_id: UUID,
+    essay_id: UUID,
+    content: dict[str, Any],
+    remaining: list[dict[str, Any]],
+) -> asyncpg.Record:
+    row = await conn.fetchrow(
+        """
+        UPDATE counselle.essays
+        SET content = $3, word_count = $4, suggestions = $5::jsonb, updated_at = now()
+        WHERE id = $1 AND user_id = $2 AND archived_at IS NULL
+        RETURNING *
+        """,
+        essay_id,
+        user_id,
+        content,
+        _word_count(content),
+        remaining,
+    )
+    if row is None:
+        raise WorkspaceNotFoundError()
+    return row
 
 
 async def duplicate_essay(

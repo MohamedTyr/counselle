@@ -775,15 +775,25 @@ lineage a file uses before adding to it, because the state attributes differ
 
 ### 10.5 The AI Elements directory is mostly vendored scaffolding
 
-`components/ai-elements/` contains 12 files. **Only two are actually imported:**
+`components/ai-elements/` contains 11 files. **Only two are actually imported:**
 `message.tsx` (Message, MessageContent, MessageResponse/Streamdown, MessageActions) and
-`inline-citation.tsx`. The other ten — `artifact`, `code-block`, `chain-of-thought`,
-`conversation`, `prompt-input`, `reasoning`, `shimmer`, `sources`, `suggestion`, `task`
-— have **zero importers**. `tool.tsx` has been deleted.
+`inline-citation.tsx`. The other nine — `artifact`, `code-block`, `chain-of-thought`,
+`conversation`, `prompt-input`, `reasoning`, `shimmer`, `sources`, `task` — have **zero
+importers**. `tool.tsx` and `suggestion.tsx` have been deleted.
 
 **Do not treat that directory as representative of the design system.** The real chat
 system is the bespoke stack in §15. If you need a work-visibility component, extend
 `ToolBeat`, not `chain-of-thought.tsx`.
+
+**A vendored file is not automatically reusable — check it against *our* primitives.**
+`suggestion.tsx` was deleted at the one moment it finally had a caller (the essay panel's
+selection-scoped verb chips, §15.7). It wraps shadcn's Radix `ScrollArea`, and
+`ui/scroll-area.tsx` is a Base UI rewrite with a different contract — the root is
+`size-full` and renders its own scrollbars, so `Suggestions` would have stretched to its
+parent's height and left a stray `ScrollBar` inside the content. Its `Suggestion` half was
+a `Button` wearing `rounded-full px-4`, a shape §5 reserves for avatars, dots and tracks.
+Both halves were being overridden more than used, so the chips are a `Button` row and the
+file is gone.
 
 ---
 
@@ -855,6 +865,20 @@ plus `--ink-disabled` — see `composer-control.ts`, which documents exactly thi
 Use the `loading` prop on `Button`. It sets `aria-disabled` rather than `disabled` (so
 the label stays announceable), sets `data-loading`, makes the label transparent, and
 overlays a `Spinner` — the label's width is preserved so the button does not resize.
+
+It looks like §11.5: `data-loading:opacity-64` is the same fade as the disabled state, and
+`data-loading:cursor-not-allowed` keeps the 1:1 cursor pairing of §11.7. What it
+deliberately does **not** carry is `pointer-events-none` — the busy button stays
+hoverable and focusable, so its tooltip still opens and the focus ring still lands on it.
+
+Native `disabled` is the wrong tool here because it **ejects DOM focus to `<body>`**: a
+keyboard student resolving one tracked change at a time would restart Tab from the top of
+the page after every accept. The busy button stays focusable; `Button` refuses the
+activation instead, with `preventDefault` so a busy submit button cannot post its form
+again. **The one thing that behaviour does not cover is implicit submission** — Enter in a
+field reaches the form directly, and a disabled default button used to block it. Any form
+whose submit button uses `loading` needs its own re-entry guard in the submit handler
+(`LoginRoute`, `RegisterRoute`, `ChatSessionActions`, `onboarding-setup` all have one).
 
 ### 11.7 Cursors
 
@@ -1154,6 +1178,65 @@ timeline — **not** a collapsed reasoning drawer plus a separate final answer.
   evidence, the anchor's stretch is scoped to the header block so excerpts stay
   selectable.
 
+### 15.4.1 The chat's document panel
+
+The other right rail. **Only one is ever open**: `AiChatPage` holds a single
+`RightPanel` discriminated union (`{kind: "sources"} | {kind: "document"} | null`), so
+opening a document closes the sources rail and opening a citation closes the document.
+Two competing right rails is worse than one that swaps.
+
+- **Docked on the measured row, never on the viewport.** `w-[36rem]` (576px) of panel plus
+  a 424px floor for the chat column beside it is `MIN_DOCK_ROW_PX` = 1000px of *row*
+  (`EssayDocumentPanel.tsx`), read off the panel's own parent with a `ResizeObserver`.
+  A viewport breakpoint is wrong by a whole sidebar: 312px expanded, far less collapsed.
+  Keyed to `innerWidth >= 1024` the aside was shoved past the right edge between 1024 and
+  1141px and clipped every line of the essay with no horizontal scrollbar to recover it.
+  Same lesson as `essay-paper-inset.ts` one level up. The aside stays mounted below the
+  threshold (`hidden`, no children) because it is what measures the row. Below it the
+  document is a full-width `Sheet`, because the chat column left over would be narrower
+  than the composer in it. No resizable divider.
+- It hosts `EssayDocumentSurface` at `density="panel"`: the same paper, the same tracked
+  changes, the same hover accept/reject popover, and the same `SuggestionsBar` as the full
+  editor — the bar is the only place a change one comma wide stays findable and the only
+  thing that announces the count to a screen reader, so the panel built to show proposed
+  edits is the last place to drop it. The paper's inset comes from the one scale in
+  `essay-paper-inset.ts`, stepped by the panel's own scroll column
+  (`@container/essay-canvas`) — never a second hand-tuned ladder. The column caps its
+  content at `max-w-[40rem]`, tighter than the editor page's 820px: docked that ceiling is
+  never reached (544px column, measured 475px of prose, ~69 characters), but in the Sheet
+  the editor's ceiling gave 724px of prose at 106 characters a line — a *worse* measure on
+  the wider surface. 640px holds the Sheet to a measured 510px of prose (~74 characters),
+  the docked rhythm.
+- **The panel sits at canvas level, deliberately** — `--essay-editor-chrome-surface`,
+  where the sources arm of the same slot sits at chrome level (`bg-sidebar`, §15.4). The
+  two arms therefore differ in material, not only in contents. That is the point: this arm
+  is the editor's own chrome, and "Open in editor" morphs the paper straight into it, so
+  matching the editor is worth more here than matching the rail it replaces.
+- **Non-modal when docked.** The student keeps reading the answer that produced the edit.
+  Enter/exit is the rail's own 200ms `ease-out` `slide-in-from-right-2`; Escape closes it,
+  and only when nothing nearer the key has already defaulted the event.
+- **Closing returns focus to whatever opened it** — the mutation-receipt door, or the
+  citation chip for the sources arm. `AiChatPage` captures `document.activeElement` on
+  open and refocuses it before the panel unmounts.
+- **The receipt is the door.** A settled essay mutation receipt's glance line becomes a
+  `<button>` labelled `Open {title} — {glance}`. Its ink is identical to the non-door
+  glance lines above it, so the resting underline is the whole static cue and has to clear
+  1.4.11 on its own: `--ink-faint` (5.28:1), an ink token for a text decoration, one step
+  quieter than the label. Ink and rule go to full strength on hover over 150ms.
+  `min-h-6` for SC 2.5.8's 24px floor — not the disclosure trigger's `min-h-11`, which on
+  a 20px glance line would pull the label off the icon beside it. A **running** or
+  **failed** receipt is never a door: mid-write there is nothing stable to open, and after
+  a failure a click that says "see your edit" would promise a document that was never
+  written.
+- **"Open in editor"** is a real shared-element transition, not a fade: the panel's paper
+  and the editor page's paper carry the same `essay-document-${id}` `layoutId` under
+  `WorkspaceOutlet`'s `LayoutGroup`, so the sheet flies from the 576px column into the
+  820px page. The layout tween is **420ms `cubic-bezier(0.22, 1, 0.36, 1)`**, inherited
+  from the editor route since MVP3 — off §12.2's scale and tracked as a debt in §20; it is
+  not "the route curve", which is 220ms. `layoutDependency` is the paper's `density`, the
+  one value that differs across the handoff: pinned to `layoutId` — identical on both
+  sides — motion never re-measured across it and the morph degraded to a jump.
+
 ### 15.5 Visualisations
 
 There is **no charting library.** "Viz" means typed tabular render specs:
@@ -1167,12 +1250,234 @@ There is **no charting library.** "Viz" means typed tabular render specs:
 - An unrecognised spec version renders "This visualization requires a newer client."
   inside the normal frame, so it reads as forward-compatibility rather than breakage.
 
-### 15.6 Composer
+### 15.6 Tracked changes
+
+The agent's edits to a student's essay arrive as **proposals**, not writes. They are
+painted into the ProseMirror document as decorations — a `<del>` around text the agent
+wants removed, an `<ins>` widget carrying text it wants added — and nothing lands in the
+essay until the student accepts it.
+
+- **The document is the source of truth for where a change goes.** A suggestion is
+  anchored by searching the document for its text, never by a stored position, so a
+  drifting offset can never point a change at the wrong words.
+- **Stale is shown, never hidden.** When the student edits the text a change was written
+  against, that change is no longer applicable: its line goes dotted and grey and it
+  stays on the page, inert. A proposal that silently vanished would leave the student
+  thinking it was applied. Only the **line** dims — the words under a stale change are
+  the student's own essay and stay at full ink, which makes that line the sole channel
+  carrying "stale" and so a graphical state indicator owing 3:1 (1.4.11). Stale is
+  derived against the live document every time — it is never a flag the server sends.
+- **Ambiguity is stale too.** If a change's text appears twice in the document, there is
+  no honest way to pick one, so it goes stale rather than guessing.
+- **The trim is presentation only.** "Add a sentence here" is stored as a replacement
+  that extends the existing one, so the shared head and tail are trimmed away before
+  painting and only the genuinely new words go green. Nothing trimmed is ever sent back.
+
+| Token | Resolves to | Claim |
+|---|---|---|
+| `--essay-suggestion-insert-ink` | `--success-fg` (leaf-700, 7.87:1) | text being **added** — applied as **ink** |
+| `--essay-suggestion-insert-surface` | `--success-surface` | hover wash behind an insertion |
+| `--essay-suggestion-delete-ink` | `--danger-fg` (red-700, 9.84:1) | text being **removed** — applied as the **strike colour only** |
+| `--essay-suggestion-delete-surface` | `--danger-surface` | hover wash behind a deletion |
+| `--essay-suggestion-stale-ink` | `--ink-faint` (gray-700, 5.45:1) | a change that can no longer be applied — the **dotted line only** |
+
+Success and danger are the right hues under §2.2 Law 2 (something added, something
+removed), but "ready" and "proposed" are two claims on one hue — so the decorations take
+their own family tokens in `essay.css` rather than the role tokens directly, and a
+suggestion can never read as a status. At rest a change is ink plus one line; the wash
+arrives on hover, because a permanent colour block through the student's own prose is
+harder to read than the prose it annotates.
+
+**The two hues are not applied the same way, because the two spans do not have the same
+owner.** An insertion is the agent's words — not in the document, not the student's — so
+its *ink* is green, and the colour is carrying real information: these words are not
+yours yet. A deletion, a stale change, and everything under them is **the student's own
+sentence**, still theirs and still on the page, so only the *line* is coloured and the
+words keep the document's own ink. Recolouring them was measured as the loudest thing on
+the screen: the essay's prose is `--document-foreground` at chroma 0.01 and `--danger-fg`
+is chroma 0.16, so a struck sentence carried sixteen times the chroma of the sentences
+around it — on a 580-word draft with five changes, three full lines of the opening
+paragraph rendered as damage rather than as annotation. The line alone still carries the
+claim at 9.84:1, far past the 3:1 WCAG 1.4.11 asks of a graphical state indicator, and
+solid-red against dotted-grey keeps deletion and stale apart in two channels at once.
+**This is one rule, not two:** the student's words are always the student's ink, and the
+line is what says what is being proposed about them.
+
+**Two fragments that touch are separated by the decoration builder, never by a sibling
+selector.** Marks rendered back to back weld into one: `good`/`north` reads as `goodnorth`,
+and two separately-decidable deletions divided only by an unstruck full stop become a
+single red bar over two decisions. `buildDecorations` knows both ranges, so it compares
+positions and hangs `.essay-suggestion-abuts` on the later fragment; the stylesheet holds
+one flat rule. CSS adjacency cannot do this job, and two attempts proved it: `bracket()`
+puts a varying number of id-less screen-reader markers between any two fragments — one
+hop for a replacement, two for a pair of deletions — so `[data-suggestion-id] +
+[data-suggestion-id]` separated nothing, and adding one `.sr-only` hop separated
+replacements only, leaving abutting deletions measured at 0.00px. `+` also skips text
+nodes, so whichever arm did fire padded pairs with whole words of prose between them.
+jsdom does not lay out, so only a browser can catch this class of bug.
+
+The rules are plain selectors, not React components — ProseMirror renders this DOM itself
+— so they live in `styles/essay-suggestions.css`, which carries its own `@layer
+components` wrapper so that the layer order `index.css` declares still decides when they
+apply. The `--essay-suggestion-*` tokens they resolve stay in `essay.css` with the rest of
+the essay family (§2.1 tier 3); their `-ink` suffix names the colour, not the property, so
+the delete and stale tokens reach the page as `text-decoration-color`.
+
+**One change, one hover target.** A replacement paints as a struck span plus a proposed
+one, and a change crossing a paragraph break paints one fragment per block — so hovering
+any fragment washes *every* fragment of that change. Half a change lighting up misreads
+one decision as two. The hovered id is plugin state and the wash is a decoration, never
+an attribute written onto the rendered spans: the editor treats a foreign attribute
+inside its own DOM as interference, reverts it, and the redraw re-fires the pointer
+event that set it.
+
+Never bind bare `Enter`, `Backspace` or `Delete` to accept or reject. Inside a
+`contenteditable` those mean "new paragraph" and "delete a character", so a student
+typing near a pending change would resolve it by accident — and an accidental accept is
+silent. `Mod+Enter` accepts, `Mod+Backspace` rejects, `Alt+.`/`Alt+,` move between
+pending changes.
+
+**Accept and Reject are peers.** `ResolveButtons`
+(`features/essays/suggestions/ResolveButtons.tsx`) is the one component that renders the
+pair, used by both the hover popover and every row of the pending-changes bar — the two
+places are not merely shaped alike, they carry the same rule about how a student's own
+writing may be rewritten. Both buttons are `variant="outline"`; a bordered Accept beside
+a ghost Reject reads as a recommendation, and the essay is not improved by default. The
+same component owns the busy lock (`aria-disabled` plus `opacity-64`, never native
+`disabled` — §11.6) and the accessible name: a row's control is `Accept: Replace good →
+unforgettable`, never a sixth button called "Accept".
+
+**Neither icon is tinted**, for the same reason the variants match. The check used to take
+`--essay-suggestion-insert-ink` and the cross `--essay-suggestion-delete-ink`, which broke
+that symmetry and made two claims that are not true. Those tokens mean "text being added"
+and "text being removed" — but Accept is just as often accepting a *deletion*, so a green
+check on that row states the opposite of what the row does; and red marked the **safe**
+choice as the dangerous one, when rejecting changes nothing and accepting rewrites the
+student's sentence with no undo. Across a five-row queue it also put ten alarm-coloured
+glyphs in a 130px band, which is the merge-conflict chrome the decorations themselves are
+kept clear of. The words carry the meaning, as everywhere else in the app.
+
+**Nothing bulk before the list is open.** The pending-changes bar is collapsed by
+default, and its "Accept all"/"Reject all" only exist once it is expanded. Collapsed, the
+loudest control in the editor was an Accept-all a student met before seeing a single one
+of the changes it applies.
+
+**A short change carries its context.** Under 12 characters the trimmed preview is not a
+description of anything — `Replace , → ;` says a semicolon belongs somewhere in a
+650-word essay — so `suggestion-preview.ts` appends a quoted window of the student's own
+text around the change point. That window is presentation only, from the `_plain` fields,
+same as the trim.
+
+**Focus advances so the queue can be cleared without leaving it.** Resolution is
+serialized and non-optimistic, so the row that was pressed stays in the DOM, busy, until
+the server confirms — and then leaves, taking a keyboard student's focus to `<body>` and
+restarting the next Tab at the top of the page. The bar therefore moves focus to the row
+that took its place, or the row above it when the last one goes, or the disclosure, or —
+when the bar itself is leaving — back into the document, which is where the popover and
+`Mod+Enter` paths already put the caret. It arms only when focus was genuinely inside the
+bar (a pointer click never focuses these buttons at all, by design), and it fires on the
+resolved row *leaving the list* rather than on the lock clearing, because those two arrive
+in separate renders. Nothing new is announced: the row's control is already named for its
+change, so landing on it says what it is, and a second live region is exactly the double
+announcement `PendingChangesReadout`'s `announce` default exists to prevent.
+
+**The word count says what it would become.** Beside "648 / 650 words" the header appends
+"· 631 if you accept all" whenever that number is knowable. It is not a sum of per-change
+deltas: accepting is cumulative, so overlapping changes get skipped rather than applied,
+and `countWords` counts runs of non-whitespace, so a change can merge or split words at
+its own edges without changing any of its own. `word-projection.ts` rebuilds the text the
+student would be left with — in the same string space the header already counts — and
+counts it. Where it cannot be sure (a change spanning a paragraph break, overlapping
+anchors, an anchor it cannot re-find, or its own reading of the document disagreeing with
+the count on screen) it says nothing at all. **A wrong number in a student's word budget
+is worse than no number**, and the clause is the added part of that segment, so it is also
+the first thing to drop when the header gets tight (`xl:` — measured: at 1024 a realistic
+title loses half its width to it).
+
+**Outdated changes sink, and keep their text.** Rows are ordered by document position so
+a student working top-to-bottom is not bounced around their own essay, and stale rows
+sort last because they are the only ones that cannot be acted on. A stale row says
+"Outdated" in the verb slot and keeps its preview at `--essay-suggestion-stale-ink`;
+replacing the preview with the status would hide what the row was ever about. Its one
+control is Dismiss, which rejects that single change — a rejection cannot fail, and
+Reject-all would take the pending proposals with it. The list is capped at `max-h-64` and
+scrolls: eight pending changes is an ordinary revision pass, and an uncapped list of them
+pushes the essay it annotates off the bottom of the screen.
+
+**The row gap opens up on a coarse pointer, and only there** (`pointer-coarse:gap-y-5`).
+`ResolveButtons` works the *horizontal* touch arithmetic out carefully — measured 10px
+between the two hit areas once the labels collapse — but the vertical axis was left at the
+dense `gap-y-0.5` while `buttonVariants` grows every row control to a 44px target. Measured
+at 375px on a real touch context: a 32px button on a 34px row pitch, so each row's hit area
+**overlapped the next one's by 10px**, and what a stray thumb lands on is an Accept that
+rewrites the student's sentence with no undo. 20px takes the pitch to 52px and leaves a
+true 8px dead zone. Fine pointers keep the dense list, so the eight-row shape above is
+unchanged wherever it is actually real.
+
+**The list's top margin opens up with the gap** (`pointer-coarse:mt-5`), because the seam
+it guards is the worst one on the surface. Widening the row gap and leaving `mt-1.5` alone
+left `Reject all` — the safest control here, the one that changes nothing — overlapping
+row 1's Accept: measured on a real touch context at 295→339 against 333→377, a **6px
+overlap and no dead zone at all**. It resolved to the safe control only because the row's
+`::after` is clipped by the list's own overflow, which is an accident of a clip and not a
+decision. Matching the row gap puts a true 8px there too.
+
+### 15.6.1 The essay chat panel
+
+Docked at **1280px and up** (`PANEL_DOCK_BREAKPOINT_PX` in `EssayEditorRoute.tsx`), where
+it takes its 380px out of the row and the document reflows into what is left. **Below
+that it covers the document instead of splitting it.** Both halves are measured, not
+assumed: reserving 380px at 1024px leaves a 276px sheet of paper and a measure of
+eighteen characters a line, and an overlay that only covers *part* of the prose slices
+every line mid-sentence and reads as a rendering bug. Covered, the scroll column is
+`inert` — content nobody can see is content nobody should be able to Tab into. The panel
+is never a `Sheet`: it is non-modal by design, because the student keeps editing the
+essay and accepting changes while it is open.
+
+The paper's and the bar's padding steps are **container queries on the scroll column**
+(`@container/essay-canvas`, one scale in `essay-paper-inset.ts`, shared by both so a row
+label starts where the sentence it describes starts). Viewport steps were the bug: a
+`lg:px-16` keyed off the window kept paying 64px margins on a sheet of paper that no
+longer had the room.
+
+Opening animates the panel's **width** over 200ms `ease-out` — the accordion carve-out of
+§12.1 rule 2, so the paper follows it frame for frame. The paper's own `layoutId` gets
+`layoutDependency={density}`, which pins its 420ms shared-element curve to a change of
+*surface*; without a dependency a panel toggle fired that curve on one edge while the bar
+resized on the next frame. Density is constant within the editor route, so the toggle is
+still unanimated — and it does differ across the chat panel → editor handoff, which is the
+one transition the `layoutId` exists for. See §15.4.1.
+
+### 15.7 Composer
 
 `rounded-2xl` panel, `min-h-28`, focus-within border swap plus a 30% ring. Chip toolbar
 with an explicit internal rhythm (`10px | icon 16 | 6px | label | 4px | chevron 14 | 8px`).
 Enter submits, Shift+Enter newlines, IME composition is respected, and the skill picker
 intercepts keys first. The send button toggles to a stop square while streaming.
+
+The essay panel's **selection chip** sits *above* the textarea, not in the chip toolbar
+below it: what the student highlighted is the subject of the sentence they are about to
+write, not a third preference beside "Sources". It is a `Badge` with a `TextQuote` icon
+and a bespoke clear button, which therefore carries §11.8's coarse-pointer block by hand.
+
+Directly under it, and only while it is there, sit the **three selection-scoped verbs**
+("Make specific" / "Tighten" / "Show, don't tell", from `essay-quick-actions.ts` — the one
+list the panel's empty state also reads). Each sends its full prompt the moment it is
+pressed. Three things make them read as actions rather than as more settings:
+
+- **`variant="outline"`, not the composer's soft-fill chip.** The chips *below* the
+  textarea open menus; these send a message. Same composer, two consequences, so they must
+  not look like one family. Everything tactile is `buttonVariants`' own — the 150ms colour
+  hover, the rim-light that flips to a depression on press, the focus ring, §11.8's hit
+  area. Nothing is redrawn locally.
+- **`rounded-md`** (§5: "a control inside a control"), at `text-[13px]` with the explicit
+  `sm:` twin §6.3 warns about, and content-sized rather than a uniform pill row.
+- **Position is the whole affordance.** Each verb says "this"; the quoted selection
+  directly above is what gives "this" a referent, so the row is never rendered without it.
+
+Measured: 32px tall on desktop / 36px on mobile, `gap-2` giving a true 8px between hit
+areas (the buttons are wider than 44px, so the coarse-pointer block grows them only
+vertically), one line in the docked 380px panel and a clean two-line wrap at 375px.
 
 ---
 
@@ -1349,7 +1654,7 @@ Ranked. Each is small; none is speculative.
 | 7 | **Reduced-motion gaps on spinners** — `spinner.tsx:12`, `sonner.tsx:24`, `AgentRunView.tsx:42`, `ChatMessage.tsx:67` | app-wide |
 | 8 | **Two dropdown-menu implementations** — `ui/menu.tsx` (Base UI, aliased as `DropdownMenu*`, 3 importers) and `ui/dropdown-menu.tsx` (Radix, 10 importers). Same import name, different library. | ui |
 | 9 | **`AiComposer.tsx` and `ChatComposer.tsx`** are ~280-line near-duplicates | ai-composer, ai-chat |
-| 10 | **Ten unused `ai-elements` files** with zero importers | components/ai-elements |
+| 10 | **Nine unused `ai-elements` files** with zero importers | components/ai-elements |
 | 11 | **Disabled opacity split** 50 vs 64 | ui |
 | 12 | **Focus ring width split** 2px vs 3px on form controls | ui |
 | 13 | **`text-[13px]` scattered** in 22 places; promote to a `text-chrome` token. **Partially closed:** `--text-chrome` (`theme.css`) now exists and Tasks uses it in its five sites (group headers, scheduler rows, hint chips, nudge, footer). The other sites app-wide still need the sweep. | app-wide |
@@ -1364,6 +1669,7 @@ Ranked. Each is small; none is speculative.
 | 22 | **Dead tokens** — `--essay-library-card-hover`, `--essay-editor-toolbar-border` | essay.css |
 | 23 | **`transition-all` in 4 files** — violates rule 29; name the properties instead | `sidebar.tsx`, `accordion.tsx`, `meter.tsx`, `sheet.tsx` |
 | 24 | **Onboarding aliases Profile's tokens** rather than semantic ones | onboarding.css |
+| 25 | **The 420ms shared-element layout tween is off §12.2's scale** — `EssayDocumentSurface.tsx:125`, inherited from the editor route since MVP3. It is the paper's card → editor → panel morph, not the 220ms route curve; either fold it into the scale or name it a fifth tier. | essays |
 
 ---
 

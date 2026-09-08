@@ -65,6 +65,7 @@ from app.turns import (
 )
 from domain.response_mode import ResponseMode
 from domain.specs import SourceConfig
+from domain.surface import Surface
 
 router = APIRouter(tags=["sessions"])
 logger = structlog.get_logger(__name__)
@@ -107,6 +108,12 @@ class MessageBody(BaseModel):
     # it and inherit the parked record's mode (wired in Phase 3).
     response_mode: Any = None
     clarify_response: Any = None
+    # Which UI surface is asking (plan Part 0 C2). ``"chat"`` (or omitted) is
+    # the main chat; ``"essay"`` is the essay editor's panel and REQUIRES a
+    # nested ``essay_context`` of ``{essay_id, selection}`` — nested here the
+    # way ``source_config`` is, flattened to scalars below the route.
+    surface: Any = None
+    essay_context: Any = None
 
 
 class SteerBody(BaseModel):
@@ -163,6 +170,37 @@ def _response_mode_unavailable(
     from invalid input).
     """
     return response_mode is ResponseMode.THINK and not settings.response_mode_think_enabled
+
+
+def _parse_surface_request(
+    body: MessageBody, *, max_selection_chars: int
+) -> tuple[Surface, str | None, str | None] | None:
+    """``(surface, essay_id, essay_selection)``, or ``None`` when malformed.
+
+    ``essay_context`` is required iff the surface is ``essay`` — and rejected
+    otherwise, so a caller can never smuggle essay state onto a chat turn. The
+    selection is the selected TEXT (never offsets, which mean nothing to the
+    backend and drift), bounded by the same setting that bounds the essay body
+    inlined into the prompt.
+    """
+    try:
+        surface = Surface(body.surface) if body.surface is not None else Surface.CHAT
+    except ValueError:
+        return None
+    if surface is not Surface.ESSAY:
+        return (surface, None, None) if body.essay_context is None else None
+    if not isinstance(body.essay_context, dict):
+        return None
+    try:
+        essay_id = str(UUID(str(body.essay_context.get("essay_id"))))
+    except (ValueError, AttributeError, TypeError):
+        return None
+    selection = body.essay_context.get("selection")
+    if selection is not None and (
+        not isinstance(selection, str) or len(selection) > max_selection_chars
+    ):
+        return None
+    return surface, essay_id, selection or None
 
 
 #: Upper bound on a sane Last-Event-ID — well past any real buffer seq; a value
@@ -442,6 +480,22 @@ async def post_message(
             requested_response_mode = ResponseMode(body.response_mode)
         except ValueError:
             return _invalid_request(trace_id, "Invalid response mode.")  # type: ignore[return-value]
+    parsed_surface = _parse_surface_request(
+        body, max_selection_chars=settings.essay_context_max_chars
+    )
+    if parsed_surface is None:
+        return _invalid_request(trace_id, "Invalid essay panel request.")  # type: ignore[return-value]
+    surface, essay_id, essay_selection = parsed_surface
+    # Plan §7.2: the session row's own essay_id is authoritative for which essay
+    # this thread belongs to. Without this, a client bug (a stale session id held
+    # across an essay-panel route change) would silently queue essay A's
+    # suggestions onto essay B, leaving no trace in either transcript. Fails
+    # closed: a main-chat session (essay_id NULL) never accepts an essay turn.
+    session_essay_id = row.get("essay_id")
+    if surface is Surface.ESSAY and (
+        session_essay_id is None or str(session_essay_id) != essay_id
+    ):
+        return _invalid_request(trace_id, "That essay doesn't match this chat.")  # type: ignore[return-value]
     replace_message_id = (
         _valid_short_string(body.replace_message_id, max_length=64)
         if body.replace_message_id is not None
@@ -475,6 +529,9 @@ async def post_message(
             session_response_mode=ResponseMode(
                 row.get("response_mode") or ResponseMode.QUICK.value
             ),
+            surface=surface,
+            essay_id=essay_id,
+            essay_selection=essay_selection,
         )
     except StreamActive:
         return _error_json(  # type: ignore[return-value]

@@ -723,8 +723,12 @@ describe("EssayEditorPage", () => {
       ([, init]) => init?.method === "PATCH" && init.keepalive !== true,
     );
     expect(serializedDirectPatches).toHaveLength(2);
+    // The follow-up save also carries the `expected_updated_at` it learned from
+    // the first response — stanfordEssayDetail's own, since that is what the
+    // handler resolved with. Asserted exactly, so a stray field would fail.
     expect(JSON.parse(String(serializedDirectPatches[1]?.[1]?.body))).toEqual({
       content: tiptapDoc("Second draft"),
+      expected_updated_at: "2026-07-01T12:00:00Z",
     });
 
     await act(async () => {
@@ -1267,6 +1271,8 @@ describe("EssayEditorPage", () => {
     await waitFor(() => expect(fetchHandler.mock.calls).toHaveLength(2));
     expect(JSON.parse(String(fetchHandler.mock.calls[1]?.[1]?.body))).toEqual({
       content: tiptapDoc("Second draft"),
+      // The version the first (stale) response carried.
+      expected_updated_at: "2026-07-06T12:00:00Z",
     });
 
     await act(async () => {
@@ -1389,6 +1395,8 @@ describe("EssayEditorPage", () => {
     await waitFor(() => expect(fetchHandler).toHaveBeenCalledTimes(2));
     expect(JSON.parse(String(fetchHandler.mock.calls[1]?.[1]?.body))).toEqual({
       content: tiptapDoc("Baseline draft"),
+      // Learned from the first response; staleEssay inherits initialEssay's.
+      expected_updated_at: "2026-07-01T12:00:00Z",
     });
     expect(screen.getByTestId("autosave-state")).toHaveTextContent("saving");
     expect(screen.getByTestId("autosave-dirty")).toHaveTextContent("true");
