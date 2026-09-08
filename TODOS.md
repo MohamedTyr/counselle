@@ -281,17 +281,34 @@
   `window.innerWidth` against a `PANEL_DOCK_BREAKPOINT_PX` of 1280. The workspace sidebar is
   not part of that measurement, so the same viewport width means two different amounts of
   actual room depending on whether the sidebar is expanded (340px) or collapsed (48px).
-- **Why it is a TODO and not a bug:** it was measured, and it never clips the essay. Checked at
-  1024 / 1141 / 1280 / 1440 viewport widths × sidebar expanded and collapsed — eight cells, no
-  clipping and no missing scrollbar in any of them. What it does cost is one avoidable overlay:
-  at **1141px with the sidebar collapsed the content row is 1093px**, wide enough to dock a
-  380px panel beside a 690px measure, and the panel still takes the whole width. So this is a
-  layout-quality miss, not a correctness one.
-- **The fix, if it is ever worth doing:** key on the measured width of the row itself, the way
-  the main chat's document panel already does — `EssayDocumentPanel.tsx` uses a `ResizeObserver`
-  against a `MIN_DOCK_ROW_PX` floor precisely because a viewport breakpoint put the same 1280px
-  viewport on opposite sides of the threshold. That is the pattern to copy; the two surfaces
-  currently disagree about how to answer the same question.
+- **Why it is a TODO and not a bug:** it never clips the essay —
+  `document.documentElement.scrollWidth === window.innerWidth` at every width measured, before
+  and after the fix below. What it costs is one avoidable overlay: at **1141px with the sidebar
+  collapsed the content row is 1093px**, wide enough to dock a 380px panel beside a 690px
+  measure, and the panel still takes the whole width. That much is still true and still open.
+- **What this entry used to claim, and got wrong (corrected 2026-09-08):** it concluded "a
+  layout-quality miss, not a correctness one" off eight cells checked on the essay-AI-panel
+  branch — a branch with **no task rail on the essay page**. Merging it into a `main` that had
+  the tasks redesign put a 288px `EssayTasksSection` rail on the same row, keyed to Tailwind's
+  viewport `xl` (also 1280px), so the two thresholds fired together and neither could see the
+  other. At a 1280px viewport with the sidebar expanded the row is 968px, the rail took 288 and
+  the panel 380, and the essay was left **120px of paper — eleven characters a line** beside a
+  rail holding nothing but "Tasks" and an empty quick-add. Nothing clipped, nothing overflowed,
+  every test and typecheck passed, which is exactly why it survived the merge.
+- **Fixed for the rail (2026-09-08):** the `aside` is now `@4xl/essay-canvas:block` instead of
+  `xl:block` — keyed to the measured `@container/essay-canvas` column, which excludes the
+  docked panel because the panel is an in-flow flex sibling (verified: the container's content
+  box goes 1278 → 898 when the panel opens at 1600/expanded). Same container ladder
+  `essay-paper-inset.ts` already steps on, so no second threshold was introduced. Re-measured in
+  Chromium across {1280,1440,1600,1920} × {sidebar expanded, collapsed} × {panel open, closed}:
+  the worst measure went from 120px to 392px, every panel-closed cell is unchanged to the pixel,
+  and no cell overflows. The rail now yields before the paper does.
+- **Still open — the dock threshold itself.** `useIsPanelDocked` is unchanged and still keys on
+  `window.innerWidth`. The fix, if it is ever worth doing: key on the measured width of the row,
+  the way the main chat's document panel already does — `EssayDocumentPanel.tsx` uses a
+  `ResizeObserver` against a `MIN_DOCK_ROW_PX` floor precisely because a viewport breakpoint put
+  the same 1280px viewport on opposite sides of the threshold. The two surfaces still disagree
+  about how to answer the same question.
 - **Context (start here):** `EssayEditorRoute.tsx` (`useIsPanelDocked`,
   `PANEL_DOCK_BREAKPOINT_PX`) vs. `frontend/src/features/ai-chat/components/EssayDocumentPanel.tsx`
   (`PANEL_WIDTH_PX` / `MIN_CHAT_COLUMN_PX` / `MIN_DOCK_ROW_PX` and the observer).
@@ -477,3 +494,56 @@
   `frontend/src/features/essays/suggestions/SuggestionsBar.tsx`.
   `specs/essay-ai-panel/README.md` records the same three, with the measurements.
 - *(Closed on the essay AI panel branch, 2026-09-07.)*
+
+## The three public essay skills are within ~30 characters of their combined body cap
+- **What:** `essay-brainstorm` + `essay-drafting` + `essay-revision` must stay co-selectable,
+  so their bodies together must fit `MAX_SELECTED_SKILL_BODY_CHARS` (24,000). They currently
+  measure **23,973 characters — 27 to spare**, held by
+  `tests/app/test_skills.py::test_public_essay_trio_fits_selected_skill_body_budget`.
+  `essay-revision` is separately at 194 body lines against its 195-line ceiling in
+  `_BODY_LINE_LIMIT_EXCEPTIONS`. Adding a sentence to any of the three now costs a sentence
+  somewhere else in the same trio.
+- **Why it is not just "raise the cap":** the cap defends a real per-turn context limit — three
+  skill bodies plus the system prompt, the essay, and the student context all ride the same
+  turn. Growing it is a context-budget decision, not a formality.
+- **What would actually fix it:** the trio has real duplication to reclaim — the "one trusted
+  human reader" guidance appears twice in `essay-revision` alone (the essay-test section and
+  the feedback-conduct section), and the ownership/honesty lines restate `essay-honesty`, which
+  every essay skill already loads first. A dedup pass across the three would buy back room
+  without cutting anything a student's answer depends on.
+- **Context (start here):** `tests/app/test_skills.py` (the budget test and the per-skill line
+  ceilings); `app/skills.py` for `MAX_SELECTED_SKILL_BODY_CHARS`; `skills/essay-revision/`,
+  `skills/essay-drafting/`, `skills/essay-brainstorm/`.
+- **The number has only ever gone down.** 39 characters of headroom were found while
+  correcting the edits-become-suggestions wording; that correction spent 8 of them (39 → 31),
+  and the follow-up that added the turn-wide scope to `essay-revision`'s edit-mechanics bullet
+  spent 4 more (31 → 27), having already paid for most of itself by dropping "each rejectable
+  on its own" (the next bullet says it) and tightening the essay-test section's trusted-reader
+  line. Two prose fixes cost 12 characters. That is the rate to plan against.
+- *(Logged 2026-09-08; re-measured after the honesty-wording follow-up the same day.)*
+
+## The essay panel's "only this essay" promise is prompt-only, not enforced
+- **What:** `config/assets/prompts/essay_partner.md` tells the model "you cannot see or touch
+  essays other than the one loaded into this panel." The code does not make that true.
+  `_ESSAY_SURFACE_WORKSPACE_TOOLS` (`app/agent_node.py`) mounts `view_essays`, `read_essay`,
+  `edit_essay`, `write_essay`, and `update_essay` unscoped — each takes an arbitrary
+  `essay_id` and is bounded only by `WHERE user_id = $1`, so any of the student's own essays
+  is reachable from the panel. `ToolCtx.write_mode` compounds it: it is one value for the
+  whole turn, derived from the *panel's* essay (`_write_mode`, turn-start `word_count == 0`),
+  and it then governs writes to every essay that turn. A turn opened on an empty essay is in
+  `direct` mode, and a write it aims at a different, non-empty essay commits straight in.
+- **Why it is recorded and not fixed:** it is not a security hole — the user scoping is real,
+  and nothing crosses between students. It is an honesty gap of the kind this area keeps
+  producing: a sentence the model is told to believe that the server does not hold it to.
+  Scoping the tools to the panel's `essay_id` (and making `write_mode` per-essay) is a
+  contained change, but it is a behavior change to a shipped surface, not a wording fix.
+- **Why it is worth doing eventually:** the residual per-essay ambiguity in *all* of this
+  prose — `essay_partner.md`, `skills/essay-honesty`, `skills/essay-revision`, and both
+  content-tool docstrings, every one of which says "the essay" and means the panel's —
+  collapses to nothing the moment the scoping is real. It gets worse the other way: if
+  anyone ever weakens the prompt line above to match the code, the panel loses its only
+  statement of which essay it works on.
+- **Context (start here):** `app/agent_node.py` (`_ESSAY_SURFACE_WORKSPACE_TOOLS`,
+  `_write_mode`, `_load_turn_essay`), `app/workspace/agent_tools_shared.py` (`ToolCtx`),
+  `config/assets/prompts/essay_partner.md` § "You only work on this essay".
+- *(Logged 2026-09-08, found while correcting the applied-vs-proposed prose.)*
