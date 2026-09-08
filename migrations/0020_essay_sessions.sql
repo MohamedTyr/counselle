@@ -21,10 +21,15 @@
 -- archived_at and never hard-deleted, so in practice this only fires on the
 -- dev-purge / account-deletion path.
 -- Depends on 0018, not on 0019_drop_school_requirements: this migration only
--- touches counselle.sessions (0001) and counselle.essays (0007), and 0019 is
--- deliberately held unapplied pending owner sign-off (TODOS.md). Chaining onto
--- it would make applying this feature force that owner-gated drop. 0019 and
--- this migration are now independent siblings off 0018.
+-- touches counselle.sessions (0001) and counselle.essays (0007), and chaining
+-- onto 0019 would make applying this feature force that owner-gated
+-- destructive drop, which is exactly what happened before the dependency was
+-- re-pointed here. 0019 is already applied on the local database and
+-- counselle.school_requirements is gone (TODOS.md carries the state and the
+-- rollback). 0019 and this migration are now independent siblings off 0018,
+-- which only means this one no longer *requires* that drop; a bare
+-- `yoyo apply` in a fresh environment still applies everything pending, 0019
+-- included.
 -- depends: 0018_drop_essay_prompt_drafts
 
 ALTER TABLE counselle.sessions

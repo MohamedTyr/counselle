@@ -1460,10 +1460,15 @@ per the turn's `write_mode` fixed at tool-construction time. In `suggest` mode
 `{old_text, new_text}` edit **independently against the original document** —
 because the student will accept them one at a time, in any order — and refuses
 the whole batch if one edit only matches after a sibling lands. `write_essay`
-becomes one suggestion spanning the whole current draft. The one carve-out:
-an essay that is **empty** when the turn starts is written directly, because a
-first draft has no prior text to review against and an empty `old_text` has no
-anchor at all.
+becomes one suggestion spanning the whole current draft. There are two carve-outs
+for an essay with nothing in it, and they are separate mechanisms: an essay
+**empty when the turn starts** puts the whole turn in `direct` mode (`_write_mode`,
+`app/agent_node.py`), because a first draft has no prior text to review against;
+and `_suggest_full_redraft` re-checks emptiness at *call* time, committing a
+redraft of a still-blank essay rather than proposing it, because a suggestion
+whose `old_text` is empty has no anchor at all. Both say which happened in the
+tool's own reply — the second one has to, because a turn that began in `suggest`
+mode has already told the model to expect a proposal.
 
 **2 — Persistence.** `service_essays.append_suggestions` appends to
 `counselle.essays.suggestions` under the essay's row lock, leaving `content`
