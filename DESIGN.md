@@ -132,7 +132,7 @@ container *does*, never from which feature owns it.**
 | Role | Is | Takes |
 |---|---|---|
 | `--surface-raised` | an object ON the page; carries content | `--edge` + `--elevation-1` |
-| `--canvas` | the page | nothing |
+| `--canvas` | the page — pure white, and the **same colour** as `--surface-raised`; the two roles stay separate names because only one of them takes an edge and a shadow | nothing |
 | `--chrome` | the sidebar rail | `--edge` on its seam only |
 | `--surface-inset` | a well cut INTO a surface; holds or recesses something | **no border, no shadow** |
 
@@ -199,9 +199,8 @@ need one of the four surface roles.
 
 | Token | OKLCH | Hex | Role |
 |---|---|---|---|
-| `--gray-25` | `99.5% 0.002 50` | `#fffdfc` | raised |
-| `--gray-50` | `98.4% 0.004 50` | `#fcf9f7` | canvas |
-| `--gray-100` | `97.2% 0.005 50` | `#f9f5f3` | chrome |
+| `--gray-25` | `100% 0 0` | `#ffffff` | **raised *and* canvas** — the page is pure white, so an object on it is identified by `--edge` + `--elevation-1`, never by a fill step. (`--gray-50`, the old `#fcf9f7` canvas, is deleted rather than aliased: a ramp with two identical steps invites someone to re-separate them.) |
+| `--gray-100` | `97.2% 0.005 50` | `#f9f5f3` | chrome — 2.8 L points under the page, and deliberately still warm beside it |
 | `--gray-150` | `95.5% 0.006 50` | `#f4efed` | inset |
 | `--gray-200` | `93.5% 0.007 50` | `#eee8e5` | pressed inset — *not a resting level* |
 | `--gray-300` | `90.5% 0.009 50` | `#e5deda` | hairline — a divider *within* one surface |

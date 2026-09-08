@@ -67,12 +67,21 @@
    * "nested cards are always wrong" rule and it was visible from across the
    * room.
    *
-   * Steps are 1.1 / 1.2 / 1.7 lightness points. Small on purpose: at this
-   * end of the ramp that is a legible step, and the border plus elevation
-   * carry the rest. What broke before was never the size of the steps, it
-   * was that they changed hue as they went. ---- */
+   * THE PAGE IS PURE WHITE, so --canvas and --surface-raised are the same
+   * colour (#ffffff, --gray-25) and the ladder has three fills, not four.
+   * A raised object on the page is identified by --edge + --elevation-1 with
+   * no fill step at all — the two signals the ladder always leaned on, now
+   * carrying it alone. Nothing else about the law changes: one raised level
+   * per page, a card never contains a card, grouping is a --hairline.
+   *
+   * Steps are 2.8 / 1.7 lightness points, from white down. Both of them are
+   * BIGGER than the 1.1 / 1.2 / 1.7 they replace, because the ceiling moved
+   * up and everything under it stayed put: the rail in particular reads as
+   * its own plane now rather than as a border with a rumour of fill behind
+   * it. What broke before was never the size of the steps, it was that they
+   * changed hue as they went — and they still don't. ---- */
   --surface-raised: var(--gray-25);
-  --canvas: var(--gray-50);
+  --canvas: var(--gray-25);
   --chrome-surface: var(--gray-100);
   --surface-inset: var(--gray-150);
 
@@ -118,8 +127,13 @@
   /* --surface-raised-soft is gone as a distinct value. It existed because
    * --surface-raised was pure white (chroma 0) and a white card on a warm
    * board was "the single cool object in the frame", so the board needed a
-   * warm card of its own. --surface-raised is warm now, so the problem it
-   * solved does not exist and one raised value serves the whole app. */
+   * warm card of its own.
+   *
+   * Raised is pure white again, and that objection does not come back with
+   * it, because what made the white card an outlier was the warm PAGE behind
+   * the board. The page is white now: a white task card matches its page and
+   * the inset trough under it is the one warm shape, which is exactly what a
+   * well should be. One raised value still serves the whole app. */
   --surface-raised-soft: var(--surface-raised);
 
   /* ---- interaction states — ONE rule, four bases.
@@ -189,8 +203,26 @@
    * It used to sit at L 0.982 against a canvas at L 0.989 — seven
    * thousandths apart, so the separation was carried almost entirely by the
    * 1px border and the rail did not read as its own plane at all. It sits
-   * at L 0.972 now, 1.2 points under the canvas, which is a step you can
-   * actually see.
+   * at L 0.972, and against the pure-white page it is 2.8 points recessed:
+   * a step you can see across the room, and the reason the rail's own value
+   * needed no retune when the page went white.
+   *
+   * IT STAYS WARM (hue 50, chroma 0.005 — #f9f5f3), and that is the whole
+   * colour decision beside a chroma-0 page. Two candidates were on the
+   * table: this, or a neutral #f6f6f6 at the same lightness. Neutral loses,
+   * for the reason this file spent a paragraph on above — the ink, every
+   * border tier, the insets and the brand tint are all on the hue-50 ramp,
+   * so a chroma-0 rail would put the app's two temperatures back on
+   * opposite sides of one 1px seam, the exact defect the single ramp fixed.
+   * Warm also reads as a decision rather than as dirt: against white it is
+   * ivory paper beside a fresh sheet, and it carries the product's warmth
+   * now that the page no longer does.
+   *
+   * It stays at this LIGHTNESS too, rather than going deeper to celebrate
+   * the extra room. One step down would leave barely a point between the
+   * rail and --surface-inset (L 0.955), which is the rail's own search field
+   * and its recency split — the rail would gain separation from the page by
+   * spending the separation inside itself. 2.8 up, 1.7 down is the balance.
    *
    * The rail also used to be the only part of the app drawn from --stone
    * (hue 85) while the canvas beside it was --sand (hue 49). Two warm
@@ -564,12 +596,12 @@
     transparent
   );
 
-  /* ---- document / paper — the essay reading surface. Deliberately a
-   * distinct sheet from the canvas even though both are now light: pure
-   * white (one step brighter than --canvas), a real hairline border, and
-   * elevation-1 (applied by essay.css) keep it reading as paper laid on a
-   * desk rather than blending into the surrounding chrome. See the M1
-   * handoff doc for the full rationale. */
+  /* ---- document / paper — the essay reading surface. It reads as a sheet
+   * laid on a desk on the strength of its hairline border and elevation-1
+   * (applied by essay.css), not on a fill step: the page is white and so is
+   * the paper. It was one step brighter than --canvas when the canvas was
+   * #fcf9f7; that step is the one thing the white page spends, here and on
+   * every other card in the app. See the M1 handoff doc for the rest. */
   --document: var(--surface-raised);
   --document-foreground: var(--ink);
   --document-muted: var(--ink-secondary);

@@ -17,12 +17,12 @@
  * height and the shadow. The right-hand --shell-sidebar-border does the
  * separating instead, which is the same job 1a's perimeter border does.
  *
- * Worth knowing when tuning that border: the rail (#faf9f6) and --canvas
- * (#fdfbfa) are within 0.7 L points of each other, so unlike the previous
- * rail — which sat 2.5 L points recessed and read as a panel on its own —
- * the border is now carrying essentially all of the separation between
- * chrome and workspace. If it ever looks like the two have merged, that
- * border is the thing to move, not --chrome.
+ * Worth knowing when tuning that border: the rail (#f9f5f3) sits 2.8 L
+ * points under a pure-white --canvas, so the fill does the separating and
+ * --shell-sidebar-border only draws the seam. (This note used to say the
+ * opposite — 0.7 points apart, border carrying everything — which was true
+ * of a rail at #faf9f6 against a canvas at #fdfbfa. Both values have moved
+ * since.) If the two ever look merged, --chrome is the thing to move now.
  *
  * Every --shell-sidebar-* token below resolves through the same --chrome-*
  * semantic names regardless of how chrome itself is defined — this file

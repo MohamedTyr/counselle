@@ -62,15 +62,24 @@
    * legible, so they are evenly spaced and they never swap order:
    *
    *   gray-25   raised   an object ON the page      (card, dialog, field)
-   *   gray-50   canvas   the page itself
+   *             canvas   the page itself — the SAME value, see below
    *   gray-100  chrome   the sidebar rail
    *   gray-150  inset    a well cut INTO a surface  (track, trough, chip)
+   *
+   * THE PAGE IS PURE WHITE, so raised and canvas are one value. The canvas
+   * was --gray-50 (#fcf9f7) with raised 1.1 points above it at #fffdfc;
+   * white is the ceiling, so a canvas at #ffffff leaves raised nowhere to go
+   * — anything else would put every card BELOW the page it sits on, which is
+   * the depth ladder upside down. A raised surface is identified by --edge
+   * plus --elevation-1 instead, which is what the note below already said
+   * carries most of the step, and is the shape Stripe / Figma / GitHub draw.
+   * --gray-50 is deleted rather than left aliased to white: a ramp with two
+   * identical steps invites someone to re-separate them later.
    *
    * Every step below was computed with an OKLCH -> linear-sRGB -> WCAG
    * script and checked for sRGB clipping, not eyeballed; the annotated
    * hexes are the contract. Re-run the script if any step moves. ---- */
-  --gray-25: oklch(99.5% 0.002 50); /* #fffdfc  raised */
-  --gray-50: oklch(98.4% 0.004 50); /* #fcf9f7  canvas */
+  --gray-25: oklch(100% 0 0); /* #ffffff  raised + canvas */
   --gray-100: oklch(97.2% 0.005 50); /* #f9f5f3  chrome */
   --gray-150: oklch(95.5% 0.006 50); /* #f4efed  inset */
   /* The one step between `inset` and the first border tier: the pressed
@@ -87,21 +96,25 @@
    * clears it on every surface in the app (3.61 raised / 3.49 canvas /
    * 3.37 chrome / 3.21 inset). Nothing else is allowed to borrow it —
    * see the note on --edge-control in semantic.css for why a 3:1 stroke
-   * around anything that ISN'T an empty rectangle reads as a wireframe. */
+   * around anything that ISN'T an empty rectangle reads as a wireframe.
+   * (600 measures 3.64:1 on the white page, up from 3.61 on the old canvas —
+   * every edge tier got a little more room when the page went to white.) */
   --gray-300: oklch(90.5% 0.009 50); /* #e5deda  hairline */
   --gray-400: oklch(86% 0.011 50); /* #d7cfcb  edge */
   --gray-500: oklch(76% 0.014 50); /* #b9afa9  edge-strong */
   --gray-600: oklch(62% 0.016 50); /* #8f847e  edge-control (3:1) */
-  /* Ink. Four tiers, measured against all four surfaces (raised / canvas /
-   * chrome / inset):
+  /* Ink. Four tiers, measured against the three surfaces (page+raised /
+   * chrome / inset) — every one of them a little easier to read than it was,
+   * because the page it usually sits on went from #fcf9f7 to white:
    *
-   *   gray-900  ink            14.41  13.96  13.48  12.81
-   *   gray-800  ink-secondary   8.37   8.10   7.82   7.44
-   *   gray-700  ink-faint       5.45   5.28   5.10   4.85
-   *   gray-650  ink-disabled    2.64   2.56   2.47   2.35   (WCAG-exempt)
+   *   gray-900  ink            14.57  13.44  12.77
+   *   gray-800  ink-secondary   8.54   7.88   7.49
+   *   gray-700  ink-faint       5.52   5.09   4.84
+   *   gray-650  ink-disabled    2.68   2.48   2.35   (WCAG-exempt)
    *
    * Every non-exempt tier clears the 4.5:1 body floor on every surface,
-   * ink-faint with the least margin by design.
+   * ink-faint with the least margin by design — on the inset chip, which is
+   * now the darkest thing any text sits on.
    *
    * THE OLD LADDER HAD FIVE TIERS AND ONE OF THEM WAS A DUPLICATE:
    * --ink-secondary sat at L 0.42 and --ink-muted at L 0.45, three
@@ -114,12 +127,13 @@
   --gray-800: oklch(42% 0.011 50); /* #524b48  secondary */
   --gray-900: oklch(28% 0.01 50); /* #2d2825  ink */
   --gray-950: oklch(25% 0.009 50); /* #25201e  strong / wordmark */
-  /* Pure white and pure black. Deliberately OUTSIDE the ramp and named for
-   * what they are, because neither is a surface: --gray-0 is the ink drawn
-   * ON a saturated fill (white on the brand button), --gray-1000 is the
-   * base a scrim is mixed from. Nothing in the app is painted white at
-   * rest — that is --gray-25's job, and the difference is the whole reason
-   * the app stopped having one cool object in every warm frame. */
+  /* Pure white and pure black, named for their ROLE rather than as ramp
+   * steps: --gray-0 is the ink drawn ON a saturated fill (white on the brand
+   * button), --gray-1000 is the base a scrim is mixed from. --gray-0 and
+   * --gray-25 now hold the same colour and still mean different things —
+   * one is a foreground, the other a surface — so neither is an alias of the
+   * other. The warmth the app used to keep in its page fill lives in the
+   * rail, the insets, the borders and the ink instead. */
   --gray-0: oklch(100% 0 0);
   --gray-1000: oklch(11% 0 0);
 
