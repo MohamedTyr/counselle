@@ -4,8 +4,9 @@
 // quick-add bar," which for essays means adding the section for the first
 // time). Filtered to this essay's own tasks (`essay_id === essay.id`);
 // quick-add defaults `essay_id` so a task captured here is linked without
-// the student picking it manually — the same context-default pattern
-// `QuickAddTask` on the school page proved out.
+// the student picking it manually — the same context-default pattern the
+// school page's `QuickAddTask` proved out before the school-page-slim
+// refactor removed it.
 import { useMemo } from "react";
 import { useNavigate } from "react-router";
 

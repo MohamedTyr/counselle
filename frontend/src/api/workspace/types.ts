@@ -18,8 +18,6 @@ export type TaskPriority = "low" | "med" | "high";
 export type TestPlan = "submit" | "withhold" | "undecided";
 export type ApplicationPlatform =
   "common_app" | "coalition" | "school_portal" | "direct" | "other";
-export type RequirementApplicability =
-  "required" | "optional" | "not_required" | "conditional" | "unknown";
 export type TrackableRequirementKind =
   "fee" | "css_profile" | "fafsa" | "testing";
 export type ChecklistEntry = {
@@ -306,24 +304,6 @@ export type ApplicationDetail = {
   reference: SchoolReference;
 };
 
-export type ReferenceProvenance = {
-  source: string;
-  source_url: string;
-  verified_at: string;
-};
-
-export type SchoolRequirement = {
-  id: string;
-  school_unitid: number;
-  cycle_year: number;
-  kind: string;
-  label: string;
-  applicability: RequirementApplicability;
-  audience: Record<string, unknown>;
-  detail: Record<string, unknown>;
-  provenance: ReferenceProvenance;
-};
-
 export type TestPolicyReference = {
   display?: string | null;
   raw?: unknown;
@@ -340,7 +320,6 @@ export type SchoolReference = {
   status: "cycle_required" | "loaded";
   cycle_year: number | null;
   populated: boolean;
-  requirements: SchoolRequirement[];
   test_policy?: TestPolicyReference | null;
 };
 

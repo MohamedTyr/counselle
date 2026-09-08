@@ -6,6 +6,53 @@
 - **Context (start here):** `migrations/0019_tasks_redesign.sql` (the header comment lists every survivor and why); `app/workspace/service_tasks.py` (the `done_at` ↔ `status` sync); `app/workspace/service_applications.py` (the progress rollup that still reads `status`); `plans/tasks-redesign-plan.md` §1 row D6 and P1.1.
 - *(Logged from the tasks redesign, P8.4, 2026-09-04.)*
 
+## School-page-slim: `school_requirements` was dropped without owner sign-off
+- **What:** `migrations/0019_drop_school_requirements.sql` (+ `.rollback.sql`) drops
+  `counselle.school_requirements`, its two indexes, and the
+  `protect_published_requirement_facts` trigger/function. It was logged here as
+  "deliberately not run against any database" — **but it has since been applied to the
+  local `counselle` database** (`_yoyo_migration` records it at 2026-09-04 20:07 UTC, and
+  `to_regclass('counselle.school_requirements')` is now null). Whoever ran it did not
+  update this entry.
+- **Why it matters:** the reason for holding it back still stands — per `CLAUDE.md`
+  Status, the CDS extraction pipeline cutover (ADR 0036) is still awaiting owner
+  acceptance, and applying an un-signed-off schema change ahead of that acceptance is the
+  owner's call. The blast radius is small (the table was empty in every real environment;
+  the only `INSERT INTO counselle.school_requirements` in the repo is raw SQL inside a
+  test fixture, and nothing in the app reads or writes it), and
+  `0019_drop_school_requirements.rollback.sql` restores the DDL. But the decision was made
+  by accident, not by the owner, and any other environment is now drifted the other way.
+- **Do:** confirm with the owner that the drop stands. If it does, close this entry. If it
+  does not, run the rollback.
+- **Note on the duplicate prefix:** two migrations share the `0019` prefix
+  (`0019_tasks_redesign` from the tasks redesign, `0019_drop_school_requirements` from this
+  refactor) because the branches were developed in parallel and both were applied before
+  they met. They are **not** renumbered: yoyo keys on the full filename stem, both stems are
+  unique and already recorded as applied, and renaming either would make yoyo re-run it. The
+  two touch disjoint tables, so their relative order is irrelevant.
+- **Context (start here):** `plans/school-page-slim.md` Phase 3 and risk R2;
+  `migrations/0019_drop_school_requirements.sql` for the drop and its ordering rationale;
+  `migrations/0011_school_workspace.sql` lines ~100-224 for the original DDL the
+  rollback restores.
+- *(Logged from the school-page-slim refactor, Phase 3, 2026-09-04; corrected during the
+  tasks-redesign merge, 2026-09-08.)*
+
+## School-page-slim: optional follow-up column removals
+- **What:** `tasks.requirement_kind`, `applications.checklist`, `applications.platform`,
+  and `applications.platform_other` are no longer driven by any UI surface after the
+  school-page-slim refactor, but were all deliberately **kept** this round.
+- **Why:** each is still a valid, server-validated API field with no orphaning risk —
+  `requirement_kind` is free text with a regex `CHECK`, not a foreign key, so it can't be
+  orphaned by the `school_requirements` drop above; `checklist` is the student's own
+  tracking map on a separate validated patch path; `platform`/`platform_other` are
+  validated by `_validate_platform_patch`. Removing the columns is a data-model decision,
+  not a UI one, and none of them cost anything sitting unused. Only pursue this if the
+  product decides those fields are gone for good — it would need its own migration.
+- **Context (start here):** `plans/school-page-slim.md` Phase 2 step 3 and step 5;
+  `app/workspace/service_applications.py` (`_validate_platform_patch`);
+  `migrations/0011_school_workspace.sql` (original column definitions).
+- *(Logged from the school-page-slim refactor, Phase 3, 2026-09-04.)*
+
 ## Identify the owner of `cds_deploy_export` / `cds_deploy_seed`
 - **What:** two schemas exist on the live database (`cds_deploy_export`, `cds_deploy_seed`) that appear in no migration in either this repo or the retired `counselle-data-pipeline` repo. They contain static snapshot tables and are correctly inaccessible to `counselle_ro`, but nobody on this project knows what writes them.
 - **Why:** an undocumented schema on a production database is a liability — it could be dead, or it could be a deploy-tooling dependency nobody's tracked.

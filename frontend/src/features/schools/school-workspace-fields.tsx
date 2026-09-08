@@ -1,5 +1,3 @@
-import { ExternalLink } from "lucide-react";
-
 import {
   Select,
   SelectGroup,
@@ -10,27 +8,7 @@ import {
 } from "@/components/ui/select";
 import { humanize } from "@/features/schools/school-workspace-format";
 
-/* The three shared field/display components, extracted from SchoolWorkspace. */
-
-export function Provenance({
-  provenance,
-}: {
-  provenance: { source: string; source_url: string; verified_at: string };
-}) {
-  return (
-    <p className="text-xs text-muted-foreground">
-      Verified {provenance.verified_at} from{" "}
-      <a
-        className="underline underline-offset-3 hover:text-foreground"
-        href={provenance.source_url}
-        rel="noreferrer"
-        target="_blank"
-      >
-        {provenance.source} <ExternalLink className="inline size-3" />
-      </a>
-    </p>
-  );
-}
+/* The shared field component, extracted from SchoolWorkspace. */
 
 export function FieldSelect<TValue extends string>({
   label,
