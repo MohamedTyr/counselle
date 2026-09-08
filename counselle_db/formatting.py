@@ -1,4 +1,11 @@
-"""Deterministic display formatting shared by profile and (parked) packet reads."""
+"""Deterministic display formatting for profile reads (plus `hex_digest`,
+shared with the catalog).
+
+``format_cds_edition`` moved out to ``counselle_db.packets`` in
+school-data-v3 Phase 3 (Unit B) so that module — the parked CDS
+manifest/packet reader — is fully self-contained; nothing outside
+``packets.py`` reads a CDS edition label any more.
+"""
 
 from decimal import Decimal
 
@@ -11,11 +18,6 @@ def format_decimal(value: int | float) -> str:
         return integer
     fraction = fraction.rstrip("0")
     return f"{integer}.{fraction}" if fraction else integer
-
-
-def format_cds_edition(academic_year: int) -> str:
-    """Render the CDS edition whose opening year is ``academic_year``."""
-    return f"CDS {academic_year}-{(academic_year + 1) % 100:02d}"
 
 
 def hex_digest(value: bytes | bytearray | memoryview) -> str:

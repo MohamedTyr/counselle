@@ -5,12 +5,17 @@ the explore exclusion accounting all call these; nothing downstream
 re-derives a state from raw statuses on its own.
 
 Also hosts the code-owned, backend-authored strings this module accumulates
-across phases — `BAND_CAPTION` and `ENTRANCE_DIFFICULTY_NOTE` are needed
-starting this phase, because `config/assets/facts_sections.yaml` (Phase 1)
-already references them by name via `foot_ref:`; `MAJORS_MATCH_NOTE`,
-`RELIGIOUS_AFFILIATION_NOTE` and the two `not_fetched` cause clauses land
-later, as their Phase 2/3 consumers do (see this unit's final report for why
-they are not added here).
+across phases — `BAND_CAPTION` and `ENTRANCE_DIFFICULTY_NOTE` landed in
+Phase 1/2 because `config/assets/facts_sections.yaml` already references
+them by name via `foot_ref:`. `MAJORS_MATCH_NOTE` lands in Phase 3
+(school-data-v3, Unit B): it is the one canonical "matches on printed
+program name" sentence, imported by both `app/facts/service_explore.py`
+(the `/majors`/`/explore` HTTP responses) and `counselle_db/sql_guard.py`
+(the `query_database` majors two-statement rule) — the two call sites
+previously carried differently-worded local copies of the same claim.
+`RELIGIOUS_AFFILIATION_NOTE` and the two `not_fetched` cause clauses stay
+where they already live; they have exactly one consumer each, so hoisting
+them here would not remove a duplicate.
 """
 
 from __future__ import annotations
@@ -34,10 +39,21 @@ def _status_class(status: PageStatus) -> _StatusClass:
 __all__ = [
     "BAND_CAPTION",
     "ENTRANCE_DIFFICULTY_NOTE",
+    "MAJORS_MATCH_NOTE",
+    "NEVER_CHECKED_CAUSE",
+    "NOT_FETCHED_CAUSE",
     "fact_state",
     "is_stale",
     "section_state",
 ]
+
+# The two `not_fetched` caveat cause clauses (school-data-v3 Phase 3, Unit D
+# / plan §6a) -- one templated `caveats.yaml` entry (`not_fetched:
+# "{cause}, so its value is unknown -- not absent."`) picked by the same
+# `never_checked` flag `section_state` resolves, so a page that failed to
+# read and a page never attempted never share one sentence.
+NOT_FETCHED_CAUSE = "The page carrying this item could not be read on the last check"
+NEVER_CHECKED_CAUSE = "Counselle has not checked the page carrying this item yet"
 
 # plan §5.2's group `foot_ref: BAND_CAPTION` (getting-in/test-detail) — one
 # authored copy, delivered on the wire everywhere a score band appears.
@@ -50,6 +66,17 @@ BAND_CAPTION = (
 ENTRANCE_DIFFICULTY_NOTE = (
     "A published selectivity rating, not a measured value. The admit rate and score "
     "bands below are the evidence; this is someone's summary of them."
+)
+
+# plan §5.3/§6a — the one canonical "matches on printed name" sentence for
+# major-name search, rendered on the `/majors`/`/explore` HTTP responses
+# (`app/facts/service_explore.py`) and appended to `query_database`'s warning
+# on a majors-shaped query (`counselle_db/sql_guard.py`). CollegeData
+# publishes each school's major list with no standard vocabulary, so a match
+# is always on the school's own printed name.
+MAJORS_MATCH_NOTE = (
+    "Matches schools that list this exact program name. A school may offer "
+    "it under a different name."
 )
 
 

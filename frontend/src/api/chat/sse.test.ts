@@ -44,6 +44,17 @@ function cdsCitation() {
   };
 }
 
+function dbCitation() {
+  return {
+    v: 2,
+    source: "db",
+    tier: null,
+    vintage: "Counselle school data · checked May 2026",
+    school_unitid: 198419,
+    facts_updated_at: "2026-05-01",
+  };
+}
+
 function webCitation() {
   return {
     v: 2,
@@ -89,7 +100,7 @@ function currentViz() {
               excerpt: "Applicants admitted: 6.8%",
             },
             caveats: [
-              { kind: "stale_edition", text: "This value is from 2024-25." },
+              { kind: "stale_facts", text: "This value is from 2024-25." },
             ],
             marker: "[123]",
           },
@@ -109,6 +120,7 @@ function currentViz() {
         ],
       },
     ],
+    foot: [],
   };
 }
 
@@ -132,6 +144,29 @@ describe("parseSseStream", () => {
     ).toBe(false);
     expect(
       isCurrentCitation({ ...cdsCitation(), source_currentness: "undated" }),
+    ).toBe(false);
+  });
+
+  it("validates db citations carry a null tier and no school-agnostic web/document identity", () => {
+    expect(isCurrentCitation(dbCitation())).toBe(true);
+    expect(isCurrentCitation({ ...dbCitation(), facts_updated_at: null })).toBe(
+      true,
+    );
+    // Rejects: a tier (D3 — Counselle's own data carries no tier at all).
+    expect(isCurrentCitation({ ...dbCitation(), tier: "official" })).toBe(
+      false,
+    );
+    // Rejects: a URL (db citations point at no external document).
+    expect(
+      isCurrentCitation({ ...dbCitation(), url: "https://example.com" }),
+    ).toBe(false);
+    // Rejects: no school_unitid.
+    expect(
+      isCurrentCitation({ ...dbCitation(), school_unitid: undefined }),
+    ).toBe(false);
+    // Rejects: facts_updated_at on a non-db source.
+    expect(
+      isCurrentCitation({ ...webCitation(), facts_updated_at: "2026-05-01" }),
     ).toBe(false);
   });
 

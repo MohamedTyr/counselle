@@ -407,6 +407,7 @@ describe("AiChatPage", () => {
           ],
         },
       ],
+      foot: [],
     };
     fakeTransport.getSession.mockResolvedValue(
       session({

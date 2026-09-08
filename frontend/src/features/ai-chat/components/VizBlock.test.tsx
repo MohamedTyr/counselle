@@ -4,8 +4,9 @@ import type { CitationEnvelope, RenderSpec } from "@/api/chat/types";
 import { VizBlock } from "./VizBlock";
 
 function cell(
-  source: "cds" | "edu" | "reddit",
+  source: "cds" | "edu" | "reddit" | "db",
   field = "admissions.rate",
+  marker = "[12]",
 ): CitationEnvelope {
   return {
     v: 2,
@@ -15,7 +16,7 @@ function cell(
     raw: 0.12,
     available: true,
     caveats: [],
-    marker: "[12]",
+    marker,
     evidence:
       source === "cds"
         ? {
@@ -29,7 +30,7 @@ function cell(
     citation: {
       v: 2,
       source,
-      tier: source === "reddit" ? "community" : "official",
+      tier: source === "reddit" ? "community" : source === "db" ? null : "official",
       vintage: "2026",
       ...(source === "cds"
         ? {
@@ -40,7 +41,9 @@ function cell(
             manifest_version: "5.0.1",
             school_unitid: 1,
           }
-        : { url: "https://example.com" }),
+        : source === "db"
+          ? { school_unitid: 1 }
+          : { url: "https://example.com" }),
     },
   };
 }
@@ -71,6 +74,7 @@ describe("VizBlock", () => {
         { label: "CDS", cells: [cell("cds"), cell("edu")] },
         { label: "Community", cells: [cell("reddit"), unavailable] },
       ],
+      foot: [],
     };
     const { container } = render(
       <VizBlock onSourceOpen={onOpen} spec={spec} />,
@@ -97,9 +101,29 @@ describe("VizBlock", () => {
       title: "Web",
       columns: [{ unitid: null, name: "Example", domain: "example.edu" }],
       rows: [{ label: "Rate", cells: [cell("edu")] }],
+      foot: [],
     };
     expect(() => render(<VizBlock spec={spec} />)).not.toThrow();
     expect(screen.getByText("Example")).toBeInTheDocument();
+  });
+
+  test("renders no tier badge for a db-sourced cell", () => {
+    const onOpen = vi.fn();
+    const spec: RenderSpec = {
+      v: 2,
+      type: "stat_block",
+      title: "Facts",
+      columns: [{ unitid: 1, name: "North" }],
+      rows: [{ label: "Rate", cells: [cell("db", "admissions.rate", "[9]")] }],
+      foot: [],
+    };
+    render(<VizBlock onSourceOpen={onOpen} spec={spec} />);
+    expect(screen.queryByText("Official")).not.toBeInTheDocument();
+    expect(screen.queryByText("Community")).not.toBeInTheDocument();
+    const openButton = screen.getByRole("button", { name: "Open source 9" });
+    expect(openButton).toHaveTextContent("Source");
+    fireEvent.click(openButton);
+    expect(onOpen).toHaveBeenCalledWith({ index: 9 });
   });
 
   test("opaque types reveal no arbitrary payload values", () => {

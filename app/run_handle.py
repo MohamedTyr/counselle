@@ -11,8 +11,6 @@ from collections import deque
 from dataclasses import dataclass, field
 from typing import Any
 
-from app.evidence_markers import scrub_evidence_tokens
-
 
 @dataclass(frozen=True)
 class SteeringMessage:
@@ -44,8 +42,7 @@ class RunHandle:
         *,
         emissions_len: int,
     ) -> None:
-        scrubbed = scrub_evidence_tokens(messages)
-        self.messages_snapshot = scrubbed if isinstance(scrubbed, list) else []
+        self.messages_snapshot = messages
         self.snapshot_seq += 1
         self.emissions_len_at_snapshot = emissions_len
 

@@ -301,7 +301,7 @@ describe("ChatMessage", () => {
   test("keeps concurrent school-data starts live within the same streaming turn", () => {
     const schoolStep = (
       stepId: string,
-      tool: "resolve_school" | "get_domain",
+      tool: "resolve_school" | "get_facts",
     ) => ({
       type: "tool" as const,
       step: {
@@ -321,7 +321,7 @@ describe("ChatMessage", () => {
       blocks: [],
       segments: [
         schoolStep("school-1", "resolve_school"),
-        schoolStep("school-2", "get_domain"),
+        schoolStep("school-2", "get_facts"),
       ],
       text: "",
       turnStatus: "streaming",

@@ -61,7 +61,6 @@ from pydantic_graph import End
 
 from app import viz as viz_mod
 from app.clarification import ask_student_output_type, build_pending_clarification
-from app.evidence_markers import EvidenceMarkerStripper, scrub_evidence_tokens
 from app.model_selection import counselor_model_selection
 from app.model_selection import model_name_from_setting as model_name_from_setting
 from app.plan_tool import PlanReminder, PlanState, make_write_plan_tool
@@ -85,7 +84,7 @@ from app.steps import CloseReason, EmissionRouter, StepMapper
 from app.student_context import STUDENT_CONTEXT_UNAUTHENTICATED
 from app.tool_middleware import ToolMiddlewareContext, process_tool_result
 from app.tool_overflow import ToolResultStore
-from app.toolset import GATEABLE_TOOLS, build_tools, make_tool_deps
+from app.toolset import GATEABLE_TOOLS, build_db_tools, build_tools, make_tool_deps
 from app.turn_persistence import partial_messages, resolve_offset
 from app.viz_placement import StreamingVizMarkerStripper
 from app.workspace.agent_tools import build_workspace_tools
@@ -360,7 +359,7 @@ def _make_load_skill_tool(tool_overflow: ToolMiddlewareContext | None) -> Tool[A
     return Tool(load_skill_tool, takes_ctx=False)
 
 
-def _make_read_tool_result_tool(store: ToolResultStore, registry: SourceRegistry) -> Tool[Any]:
+def _make_read_tool_result_tool(store: ToolResultStore) -> Tool[Any]:
     async def read_tool_result(handle: str) -> Any:
         """Read back a full oversized tool result spilled earlier in this run.
 
@@ -370,7 +369,7 @@ def _make_read_tool_result_tool(store: ToolResultStore, registry: SourceRegistry
         Args:
             handle: The spilled tool-result handle.
         """
-        return registry.restore_pending_evidence_tokens(store.read(handle))
+        return store.read(handle)
 
     return Tool(read_tool_result, takes_ctx=False)
 
@@ -469,18 +468,9 @@ class _FinalContentPlacementWriter:
         self,
         staged_specs: list[dict[str, Any]],
         writer: Callable[[dict[str, Any]], None],
-        registry: SourceRegistry | None = None,
     ) -> None:
         self._staged_specs = staged_specs
         self._writer = writer
-        # The evidence stripper removes the hidden ``[[evidence:n:eid]]`` tokens
-        # from the visible stream and, on a valid token, promotes that exact CDS
-        # row into the sources rail. This is provenance display only — it never
-        # inspects or withholds the agent's prose. Accuracy is the agent's job,
-        # enforced solely by the inline ``[n]`` citations it writes.
-        self._evidence = EvidenceMarkerStripper(
-            registry.promote_pending_evidence if registry else lambda _index, _eid: False
-        )
         self._final_started = False
         self._flushed = False
         self._placer = _StreamingVizMarkerPlacer(staged_specs, writer)
@@ -493,7 +483,7 @@ class _FinalContentPlacementWriter:
 
     def write(self, chunk: dict[str, Any]) -> None:
         if chunk.get("type") == "delta":
-            clean = self._evidence.feed(str(chunk.get("text") or ""))
+            clean = str(chunk.get("text") or "")
             if self._final_started:
                 self._write_final_text(clean)
                 return
@@ -507,8 +497,6 @@ class _FinalContentPlacementWriter:
     def flush_final(self) -> None:
         if not self._final_started:
             return
-        if clean := self._evidence.flush():
-            self._write_final_text(clean)
         self._finish_output()
 
     def _finish_output(self) -> None:
@@ -655,9 +643,7 @@ def record_replayable_snapshot(
     if handle is None:
         return
     try:
-        messages = scrub_evidence_tokens(
-            ModelMessagesTypeAdapter.dump_python(run.all_messages(), mode="json")
-        )
+        messages = ModelMessagesTypeAdapter.dump_python(run.all_messages(), mode="json")
     except Exception:
         logger.warning("failed to serialize active run messages snapshot", exc_info=True)
         return
@@ -738,7 +724,7 @@ async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
     requested_narration = _requested_work_narration(user_text)
     viz_list: list[dict[str, Any]] = []
     viz_signature_indexes: dict[str, int] = {}
-    final_writer = _FinalContentPlacementWriter(viz_list, recording_writer, registry)
+    final_writer = _FinalContentPlacementWriter(viz_list, recording_writer)
     writer = final_writer.write
     today = date.fromisoformat(state["temporal"]["today"])
     overflow_store = ToolResultStore(state.get("tool_result_store") or {})
@@ -757,10 +743,11 @@ async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
     tool_deps = getattr(deps, "tool_deps", None) or make_tool_deps(settings, deps.catalog)
     plan_state = PlanState()
     extra_tools: list[Tool[Any]] = [
+        *build_db_tools(deps.catalog, tool_overflow),
         _make_render_viz_tool(
             deps.catalog, registry, viz_list, viz_signature_indexes, tool_overflow
         ),
-        _make_read_tool_result_tool(overflow_store, registry),
+        _make_read_tool_result_tool(overflow_store),
         _make_load_skill_tool(tool_overflow),
     ]
     if not _forbid_plan_request(user_text) and (
@@ -790,7 +777,6 @@ async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
         extra_tools=extra_tools,
         tool_overflow=tool_overflow,
     )
-    mcp_toolset = getattr(deps, "mcp_toolset", None)
 
     # Server-owned Quick/Think resolution (plans/quick-think-response-mode.md
     # §5.2): the node never accepts a browser model ID or trusts an old
@@ -853,7 +839,6 @@ async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
         instructions=instructions,
         deps_type=TurnDeps,
         tools=tools,
-        toolsets=[mcp_toolset] if mcp_toolset is not None else None,
         model_settings=model_settings,
         # A tool that fails once for a transient/schema reason gets one more chance
         # before the turn dies (pydantic_ai default is 1; see
@@ -980,9 +965,7 @@ async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
         parked_store.clear(parked_session_id, message_id, parked_user_id)
 
     if result is not None:
-        messages_out = scrub_evidence_tokens(
-            ModelMessagesTypeAdapter.dump_python(result.all_messages(), mode="json")
-        )
+        messages_out = ModelMessagesTypeAdapter.dump_python(result.all_messages(), mode="json")
         if completion_fallback:
             messages_out = _replace_empty_final_response(
                 cast(list[dict[str, Any]], messages_out), completion_fallback

@@ -75,7 +75,7 @@ def test_event_serializes_with_protocol_version_one() -> None:
 @pytest.mark.parametrize(
     "payload, expected",
     [
-        ({"metric_ref": "admissions.applicants_total"}, MetricCellInput),
+        ({"fact_key": "admissions.applicants_total"}, MetricCellInput),
         ({"profile_field": "location.city"}, ProfileCellInput),
         ({"display": "42%", "raw": 42, "marker": "[1]"}, SourcedCellInput),
         ({"unavailable": True}, UnavailableCellInput),
@@ -95,7 +95,7 @@ def test_cell_variants_are_mutually_exclusive() -> None:
         VizRowInput.model_validate(
             {
                 "label": "Applicants",
-                "cells": [{"metric_ref": "admissions.total", "unavailable": True}],
+                "cells": [{"fact_key": "admissions.total", "unavailable": True}],
             }
         )
 

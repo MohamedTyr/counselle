@@ -2,11 +2,13 @@
 
 school-data-v3 Phase 0: the CDS manifest/domain catalog ``render_viz`` used to
 validate metric refs against (the old manifest-era ``catalog.snapshot`` metric
-map) is gone —
-``CatalogSnapshot.fact_keys`` is empty until Phase 3 fills it from the facts
-store, so every metric cell honestly rejects as an unknown ref until then
-(``app/viz.py:128,352``). The comparison/stat-block cases that exercised real
-metric data are deferred to Phase 3, when ``fact_keys`` is populated.
+map) is gone. ``CatalogSnapshot.fact_keys`` is populated as of Phase 3, Unit
+B (from ``cds_library.fact_coverage``, filtered to non-``explore.*`` rows
+with ``schools_with_value > 0``) — ``ACCEPTANCE_RATE`` below is a CDS-era
+manifest ref, not a real v3 fact key, so it still honestly rejects as an
+unknown ref (``app/viz.py:128,352``), just no longer because the whole store
+is empty. The comparison/stat-block cases that exercise a real, mapped fact
+key are a later unit's (owns ``app/viz.py``).
 
 Fixture replicates ``tests/counselle_db/conftest.py``: one read-only pool +
 catalog per module on a module-scoped event loop (asyncpg pools cannot be
@@ -54,7 +56,7 @@ async def test_unknown_unitid_returns_error_without_numbers(catalog: Catalog) ->
         columns=[ColumnInput(unitid=NOT_A_UNITID)],
         rows=[
             VizRowInput(
-                label="Acceptance rate", cells=(MetricCellInput(metric_ref=ACCEPTANCE_RATE),)
+                label="Acceptance rate", cells=(MetricCellInput(fact_key=ACCEPTANCE_RATE),)
             )
         ],
     )
@@ -63,11 +65,12 @@ async def test_unknown_unitid_returns_error_without_numbers(catalog: Catalog) ->
     assert viz_emitted == []
 
 
-async def test_every_metric_cell_rejects_while_fact_keys_is_empty(catalog: Catalog) -> None:
-    """The facts store has no rows yet (school-data-v3 Phase 0-2) — a metric
-    ref can never resolve against an empty ``fact_keys``, and the agent stays
-    web-only until Phase 3 mounts the in-process DB tools over real data."""
-    assert catalog.snapshot.fact_keys == {}
+async def test_metric_cell_rejects_a_ref_not_in_fact_keys(catalog: Catalog) -> None:
+    """``fact_keys`` is populated (school-data-v3 Phase 3) but a CDS-era
+    manifest ref like ``ACCEPTANCE_RATE`` is not a real v3 fact key, so the
+    cell still honestly rejects as unknown."""
+    assert catalog.snapshot.fact_keys
+    assert ACCEPTANCE_RATE not in catalog.snapshot.fact_keys
     registry = SourceRegistry()
     viz_emitted: list[dict[str, Any]] = []
     payload = await render_viz(
@@ -78,7 +81,7 @@ async def test_every_metric_cell_rejects_while_fact_keys_is_empty(catalog: Catal
         columns=[ColumnInput(unitid=DUKE)],
         rows=[
             VizRowInput(
-                label="Acceptance rate", cells=(MetricCellInput(metric_ref=ACCEPTANCE_RATE),)
+                label="Acceptance rate", cells=(MetricCellInput(fact_key=ACCEPTANCE_RATE),)
             )
         ],
     )

@@ -68,7 +68,6 @@ def make_test_app(
     ro_pool: Any = None,
     app_pool: Any = None,
     graph: Any = None,
-    supervisor: Any = None,
     reconciler: Any = None,
     run_turn_fn: Any = None,
 ) -> FastAPI:
@@ -118,16 +117,6 @@ def make_test_app(
     _ro_pool, _ = _make_pool()
     _app_pool, _ = _make_pool()
 
-    # Fake supervisor
-    fake_supervisor = MagicMock()
-    fake_supervisor.status.return_value = {
-        "status": "ok",
-        "consecutive_failures": 0,
-        "restarts": 0,
-        "last_probe_at": None,
-        "last_error": None,
-    }
-
     # Fake reconciler
     fake_reconciler = SimpleNamespace(
         last_run=None,
@@ -163,7 +152,6 @@ def make_test_app(
         pipeline_pool=None,
     )
     app.state.reconciler = reconciler or fake_reconciler
-    app.state.mcp_supervisor = supervisor or fake_supervisor
     app.state.turn_registry = TurnRegistry(
         deps=fake_deps,
         graph=graph or fake_graph,
@@ -421,8 +409,8 @@ def test_health_returns_ok_shape_with_healthy_pools() -> None:
     assert body["db"] == "ok"
     assert body["checkpointer"] == "ok"
     assert body["rate_limiter"] == "ok"
-    assert "mcp" in body
     assert "reconciler" not in body
+    assert "mcp" not in body
     assert body["version"] == "0.1.0"
 
 

@@ -46,15 +46,13 @@ async def health(request: Request) -> JSONResponse:
     """Health check.
 
     Pings both the read-only pool and the app pool (``SELECT 1``).  Returns
-    HTTP 200 when the DB is reachable, 503 otherwise.  Reconciler state, MCP
-    supervisor status, the rate-limiter wiring (DS-06), and the facts crawl
-    worker's staleness (school-data-v3) are included for observability — a
-    mis-wired limiter (which fails open, admitting everything) or a stalled
-    crawler degrade the health status instead of being silent log-only
-    warnings.
+    HTTP 200 when the DB is reachable, 503 otherwise.  Reconciler state, the
+    rate-limiter wiring (DS-06), and the facts crawl worker's staleness
+    (school-data-v3) are included for observability — a mis-wired limiter
+    (which fails open, admitting everything) or a stalled crawler degrade
+    the health status instead of being silent log-only warnings.
     """
     runtime = request.app.state.runtime
-    supervisor = request.app.state.mcp_supervisor
 
     # --- DB health: SELECT 1 on both pools ---
     db_status = "ok"
@@ -103,7 +101,6 @@ async def health(request: Request) -> JSONResponse:
             "checkpointer": checkpointer_status,
             "rate_limiter": rate_limiter_status,
             "facts_worker": facts_worker_status,
-            "mcp": supervisor.status(),
             "version": APP_VERSION,
         },
     )

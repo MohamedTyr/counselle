@@ -30,7 +30,7 @@ steps — not a permanent identity forced on a seventeen-year-old.
 
 ## Evidence plan
 
-Use `counselor-research` for routing. In the same evidence round: DB (`get_domain`,
+Use `counselor-research` for routing. In the same evidence round: DB (`get_facts`,
 `get_school_profile`) for structure, rates, outcomes; official sources for admission
 channel, direct-entry, transfer, prerequisites, declaration timing; broad web for
 current expert context; Reddit for applicant-reported major access and rigor mismatch.

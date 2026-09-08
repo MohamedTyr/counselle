@@ -13,11 +13,13 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
+import { CounselleLogo } from "@/features/shell/CounselleLogo";
 import {
   faviconUrlForCitation,
   faviconUrlForDomain,
   safeExternalUrl,
   sourceDisplayName,
+  tierBadgeLabel,
 } from "../citations";
 import type { MessageSourcesPayload } from "./MessageSources";
 
@@ -113,6 +115,16 @@ function SourceAvatar({
     );
   }
   const citation = entry.citation;
+  // Counselle's own data (school-data-v3 D3) is never attributed to a
+  // school — always the Counselle mark, checked before any school-domain
+  // lookup so a matching viz table can never misattribute it.
+  if (citation.source === "db") {
+    return (
+      <span className={frame}>
+        <CounselleLogo aria-hidden="true" className={iconClasses} />
+      </span>
+    );
+  }
   const domain =
     citation.school_unitid != null
       ? schoolDomains.get(citation.school_unitid)
@@ -212,15 +224,17 @@ function SourceRow({
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
             <span className="truncate">{caption}</span>
-            <Badge
-              className="ml-auto shrink-0"
-              size="sm"
-              variant={
-                entry.citation.tier === "official" ? "secondary" : "outline"
-              }
-            >
-              {entry.citation.tier === "official" ? "Official" : "Community"}
-            </Badge>
+            {tierBadgeLabel(entry.citation.tier) !== null && (
+              <Badge
+                className="ml-auto shrink-0"
+                size="sm"
+                variant={
+                  entry.citation.tier === "official" ? "secondary" : "outline"
+                }
+              >
+                {tierBadgeLabel(entry.citation.tier)}
+              </Badge>
+            )}
           </div>
           {href !== undefined ? (
             <a

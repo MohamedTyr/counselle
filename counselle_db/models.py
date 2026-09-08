@@ -24,23 +24,26 @@ class SchoolBasics(FrozenModel):
     official_domain: str | None = None
 
 
-class SchoolCoverage(FrozenModel):
-    selected_year: int | None = None
-    selected_edition: str | None = None
-    document_id: int | None = None
-    currentness: str | None = None
-    stale_reason: str | None = None
-    usable_domain_count: int = 0
-    partial_domain_count: int = 0
-    usable_domain_ids: tuple[str, ...] = ()
-    latest_status: str | None = None
-    latest_error_code: str | None = None
+class SchoolFactsStatus(FrozenModel):
+    """One row of `cds_library.school_data_status` — exists for every school, even one
+    with no crosswalk row at all (`has_collegedata=False`) or no completed pass
+    (`tabs` all `never_fetched`)."""
+
+    facts_updated_at: datetime | None
+    fact_count: int
+    has_collegedata: bool
+    tabs: dict[str, str]
 
 
 class ResolvedSchool(FrozenModel):
     status: Literal["match"] = "match"
     school: SchoolBasics
-    coverage: SchoolCoverage
+    data: SchoolFactsStatus
+    # The identity vintage's date slot ("...identity profile from
+    # {snapshot_date}") — plan §5.4/§6a: `resolve_school` always mints the
+    # identity vintage, never the facts vintage, so it needs this even
+    # though `data` itself carries no snapshot date.
+    profile_snapshot_date: date
 
 
 class ResolveCandidates(FrozenModel):
@@ -96,46 +99,17 @@ class ProfileGroupResult(FrozenModel):
     valid_groups: tuple[str, ...]
 
 
-class DomainRow(FrozenModel):
-    ref: str
-    label: str
-    display: str | None
-    available: bool
-    availability_status: str | None = None
-    unit: str | None = None  # the manifest's declared unit for this metric
-    value: Any = None
-    vintage: str
-    caveat_kinds: tuple[str, ...] = ()
-    evidence: dict[str, Any] | None = None
+class FactCoverageRow(FrozenModel):
+    """One `cds_library.fact_coverage` row for a fact key `query_database` named
+    (school-data-v3 Phase 3, `sql_guard._named_fact_keys`): the denominator a
+    model must state on any cross-school aggregate or ranking, so a claim like
+    "60% of schools require testing" carries how many schools that 60% is of.
+    """
 
-
-class AvailabilitySummary(FrozenModel):
-    configured: int
-    # Source assertions whose extraction_status is verified, including
-    # evidence-backed source absences such as not_in_template_version.
-    verified: int
-    # Verified, reported metrics that carry a typed value and evidence.
-    available: int
-    not_in_template_version: int
-
-
-class DomainResult(FrozenModel):
-    school: SchoolBasics
-    domain_id: str
-    academic_year: int | None = None
-    document_id: int | None = None
-    document_sha256: str | None = None
-    source_kind: str | None = None
-    retrieved_at: datetime | None = None
-    manifest_version: str | None = None
-    packet_status: str | None = None
-    currentness: str | None = None
-    latest_status: str | None = None
-    latest_error_code: str | None = None
-    definition_match: bool | None = None
-    rows: tuple[DomainRow, ...] = ()
-    availability: AvailabilitySummary
-    summary: str
+    fact_key: str
+    schools_with_value: int
+    schools_total: int
+    as_of: datetime
 
 
 class QueryResult(FrozenModel):
@@ -145,6 +119,7 @@ class QueryResult(FrozenModel):
     truncated: bool
     as_of: datetime
     warning: str
+    coverage: tuple[FactCoverageRow, ...] = ()
 
 
 # --- CollegeData facts store (school-data-v3 Phase 2) ---
@@ -181,19 +156,11 @@ class FactValueRow(FrozenModel):
     observed_at: datetime
 
 
-class SchoolFactsStatus(FrozenModel):
-    """One row of `cds_library.school_data_status` — exists for every school, even one
-    with no crosswalk row at all (`has_collegedata=False`) or no completed pass
-    (`tabs` all `never_fetched`)."""
-
-    school_id: int
-    has_collegedata: bool
-    facts_updated_at: datetime | None
-    fact_count: int
-    tabs: dict[str, str]
-
-
 class FactsQueryResult(FrozenModel):
     school: SchoolBasics
     status: SchoolFactsStatus
     rows: tuple[FactValueRow, ...]
+    # The identity vintage's date slot — `get_facts` falls back to the
+    # identity vintage (never a facts vintage with an empty date slot) when
+    # `status.facts_updated_at` is null (plan §5.4/§6a).
+    profile_snapshot_date: date

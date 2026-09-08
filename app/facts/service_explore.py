@@ -32,7 +32,7 @@ from app.facts.explore_models import (
 from config.settings import Settings
 from counselle_db import service as db_service
 from counselle_db.catalog import Catalog
-from domain.facts.state import BAND_CAPTION, ENTRANCE_DIFFICULTY_NOTE
+from domain.facts.state import BAND_CAPTION, ENTRANCE_DIFFICULTY_NOTE, MAJORS_MATCH_NOTE
 
 __all__ = [
     "MAJORS_MATCH_NOTE",
@@ -43,14 +43,10 @@ __all__ = [
     "run_majors",
 ]
 
-# plan §5.3 places these two strings "sitting beside BAND_CAPTION in
-# domain/facts/state.py". This unit does not modify domain/facts/ (Phase
-# 1's, and the crawl is running against it) -- kept here instead, on the
-# one module that consumes them this phase. See this unit's final report.
-MAJORS_MATCH_NOTE = (
-    "Matches schools that list this exact program name. A school may offer "
-    "it under a different name."
-)
+# Re-exported for this module's existing callers/tests -- the canonical
+# string now lives in `domain/facts/state.py` (school-data-v3 Phase 3, Unit
+# B), imported by both this module and `counselle_db/sql_guard.py`'s
+# `query_database` majors rule so the two surfaces never say it two ways.
 RELIGIOUS_AFFILIATION_NOTE = (
     "Counselle holds no affiliation for these schools. That is not the same "
     "as knowing a school has none, so this is not a list of secular schools."

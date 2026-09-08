@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from difflib import SequenceMatcher
 from typing import Any
 
@@ -9,13 +10,18 @@ import structlog
 from pydantic import ValidationError
 
 from app.caveats import render_caveat
+from app.facts.service import absence_display
 from app.sources import SourceRegistry
+from app.tool_middleware import get_facts_db_citation, identity_vintage
+from app.toolset import _declared_fact_specs
 from app.viz_signature import render_spec_signature, viz_payload_signature
 from config.settings import get_settings
 from counselle_db.catalog import Catalog
-from counselle_db.models import DomainResult, ProfileGroupResult, ProfileLeaf, ServiceError
-from counselle_db.service import get_domain, get_school_profile
-from domain.envelope import Citation, CitationEnvelope, EvidenceItem
+from counselle_db.models import ProfileGroupResult, ProfileLeaf, ServiceError
+from counselle_db.service import get_facts, get_school_profile
+from domain.envelope import Citation, CitationEnvelope
+from domain.facts.models import PageStatus
+from domain.facts.state import BAND_CAPTION, fact_state
 from domain.specs import (
     ColumnInput,
     MetricCellInput,
@@ -27,6 +33,18 @@ from domain.specs import (
     VizRow,
     VizRowInput,
 )
+
+# `class_profile.*` SAT/ACT band families -- the fact keys `app/facts/service.py`'s
+# `_BAND_SCALES` also names -- render `BAND_CAPTION` under the card exactly
+# once (plan §6a's `TabularRenderSpec.foot`), the same disclosure the facts
+# page attaches to a band group.
+_BAND_KEY_SUFFIXES = ("_p25", "_p75")
+
+# `CitationEnvelope` fields only -- used to pick the envelope-shaped subset
+# of a `get_facts_db_citation`-enriched row dict (which also carries
+# `section`/`state`/`reported_period`/`vintage`/`observed_at`/`source_label`,
+# none of which `CitationEnvelope`'s `extra="forbid"` accepts).
+_ENVELOPE_FIELDS = frozenset(CitationEnvelope.model_fields)
 
 logger = structlog.get_logger(__name__)
 VizType = str
@@ -124,10 +142,8 @@ def _resolve_columns(
     return resolved, defects
 
 
-def _metric_ref(catalog: Catalog, value: str) -> tuple[str, str] | None:
-    if value.count(".") != 1 or value not in catalog.snapshot.fact_keys:
-        return None
-    return tuple(value.split(".", 1))  # type: ignore[return-value]
+def _fact_key(catalog: Catalog, value: str) -> str | None:
+    return value if value.count(".") == 1 and value in catalog.snapshot.fact_keys else None
 
 
 def _profile_ref(catalog: Catalog, value: str) -> tuple[str, str] | None:
@@ -142,75 +158,87 @@ async def _fetch_groups(
     schools: list[SchoolRef | None],
     rows: list[VizRowInput],
 ) -> tuple[
-    dict[tuple[int, str], DomainResult],
+    dict[int, dict[str, Any]],
     dict[tuple[int, str], ProfileGroupResult],
 ]:
-    metric_groups: set[tuple[int, str]] = set()
+    """Group every cell's database read by school, one `get_facts` call per
+    unitid (never per-domain -- the CDS-era grouping this replaces, plan
+    §6a) plus the existing per-profile-group `get_school_profile` reads."""
+    fact_keys_by_school: dict[int, set[str]] = {}
     profile_groups: set[tuple[int, str]] = set()
     for row in rows:
         for col, cell in enumerate(row.cells):
             school = schools[col] if col < len(schools) else None
             if school is None or school.unitid is None:
                 continue
-            if isinstance(cell, MetricCellInput) and (
-                parsed := _metric_ref(catalog, cell.metric_ref)
-            ):
-                metric_groups.add((school.unitid, parsed[0]))
+            if isinstance(cell, MetricCellInput) and _fact_key(catalog, cell.fact_key):
+                fact_keys_by_school.setdefault(school.unitid, set()).add(cell.fact_key)
             elif isinstance(cell, ProfileCellInput) and (
                 parsed_profile := _profile_ref(catalog, cell.profile_field)
             ):
                 profile_groups.add((school.unitid, parsed_profile[0]))
-    domains = {key: await get_domain(catalog, key[0], key[1]) for key in sorted(metric_groups)}
+    facts = {
+        unitid: get_facts_db_citation(
+            (await get_facts(catalog, unitid, keys=sorted(keys))).model_dump(mode="json")
+        )
+        for unitid, keys in sorted(fact_keys_by_school.items())
+    }
     profiles = {
         key: await get_school_profile(catalog, key[0], [key[1]]) for key in sorted(profile_groups)
     }
-    return domains, profiles
+    return facts, profiles
 
 
-def _db_envelope(result: DomainResult, ref: str) -> CitationEnvelope | None:
-    row = next((item for item in result.rows if item.ref == ref), None)
-    if row is None or not row.available or row.display is None or row.evidence is None:
+def _fact_envelope(payload: dict[str, Any], ref: str) -> CitationEnvelope | None:
+    """Rebuild the `db`-sourced `CitationEnvelope` for one fact key from a
+    `get_facts_db_citation`-enriched payload -- the same envelope shape the
+    `get_facts` tool hands the model, filtered down to `CitationEnvelope`'s
+    own fields (the payload's `section`/`state`/`vintage`/`observed_at`/etc.
+    are sibling data, not envelope fields, and `extra="forbid"` rejects
+    them)."""
+    row = next((item for item in payload.get("rows", []) if item.get("field") == ref), None)
+    if row is None:
         return None
-    citation = Citation(
-        source="cds",
-        tier="official",
-        vintage=row.vintage,
-        document_sha256=result.document_sha256,
-        source_kind=result.source_kind,
-        retrieved_at=result.retrieved_at,
-        academic_year=result.academic_year,
-        manifest_version=result.manifest_version,
-        school_unitid=result.school.unitid,
-    )
-    evidence = EvidenceItem.model_validate(row.evidence)
-    return CitationEnvelope(
-        field=ref,
-        label=row.label,
-        display=row.display,
-        unit=row.unit,
-        raw=row.value,
-        available=True,
-        citation=citation,
-        evidence=evidence,
-        caveats=tuple(
-            render_caveat(kind, edition=row.vintage)
-            if kind == "stale_edition"
-            else render_caveat(kind)
-            for kind in row.caveat_kinds
-        ),
+    return CitationEnvelope.model_validate({k: v for k, v in row.items() if k in _ENVELOPE_FIELDS})
+
+
+def _fact_observed_at(payload: dict[str, Any], ref: str) -> str | None:
+    row = next((item for item in payload.get("rows", []) if item.get("field") == ref), None)
+    return row.get("observed_at") if row is not None else None
+
+
+def _rejection_reason(catalog: Catalog, payload: dict[str, Any], ref: str) -> str:
+    """The corrective reason for a `fact_key` cell with no reported value --
+    the actual absence state (plan §6a's "per-row state word"), never a
+    generic message, sourced from the one absence vocabulary
+    (`domain.facts.state.fact_state` + `app.facts.service.absence_display`),
+    never authored again here."""
+    status = payload.get("status") or {}
+    has_collegedata = bool(status.get("has_collegedata"))
+    tabs: dict[str, str] = status.get("tabs") or {}
+    spec = _declared_fact_specs(catalog, None).get(ref)
+    page_status: PageStatus = tabs.get(spec.tab, "ok") if spec is not None else "ok"  # type: ignore[assignment]
+    state = fact_state(False, None, page_status, has_collegedata)
+    return (
+        f"{ref!r} is {absence_display(state, page_status).lower()} for this school; "
+        'replace this cell with {"unavailable":true}'
     )
 
 
 def _profile_envelope(result: ProfileGroupResult, ref: str) -> CitationEnvelope | None:
+    """Mint the same `db`-sourced identity citation `get_school_profile`
+    mints for this data (`app.tool_middleware._get_school_profile_db_citation`)
+    -- both read the same profile snapshot, so both must attribute it the
+    same way or a turn calling the tool and rendering a viz off the same
+    school produces two rail entries for one fact (school-data-v3 Phase 3
+    source-vocabulary resolution)."""
     leaf = _profile_leaf(result, ref)
     if leaf is None or not leaf.available or leaf.display is None:
         return None
     citation = Citation(
-        source="profile",
-        tier="official",
-        vintage=f"Profile snapshot {result.profile_snapshot_date.isoformat()}",
+        source="db",
+        vintage=identity_vintage(result.profile_snapshot_date.isoformat()),
         school_unitid=result.school.unitid,
-        profile_sha256=result.profile_sha256,
     )
     return CitationEnvelope(
         field=ref,
@@ -241,25 +269,38 @@ def _unavailable(label: str, ref: str | None = None) -> CitationEnvelope:
     )
 
 
-def _apply_mismatch(cells: list[CitationEnvelope]) -> list[CitationEnvelope]:
-    cds = [
-        cell for cell in cells if cell.available and cell.citation and cell.citation.source == "cds"
+def _apply_observed_at_spread(
+    cells: list[CitationEnvelope], observed_ats: list[str | None]
+) -> list[CitationEnvelope]:
+    """`observed_at_spread` (plan §6a): when a card compares `db`-sourced
+    facts confirmed more than `facts_spread_days` apart, every such cell
+    carries the one caveat once -- the CDS-edition-mismatch check this
+    replaces compared `academic_year`/`manifest_version` instead; the facts
+    store has no editions, only per-fact confirmation dates."""
+    db_indexes = [
+        i
+        for i, cell in enumerate(cells)
+        if cell.available
+        and cell.citation
+        and cell.citation.source == "db"
+        and i < len(observed_ats)
+        and observed_ats[i]
     ]
-    identities = {
-        (cell.citation.academic_year, cell.citation.manifest_version)
-        for cell in cds
-        if cell.citation
-    }
-    if len(identities) <= 1:
+    if len(db_indexes) <= 1:
         return cells
-    editions = ", ".join(sorted({cell.citation.vintage for cell in cds if cell.citation}))
-    caveat = render_caveat("edition_mismatch_comparison", editions=editions)
-    return [
-        cell.model_copy(update={"caveats": (*cell.caveats, caveat)})
-        if cell in cds and caveat not in cell.caveats
-        else cell
-        for cell in cells
-    ]
+    dates = {datetime.fromisoformat(observed_ats[i]).date() for i in db_indexes}  # type: ignore[arg-type]
+    if len(dates) <= 1:
+        return cells
+    spread_days = (max(dates) - min(dates)).days
+    if spread_days <= get_settings().facts_spread_days:
+        return cells
+    checked_dates = ", ".join(d.isoformat() for d in sorted(dates))
+    caveat = render_caveat("observed_at_spread", checked_dates=checked_dates)
+    updated = list(cells)
+    for i in db_indexes:
+        if caveat not in updated[i].caveats:
+            updated[i] = updated[i].model_copy(update={"caveats": (*updated[i].caveats, caveat)})
+    return updated
 
 
 def _stage_render_spec(
@@ -292,14 +333,14 @@ async def render_viz(
 ) -> dict[str, Any]:
     """Compose a verified card after reading database/search results first.
 
-    Each cell is exactly one of: ``{"metric_ref": "domain.metric"}`` (a
-    qualified CDS ref read from a prior ``get_domain`` call), ``{"profile_field":
+    Each cell is exactly one of: ``{"fact_key": "domain.metric"}`` (a
+    qualified key read from a prior ``get_facts`` call), ``{"profile_field":
     "group.field"}`` (from ``get_school_profile``), ``{"display": "...", "raw":
     ..., "marker": "[n]"}`` for an external web/edu/reddit marker already
     registered this turn, or ``{"unavailable": true}`` for a genuine, declared
     hole. Database refs are fetched here in-process; sourced citations are
     copied verbatim from the turn's source registry — never merge or author
-    citation metadata. Never pair a sourced marker cell with a CDS/profile ref
+    citation metadata. Never pair a sourced marker cell with a db/profile ref
     cell as if they were the same channel of truth.
 
     Validation runs before any fetch, including the configured max-cell
@@ -329,7 +370,7 @@ async def render_viz(
     if defects:
         return {"ok": False, "status": "rejected", "rejected_cells": defects, "valid_cells": 0}
     try:
-        domains, profiles = await _fetch_groups(catalog, schools, rows)
+        facts, profiles = await _fetch_groups(catalog, schools, rows)
     except ServiceError as exc:
         return {
             "ok": False,
@@ -348,6 +389,8 @@ async def render_viz(
 
     candidate_registry = registry.fork()
     flat: list[CitationEnvelope] = []
+    observed_ats: list[str | None] = []
+    band_fact_keys: set[str] = set()
     valid_cells = 0
     metric_choices = list(catalog.snapshot.fact_keys)
     for row_index, row in enumerate(rows):
@@ -355,6 +398,7 @@ async def render_viz(
             school = schools[col]
             envelope: CitationEnvelope | None = None
             reason: str | None = None
+            observed_at: str | None = None
             if school is None:
                 reason = "column identity is invalid"
             elif isinstance(cell, UnavailableCellInput):
@@ -386,21 +430,22 @@ async def render_viz(
             elif school.unitid is None:
                 reason = "web-only columns cannot resolve database references"
             elif isinstance(cell, MetricCellInput):
-                parsed = _metric_ref(catalog, cell.metric_ref)
+                parsed = _fact_key(catalog, cell.fact_key)
                 if parsed is None:
-                    domain = cell.metric_ref.split(".", 1)[0]
+                    domain = cell.fact_key.split(".", 1)[0]
                     choices = [ref for ref in metric_choices if ref.startswith(f"{domain}.")]
                     reason = (
-                        f"unknown metric_ref {cell.metric_ref!r}"
-                        f"{_suggest(cell.metric_ref, choices)}"
+                        f"unknown fact_key {cell.fact_key!r}" f"{_suggest(cell.fact_key, choices)}"
                     )
                 else:
-                    envelope = _db_envelope(domains[(school.unitid, parsed[0])], cell.metric_ref)
+                    payload = facts[school.unitid]
+                    envelope = _fact_envelope(payload, cell.fact_key)
                     if envelope is None:
-                        reason = (
-                            f"{cell.metric_ref!r} is unavailable; replace this cell "
-                            'with {"unavailable":true}'
-                        )
+                        reason = _rejection_reason(catalog, payload, cell.fact_key)
+                    else:
+                        if cell.fact_key.endswith(_BAND_KEY_SUFFIXES):
+                            band_fact_keys.add(cell.fact_key)
+                        observed_at = _fact_observed_at(payload, cell.fact_key)
             elif isinstance(cell, ProfileCellInput):
                 parsed_profile = _profile_ref(catalog, cell.profile_field)
                 if parsed_profile is None:
@@ -432,6 +477,7 @@ async def render_viz(
                 valid_cells += 1
                 assert envelope is not None  # nosec B101 - reason branch proves this
                 flat.append(envelope)
+                observed_ats.append(observed_at)
     if defects:
         return {
             "ok": False,
@@ -451,7 +497,7 @@ async def render_viz(
             "valid_cells": valid_cells,
         }
 
-    flat = _apply_mismatch(flat)
+    flat = _apply_observed_at_spread(flat, observed_ats)
     markers: set[int] = set()
     resolved_rows: list[VizRow] = []
     offset = 0
@@ -463,18 +509,20 @@ async def render_viz(
                 if marker is None:
                     school = schools[len(resolved_cells)]
                     assert school is not None  # nosec B101 - validated before flattening
-                    if (
-                        resolved_cell.citation.source == "cds"
-                        or resolved_cell.citation.source == "profile"
-                    ):
+                    if resolved_cell.citation.source in {"cds", "db"}:
+                        # "cds" kept defensively for a resumed pre-migration
+                        # session whose candidate registry still carries an
+                        # old cds citation (SourceName's docstring); "db"
+                        # vintages never embed the school name (school-data-v3
+                        # Phase 3), so every school needs it prefixed here or
+                        # two schools sharing one vintage string render
+                        # identically in the rail despite distinct markers.
                         label = f"{school.name} — {resolved_cell.citation.vintage}"
                     else:
                         label = resolved_cell.citation.vintage
                     marker = candidate_registry.register_source(resolved_cell.citation, label)
                 marker_index = int(marker[1:-1])
                 markers.add(marker_index)
-                if resolved_cell.evidence is not None:
-                    candidate_registry.register_used_evidence(marker_index, resolved_cell.evidence)
                 resolved_cell = resolved_cell.model_copy(update={"marker": marker})
             resolved_cells.append(resolved_cell)
         resolved_rows.append(
@@ -491,6 +539,7 @@ async def render_viz(
         title=title or (" vs ".join(s.name for s in schools if s) or "Comparison"),
         columns=tuple(s for s in schools if s is not None),
         rows=tuple(resolved_rows),
+        foot=(BAND_CAPTION,) if band_fact_keys else (),
     )
     staged = list(viz_emitted)
     indexes = dict(viz_signature_indexes) if viz_signature_indexes is not None else None

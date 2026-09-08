@@ -8,7 +8,6 @@ Postgres DB (``counselle_ro`` + ``counselle_app`` roles), but with:
 - FunctionModel injected via ``AppDeps.model_factory`` — zero Gemini calls.
 - InMemorySaver for the checkpointer — no Postgres checkpoint rows to clean up
   for most tests (durability tests live in tests/app/test_durability.py).
-- ``mcp_toolset=None`` — no counselle-db MCP stdio child.
 - ``build_temporal_context`` and ``build_system_prompt`` patched (same hermetic
   patch as tests/app/test_run_turn.py) — no RO DB call in prepare.
 
@@ -150,25 +149,6 @@ class _FakeReconciler:
         }
 
 
-class _FakeSupervisor:
-    """No-op MCP supervisor: status is always 'ok', no background task."""
-
-    def start(self) -> None:
-        pass
-
-    async def aclose(self) -> None:
-        pass
-
-    def status(self) -> dict[str, Any]:
-        return {
-            "status": "ok",
-            "consecutive_failures": 0,
-            "restarts": 0,
-            "last_probe_at": None,
-            "last_error": None,
-        }
-
-
 # ---------------------------------------------------------------------------
 # Test Runtime factory
 # ---------------------------------------------------------------------------
@@ -204,7 +184,6 @@ async def _build_test_runtime(model_factory: Any = None) -> tuple[Runtime, Runti
 
     test_deps = replace(
         orig.deps,
-        mcp_toolset=None,  # no MCP stdio child in tests
         model_factory=model_factory or (lambda: simple_text_model()),
     )
     # InMemorySaver keeps tests independent (no checkpoint rows to clean up)
@@ -252,7 +231,6 @@ def _build_live_app(
     app.state.settings = settings
     app.state.runtime = runtime
     app.state.reconciler = _FakeReconciler()
-    app.state.mcp_supervisor = _FakeSupervisor()
     app.state.turn_registry = TurnRegistry(
         deps=runtime.deps, graph=runtime.graph, settings=settings, run_turn_fn=run_turn_fn
     )
@@ -283,7 +261,6 @@ def _build_auth_app(runtime: Runtime, run_turn_fn: Any = None) -> FastAPI:
     app.state.settings = settings
     app.state.runtime = runtime
     app.state.reconciler = _FakeReconciler()
-    app.state.mcp_supervisor = _FakeSupervisor()
     app.state.turn_registry = TurnRegistry(
         deps=runtime.deps, graph=runtime.graph, settings=settings, run_turn_fn=run_turn_fn
     )

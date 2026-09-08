@@ -24,7 +24,7 @@ function entry(index: number, source: SourceName): SourceEntry {
     citation: {
       v: 2,
       source,
-      tier: source === "reddit" ? "community" : "official",
+      tier: source === "db" ? null : source === "reddit" ? "community" : "official",
       vintage: "2026",
       ...(source === "cds"
         ? {
@@ -39,6 +39,7 @@ function entry(index: number, source: SourceName): SourceEntry {
       ...(source === "profile"
         ? { school_unitid: 1, profile_sha256: "b".repeat(64) }
         : {}),
+      ...(source === "db" ? { school_unitid: 1 } : {}),
       ...(["web", "edu", "reddit"].includes(source)
         ? { url: "https://example.com/a" }
         : {}),
@@ -153,5 +154,24 @@ describe("CitationRenderer", () => {
     );
     await screen.findByRole("button", { name: "Open source: Common Data Set" });
     expect(withoutDomain.container.querySelector("img")).toBeNull();
+  });
+
+  test("db chip shows the Counselle mark, never a school favicon, even when a matching viz domain exists", async () => {
+    const schoolDomains = new Map([[1, "yale.edu"]]);
+    const { container } = render(
+      <CitationRenderer
+        markdown="Claim [1]."
+        schoolDomains={schoolDomains}
+        sources={[entry(1, "db")]}
+      />,
+    );
+    await screen.findByRole("button", { name: "Open source: Counselle" });
+    // No <img> favicon anywhere in the chip — the Counselle mark is an
+    // inline <svg>, and school-data-v3 D3 forbids ever attributing
+    // Counselle's own data to the school it describes.
+    expect(container.querySelector("img")).toBeNull();
+    expect(container.querySelector("svg")).not.toBeNull();
+    expect(screen.queryByText("Official")).not.toBeInTheDocument();
+    expect(screen.queryByText("Community")).not.toBeInTheDocument();
   });
 });

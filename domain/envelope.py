@@ -4,24 +4,59 @@ from __future__ import annotations
 
 import math
 import re
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 type JsonScalar = str | int | float | bool
 type JsonValue = JsonScalar | list[JsonValue] | dict[str, JsonValue] | None
-SourceName = Literal["cds", "profile", "web", "edu", "reddit"]
+# "db" added school-data-v3 Phase 3 (Unit B) -- Counselle's own CollegeData
+# facts store, minted by `app/tool_middleware.py` for `get_facts`,
+# `get_school_profile`, and `resolve_school` (plan §5.4/§6a). Nothing mints
+# "cds" or "profile" any more (`get_domain` is deleted; `app/viz.py`'s
+# profile-cell path moved onto "db" in the source-vocabulary resolution
+# unit) -- but appendix F-iii's call to retire both from this Literal is
+# WRONG and must not be done: sessions are durable via the LangGraph
+# Postgres checkpointer with no backfill migration (ADR 0019), and
+# `RegisteredSource.citation` (`app/state.py`) re-validates every persisted
+# `source_registry` entry against this exact `Citation` model on every read
+# of a session's turn history (`app/turns.py`, `app/agent_node.py`,
+# `app/run_turn.py`) -- not just on resume. A session that ever called
+# `get_domain` (live 2026-08-27 to this unit) or the pre-F9
+# `get_school_profile` (which minted "profile", not "db", until this same
+# Phase 3) still carries those literals in its checkpointed state. Dropping
+# them from `SourceName` would not fail a test -- it would throw the moment
+# a real session's history is next read. "cds" and "profile" are therefore
+# kept as read-only/replay-only members: no code may mint them again (only
+# "db" for this data going forward), but the type must keep accepting them.
+SourceName = Literal["cds", "profile", "web", "edu", "reddit", "db"]
 Tier = Literal["official", "community"]
 SourceCurrentness = Literal["current", "historical", "undated"]
 SourcePeriodBasis = Literal["page_content", "metadata"]
 
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
 
+# The eight v3 caveat kinds (school-data-v3 Phase 3, Unit D; plan §6a).
+# `config/assets/caveats.yaml` and `app/caveats.py::caveat_catalog()`'s
+# expected-kind set are pinned equal to this literal by a test
+# (`tests/app/test_caveats.py`) -- this is the one place the set is spelled
+# out; the other two derive from it or are checked against it.
+CaveatKind = Literal[
+    "profile_snapshot",
+    "coverage_denominator",
+    "not_reported",
+    "not_collected",
+    "not_fetched",
+    "not_published",
+    "stale_facts",
+    "observed_at_spread",
+]
+
 
 class Caveat(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
-    kind: str = Field(pattern=r"^[a-z][a-z0-9_]*$")
+    kind: CaveatKind
     text: str = Field(min_length=1)
 
 
@@ -41,7 +76,11 @@ class Citation(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
     v: Literal[2] = 2
     source: SourceName
-    tier: Tier
+    # `None` only for "db" (Counselle's own data carries no source tier,
+    # school-data-v3 §5.4); required for every other source -- enforced
+    # below, not by the type, so a missing tier on cds/profile/web/edu/reddit
+    # still fails loudly instead of silently defaulting.
+    tier: Tier | None = None
     vintage: str = Field(min_length=1)
     url: str | None = None
     document_sha256: str | None = None
@@ -51,6 +90,11 @@ class Citation(BaseModel):
     manifest_version: str | None = None
     school_unitid: int | None = None
     profile_sha256: str | None = None
+    # "db"-only (school-data-v3 §5.4): when Counselle last confirmed this
+    # school's facts. `None` on a `db` citation minting the identity vintage
+    # instead (no facts vintage over a null confirmation date); always
+    # `None` on every other source.
+    facts_updated_at: date | None = None
     source_period: str | None = None
     source_period_basis: SourcePeriodBasis | None = None
     source_period_evidence: str | None = None
@@ -80,6 +124,8 @@ class Citation(BaseModel):
                 raise ValueError("CDS citations require their complete official document identity")
             if self.profile_sha256 is not None:
                 raise ValueError("CDS citations cannot carry profile identity")
+            if self.facts_updated_at is not None:
+                raise ValueError("CDS citations cannot carry a facts-store confirmation date")
         elif self.source == "profile":
             if self.tier != "official" or not (
                 self.school_unitid
@@ -89,22 +135,35 @@ class Citation(BaseModel):
                 raise ValueError("profile citations require their official snapshot identity")
             if any(db_fields[:5]):
                 raise ValueError("profile citations cannot carry CDS document identity")
+            if self.facts_updated_at is not None:
+                raise ValueError("profile citations cannot carry a facts-store confirmation date")
+        elif self.source == "db":
+            if self.tier is not None:
+                raise ValueError("Counselle database citations carry no source tier")
+            if not self.school_unitid:
+                raise ValueError("database citations require the school they describe")
+            if self.url is not None:
+                raise ValueError("database citations carry no source URL")
+            if any(db_fields[:5]) or self.profile_sha256 is not None:
+                raise ValueError("database citations cannot carry CDS/profile document identity")
         else:
-            if not self.url:
-                raise ValueError(f"{self.source} citations require a URL")
+            if self.tier is None or not self.url:
+                raise ValueError(f"{self.source} citations require a URL and a tier")
             if self.source == "reddit" and self.tier != "community":
                 raise ValueError("reddit citations require tier community")
             if self.source == "edu" and self.tier != "official":
                 raise ValueError("edu citations require tier official")
             if any(db_fields):
                 raise ValueError("external citations cannot carry database identity")
+            if self.facts_updated_at is not None:
+                raise ValueError("external citations cannot carry a facts-store confirmation date")
         period_fields = (
             self.source_period,
             self.source_period_basis,
             self.source_period_evidence,
             self.source_currentness,
         )
-        if self.source in {"cds", "profile"} and any(period_fields):
+        if self.source in {"cds", "profile", "db"} and any(period_fields):
             raise ValueError("database citations cannot carry web source-period evidence")
         if self.source_currentness in {"current", "historical"} and not all(
             period_fields[:3]

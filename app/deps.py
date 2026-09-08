@@ -2,9 +2,9 @@
 
 :class:`AppDeps` extends :class:`app.graph.GraphDeps` with everything the agent
 node needs beyond state: the settings surface, the per-app Tavily tool deps,
-the always-on counselle-db MCP toolset, and the **model factory seam** — unit
-tests inject ``FunctionModel``/``TestModel`` here; ``None`` means the real
-Gemini via :func:`app.agent_node.default_model_factory` (notes-p4-apis §1).
+and the **model factory seam** — unit tests inject ``FunctionModel``/
+``TestModel`` here; ``None`` means the real Gemini via
+:func:`app.agent_node.default_model_factory` (notes-p4-apis §1).
 
 :func:`build_runtime` is the one production wiring path (chat CLI now, the
 FastAPI lifespan in Phase 5): RO pool + catalog, app pool, durable checkpointer,
@@ -21,13 +21,12 @@ from typing import Any
 import asyncpg
 import structlog
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
-from pydantic_ai.mcp import MCPToolset
 from pydantic_ai.models import Model
 
 from app.checkpointer import build_checkpointer
 from app.graph import GraphDeps, build_graph
 from app.run_handle import RunHandleStore
-from app.toolset import ToolDeps, build_mcp_toolset, make_tool_deps
+from app.toolset import ToolDeps, make_tool_deps
 from app.workspace.changes import WorkspaceEventBus
 from app.workspace.document_summary import DocumentSummaryGenerator, make_document_summary_generator
 from config.settings import get_settings
@@ -43,20 +42,13 @@ class AppDeps(GraphDeps):
 
     Every extra field defaults to ``None``; the agent node falls back to the
     production wiring (``get_settings()`` / ``make_tool_deps`` / the real
-    GoogleModel) when a seam is unset. ``mcp_toolset=None`` mounts no MCP
-    toolset at all — what unit tests want (no stdio child).
-
-    ``on_failure`` is an optional zero-arg hook called (guarded, never raises)
-    when run_turn's outer exception handler fires — used by the API to kick
-    the MCP supervisor for prompt recovery (FIX 3, api/supervision.py).
+    GoogleModel) when a seam is unset.
     """
 
     settings: Any = None  # config.settings.Settings (Any: tests pass a namespace)
     run_handles: RunHandleStore | None = field(default_factory=RunHandleStore)
     tool_deps: ToolDeps | None = None
-    mcp_toolset: MCPToolset | None = None
     model_factory: Callable[[], Model] | None = None
-    on_failure: Callable[[], None] | None = field(default=None)
     workspace_events: WorkspaceEventBus | None = None
     document_summary_generator: DocumentSummaryGenerator | None = None
 
@@ -94,7 +86,6 @@ async def build_runtime(settings: Any = None) -> Runtime:
     try:
         catalog = await Catalog.load(ro_pool, settings=settings)
         tool_deps = make_tool_deps(settings, catalog)
-        mcp_toolset = build_mcp_toolset(settings) if settings.cds_data_enabled else None
         app_pool = await create_pool(dsn=settings.db_app_dsn, settings=settings)
     except BaseException:
         await ro_pool.close()
@@ -129,7 +120,6 @@ async def build_runtime(settings: Any = None) -> Runtime:
         settings=settings,
         run_handles=RunHandleStore(),
         tool_deps=tool_deps,
-        mcp_toolset=mcp_toolset,
         workspace_events=WorkspaceEventBus(queue_size=settings.workspace_event_queue_size),
         document_summary_generator=make_document_summary_generator(settings),
     )

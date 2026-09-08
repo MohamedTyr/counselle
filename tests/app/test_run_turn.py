@@ -51,13 +51,12 @@ from app.graph import build_graph
 from app.records import build_turn_record, prose_of
 from app.run_handle import RunHandleStore
 from app.run_turn import run_turn
-from app.sources import SourceRegistry
 from app.state import TemporalContext
 from app.steps import EmissionRouter
 from app.toolset import ToolDeps
 from app.transcript import extract_transcript
 from app.viz_signature import render_spec_signature, viz_payload_signature
-from domain.envelope import Citation, EvidenceItem
+from domain.envelope import Citation
 from domain.events import Event
 from domain.response_mode import ResponseMode
 from domain.season import Season
@@ -244,7 +243,6 @@ class Rig:
                 subreddit_menu=["ApplyingToCollege", "{school}"],
                 tavily_client_factory=lambda: self.tavily,
             ),
-            mcp_toolset=None,
             model_factory=lambda: model,
         )
         self.graph = build_graph(InMemorySaver(), self.deps)
@@ -270,7 +268,7 @@ class Rig:
         ]
 
 
-async def test_real_graph_interrupt_parks_pending_evidence_and_resume_promotes_it(
+async def test_real_graph_interrupt_parks_sources_and_resume_keeps_them(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     citation = Citation(
@@ -296,13 +294,6 @@ async def test_real_graph_interrupt_parks_pending_evidence_and_resume_promotes_i
                 "display": "50,000",
                 "available": True,
                 "citation": citation.model_dump(mode="json"),
-                "evidence": {
-                    "eid": "admissions.applicants",
-                    "value_display": "50,000",
-                    "label": "Applicants",
-                    "page": 3,
-                    "excerpt": "Applicants total 50,000.",
-                },
             }
         raise GraphInterrupt(
             [
@@ -335,13 +326,7 @@ async def test_real_graph_interrupt_parks_pending_evidence_and_resume_promotes_i
             "",
         )
         if "student answered the earlier clarification" in prompt:
-            return ModelResponse(
-                parts=[
-                    TextPart(
-                        "There were 50,000 applicants [1][[evidence:1:admissions.applicants]]."
-                    )
-                ]
-            )
+            return ModelResponse(parts=[TextPart("There were 50,000 applicants [1].")])
         returned = [
             part
             for message in messages
@@ -364,24 +349,21 @@ async def test_real_graph_interrupt_parks_pending_evidence_and_resume_promotes_i
     assert rig.deps.parked_sources.restore(session_id, meta["message_id"], str(uuid4())) is None
     parked = rig.deps.parked_sources.restore(session_id, meta["message_id"], user_id)
     assert parked is not None
-    assert parked.promote_pending_evidence(1, "admissions.applicants")
+    assert len(parked.entries) == 1
+    assert parked.entries[0].citation == citation
 
     resumed = await rig.turn(session_id, "2024", _ALL_OFF, user_id=user_id)
     assert resumed[-1].data["status"] == "complete"
-    assert "[[evidence:" not in "".join(
-        event.data.get("text", "") for event in resumed if isinstance(event.data, dict)
-    )
     source_event = next(event for event in resumed if event.type == "sources")
-    assert source_event.data["sources"][0]["evidence"][0]["eid"] == "admissions.applicants"
+    assert source_event.data["sources"][0]["citation"]["document_sha256"] == "a" * 64
     assert rig.deps.parked_sources.restore(session_id, meta["message_id"], user_id) is None
 
 
-async def test_sse_and_transcript_stream_unvalidated_marker_and_promote_evidence(
+async def test_sse_and_transcript_stream_unvalidated_marker_verbatim(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """The runtime never inspects or withholds the agent's prose: an unregistered
-    marker ([2]) streams verbatim, while the hidden [[evidence]] token still
-    strips from view and promotes its exact CDS row into the sources rail."""
+    marker ([2]) streams verbatim."""
     citation = Citation(
         source="cds",
         tier="official",
@@ -403,13 +385,6 @@ async def test_sse_and_transcript_stream_unvalidated_marker_and_promote_evidence
             "display": "6,814",
             "available": True,
             "citation": citation.model_dump(mode="json"),
-            "evidence": {
-                "eid": "enrollment.undergraduate_total",
-                "value_display": "6,814",
-                "label": "Undergraduate enrollment",
-                "page": 4,
-                "excerpt": "Undergraduate enrollment 6,814.",
-            },
         },
     )
 
@@ -426,21 +401,13 @@ async def test_sse_and_transcript_stream_unvalidated_marker_and_promote_evidence
             return ModelResponse(
                 parts=[ToolCallPart(tool_name="load_skill", args={"name": "test"})]
             )
-        return ModelResponse(
-            parts=[
-                TextPart(
-                    "Undergraduate enrollment was 6,814 [2]"
-                    "[[evidence:1:enrollment.undergraduate_total]]."
-                )
-            ]
-        )
+        return ModelResponse(parts=[TextPart("Undergraduate enrollment was 6,814 [2].")])
 
     rig = Rig(_fn_model(model))
     session_id = str(uuid4())
     events = await rig.turn(session_id, "What is Yale enrollment?", _ALL_OFF)
 
     assert _text(events) == "Undergraduate enrollment was 6,814 [2]."
-    assert "[[evidence:" not in _text(events)
     source_event = next(event for event in events if event.type == "sources")
     assert source_event.data["sources"][0]["index"] == 1
     assert events[-1].type == "done"
@@ -625,7 +592,6 @@ async def _run_node_capturing_model_settings(
             subreddit_menu=[],
             tavily_client_factory=lambda: StubTavilyClient(),
         ),
-        mcp_toolset=None,
         model_factory=lambda: cast(Any, object()),
     )
 
@@ -2019,34 +1985,6 @@ async def test_post_run_aget_state_failure_falls_back_to_stream_registry(
 
 
 # ---------------------------------------------------------------------------
-# (g) FIX 3: on_failure hook is called when the agent node raises
-# ---------------------------------------------------------------------------
-
-
-async def test_on_failure_hook_called_when_turn_fails() -> None:
-    """When the graph raises an unexpected exception, deps.on_failure is invoked."""
-    hook_calls: list[int] = [0]
-
-    def on_failure() -> None:
-        hook_calls[0] += 1
-
-    # A model that always raises to force run_turn's outer exception handler
-    def always_raises(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
-        raise RuntimeError("agent node exploded")
-
-    rig = Rig(_fn_model(always_raises))
-    # Inject the hook into deps
-    rig.deps.on_failure = on_failure
-
-    events = await rig.turn(str(uuid4()), "hi", _ALL_OFF)
-
-    # The turn must yield an error event (not propagate the exception)
-    assert "error" in _types(events)
-    # And the hook must have been called once
-    assert hook_calls[0] == 1, f"on_failure called {hook_calls[0]} times, expected 1"
-
-
-# ---------------------------------------------------------------------------
 # (h) B1a: step/thinking events in the run_turn stream
 # ---------------------------------------------------------------------------
 
@@ -2417,7 +2355,7 @@ def _two_viz_then_answer(messages: list[ModelMessage], info: AgentInfo) -> Model
                 args={
                     "type": "stat_block",
                     "columns": [{"unitid": 1}],
-                    "rows": [{"label": "Rate", "cells": [{"metric_ref": "admissions.rate"}]}],
+                    "rows": [{"label": "Rate", "cells": [{"fact_key": "admissions.rate"}]}],
                     "title": "Card one",
                 },
             ),
@@ -2426,7 +2364,7 @@ def _two_viz_then_answer(messages: list[ModelMessage], info: AgentInfo) -> Model
                 args={
                     "type": "stat_block",
                     "columns": [{"unitid": 1}],
-                    "rows": [{"label": "Net price", "cells": [{"metric_ref": "cost.net_price"}]}],
+                    "rows": [{"label": "Net price", "cells": [{"fact_key": "cost.net_price"}]}],
                     "title": "Card two",
                 },
             ),
@@ -2451,7 +2389,7 @@ def _viz_marker_then_answer(messages: list[ModelMessage], info: AgentInfo) -> Mo
                 args={
                     "type": "stat_block",
                     "columns": [{"unitid": 1}],
-                    "rows": [{"label": "Rate", "cells": [{"metric_ref": "admissions.rate"}]}],
+                    "rows": [{"label": "Rate", "cells": [{"fact_key": "admissions.rate"}]}],
                     "title": "Inline card",
                 },
             )
@@ -2689,152 +2627,18 @@ def test_final_writer_streams_staged_viz_answer_deltas_incrementally() -> None:
     ]
 
 
-def test_final_writer_strips_evidence_token_and_promotes_row_while_marker_streams() -> None:
-    """Provenance display only: the hidden [[evidence]] token is scrubbed from the
-    visible stream and promotes its exact CDS row to the sources rail, while the
-    visible [n] marker streams unchanged. The writer never inspects the prose."""
-    citation = Citation(
-        source="cds",
-        tier="official",
-        vintage="Common Data Set 2024-25",
-        document_sha256="a" * 64,
-        source_kind="cds_pdf",
-        retrieved_at=datetime(2026, 7, 1, tzinfo=UTC),
-        academic_year=2024,
-        manifest_version="5.0.2",
-        school_unitid=130794,
-    )
-    evidence = EvidenceItem(
-        eid="enrollment.undergraduate_total",
-        value_display="6,814",
-        label="Undergraduate enrollment",
-        page=4,
-        excerpt="Undergraduate enrollment 6,814.",
-    )
-    registry = SourceRegistry()
-    marker = registry.register_source(citation, "Yale — Common Data Set 2024-25")
-    registry.register_pending_evidence(marker, evidence)
-    emitted: list[dict[str, Any]] = []
-    writer = app.agent_node._FinalContentPlacementWriter([], emitted.append, registry)
-
-    writer.start_final()
-    writer.write({"type": "delta", "text": "Enrollment was 6,814 [1][[evidence:1:"})
-    writer.write({"type": "delta", "text": "enrollment.undergraduate_total]]. "})
-    writer.flush_final()
-
-    prose = "".join(chunk["text"] for chunk in emitted)
-    assert prose == "Enrollment was 6,814 [1]. "
-    assert "[[evidence:" not in prose
-    assert registry.entries_for_wire()[0].evidence == (evidence,)
-
-
-def _final_guard_citation(*, school_unitid: int = 130794, sha: str = "a") -> Citation:
-    return Citation(
-        source="cds",
-        tier="official",
-        vintage="Common Data Set 2024-25",
-        document_sha256=sha * 64,
-        source_kind="cds_pdf",
-        retrieved_at=datetime(2026, 7, 1, tzinfo=UTC),
-        academic_year=2024,
-        manifest_version="5.0.2",
-        school_unitid=school_unitid,
-    )
-
-
-def _final_guard_evidence(eid: str, display: str) -> EvidenceItem:
-    return EvidenceItem(
-        eid=eid,
-        value_display=display,
-        label=eid,
-        page=4,
-        excerpt=f"{eid} {display}",
-    )
-
-
-def _write_guarded_final(registry: SourceRegistry, text: str) -> tuple[str, SourceRegistry]:
-    emitted: list[dict[str, Any]] = []
-    writer = app.agent_node._FinalContentPlacementWriter([], emitted.append, registry)
-    writer.start_final()
-    writer.write({"type": "delta", "text": text})
-    writer.flush_final()
-    return "".join(chunk["text"] for chunk in emitted), registry
-
-
-def test_final_writer_streams_derived_value_without_redaction() -> None:
-    """Anti-regression: a derived number (a rate computed from two cited values)
-    is no longer inspected or withheld. The agent's inline [n] citation is the
-    only honesty gate — the runtime never second-guesses the arithmetic."""
-    registry = SourceRegistry()
-    marker = registry.register_source(_final_guard_citation(), "Yale CDS")
-    registry.register_pending_evidence(
-        marker, _final_guard_evidence("admissions.applicants", "47,893")
-    )
-    registry.register_pending_evidence(marker, _final_guard_evidence("admissions.admits", "2,003"))
-
-    text = "Yale admitted 2,003 of 47,893 applicants, or 4.2% [1]."
-    prose, _ = _write_guarded_final(registry, text)
-
-    assert prose == text
-
-
 def test_final_writer_streams_unregistered_marker_verbatim() -> None:
     """An unregistered/hallucinated marker is never validated or stripped — it
     reaches the student exactly as written. The registry maps what it knows and
     stays silent about the rest."""
-    registry = SourceRegistry()
-    prose, _ = _write_guarded_final(registry, "Tuition was $69,900 [9].")
-
-    assert prose == "Tuition was $69,900 [9]."
-
-
-def test_final_writer_promotes_evidence_only_via_token_not_a_bare_value() -> None:
-    """Provenance is agent-declared, never inferred: a bare number in prose does
-    NOT promote a pending row; only the explicit hidden [[evidence]] token does."""
-    registry = SourceRegistry()
-    marker = registry.register_source(_final_guard_citation(), "Yale CDS")
-    registry.register_pending_evidence(
-        marker, _final_guard_evidence("enrollment.undergraduate_total", "6,814")
-    )
-
-    prose, _ = _write_guarded_final(registry, "Enrollment was 6,814 [1].")
-
-    assert prose == "Enrollment was 6,814 [1]."
-    assert registry.entries_for_wire()[0].evidence == ()
-
-
-def test_final_writer_allows_document_level_cds_marker_without_value_evidence() -> None:
-    citation = Citation(
-        source="cds",
-        tier="official",
-        vintage="Common Data Set 2024-25",
-        document_sha256="a" * 64,
-        source_kind="cds_pdf",
-        retrieved_at=datetime(2026, 7, 1, tzinfo=UTC),
-        academic_year=2024,
-        manifest_version="5.0.2",
-        school_unitid=130794,
-    )
-    registry = SourceRegistry()
-    registry.register_source(citation, "Yale — Common Data Set 2024-25")
     emitted: list[dict[str, Any]] = []
-    writer = app.agent_node._FinalContentPlacementWriter([], emitted.append, registry)
-
+    writer = app.agent_node._FinalContentPlacementWriter([], emitted.append)
     writer.start_final()
-    writer.write(
-        {
-            "type": "delta",
-            "text": "Yale's CDS 2024-25 provides the document context [1].",
-        }
-    )
+    writer.write({"type": "delta", "text": "Tuition was $69,900 [9]."})
     writer.flush_final()
 
-    assert emitted == [
-        {
-            "type": "delta",
-            "text": "Yale's CDS 2024-25 provides the document context [1].",
-        }
-    ]
+    prose = "".join(chunk["text"] for chunk in emitted)
+    assert prose == "Tuition was $69,900 [9]."
 
 
 def test_final_writer_streams_text_before_split_viz_marker_immediately() -> None:
@@ -2984,7 +2788,7 @@ def _render_then_continue_without_clarify(
                 args={
                     "type": "stat_block",
                     "columns": [{"unitid": 1}],
-                    "rows": [{"label": "Rate", "cells": [{"metric_ref": "admissions.rate"}]}],
+                    "rows": [{"label": "Rate", "cells": [{"fact_key": "admissions.rate"}]}],
                     "title": "Early card",
                 },
             )
@@ -3028,7 +2832,7 @@ def _narrate_render_then_answer(messages: list[ModelMessage], info: AgentInfo) -
                 args={
                     "type": "stat_block",
                     "columns": [{"unitid": 1}],
-                    "rows": [{"label": "Rate", "cells": [{"metric_ref": "admissions.rate"}]}],
+                    "rows": [{"label": "Rate", "cells": [{"fact_key": "admissions.rate"}]}],
                     "title": "Card",
                 },
             ),
@@ -3089,7 +2893,7 @@ def _render_then_hit_budget(messages: list[ModelMessage], info: AgentInfo) -> Mo
                 args={
                     "type": "stat_block",
                     "columns": [{"unitid": 1}],
-                    "rows": [{"label": "Rate", "cells": [{"metric_ref": "admissions.rate"}]}],
+                    "rows": [{"label": "Rate", "cells": [{"fact_key": "admissions.rate"}]}],
                     "title": "Hidden until final",
                 },
             )
@@ -3138,7 +2942,7 @@ class _BudgetAfterFinalStream:
             args={
                 "type": "stat_block",
                 "columns": [{"unitid": 1}],
-                "rows": [{"label": "Rate", "cells": [{"metric_ref": "admissions.rate"}]}],
+                "rows": [{"label": "Rate", "cells": [{"fact_key": "admissions.rate"}]}],
                 "title": "Visible card",
             },
             tool_call_id="viz-after-final",
@@ -3175,7 +2979,7 @@ class _BudgetToolStream:
             args={
                 "type": "comparison_table",
                 "columns": [{"unitid": 1}],
-                "rows": [{"label": "Rate", "cells": [{"metric_ref": "admissions.rate"}]}],
+                "rows": [{"label": "Rate", "cells": [{"fact_key": "admissions.rate"}]}],
             },
             tool_call_id="viz-after-final",
         )

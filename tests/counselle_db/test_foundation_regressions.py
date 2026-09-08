@@ -9,8 +9,8 @@ from typing import Any, cast
 import pytest
 
 from counselle_db.catalog import Catalog, SchoolRecord, _freeze, normalize_school_name
-from counselle_db.formatting import format_cds_edition
-from counselle_db.models import SchoolBasics, ServiceError
+from counselle_db.models import FactCoverageRow, SchoolBasics, ServiceError
+from counselle_db.packets import format_cds_edition
 from counselle_db.service import (
     _display_profile,
     _walk_profile,
@@ -45,11 +45,17 @@ class _Context:
 
 
 class _QueryConnection:
-    def __init__(self, records: list[dict[str, Any]]) -> None:
+    def __init__(
+        self,
+        records: list[dict[str, Any]],
+        coverage_rows: list[dict[str, Any]] | None = None,
+    ) -> None:
         self.records = records
+        self.coverage_rows = coverage_rows or []
         self.bound: tuple[Any, ...] = ()
         self.fetch_count = 0
         self.yield_count = 0
+        self.coverage_query_keys: list[str] | None = None
 
     def transaction(self, **_: object) -> _Context:
         return _Context(self)
@@ -71,6 +77,13 @@ class _QueryConnection:
         assert prefetch == 1
         return records()
 
+    async def fetch(self, _sql: str, keys: list[str]) -> list[dict[str, Any]]:
+        """Stands in for the `fact_coverage` lookup `query_database` runs in
+        the same read-only transaction when a query names ≥1 known fact key
+        (denominator mechanism, appendix F-ii)."""
+        self.coverage_query_keys = keys
+        return [row for row in self.coverage_rows if row["fact_key"] in keys]
+
 
 class _Pool:
     def __init__(self, connection: _QueryConnection) -> None:
@@ -80,9 +93,15 @@ class _Pool:
         return _Context(self.connection)
 
 
-def _query_catalog(records: list[dict[str, Any]]) -> tuple[Any, _QueryConnection]:
-    connection = _QueryConnection(records)
-    return SimpleNamespace(pool=_Pool(connection)), connection
+def _query_catalog(
+    records: list[dict[str, Any]],
+    *,
+    fact_keys: dict[str, Any] | None = None,
+    coverage_rows: list[dict[str, Any]] | None = None,
+) -> tuple[Any, _QueryConnection]:
+    connection = _QueryConnection(records, coverage_rows)
+    snapshot = SimpleNamespace(fact_keys=fact_keys or {})
+    return SimpleNamespace(pool=_Pool(connection), snapshot=snapshot), connection
 
 
 async def test_query_database_passes_params_separately_and_applies_row_cap(
@@ -149,13 +168,14 @@ async def test_query_database_rejects_nested_binary_values(
 @pytest.mark.parametrize(
     "sql",
     [
-        "SELECT pdf_content FROM cds_library.cds_document_sources",
-        "SELECT source.* FROM cds_library.cds_document_sources AS source",
-        "WITH source AS (SELECT * FROM cds_library.cds_document_sources) "
-        "SELECT document_id FROM source",
+        "SELECT profile_sha256 FROM cds_library.school_profiles",
+        "SELECT s.profile_sha256 FROM cds_library.school_profiles AS s",
+        "SELECT * FROM cds_library.school_profiles",
+        "WITH source AS (SELECT * FROM cds_library.school_profiles) "
+        "SELECT id FROM source",
     ],
 )
-async def test_query_database_rejects_pdf_projection_before_fetch(
+async def test_query_database_rejects_binary_projection_before_fetch(
     sql: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     catalog, connection = _query_catalog([])
@@ -172,57 +192,105 @@ async def test_query_database_rejects_pdf_projection_before_fetch(
     assert connection.fetch_count == 0
 
 
-@pytest.mark.parametrize(
-    "sql",
-    [
-        "SELECT packet FROM cds_library.active_cds_domain_packets",
-        "SELECT packet->'provider_contract' FROM cds_library.active_cds_domain_packets",
-        "SELECT packet->'metrics'->'admissions.rate'->>'diagnostic_code' "
-        "FROM cds_library.active_cds_domain_packets",
-        "SELECT packet->'metrics'->'admissions.rate'->'evidence' "
-        "FROM cds_library.active_cds_domain_packets",
-    ],
-)
-async def test_query_database_rejects_internal_packet_shapes_before_cursor(
-    sql: str,
+async def test_query_database_cross_school_aggregate_carries_named_key_coverage(
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    catalog, connection = _query_catalog([])
-
-    with pytest.raises(ServiceError, match="Packet|packet|internal"):
-        await query_database(cast(Any, catalog), sql)
-
-    assert connection.fetch_count == 0
-
-
-@pytest.mark.parametrize(
-    ("sql", "params"),
-    [
-        (
-            "SELECT packet -> ($1 || $2) ->> 'response_schema' "
-            "FROM cds_library.active_cds_domain_packets",
-            ["provider_", "contract"],
+    """A GROUP BY/aggregate query that binds a catalog-known fact key gets its
+    denominator back from `fact_coverage`, in the same transaction (appendix
+    F-ii's denominator mechanism)."""
+    as_of = datetime(2026, 9, 1, tzinfo=UTC)
+    catalog, connection = _query_catalog(
+        [{"fact_key": "admissions.rate", "n": 2000}],
+        fact_keys={"admissions.rate": True},
+        coverage_rows=[
+            {
+                "fact_key": "admissions.rate",
+                "schools_with_value": 2000,
+                "schools_total": 2746,
+                "computed_at": as_of,
+            }
+        ],
+    )
+    monkeypatch.setattr(
+        "counselle_db.sql_guard.get_settings",
+        lambda: SimpleNamespace(
+            db_row_cap=500, query_database_max_bytes=100_000, db_statement_timeout_ms=100
         ),
-        (
-            "SELECT packet -> 'metrics' -> $1 ->> ($2 || $3) "
-            "FROM cds_library.active_cds_domain_packets",
-            ["admissions.rate", "diagnostic", "_code"],
+    )
+    result = await query_database(
+        cast(Any, catalog),
+        "SELECT fact_key,count(*) AS n FROM cds_library.school_facts_sql "
+        "WHERE fact_key=$1 GROUP BY fact_key",
+        ["admissions.rate"],
+    )
+    assert connection.coverage_query_keys == ["admissions.rate"]
+    assert result.coverage == (
+        FactCoverageRow(
+            fact_key="admissions.rate", schools_with_value=2000, schools_total=2746, as_of=as_of
         ),
-        (
-            "SELECT packet -> 'metrics' -> $1 -> ($2 || $3) ->> 'excerpt' "
-            "FROM cds_library.active_cds_domain_packets",
-            ["admissions.rate", "evi", "dence"],
-        ),
-    ],
-)
-async def test_query_database_rejects_computed_packet_paths_before_cursor(
-    sql: str, params: list[object]
+    )
+    assert "denominator unavailable" not in result.warning
+
+
+async def test_query_database_aggregate_with_no_bound_key_states_denominator_unavailable(
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    catalog, connection = _query_catalog([])
+    catalog, connection = _query_catalog([{"n": 2746}])
+    monkeypatch.setattr(
+        "counselle_db.sql_guard.get_settings",
+        lambda: SimpleNamespace(
+            db_row_cap=500, query_database_max_bytes=100_000, db_statement_timeout_ms=100
+        ),
+    )
+    result = await query_database(
+        cast(Any, catalog), "SELECT count(*) AS n FROM cds_library.school_profiles"
+    )
+    assert result.coverage == ()
+    assert "denominator unavailable" in result.warning
+    assert connection.coverage_query_keys is None
 
-    with pytest.raises(ServiceError, match="Packet JSON paths"):
-        await query_database(cast(Any, catalog), sql, params)
 
-    assert connection.fetch_count == 0
+async def test_query_database_majors_membership_carries_denominator_and_printed_name_note(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`majors @> ARRAY[$1]` over `school_explore` is not an aggregate, but
+    the majors-shaped rule (appendix F-ii's "two-statement rule") always
+    attaches the `academics.undergraduate_majors` coverage row and the
+    printed-name caveat, because a school publishes its major list with no
+    standard vocabulary."""
+    as_of = datetime(2026, 9, 1, tzinfo=UTC)
+    catalog, connection = _query_catalog(
+        [{"name": "Example University"}],
+        coverage_rows=[
+            {
+                "fact_key": "academics.undergraduate_majors",
+                "schools_with_value": 2400,
+                "schools_total": 2746,
+                "computed_at": as_of,
+            }
+        ],
+    )
+    monkeypatch.setattr(
+        "counselle_db.sql_guard.get_settings",
+        lambda: SimpleNamespace(
+            db_row_cap=500, query_database_max_bytes=100_000, db_statement_timeout_ms=100
+        ),
+    )
+    result = await query_database(
+        cast(Any, catalog),
+        "SELECT name FROM cds_library.school_explore WHERE majors @> ARRAY[$1]",
+        ["Nursing"],
+    )
+    assert connection.coverage_query_keys == ["academics.undergraduate_majors"]
+    assert result.coverage == (
+        FactCoverageRow(
+            fact_key="academics.undergraduate_majors",
+            schools_with_value=2400,
+            schools_total=2746,
+            as_of=as_of,
+        ),
+    )
+    assert "exact program name" in result.warning
 
 
 def test_snapshot_json_is_deeply_frozen() -> None:

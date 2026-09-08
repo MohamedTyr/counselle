@@ -1,18 +1,16 @@
-"""Unit tests for the counselle-db MCP server wrapper layer."""
+"""Unit tests for `tool_errors` (the D6 safe-error formatter).
+
+Moved here from the retired `counselle_db/server.py` MCP shell
+(school-data-v3 Phase 3, Unit C): `tool_errors` itself lives in
+`counselle_db.service` and is what `app/toolset.py`'s in-process tools use,
+so these behavioral tests still describe live code even though the MCP
+server they used to import through is gone.
+"""
 
 from __future__ import annotations
 
 from counselle_db import service
-from counselle_db.server import mcp, tool_errors
-
-
-def test_exact_four_tool_inventory() -> None:
-    assert set(mcp._tool_manager._tools) == {  # noqa: SLF001
-        "resolve_school",
-        "get_school_profile",
-        "get_domain",
-        "query_database",
-    }
+from counselle_db.service import tool_errors
 
 
 async def test_tool_errors_returns_d6_error_shape() -> None:

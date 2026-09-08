@@ -221,7 +221,7 @@ class StepMapper:
                 if isinstance(count, int) and count > 1
                 else None
             )
-        elif mapped.tool in ("get_school_profile", "get_domain"):
+        elif mapped.tool in ("get_school_profile", "get_facts"):
             count = detail.value_count
             template = (
                 spec.unavailable_label
@@ -342,15 +342,15 @@ class StepMapper:
         """
         # An overflowed result's public_receipt already carries the allowlisted
         # fields (status/schools/domain_id/value_count/row_count/ui) — treat it
-        # as the effective content so a large get_domain/get_school_profile read
+        # as the effective content so a large get_facts/get_school_profile read
         # still gets a real receipt instead of an empty one.
         effective = _overflow_receipt(content) or content
         if tool_name == "resolve_school":
             return self._resolve_school_kwargs(args, effective)
         if tool_name == "get_school_profile":
             return self._get_school_profile_kwargs(effective)
-        if tool_name == "get_domain":
-            return self._get_domain_kwargs(args, effective)
+        if tool_name == "get_facts":
+            return self._get_facts_kwargs(args, effective)
         return self._generic_db_tool_kwargs(tool_name, args, content)
 
     def _generic_db_tool_kwargs(
@@ -454,16 +454,41 @@ class StepMapper:
         return kwargs
 
     @staticmethod
-    def _get_domain_kwargs(args: dict[str, Any], content: Any) -> dict[str, Any]:
-        """``get_domain``: tool, schools, domain_id, value_count, duration_ms.
-
-        ``value_count`` is the service's authoritative ``availability.available``
-        count — never ``len(rows)`` (rows also include unavailable and
-        not-in-template-version metrics, so that would overcount).
+    def _facts_category_token(args: dict[str, Any]) -> str | None:
+        """The single category a ``get_facts`` call narrows to, or ``None`` for
+        an unnarrowed (whole-school) read — which has no single category.
+        ``sections`` narrows to its one id when there's exactly one; ``keys``
+        narrows to the keys' shared ``<domain>.`` prefix when every key
+        shares it. Multiple sections, mixed prefixes, or neither argument
+        (a full read) all resolve to ``None``.
         """
-        kwargs: dict[str, Any] = {"tool": "get_domain"}
-        if isinstance(args.get("domain_id"), str):
-            kwargs["domain_id"] = args["domain_id"]
+        sections = args.get("sections")
+        if isinstance(sections, list) and sections:
+            names = [str(section) for section in sections if section]
+            return names[0] if len(names) == 1 else None
+        keys = args.get("keys")
+        if isinstance(keys, list) and keys:
+            prefixes = {
+                str(key).split(".", 1)[0] for key in keys if isinstance(key, str) and "." in key
+            }
+            return prefixes.pop() if len(prefixes) == 1 else None
+        return None
+
+    @staticmethod
+    def _get_facts_kwargs(args: dict[str, Any], content: Any) -> dict[str, Any]:
+        """``get_facts``: tool, schools, domain_id, value_count, duration_ms.
+
+        ``domain_id`` doubles here as the receipt's category token — the
+        field name predates ``get_facts`` and is kept as-is (renaming
+        ``StepDetail`` is outside this unit); its value is
+        :meth:`_facts_category_token`, not a real CDS domain id.
+        ``value_count`` is the count of facts actually returned with a value
+        (``rows``) — never ``unavailable`` (an absence, not a value).
+        """
+        kwargs: dict[str, Any] = {"tool": "get_facts"}
+        category = StepMapper._facts_category_token(args)
+        if category:
+            kwargs["domain_id"] = category
         if not isinstance(content, dict):
             return kwargs
         names = StepMapper._content_school_names(content)
@@ -473,11 +498,9 @@ class StepMapper:
         if isinstance(direct_value_count, int):
             kwargs["value_count"] = direct_value_count
         else:
-            availability = content.get("availability")
-            if isinstance(availability, dict) and isinstance(
-                availability.get("available"), int
-            ):
-                kwargs["value_count"] = availability["available"]
+            rows = content.get("rows")
+            if isinstance(rows, list):
+                kwargs["value_count"] = len(rows)
         return kwargs
 
     def _viz_detail_kwargs(self, args: dict[str, Any], content: Any) -> dict[str, Any]:
@@ -651,10 +674,11 @@ class StepMapper:
         return out or None
 
     def _category_of(self, args: dict[str, Any]) -> str:
-        if isinstance(args.get("domain_id"), str) and args["domain_id"].strip():
-            return _humanize(args["domain_id"])
+        token = self._facts_category_token(args)
+        if token:
+            return _humanize(token)
         refs = [
-            cell.get("metric_ref") or cell.get("profile_field")
+            cell.get("fact_key") or cell.get("profile_field")
             for row in args.get("rows", [])
             if isinstance(row, dict)
             for cell in row.get("cells", [])
@@ -675,7 +699,9 @@ def _truncate(text: str, limit: int = _LABEL_QUERY_MAX_CHARS) -> str:
 
 
 def _humanize(token: str) -> str:
-    return token.replace("_", " ").strip()
+    # ``-`` covers facts_sections.yaml section ids (e.g. "getting-in",
+    # "campus-life"); ``_`` covers key-prefix/legacy tokens (e.g. "financial_aid").
+    return token.replace("-", " ").replace("_", " ").strip()
 
 
 def _join_names(names: list[str]) -> str:

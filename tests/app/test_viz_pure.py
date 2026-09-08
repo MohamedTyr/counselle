@@ -13,13 +13,13 @@ from app.sources import SourceRegistry
 from app.viz import render_viz
 from counselle_db.catalog import Catalog
 from counselle_db.models import (
-    AvailabilitySummary,
-    DomainResult,
-    DomainRow,
+    FactsQueryResult,
+    FactValueRow,
     ProfileGroup,
     ProfileGroupResult,
     ProfileLeaf,
     SchoolBasics,
+    SchoolFactsStatus,
 )
 from domain.envelope import Citation
 from domain.specs import (
@@ -37,7 +37,9 @@ def _catalog() -> Catalog:
     # never need a live connection, only the read-only snapshot shape.
     return cast(
         Catalog,
-        SimpleNamespace(snapshot=SimpleNamespace(schools={}, fact_keys={}, profile_groups=())),
+        SimpleNamespace(
+            snapshot=SimpleNamespace(schools={}, fact_keys={}, profile_groups=(), sections={})
+        ),
     )
 
 
@@ -50,8 +52,50 @@ def _db_catalog() -> Catalog:
                 schools={1: SimpleNamespace(basics=school)},
                 fact_keys={"admissions.one": object(), "admissions.two": object()},
                 profile_groups=(),
+                sections={},
             )
         ),
+    )
+
+
+def _facts_result(
+    unitid: int,
+    rows: tuple[FactValueRow, ...],
+    *,
+    observed_at: datetime = datetime(2026, 7, 15, tzinfo=UTC),
+) -> FactsQueryResult:
+    return FactsQueryResult(
+        school=SchoolBasics(unitid=unitid, name=f"School {unitid}"),
+        status=SchoolFactsStatus(
+            facts_updated_at=observed_at,
+            fact_count=len(rows),
+            has_collegedata=True,
+            tabs={"admissions": "ok"},
+        ),
+        rows=rows,
+        profile_snapshot_date=date(2026, 1, 1),
+    )
+
+
+def _fact_row(
+    name: str, value: Any, *, observed_at: datetime = datetime(2026, 7, 15, tzinfo=UTC)
+) -> FactValueRow:
+    return FactValueRow(
+        fact_key=f"admissions.{name}",
+        tab="admissions",
+        section="getting-in",
+        label=name.title(),
+        value=value,
+        display=str(value),
+        unit=None,
+        value_type="number",
+        value_num=float(value) if isinstance(value, int | float) else None,
+        value_text=None,
+        value_bool=None,
+        value_date=None,
+        reported_period=None,
+        reported_period_year=None,
+        observed_at=observed_at,
     )
 
 
@@ -323,45 +367,19 @@ def test_actual_agent_tool_schema_has_only_v2_shape() -> None:
 async def test_metric_reads_are_grouped_once_and_column_is_canonicalized(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    calls: list[tuple[int, str]] = []
+    calls: list[tuple[int, tuple[str, ...]]] = []
 
-    async def fake_get_domain(_catalog: object, unitid: int, domain_id: str) -> DomainResult:
-        calls.append((unitid, domain_id))
-        rows = tuple(
-            DomainRow(
-                ref=f"admissions.{name}",
-                label=name.title(),
-                display=str(value),
-                available=True,
-                value=value,
-                vintage="Common Data Set 2024-25",
-                evidence={
-                    "eid": f"admissions.{name}",
-                    "value_display": str(value),
-                    "label": name.title(),
-                    "page": 7,
-                    "excerpt": f"{name} {value}",
-                },
-            )
-            for name, value in (("one", 1), ("two", 2))
-        )
-        return DomainResult(
-            school=SchoolBasics(unitid=1, name="Canonical School", official_domain="school.edu"),
-            domain_id="admissions",
-            academic_year=2024,
-            document_id=1,
-            document_sha256="b" * 64,
-            source_kind="upload",
-            retrieved_at=datetime(2026, 7, 15, tzinfo=UTC),
-            manifest_version="5.0.1",
-            rows=rows,
-            availability=AvailabilitySummary(
-                configured=2, verified=2, available=2, not_in_template_version=0
-            ),
-            summary="2 of 2 metrics verified",
-        )
+    async def fake_get_facts(
+        _catalog: object,
+        unitid: int,
+        sections: list[str] | None = None,
+        keys: list[str] | None = None,
+    ) -> FactsQueryResult:
+        calls.append((unitid, tuple(keys or ())))
+        rows = tuple(_fact_row(name, value) for name, value in (("one", 1), ("two", 2)))
+        return _facts_result(unitid, rows)
 
-    monkeypatch.setattr("app.viz.get_domain", fake_get_domain)
+    monkeypatch.setattr("app.viz.get_facts", fake_get_facts)
     emitted: list[dict[str, object]] = []
     result = await render_viz(
         _db_catalog(),
@@ -370,12 +388,12 @@ async def test_metric_reads_are_grouped_once_and_column_is_canonicalized(
         "stat_block",
         [ColumnInput(unitid=1, name="Model lie", domain="attacker.example")],
         [
-            VizRowInput(label="One", cells=(MetricCellInput(metric_ref="admissions.one"),)),
-            VizRowInput(label="Two", cells=(MetricCellInput(metric_ref="admissions.two"),)),
+            VizRowInput(label="One", cells=(MetricCellInput(fact_key="admissions.one"),)),
+            VizRowInput(label="Two", cells=(MetricCellInput(fact_key="admissions.two"),)),
         ],
     )
     assert result["ok"] is True
-    assert calls == [(1, "admissions")]
+    assert calls == [(1, ("admissions.one", "admissions.two"))]
     assert emitted[0]["columns"] == [
         {"unitid": 1, "name": "Canonical School", "domain": "school.edu"}
     ]
@@ -444,7 +462,12 @@ async def test_profile_reads_are_grouped_once_and_source_label_names_snapshot(
     )
     assert result["ok"] is True
     assert calls == [(1, ("location",))]
-    assert registry.entries[0].label == "Canonical School — Profile snapshot 2024-12-31"
+    assert registry.entries[0].citation.source == "db"
+    assert registry.entries[0].citation.tier is None
+    assert (
+        registry.entries[0].label
+        == "Canonical School — Counselle school data · identity profile from 2024-12-31"
+    )
 
 
 @pytest.mark.asyncio
@@ -626,33 +649,16 @@ async def test_structural_defects_reject_before_catalog_or_source_io(
 async def test_unknown_refs_web_db_ref_and_missing_value_are_aggregated(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    async def fake_domain(_catalog: object, unitid: int, domain_id: str) -> DomainResult:
-        del unitid, domain_id
-        return DomainResult(
-            school=SchoolBasics(unitid=1, name="Canonical School"),
-            domain_id="admissions",
-            academic_year=2024,
-            document_id=1,
-            document_sha256="d" * 64,
-            source_kind="upload",
-            retrieved_at=datetime(2026, 7, 15, tzinfo=UTC),
-            manifest_version="5.0.1",
-            rows=(
-                DomainRow(
-                    ref="admissions.one",
-                    label="One",
-                    display=None,
-                    available=False,
-                    vintage="Common Data Set 2024-25",
-                ),
-            ),
-            availability=AvailabilitySummary(
-                configured=1, verified=0, available=0, not_in_template_version=0
-            ),
-            summary="unavailable",
-        )
+    async def fake_get_facts(
+        _catalog: object,
+        unitid: int,
+        sections: list[str] | None = None,
+        keys: list[str] | None = None,
+    ) -> FactsQueryResult:
+        del unitid, sections, keys
+        return _facts_result(1, ())  # `admissions.one` has no reported value
 
-    monkeypatch.setattr("app.viz.get_domain", fake_domain)
+    monkeypatch.setattr("app.viz.get_facts", fake_get_facts)
     result = await render_viz(
         _db_catalog(),
         SourceRegistry(),
@@ -663,14 +669,14 @@ async def test_unknown_refs_web_db_ref_and_missing_value_are_aggregated(
             VizRowInput(
                 label="Unknown",
                 cells=(
-                    MetricCellInput(metric_ref="admissions.on"),
-                    MetricCellInput(metric_ref="admissions.one"),
+                    MetricCellInput(fact_key="admissions.on"),
+                    MetricCellInput(fact_key="admissions.one"),
                 ),
             ),
             VizRowInput(
                 label="Missing",
                 cells=(
-                    MetricCellInput(metric_ref="admissions.one"),
+                    MetricCellInput(fact_key="admissions.one"),
                     UnavailableCellInput(unavailable=True),
                 ),
             ),
@@ -777,7 +783,7 @@ async def test_web_source_tier_matches_across_viz_cells_and_sources_rail() -> No
 
 
 @pytest.mark.asyncio
-async def test_mixed_cds_editions_attach_comparison_caveat(
+async def test_facts_confirmed_far_apart_attach_spread_caveat(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     schools = {
@@ -791,45 +797,24 @@ async def test_mixed_cds_editions_attach_comparison_caveat(
                 schools=schools,
                 fact_keys={"admissions.one": object()},
                 profile_groups=(),
+                sections={},
             )
         ),
     )
 
-    async def fake_domain(_catalog: object, unitid: int, _domain: str) -> DomainResult:
-        year = 2024 if unitid == 1 else 2023
-        return DomainResult(
-            school=schools[unitid].basics,
-            domain_id="admissions",
-            academic_year=year,
-            document_id=unitid,
-            document_sha256=str(unitid) * 64,
-            source_kind="upload",
-            retrieved_at=datetime(2026, 7, 15, tzinfo=UTC),
-            manifest_version="5.0.1" if unitid == 1 else "4.9.0",
-            rows=(
-                DomainRow(
-                    ref="admissions.one",
-                    label="One",
-                    display=str(unitid),
-                    available=True,
-                    value=unitid,
-                    vintage=f"Common Data Set {year}-{str(year + 1)[-2:]}",
-                    evidence={
-                        "eid": "admissions.one",
-                        "value_display": str(unitid),
-                        "label": "One",
-                        "page": 1,
-                        "excerpt": str(unitid),
-                    },
-                ),
-            ),
-            availability=AvailabilitySummary(
-                configured=1, verified=1, available=1, not_in_template_version=0
-            ),
-            summary="verified",
+    async def fake_get_facts(
+        _catalog: object,
+        unitid: int,
+        sections: list[str] | None = None,
+        keys: list[str] | None = None,
+    ) -> FactsQueryResult:
+        # Confirmed 90 days apart -- well past `facts_spread_days` (30).
+        observed_at = datetime(2026, 4, 1, tzinfo=UTC) if unitid == 1 else datetime(
+            2026, 7, 1, tzinfo=UTC
         )
+        return _facts_result(unitid, (_fact_row("one", unitid, observed_at=observed_at),))
 
-    monkeypatch.setattr("app.viz.get_domain", fake_domain)
+    monkeypatch.setattr("app.viz.get_facts", fake_get_facts)
     emitted: list[dict[str, Any]] = []
     result = await render_viz(
         catalog,
@@ -841,8 +826,8 @@ async def test_mixed_cds_editions_attach_comparison_caveat(
             VizRowInput(
                 label="One",
                 cells=(
-                    MetricCellInput(metric_ref="admissions.one"),
-                    MetricCellInput(metric_ref="admissions.one"),
+                    MetricCellInput(fact_key="admissions.one"),
+                    MetricCellInput(fact_key="admissions.one"),
                 ),
             )
         ],
@@ -850,6 +835,6 @@ async def test_mixed_cds_editions_attach_comparison_caveat(
     assert result["ok"] is True
     cells = emitted[0]["rows"][0]["cells"]
     assert all(
-        any(caveat["kind"] == "edition_mismatch_comparison" for caveat in cell["caveats"])
+        any(caveat["kind"] == "observed_at_spread" for caveat in cell["caveats"])
         for cell in cells
     )

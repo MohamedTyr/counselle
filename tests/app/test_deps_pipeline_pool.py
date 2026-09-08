@@ -47,12 +47,10 @@ async def test_build_runtime_degrades_when_pipeline_dsn_is_unreachable(
     monkeypatch.setattr(deps_mod, "build_checkpointer", build_checkpointer)
     monkeypatch.setattr(deps_mod, "build_graph", lambda checkpointer, deps: "graph")
     monkeypatch.setattr(deps_mod, "make_tool_deps", lambda settings, catalog: "tool-deps")
-    monkeypatch.setattr(deps_mod, "build_mcp_toolset", lambda settings: "toolset")
 
     settings = SimpleNamespace(
         db_app_dsn="postgresql://app",
         db_pipeline_dsn="postgresql://pipeline-unreachable",
-        cds_data_enabled=True,
         workspace_event_queue_size=7,
     )
 
@@ -83,12 +81,10 @@ async def test_build_runtime_still_raises_when_app_pool_fails(
     monkeypatch.setattr(deps_mod, "create_pool", create_pool)
     monkeypatch.setattr(deps_mod, "Catalog", Catalog)
     monkeypatch.setattr(deps_mod, "make_tool_deps", lambda settings, catalog: "tool-deps")
-    monkeypatch.setattr(deps_mod, "build_mcp_toolset", lambda settings: "toolset")
 
     settings = SimpleNamespace(
         db_app_dsn="postgresql://app",
         db_pipeline_dsn=None,
-        cds_data_enabled=True,
         workspace_event_queue_size=7,
     )
 
@@ -129,12 +125,10 @@ async def test_build_runtime_closes_pools_when_pipeline_pool_creation_is_cancell
     monkeypatch.setattr(deps_mod, "create_pool", create_pool)
     monkeypatch.setattr(deps_mod, "Catalog", Catalog)
     monkeypatch.setattr(deps_mod, "make_tool_deps", lambda settings, catalog: "tool-deps")
-    monkeypatch.setattr(deps_mod, "build_mcp_toolset", lambda settings: "toolset")
 
     settings = SimpleNamespace(
         db_app_dsn="postgresql://app",
         db_pipeline_dsn="postgresql://pipeline-cancelled",
-        cds_data_enabled=True,
         workspace_event_queue_size=7,
     )
 

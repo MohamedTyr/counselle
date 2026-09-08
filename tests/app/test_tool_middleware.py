@@ -2,11 +2,8 @@
 
 from __future__ import annotations
 
-import json
-from datetime import UTC, datetime
+from datetime import date
 
-from app.agent_node import _make_read_tool_result_tool
-from app.evidence_markers import EvidenceMarkerStripper, scrub_evidence_tokens
 from app.sources import SourceRegistry
 from app.tool_middleware import ToolMiddlewareContext, process_tool_result
 from app.tool_overflow import ToolResultStore
@@ -106,57 +103,20 @@ def test_profile_normalization_preserves_only_typed_provenance_fields() -> None:
     assert "unexpected_internal_field" not in provenance
 
 
-def test_domain_normalization_preserves_each_metric_vintage() -> None:
-    enrollment_vintage = "CDS 2024-25; enrollment snapshot: October 15, 2024"
-    tuition_vintage = "CDS 2024-25; cost reporting academic year: 2025-2026"
+def test_get_domain_payload_passes_through_unminted() -> None:
+    """school-data-v3 Phase 3 (Unit B): `_normalize_db_payload`'s minting set
+    is `{get_facts, get_school_profile, resolve_school}` -- `get_domain` is
+    no longer one of them (its CDS-era branch is retired with the parked
+    packet/manifest machinery), so its payload passes through untouched
+    rather than growing a `citation`/`marker`."""
     payload = {
         "school": {"unitid": 130794, "name": "Yale University"},
-        "academic_year": 2024,
-        "document_sha256": "a" * 64,
-        "source_kind": "cds_pdf",
-        "retrieved_at": "2026-07-16T00:00:00Z",
-        "manifest_version": "5.0.2",
-        "rows": [
-            {
-                "ref": "enrollment.total_undergraduate",
-                "label": "Total Undergraduate Enrollment",
-                "display": "6,814",
-                "value": 6814,
-                "available": True,
-                "vintage": enrollment_vintage,
-                "evidence": {
-                    "eid": "enrollment.total_undergraduate",
-                    "value_display": "6,814",
-                    "label": "Total Undergraduate Enrollment",
-                    "page": 6,
-                    "excerpt": "Total undergraduate students 6,814",
-                },
-            },
-            {
-                "ref": "cost.tuition",
-                "label": "Published Undergraduate Tuition",
-                "display": "$69,900",
-                "value": 69900,
-                "available": True,
-                "vintage": tuition_vintage,
-                "evidence": {
-                    "eid": "cost.tuition",
-                    "value_display": "$69,900",
-                    "label": "Published Undergraduate Tuition",
-                    "page": 21,
-                    "excerpt": "Undergraduate tuition $69,900",
-                },
-            },
-        ],
+        "rows": [{"ref": "enrollment.total_undergraduate", "available": True, "value": 6814}],
     }
 
     result = process_tool_result(payload, ToolMiddlewareContext(), tool_name="get_domain")
 
-    assert [row["vintage"] for row in result["rows"]] == [
-        enrollment_vintage,
-        tuition_vintage,
-    ]
-    assert {row["citation"]["vintage"] for row in result["rows"]} == {"CDS 2024-25"}
+    assert result == payload
 
 
 def test_overflow_runs_after_annotation() -> None:
@@ -187,72 +147,6 @@ def test_overflow_runs_after_annotation() -> None:
     assert result["status"] == "overflow"
     full = store.read(result["result_for_agent"]["handle"])
     assert full["results"][0]["marker"] == "[1]"
-
-
-async def test_overflow_readback_restores_runtime_evidence_without_persisting_it() -> None:
-    registry = SourceRegistry()
-    store = ToolResultStore()
-    citation = Citation(
-        source="cds",
-        tier="official",
-        vintage="Common Data Set 2024-25",
-        document_sha256="a" * 64,
-        source_kind="cds_pdf",
-        retrieved_at=datetime(2026, 7, 1, tzinfo=UTC),
-        academic_year=2024,
-        manifest_version="5.0.1",
-        school_unitid=198419,
-    )
-    payload = {
-        "rows": [
-            {
-                "field": "admissions.applicants",
-                "label": "Applicants",
-                "display": "50,000",
-                "available": True,
-                "citation": citation.model_dump(mode="json"),
-                "evidence": {
-                    "eid": "admissions.applicants",
-                    "value_display": "50,000",
-                    "label": "Applicants",
-                    "page": 3,
-                    "excerpt": "secret source excerpt " + "x" * 500,
-                },
-            }
-        ]
-    }
-
-    result = process_tool_result(
-        payload,
-        ToolMiddlewareContext(registry=registry, overflow_store=store, max_result_chars=120),
-        tool_name="get_values",
-    )
-
-    compact = str(result)
-    assert "[[evidence:1:admissions.applicants]]" in compact
-    handle = result["result_for_agent"]["handle"]
-    durable = str(store.dump())
-    assert "[[evidence:" not in durable
-    assert "secret source excerpt" not in durable
-
-    read_tool = _make_read_tool_result_tool(store, registry)
-    readback = await read_tool.function(handle)
-    readback_json = json.dumps(readback)
-    assert "[1][[evidence:1:admissions.applicants]]" in readback_json
-    assert "secret source excerpt" not in readback_json
-
-    scrubbed_readback = scrub_evidence_tokens(readback)
-    assert isinstance(scrubbed_readback, dict)
-    assert scrubbed_readback["rows"][0]["marker"] == "[1]"
-    assert scrubbed_readback["rows"][0]["display"] == "50,000"
-
-    # Promotion is token-driven: feeding the restored [[evidence]] token promotes
-    # the exact row into the rail. A bare value in prose never does.
-    stripper = EvidenceMarkerStripper(registry.promote_pending_evidence)
-    visible = stripper.feed(readback_json) + stripper.flush()
-    assert "[[evidence:" not in visible
-    assert registry.entries[0].evidence[0].eid == "admissions.applicants"
-    assert "[[evidence:" not in str(store.dump())
 
 
 def test_tool_ui_is_demoted_to_public_receipt_before_model_result() -> None:
@@ -341,3 +235,262 @@ def test_render_viz_result_keeps_agent_values_when_large() -> None:
     )
     assert result["result_for_agent"]["rows"][11]["cells"][4]["marker"] == "[60]"
     assert store.dump() == {}
+
+
+# --- school-data-v3 Phase 3 (Unit B): the `db` citation-minting matrix ---
+#
+# get_facts / get_school_profile / resolve_school each mint exactly one `db`
+# citation for the school they name; query_database mints none (plan
+# §5.4/§6a). `tier` is present and `None` for every `db` citation, and no
+# `db` citation ever renders a vintage with an empty date slot.
+
+
+def test_resolve_school_mints_one_db_citation_with_identity_vintage() -> None:
+    registry = SourceRegistry()
+    payload = {
+        "status": "match",
+        "school": {"unitid": 198419, "name": "Duke University"},
+        "data": {
+            "has_collegedata": True,
+            "facts_updated_at": "2026-08-01T00:00:00+00:00",
+            "fact_count": 210,
+            "tabs": {"admissions": "ok"},
+        },
+        "profile_snapshot_date": "2026-01-02",
+    }
+
+    result = process_tool_result(
+        payload, ToolMiddlewareContext(registry=registry), tool_name="resolve_school"
+    )
+
+    assert result["marker"] == "[1]"
+    assert len(registry) == 1
+    citation = registry.entries[0].citation
+    assert citation.source == "db"
+    assert citation.tier is None
+    assert citation.school_unitid == 198419
+    assert citation.vintage == "Counselle school data · identity profile from 2026-01-02"
+    assert citation.facts_updated_at is None
+
+
+def test_resolve_school_candidates_and_not_found_mint_nothing() -> None:
+    registry = SourceRegistry()
+    for payload in (
+        {"status": "candidates", "candidates": [], "hint": "..."},
+        {"status": "not_found", "message": "..."},
+    ):
+        result = process_tool_result(
+            payload, ToolMiddlewareContext(registry=registry), tool_name="resolve_school"
+        )
+        assert "marker" not in result
+    assert len(registry) == 0
+
+
+def test_get_school_profile_mints_one_db_citation_with_null_tier() -> None:
+    registry = SourceRegistry()
+    payload = {
+        "school": {"unitid": 198419, "name": "Duke University"},
+        "profile_version": "2026-07-13",
+        "profile_snapshot_date": "2026-01-02",
+        "profile_sha256": "a" * 64,
+        "groups": [
+            {
+                "id": "location",
+                "rows": [
+                    {
+                        "ref": "location.city",
+                        "label": "City",
+                        "display": "Durham",
+                        "value": "Durham",
+                        "available": True,
+                    }
+                ],
+            }
+        ],
+    }
+
+    result = process_tool_result(
+        payload, ToolMiddlewareContext(registry=registry), tool_name="get_school_profile"
+    )
+
+    assert len(registry) == 1
+    citation = registry.entries[0].citation
+    assert citation.source == "db"
+    assert citation.tier is None
+    assert citation.vintage == "Counselle school data · identity profile from 2026-01-02"
+    row = result["groups"][0]["rows"][0]
+    assert row["marker"] == "[1]"
+    assert row["citation"]["source"] == "db"
+
+
+def test_get_facts_mints_one_db_citation_with_facts_vintage_and_per_fact_vintage() -> None:
+    registry = SourceRegistry()
+    payload = {
+        "school": {"unitid": 198419, "name": "Duke University"},
+        "status": {
+            "has_collegedata": True,
+            "facts_updated_at": "2026-08-15T00:00:00+00:00",
+            "fact_count": 1,
+            "tabs": {"admissions": "ok"},
+        },
+        "rows": [
+            {
+                "fact_key": "admissions.rate",
+                "tab": "admissions",
+                "section": "getting-in",
+                "label": "Admit rate",
+                "value": 0.06,
+                "display": "6%",
+                "unit": "percent",
+                "value_type": "number",
+                "value_num": 0.06,
+                "value_text": None,
+                "value_bool": None,
+                "value_date": None,
+                "reported_period": "2025-26",
+                "reported_period_year": 2025,
+                "observed_at": "2026-08-15T00:00:00+00:00",
+            }
+        ],
+        "profile_snapshot_date": "2026-01-02",
+    }
+
+    result = process_tool_result(
+        payload, ToolMiddlewareContext(registry=registry), tool_name="get_facts"
+    )
+
+    assert len(registry) == 1
+    citation = registry.entries[0].citation
+    assert citation.source == "db"
+    assert citation.tier is None
+    assert citation.vintage == "Counselle school data · checked August 2026"
+    assert citation.facts_updated_at == date(2026, 8, 15)
+    row = result["rows"][0]
+    assert row["marker"] == "[1]"
+    assert row["available"] is True
+    assert row["vintage"] == "Counselle school data · 2025-26 · checked August 2026"
+
+
+def test_get_facts_falls_back_to_identity_vintage_when_facts_updated_at_is_null() -> None:
+    """No `db` citation ever renders a vintage with an empty date slot: a
+    school with no CollegeData crawl mints the identity vintage instead of a
+    facts vintage over a null `facts_updated_at`."""
+    registry = SourceRegistry()
+    payload = {
+        "school": {"unitid": 198419, "name": "Duke University"},
+        "status": {
+            "has_collegedata": False,
+            "facts_updated_at": None,
+            "fact_count": 0,
+            "tabs": {},
+        },
+        "rows": [],
+        "profile_snapshot_date": "2026-01-02",
+    }
+
+    result = process_tool_result(
+        payload, ToolMiddlewareContext(registry=registry), tool_name="get_facts"
+    )
+
+    assert len(registry) == 1
+    citation = registry.entries[0].citation
+    assert citation.source == "db"
+    assert citation.facts_updated_at is None
+    assert citation.vintage == "Counselle school data · identity profile from 2026-01-02"
+    assert result["rows"] == []
+
+
+def test_get_school_profile_and_get_facts_yield_two_rail_entries_with_distinct_vintages() -> None:
+    """A turn calling both `get_school_profile` and `get_facts` for one
+    school gets two rail entries — the identity vintage and the facts
+    vintage never collapse into one (plan §5.4's per-vintage `source_key`)."""
+    registry = SourceRegistry()
+    profile_payload = {
+        "school": {"unitid": 198419, "name": "Duke University"},
+        "profile_version": "2026-07-13",
+        "profile_snapshot_date": "2026-01-02",
+        "profile_sha256": "a" * 64,
+        "groups": [
+            {
+                "id": "location",
+                "rows": [
+                    {
+                        "ref": "location.city",
+                        "label": "City",
+                        "display": "Durham",
+                        "value": "Durham",
+                        "available": True,
+                    }
+                ],
+            }
+        ],
+    }
+    facts_payload = {
+        "school": {"unitid": 198419, "name": "Duke University"},
+        "status": {
+            "has_collegedata": True,
+            "facts_updated_at": "2026-08-15T00:00:00+00:00",
+            "fact_count": 1,
+            "tabs": {"admissions": "ok"},
+        },
+        "rows": [
+            {
+                "fact_key": "admissions.rate",
+                "tab": "admissions",
+                "section": "getting-in",
+                "label": "Admit rate",
+                "value": 0.06,
+                "display": "6%",
+                "unit": "percent",
+                "value_type": "number",
+                "value_num": 0.06,
+                "value_text": None,
+                "value_bool": None,
+                "value_date": None,
+                "reported_period": None,
+                "reported_period_year": None,
+                "observed_at": "2026-08-15T00:00:00+00:00",
+            }
+        ],
+        "profile_snapshot_date": "2026-01-02",
+    }
+
+    process_tool_result(
+        profile_payload, ToolMiddlewareContext(registry=registry), tool_name="get_school_profile"
+    )
+    process_tool_result(
+        facts_payload, ToolMiddlewareContext(registry=registry), tool_name="get_facts"
+    )
+
+    assert len(registry) == 2
+    vintages = {entry.citation.vintage for entry in registry.entries}
+    assert vintages == {
+        "Counselle school data · identity profile from 2026-01-02",
+        "Counselle school data · checked August 2026",
+    }
+
+
+def test_query_database_mints_no_db_citation() -> None:
+    """query_database's result carries no `citation` key anywhere in its
+    payload, so the registry stays empty -- the honesty carriers for a
+    cross-school result are the coverage-denominator caveat and the
+    printed-name sentence `counselle_db.sql_guard` already appends, not a
+    per-row `db` citation (appendix F-iii: the validator requires
+    `school_unitid`, which a cross-school result has none of)."""
+    registry = SourceRegistry()
+    payload = {
+        "columns": ("name",),
+        "rows": [("Duke University",)],
+        "row_count": 1,
+        "truncated": False,
+        "as_of": "2026-09-01T00:00:00+00:00",
+        "warning": "Raw query rows bypass typed normalization.",
+        "coverage": [],
+    }
+
+    result = process_tool_result(
+        payload, ToolMiddlewareContext(registry=registry), tool_name="query_database"
+    )
+
+    assert len(registry) == 0
+    assert result == payload

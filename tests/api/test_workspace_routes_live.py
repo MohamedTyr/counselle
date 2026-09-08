@@ -19,7 +19,6 @@ from api.users_db import UserDB
 from app.turns import TurnRegistry
 from tests.api.conftest import (
     _FakeReconciler,
-    _FakeSupervisor,
     _test_user,
     ensure_test_user,
 )
@@ -41,7 +40,6 @@ def _workspace_live_app(runtime: Any, user: UserDB) -> FastAPI:
     app.state.settings = settings
     app.state.runtime = runtime
     app.state.reconciler = _FakeReconciler()
-    app.state.mcp_supervisor = _FakeSupervisor()
     app.state.turn_registry = TurnRegistry(
         deps=runtime.deps, graph=runtime.graph, settings=settings
     )

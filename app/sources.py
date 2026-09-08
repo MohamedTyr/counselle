@@ -8,10 +8,8 @@ from typing import Any, TypeGuard
 
 from pydantic import ValidationError
 
-from app.evidence_markers import evidence_token
 from app.state import RegisteredSource
-from config.settings import get_settings
-from domain.envelope import Citation, EvidenceItem
+from domain.envelope import Citation
 from domain.events import SourceEntry
 
 _MARKER = re.compile(r"^\[([1-9]\d*)\]$")
@@ -29,6 +27,13 @@ def source_key(citation: Citation) -> Hashable:
         return ("cds", citation.document_sha256)
     if citation.source == "profile":
         return ("profile", citation.school_unitid, citation.profile_sha256)
+    if citation.source == "db":
+        # One rail entry per school **per vintage** (plan §5.4): a
+        # get_school_profile/resolve_school identity citation and a
+        # get_facts facts citation for the same school never collapse into
+        # one entry wearing one of the two vintages -- keying on the school
+        # alone would be the vintage merge `counselor.md` forbids.
+        return ("db", citation.school_unitid, citation.vintage)
     return (citation.source, citation.url, citation.vintage)
 
 
@@ -39,7 +44,6 @@ def _is_citation_shaped(value: Any) -> TypeGuard[dict[str, Any]]:
 class SourceRegistry:
     def __init__(self, entries: Iterable[Mapping[str, Any]] | None = None) -> None:
         self._entries = tuple(RegisteredSource.model_validate(entry) for entry in (entries or ()))
-        self._pending: dict[tuple[int, str], EvidenceItem] = {}
 
     def __len__(self) -> int:
         return len(self._entries)
@@ -76,75 +80,11 @@ class SourceRegistry:
         entry = next((item for item in self._entries if source_key(item.citation) == key), None)
         return f"[{entry.index}]" if entry else None
 
-    def register_pending_evidence(self, marker: str, evidence: EvidenceItem) -> None:
-        entry = self.lookup_marker(marker)
-        if entry and entry.citation.source == "cds":
-            self._pending[(entry.index, evidence.eid)] = evidence.model_copy(
-                update={"excerpt": evidence.excerpt[:_MAX_TEXT_CHARS]}
-            )
-
-    def promote_pending_evidence(self, index: int, eid: str) -> bool:
-        evidence = self._pending.get((index, eid))
-        if evidence is None:
-            return False
-        self.register_used_evidence(index, evidence)
-        return True
-
-    def pending_evidence(self, index: int) -> tuple[EvidenceItem, ...]:
-        """Return the runtime-only evidence candidates registered for one marker."""
-        return tuple(
-            evidence
-            for (entry_index, _eid), evidence in self._pending.items()
-            if entry_index == index
-        )
-
-    def restore_pending_evidence_tokens(self, payload: Any) -> Any:
-        """Reattach runtime-only tokens to a scrubbed overflow read-back copy."""
-        if isinstance(payload, dict):
-            restored = {
-                key: self.restore_pending_evidence_tokens(value) for key, value in payload.items()
-            }
-            marker = restored.get("marker")
-            eid = restored.get("field") or restored.get("ref")
-            match = _MARKER.fullmatch(marker) if isinstance(marker, str) else None
-            if match and isinstance(eid, str):
-                index = int(match.group(1))
-                if (index, eid) in self._pending:
-                    restored["marker"] = f"{marker}{evidence_token(index, eid)}"
-            return restored
-        if isinstance(payload, list):
-            return [self.restore_pending_evidence_tokens(item) for item in payload]
-        if isinstance(payload, tuple):
-            return tuple(self.restore_pending_evidence_tokens(item) for item in payload)
-        return payload
-
-    def register_used_evidence(self, index: int, evidence: EvidenceItem) -> None:
-        cap = get_settings().source_evidence_max_items
-        updated: list[RegisteredSource] = []
-        for entry in self._entries:
-            if entry.index != index or evidence.eid in entry.evidence_seen_eids:
-                updated.append(entry)
-                continue
-            seen = (*entry.evidence_seen_eids, evidence.eid)
-            stored = entry.evidence
-            if len(stored) < cap:
-                stored = (
-                    *stored,
-                    evidence.model_copy(update={"excerpt": evidence.excerpt[:_MAX_TEXT_CHARS]}),
-                )
-            updated.append(
-                entry.model_copy(update={"evidence": stored, "evidence_seen_eids": seen})
-            )
-        self._entries = tuple(updated)
-
     def fork(self) -> SourceRegistry:
-        candidate = SourceRegistry(self.dump_state())
-        candidate._pending = dict(self._pending)
-        return candidate
+        return SourceRegistry(self.dump_state())
 
     def commit_from(self, candidate: SourceRegistry) -> None:
         self._entries = tuple(candidate._entries)
-        self._pending = dict(candidate._pending)
 
     def dump_state(self) -> list[dict[str, Any]]:
         return [entry.model_dump(mode="json") for entry in self._entries]
@@ -173,18 +113,6 @@ class SourceRegistry:
                 marker = self._register_dict(payload["citation"], payload.get("source_label"))
                 if marker:
                     annotated["marker"] = marker
-                    evidence_raw = payload.get("evidence")
-                    if evidence_raw:
-                        try:
-                            evidence = EvidenceItem.model_validate(evidence_raw)
-                        except ValidationError:
-                            pass
-                        else:
-                            self.register_pending_evidence(marker, evidence)
-                            annotated["marker"] = (
-                                f"{marker}{evidence_token(int(marker[1:-1]), evidence.eid)}"
-                            )
-                    annotated.pop("evidence", None)
             return annotated
         if isinstance(payload, list):
             return [self.annotate_envelopes(item) for item in payload]

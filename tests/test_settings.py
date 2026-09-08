@@ -9,37 +9,12 @@ from pydantic_settings import SettingsConfigDict
 
 from config.settings import (
     AssetSettings,
-    DbChildSettings,
     Settings,
     get_settings,
     load_prompt,
     load_yaml_asset,
     reset_config_caches,
 )
-
-
-def test_db_child_settings_ignore_repository_env_file(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    (tmp_path / ".env").write_text(
-        "COUNSELLE_DB_APP_DSN=postgresql://secret-app\n"
-        "COUNSELLE_MODEL_COUNSELOR=secret-model\n"
-        "COUNSELLE_TAVILY_API_KEY=secret-tavily\n"
-        "COUNSELLE_GOOGLE_OAUTH_CLIENT_SECRET=secret-oauth\n"
-        "COUNSELLE_JWT_SECRET=secret-jwt\n"
-    )
-    monkeypatch.chdir(tmp_path)
-    monkeypatch.setenv("COUNSELLE_DB_RO_DSN", RO_DSN)
-    child = DbChildSettings()  # type: ignore[call-arg]
-    assert child.db_ro_dsn == RO_DSN
-    for forbidden in (
-        "db_app_dsn",
-        "model_counselor",
-        "tavily_api_key",
-        "google_oauth_client_secret",
-        "jwt_secret",
-    ):
-        assert not hasattr(child, forbidden)
 
 RO_DSN = "postgresql://counselle_ro:ro-s3cret-pw@localhost:5432/counselle_data_test"
 APP_DSN = "postgresql://counselle_app:app-s3cret-pw@localhost:5432/counselle_data_test"
@@ -129,7 +104,6 @@ class TestDefaults:
         assert settings.data_catalog_refresh_seconds == 3600
         assert settings.query_database_max_bytes == 262_144
         assert settings.viz_max_cells == 600
-        assert settings.source_evidence_max_items == 50
         assert settings.supported_packet_extractor_versions == frozenset(
             {
                 "gemini-native-pdf-v2",
@@ -183,32 +157,16 @@ class TestDefaults:
             )
 
 
-    def test_db_child_cds_reader_environment_parsing(
-        self, clean_env: None, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        monkeypatch.setenv("COUNSELLE_DB_RO_DSN", RO_DSN)
-        monkeypatch.setenv("COUNSELLE_DATA_CATALOG_REFRESH_SECONDS", "90")
-        monkeypatch.setenv("COUNSELLE_QUERY_DATABASE_MAX_BYTES", "8192")
-        monkeypatch.setenv("COUNSELLE_SUPPORTED_PACKET_EXTRACTOR_VERSIONS", "v7,v8")
-
-        child = DbChildSettings()  # type: ignore[call-arg]
-
-        assert child.data_catalog_refresh_seconds == 90
-        assert child.query_database_max_bytes == 8192
-        assert child.supported_packet_extractor_versions == frozenset({"v7", "v8"})
-
     def test_viz_and_source_caps_load_from_the_settings_environment(
         self, clean_env: None, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         monkeypatch.setenv("COUNSELLE_VIZ_MAX_CELLS", "321")
-        monkeypatch.setenv("COUNSELLE_SOURCE_EVIDENCE_MAX_ITEMS", "27")
         settings = EnvFileFreeSettings(
             db_ro_dsn=RO_DSN,
             db_app_dsn=APP_DSN,
             jwt_secret=JWT_SECRET,
         )
         assert settings.viz_max_cells == 321
-        assert settings.source_evidence_max_items == 27
         # Sources
         assert settings.tavily_api_key is None
         assert settings.source_web_default is True

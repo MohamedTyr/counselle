@@ -202,14 +202,16 @@ describe("shared protocol fixtures", () => {
       (event): event is Extract<ProtocolEvent, { type: "sources" }> =>
         event.type === "sources",
     );
+    // The sources rail no longer enriches any entry with evidence (the
+    // pending-evidence registry was retired, school-data-v3 Phase 3 Unit C)
+    // — a CDS rail entry's `evidence` is always empty; exact evidence still
+    // lives only on the per-cell `CitationEnvelope` above.
     expect(sources?.data.sources).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           v: 2,
           citation: expect.objectContaining({ source: "cds" }),
-          evidence: expect.arrayContaining([
-            expect.objectContaining({ eid: expect.any(String) }),
-          ]),
+          evidence: [],
         }),
         expect.objectContaining({
           citation: expect.objectContaining({ source: "web" }),
@@ -232,10 +234,18 @@ describe("shared protocol fixtures", () => {
         event.data.kind === "db_tool" &&
         event.data.status === "end",
     );
+    // get_domain and its official-tier, domain_id/row_count receipt are
+    // retired (school-data-v3 Phase 3 source-vocabulary resolution) —
+    // get_school_profile is the current db_tool shape: tool/schools/
+    // value_count only, tier null.
+    expect(dbStep?.data.tier).toBeNull();
     expect(dbStep?.data.detail).toMatchObject({
-      tool: "get_domain",
-      domain_id: "admissions",
+      tool: "get_school_profile",
+      schools: ["Duke University"],
+      value_count: 1,
     });
+    expect(dbStep?.data.detail).not.toHaveProperty("domain_id");
+    expect(dbStep?.data.detail).not.toHaveProperty("row_count");
     expect(dbStep?.data.detail).not.toHaveProperty("field_keys");
   });
 

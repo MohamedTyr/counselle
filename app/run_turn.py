@@ -466,16 +466,6 @@ async def _finish_failed_turn(
     added for tool-retry-budget exhaustion doesn't duplicate this ~50-line
     tail.
     """
-    # Kick the MCP supervisor for prompt recovery (FIX 3) — the probe is
-    # cheap and idempotent; call guarded so it can never mask the original error.
-    on_failure = getattr(deps, "on_failure", None)
-    if on_failure is not None:
-        try:
-            on_failure()
-        except Exception:
-            logger.warning(
-                "on_failure hook raised (trace_id=%s) — ignoring", trace_id, exc_info=True
-            )
     # The error turn record (+ streamed-prose preservation) — best-effort:
     # a record-write failure must never mask the turn error.
     try:

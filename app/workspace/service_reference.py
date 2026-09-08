@@ -5,11 +5,18 @@ from __future__ import annotations
 import re
 
 from app.caveats import render_caveat
+from app.tool_middleware import _FACTS_VINTAGE
 from app.workspace.models import SchoolReference
 from config.settings import get_settings
 from counselle_db.catalog import Catalog
-from counselle_db.service import get_domain
-from domain.envelope import Citation, CitationEnvelope, EvidenceItem
+from counselle_db.service import get_facts
+from domain.envelope import Citation, CitationEnvelope
+from domain.facts.state import is_stale
+
+# CollegeData publishes only the school's current admission testing policy --
+# no CDS-style per-edition history -- so there is one fact key, not a
+# per-cycle clarification narrative (plan §5.6).
+_TEST_POLICY_KEY = "admissions.test_policy_sat_or_act"
 
 
 async def get_school_reference(
@@ -26,7 +33,7 @@ async def get_school_reference(
     if cycle_year is None:
         return SchoolReference(status="cycle_required", cycle_year=None)
 
-    test_policy = await _compatible_test_policy(catalog, unitid, cycle_year)
+    test_policy = await _compatible_test_policy(catalog, unitid)
     return SchoolReference(
         status="loaded",
         cycle_year=cycle_year,
@@ -35,52 +42,41 @@ async def get_school_reference(
     )
 
 
-async def _compatible_test_policy(
-    catalog: Catalog, unitid: int, cycle_year: int
-) -> CitationEnvelope | None:
-    # Interim guard (school-data-v3 Phase 0, removed in Phase 3): get_domain
-    # is parked and always raises now that cds_library has no CDS tables.
+async def _compatible_test_policy(catalog: Catalog, unitid: int) -> CitationEnvelope | None:
+    """CollegeData's admission-requirements page is the school's current
+    published policy, so this is a freshness gate now, not a cycle gate
+    (plan §5.6): available with a `db` citation when the fact was confirmed
+    within `facts_stale_days`, else unavailable with a `stale_facts`
+    disclosure. The clarification renders the source's printed phrase
+    verbatim (`display`), never a re-labelled category."""
     settings = getattr(catalog, "settings", None) or get_settings()
-    if not settings.cds_data_enabled:
+    result = await get_facts(catalog, unitid, keys=[_TEST_POLICY_KEY])
+    row = next((item for item in result.rows if item.fact_key == _TEST_POLICY_KEY), None)
+    if row is None:
         return None
-    domain = await get_domain(catalog, unitid, "admissions")
-    available = [
-        row
-        for row in domain.rows
-        if row.available and row.ref == "admissions.test_policy_clarification"
-    ]
-    if not available:
-        return None
-    row = available[0]
+    checked = row.observed_at.strftime("%B %Y")
+    if is_stale(row.observed_at, settings.facts_stale_days):
+        return CitationEnvelope(
+            field=row.fact_key,
+            label=row.label,
+            display="not available",
+            available=False,
+            caveats=(render_caveat("stale_facts", checked=checked),),
+        )
     citation = Citation(
-        source="cds",
-        tier="official",
-        vintage=row.vintage,
-        document_sha256=domain.document_sha256,
-        source_kind=domain.source_kind,
-        retrieved_at=domain.retrieved_at,
-        academic_year=domain.academic_year,
-        manifest_version=domain.manifest_version,
+        source="db",
+        vintage=_FACTS_VINTAGE.format(month_year=checked),
         school_unitid=unitid,
+        facts_updated_at=row.observed_at.date(),
     )
-    envelope = CitationEnvelope(
-        field=row.ref,
+    return CitationEnvelope(
+        field=row.fact_key,
         label=row.label,
-        display=row.display or "",
+        display=row.display,
         unit=row.unit,
         raw=row.value,
         available=True,
         citation=citation,
-        evidence=EvidenceItem.model_validate(row.evidence),
-    )
-    if _vintage_matches_cycle(citation.vintage, cycle_year):
-        return envelope
-    return CitationEnvelope(
-        field=row.ref,
-        label=row.label,
-        display="not available",
-        available=False,
-        caveats=(render_caveat("stale_edition", edition=row.vintage),),
     )
 
 

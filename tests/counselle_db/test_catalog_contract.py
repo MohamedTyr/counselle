@@ -58,12 +58,31 @@ def _status_row(
     return {"school_id": school_id, "fact_count": fact_count, "facts_updated_at": facts_updated_at}
 
 
+def _coverage_row(
+    fact_key: str = "admissions.rate",
+    *,
+    schools_with_value: int = 1,
+    schools_total: int = 2,
+    computed_at: datetime | None = None,
+) -> dict[str, Any]:
+    return {
+        "fact_key": fact_key,
+        "schools_with_value": schools_with_value,
+        "schools_total": schools_total,
+        "computed_at": computed_at or datetime.now(UTC),
+    }
+
+
 class _CatalogConnection:
     def __init__(
-        self, profiles: list[dict[str, Any]], status: list[dict[str, Any]]
+        self,
+        profiles: list[dict[str, Any]],
+        status: list[dict[str, Any]],
+        coverage: list[dict[str, Any]] | None = None,
     ) -> None:
         self.profiles = profiles
         self.status = status
+        self.coverage = coverage if coverage is not None else []
         self.fetches: list[str] = []
         self.transactions: list[dict[str, object]] = []
 
@@ -75,6 +94,8 @@ class _CatalogConnection:
         self.fetches.append(sql)
         if "school_data_status" in sql:
             return deepcopy(self.status)
+        if "fact_coverage" in sql:
+            return deepcopy(self.coverage)
         if "school_profiles" in sql:
             return deepcopy(self.profiles)
         raise AssertionError(f"unexpected SQL: {sql}")
@@ -117,6 +138,7 @@ async def test_catalog_load_is_one_atomic_read_and_builds_the_full_snapshot() ->
             _status_row(1, fact_count=12, facts_updated_at=fresh),
             _status_row(2, fact_count=0, facts_updated_at=None),
         ],
+        [_coverage_row("admissions.rate", schools_with_value=1, schools_total=2)],
     )
     pool = _CatalogPool(connection)
 
@@ -124,7 +146,7 @@ async def test_catalog_load_is_one_atomic_read_and_builds_the_full_snapshot() ->
 
     assert pool.acquire_count == 1
     assert connection.transactions == [{"isolation": "repeatable_read", "readonly": True}]
-    assert len(connection.fetches) == 2
+    assert len(connection.fetches) == 3
     snapshot = catalog.snapshot
     assert set(snapshot.schools) == {1, 2}
     assert snapshot.schools[1].basics.name == "Example University"
@@ -139,10 +161,11 @@ async def test_catalog_load_is_one_atomic_read_and_builds_the_full_snapshot() ->
     assert snapshot.facts_updated_min == fresh
     assert snapshot.facts_updated_max == fresh
     assert snapshot.stale_facts_count == 0
-    # fact_keys fills from fact_coverage in Phase 3 (still empty here);
-    # sections fills from facts_sections.yaml in Phase 2 (this phase) — the
-    # real committed asset, six sections keyed by id.
-    assert snapshot.fact_keys == {}
+    # fact_keys fills from fact_coverage (Phase 3, Unit B); sections fills
+    # from facts_sections.yaml in Phase 2 — the real committed asset, six
+    # sections keyed by id.
+    assert set(snapshot.fact_keys) == {"admissions.rate"}
+    assert snapshot.fact_keys["admissions.rate"].schools_with_value == 1
     assert set(snapshot.sections) == {
         "getting-in",
         "money",

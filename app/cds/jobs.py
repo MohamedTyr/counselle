@@ -179,8 +179,7 @@ class Poller:
 async def start_cds_worker(runtime: Any, settings: Any) -> Poller | None:
     """Wired from the FastAPI lifespan. Returns `None` (no-op) when the
     pipeline pool isn't configured or the kill switch is off -- the app must
-    boot fine either way, mirroring `cds_data_enabled`'s `EmptyCatalog` path
-    (plan §C3)."""
+    boot fine either way (plan §C3)."""
     if runtime.pipeline_pool is None:
         logger.info("cds_worker_not_started", reason="no_pipeline_pool")
         return None

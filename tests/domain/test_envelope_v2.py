@@ -58,7 +58,7 @@ def test_cds_envelope_requires_matching_exact_evidence() -> None:
     envelope = CitationEnvelope(
         field="admissions.applicants", label="Applicants", display="10", raw=10,
         available=True, citation=citation, evidence=evidence,
-        caveats=(Caveat(kind="partial_packet", text="Partial."),),
+        caveats=(Caveat(kind="not_reported", text="Partial."),),
     )
     assert envelope.evidence == evidence
     with pytest.raises(ValidationError):

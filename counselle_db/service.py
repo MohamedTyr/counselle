@@ -1,23 +1,28 @@
-"""The four-tool CDS Library service API.
+"""The CDS Library service API (in-process; the MCP server it used to back
+was retired in school-data-v3 Phase 3, Unit C).
 
 `query_database`'s SQL guard (`_guard_sql`, its ~20 AST-walking helpers, and
 `query_database` itself) lives in `counselle_db/sql_guard.py` -- split out
 to keep this file under the house 800-line limit (CLAUDE.md); re-exported
-here so every existing caller (`counselle_db/server.py`'s MCP tool, tests)
-keeps importing it from `counselle_db.service` unchanged.
+here so existing callers keep importing it from `counselle_db.service`
+unchanged.
+
+`tool_errors`/its `_error` D6-shape formatter also live here: the
+in-process tools `app/toolset.py` mounts use the same safe-error contract.
 """
 
 from __future__ import annotations
 
 import math
+from functools import wraps
 from typing import Any
 
 import asyncpg
+import structlog
 
 from counselle_db.catalog import Catalog
 from counselle_db.formatting import format_decimal
 from counselle_db.models import (
-    DomainResult,
     FactsQueryResult,
     FactValueRow,
     ProfileGroup,
@@ -28,23 +33,88 @@ from counselle_db.models import (
     ResolvedSchool,
     ResolveNotFound,
     ResolveResult,
-    SchoolCoverage,
     SchoolFactsStatus,
     ServiceError,
 )
 from counselle_db.sql_guard import query_database
 
+logger = structlog.get_logger(__name__)
+
 __all__ = [
     "ServiceError",
     "explore",
-    "get_domain",
     "get_facts",
     "get_school_profile",
     "majors",
     "query_database",
     "resolve_school",
     "search_school_names",
+    "tool_errors",
 ]
+
+_GENERIC_SAFE_RETRY = "Adjust the arguments and retry once if data is still needed."
+_MANIFEST_SAFE_RETRY = (
+    "Load db-recipes and copy its exact structural manifest membership query, "
+    "keeping the metric reference in the bound parameter."
+)
+_SELECTED_DOCUMENT_SAFE_RETRY = (
+    "Load db-recipes and copy its selected-per-school ranking CTE and exact "
+    "school_id + document_id packet join."
+)
+
+
+def _error(message: str) -> dict[str, Any]:
+    lowered = message.lower()
+    if any(
+        word in lowered
+        for word in ("postgresql://", "password", "api_key", "secret", "token", "dsn")
+    ):
+        message = "database tool failed without a shareable error message"
+        lowered = message
+    manifest_rejection = "manifest" in lowered and any(
+        phrase in lowered
+        for phrase in (
+            "exact structural json membership",
+            "exact bound manifest",
+            "manifest json helper",
+        )
+    )
+    selected_document_rejection = (
+        "cross-school packet rankings require canonical selected-document semantics"
+        in lowered
+    )
+    return {
+        "error": "tool_error",
+        "root_cause": message,
+        "safe_retry": (
+            _MANIFEST_SAFE_RETRY
+            if manifest_rejection
+            else _SELECTED_DOCUMENT_SAFE_RETRY
+            if selected_document_rejection
+            else _GENERIC_SAFE_RETRY
+        ),
+        "stop_condition": "If unavailable or outside the contract, say so instead of retrying.",
+    }
+
+
+def tool_errors(fn: Any) -> Any:
+    """Wrap a tool body in the D6 safe-error shape: a `ServiceError` (or any
+    unexpected exception) becomes `{error, root_cause, safe_retry,
+    stop_condition}` instead of an uncaught traceback -- shared by
+    `counselle_db.server`'s MCP tools and `app.toolset`'s in-process ones."""
+
+    @wraps(fn)
+    async def wrapper(*args: Any, **kwargs: Any) -> Any:
+        try:
+            return await fn(*args, **kwargs)
+        except ServiceError as exc:
+            return _error(str(exc))
+        except Exception:
+            logger.warning("db_tool_unexpected_error", tool=fn.__name__, exc_info=True)
+            return _error("database tool failed without a shareable error message")
+
+    return wrapper
+
 
 _SELECTED_DOCUMENT_SQL = """SELECT d.*,p.manifest_version AS target_manifest_version
  FROM cds_library.active_cds_documents d
@@ -74,22 +144,23 @@ _MAJORS_SQL = """SELECT m,count(*) AS n FROM cds_library.school_explore, unnest(
  WHERE m ILIKE $1 || '%' GROUP BY m ORDER BY 2 DESC LIMIT 50"""
 
 
-def _coverage(
-    document: asyncpg.Record | None, rows: list[asyncpg.Record], catalog: Catalog
-) -> SchoolCoverage:
-    # Parked (school-data-v3 Phase 0): cds_library's manifest/packet tables
-    # are dropped, so there is no CDS document coverage to compute. This tool
-    # is never reached live (mounted only when settings.cds_data_enabled,
-    # which the v3 hatch keeps false) — fully removed in Phase 3, when
-    # resolve_school's coverage shape becomes SchoolFactsStatus.
-    raise ServiceError("CDS coverage is parked under school-data-v3; no CDS documents exist.")
-
-
-async def _live_document(
-    catalog: Catalog, unitid: int
-) -> tuple[asyncpg.Record | None, list[asyncpg.Record]]:
-    # Parked (school-data-v3 Phase 0): see _coverage above.
-    raise ServiceError("CDS coverage is parked under school-data-v3; no CDS documents exist.")
+async def _facts_status(catalog: Catalog, unitid: int) -> SchoolFactsStatus | None:
+    """`cds_library.school_data_status` for one school -- read live, never
+    from the Catalog snapshot copy (plan §5.2's freshness rule; see the
+    `_SCHOOL_DATA_STATUS_ONE_SQL` comment below). Shared by `resolve_school`
+    and `get_facts`, whose own read stays inside its single read-only
+    transaction with the fact rows rather than calling this helper, so the
+    two never drift apart from a crawl committing in between."""
+    async with catalog.pool.acquire() as conn:
+        row = await conn.fetchrow(_SCHOOL_DATA_STATUS_ONE_SQL, unitid)
+    if row is None:
+        return None
+    return SchoolFactsStatus(
+        has_collegedata=row["has_collegedata"],
+        facts_updated_at=row["facts_updated_at"],
+        fact_count=row["fact_count"],
+        tabs=dict(row["tabs"] or {}),
+    )
 
 
 async def resolve_school(catalog: Catalog, query: str) -> ResolveResult:
@@ -110,8 +181,14 @@ async def resolve_school(catalog: Catalog, query: str) -> ResolveResult:
             hint="Multiple campuses matched; ask which campus the student means.",
         )
     school = candidates[0]
-    document, rows = await _live_document(catalog, school.basics.unitid)
-    return ResolvedSchool(school=school.basics, coverage=_coverage(document, rows, catalog))
+    data = await _facts_status(catalog, school.basics.unitid)
+    if data is None:
+        raise ServiceError("That school is not in our database.")
+    return ResolvedSchool(
+        school=school.basics,
+        data=data,
+        profile_snapshot_date=school.profile_snapshot_date,
+    )
 
 
 async def search_school_names(catalog: Catalog, query: str, limit: int = 10) -> list[Any]:
@@ -204,49 +281,71 @@ async def get_school_profile(
     )
 
 
-async def get_domain(catalog: Catalog, unitid: int, domain_id: str) -> DomainResult:
-    # Parked (school-data-v3 Phase 0): cds_library's manifest/packet tables and
-    # Catalog.domain() are both gone — there is no CDS domain data to read.
-    # This tool is never reached live (mounted only when
-    # settings.cds_data_enabled, which the v3 hatch keeps false); fully
-    # removed in Phase 3 along with the packet/manifest guard machinery.
-    raise ServiceError("get_domain is parked under school-data-v3; no CDS domains exist.")
+def _section_keys(catalog: Catalog, sections: list[str]) -> list[str]:
+    """Every declared `fact_key` in the named sections (plan §6a's `get_facts`
+    narrowing) -- an unknown section id fails with the school-agnostic valid
+    list (`facts_sections.yaml` is one asset for every school)."""
+    known = catalog.snapshot.sections
+    unknown = [section for section in sections if section not in known]
+    if unknown:
+        raise ServiceError(
+            f"Unknown section {unknown[0]!r}. Valid sections: {', '.join(sorted(known))}"
+        )
+    return [
+        fact.key
+        for section in sections
+        for group in known[section].groups
+        for fact in group.facts
+    ]
 
 
 async def get_facts(
-    catalog: Catalog, unitid: int, keys: list[str] | None = None
+    catalog: Catalog,
+    unitid: int,
+    sections: list[str] | None = None,
+    keys: list[str] | None = None,
 ) -> FactsQueryResult:
     """The one reader touching `current_school_facts` (plan §5.2/§6a).
 
-    `keys=None` returns every current fact row for the school -- the HTTP
-    facts page's shape (`app/facts/service.py` needs the whole school to
-    resolve every declared key's state, including keys with no row at all).
-    A narrower `keys=[...]` call is the seam Phase 3's agent tool narrows
-    through; this unit does not add capping/`truncated` on top of it, since
-    the full-page read has no such budget (plan §5.2's ≤150 KB payload
-    budget is a property of the data, not an artificial cap).
+    At most one of `sections` (expanded to that section's declared keys via
+    `Catalog.snapshot.sections`) or `keys` (exact `fact_key`s) narrows the
+    read; passing neither returns every current fact row for the school --
+    the HTTP facts page's shape (`app/facts/service.py` needs the whole
+    school to resolve every declared key's state, including keys with no row
+    at all). This unit does not add capping/`truncated` on top of the
+    unnarrowed read, since the full-page read has no such budget (plan
+    §5.2's ≤150 KB payload budget is a property of the data, not an
+    artificial cap); the agent tool (`app/toolset.py`) applies its own cap
+    on top of a narrowed call.
     """
+    if sections and keys:
+        raise ServiceError("Pass sections or keys, not both.")
     if not catalog.snapshot.schools.get(unitid):
         raise ServiceError("That school is not in our database.")
+    resolved_keys = _section_keys(catalog, sections) if sections else keys
     async with catalog.pool.acquire() as conn, conn.transaction(readonly=True):
         status_row = await conn.fetchrow(_SCHOOL_DATA_STATUS_ONE_SQL, unitid)
         if status_row is None:
             raise ServiceError("That school is not in our database.")
         fact_rows = await (
-            conn.fetch(_CURRENT_SCHOOL_FACTS_KEYS_SQL, unitid, keys)
-            if keys
+            conn.fetch(_CURRENT_SCHOOL_FACTS_KEYS_SQL, unitid, resolved_keys)
+            if resolved_keys
             else conn.fetch(_CURRENT_SCHOOL_FACTS_SQL, unitid)
         )
     school = catalog.snapshot.schools[unitid]
     status = SchoolFactsStatus(
-        school_id=status_row["school_id"],
         has_collegedata=status_row["has_collegedata"],
         facts_updated_at=status_row["facts_updated_at"],
         fact_count=status_row["fact_count"],
         tabs=dict(status_row["tabs"] or {}),
     )
     rows = tuple(FactValueRow(**dict(record)) for record in fact_rows)
-    return FactsQueryResult(school=school.basics, status=status, rows=rows)
+    return FactsQueryResult(
+        school=school.basics,
+        status=status,
+        rows=rows,
+        profile_snapshot_date=school.profile_snapshot_date,
+    )
 
 
 async def explore(

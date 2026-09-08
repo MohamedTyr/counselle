@@ -19,6 +19,7 @@ import {
   MessageResponse,
   type MessageResponseProps,
 } from "@/components/ai-elements/message";
+import { CounselleLogo } from "@/features/shell/CounselleLogo";
 
 import {
   citationYearLabel,
@@ -27,6 +28,7 @@ import {
   friendlySourceName,
   hostOf,
   safeExternalUrl,
+  tierBadgeLabel,
   uniqueSourceByIndex,
 } from "../citations";
 import { isLegacySourceEntry } from "@/api/chat/legacy-replay";
@@ -57,9 +59,11 @@ const remarkPlugins = [
 const allowedTags = { "citation-ref": ["index"] };
 
 function TierBadge({ citation }: { citation: Citation }) {
+  const label = tierBadgeLabel(citation.tier);
+  if (label === null) return null;
   return (
     <Badge variant={citation.tier === "official" ? "secondary" : "outline"}>
-      {citation.tier === "official" ? "Official" : "Community"}
+      {label}
     </Badge>
   );
 }
@@ -71,6 +75,12 @@ function ChipIcon({
   citation: Citation;
   schoolDomains: Map<number, string> | undefined;
 }) {
+  // Counselle's own data (school-data-v3 D3) is never attributed to a
+  // school — always the Counselle mark, checked before any school-domain
+  // lookup so a matching viz table can never misattribute it.
+  if (citation.source === "db") {
+    return <CounselleLogo aria-hidden="true" className="size-3.5" />;
+  }
   const domain =
     citation.school_unitid != null
       ? schoolDomains?.get(citation.school_unitid)
@@ -141,7 +151,10 @@ function ChipBody({
   }
 
   const citation = entry.citation;
-  const isDb = citation.source === "cds" || citation.source === "profile";
+  const isDb =
+    citation.source === "cds" ||
+    citation.source === "profile" ||
+    citation.source === "db";
   const year = citationYearLabel(citation);
   const href = isDb ? undefined : safeExternalUrl(citation.url);
   const host = isDb ? undefined : hostOf(citation);
@@ -178,10 +191,11 @@ function ChipBody({
 /**
  * CitationChip — what a `[n]` marker becomes in rendered prose.
  *
- * One chip shape for every source kind (CDS, profile, web, edu, reddit,
+ * One chip shape for every source kind (CDS, profile, db, web, edu, reddit,
  * legacy): a real accessible button showing the source's icon and name —
  * real school favicon for CDS/profile when a matching viz table exists in
- * the same message, real site favicon for web/edu/reddit, a generic icon
+ * the same message, the Counselle mark for db (never a school favicon —
+ * school-data-v3 D3), real site favicon for web/edu/reddit, a generic icon
  * otherwise. Never a bracketed index; this is a chat answer, not a research
  * paper's footnote. A marker whose source hasn't streamed in yet (or
  * doesn't exist) renders nothing — never a bare, unexplained mark.

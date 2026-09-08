@@ -1,15 +1,27 @@
-"""Strict anti-corruption boundary for pipeline manifest and packet JSON."""
+"""Strict anti-corruption boundary for pipeline manifest and packet JSON.
+
+Fully self-contained under school-data-v3 (Phase 3, Unit B): `DomainRow`,
+`AvailabilitySummary`, `DomainResult`, and `format_cds_edition` moved in
+from `counselle_db.models`/`counselle_db.formatting` — this parked module is
+the only remaining CDS packet/manifest reader (`counselle_db.service.get_domain`
+is its sole caller), so its result types belong beside it rather than in the
+general-purpose `models.py`. Moving them here also avoids a circular import:
+`models.py` no longer needs anything from this module, so this module is
+free to depend on `models.py` (for `ServiceError`/`SchoolBasics`) in one
+direction only.
+"""
 
 from __future__ import annotations
 
 import math
+from datetime import datetime
 from typing import Any, Literal
 
 import structlog
 from pydantic import BaseModel, ConfigDict, Field, JsonValue, ValidationError
 
-from counselle_db.formatting import format_cds_edition, format_decimal, hex_digest
-from counselle_db.models import DomainRow, ServiceError
+from counselle_db.formatting import format_decimal, hex_digest
+from counselle_db.models import SchoolBasics, ServiceError
 
 logger = structlog.get_logger(__name__)
 _SAFE_PACKET_ERROR = (
@@ -106,6 +118,53 @@ class ParsedPacket(StrictModel):
     manifest: ManifestSnapshot
     current_definition_match: bool
     currentness: str
+
+
+def format_cds_edition(academic_year: int) -> str:
+    """Render the CDS edition whose opening year is ``academic_year``."""
+    return f"CDS {academic_year}-{(academic_year + 1) % 100:02d}"
+
+
+class DomainRow(StrictModel):
+    ref: str
+    label: str
+    display: str | None
+    available: bool
+    availability_status: str | None = None
+    unit: str | None = None  # the manifest's declared unit for this metric
+    value: Any = None
+    vintage: str
+    caveat_kinds: tuple[str, ...] = ()
+    evidence: dict[str, Any] | None = None
+
+
+class AvailabilitySummary(StrictModel):
+    configured: int
+    # Source assertions whose extraction_status is verified, including
+    # evidence-backed source absences such as not_in_template_version.
+    verified: int
+    # Verified, reported metrics that carry a typed value and evidence.
+    available: int
+    not_in_template_version: int
+
+
+class DomainResult(StrictModel):
+    school: SchoolBasics
+    domain_id: str
+    academic_year: int | None = None
+    document_id: int | None = None
+    document_sha256: str | None = None
+    source_kind: str | None = None
+    retrieved_at: datetime | None = None
+    manifest_version: str | None = None
+    packet_status: str | None = None
+    currentness: str | None = None
+    latest_status: str | None = None
+    latest_error_code: str | None = None
+    definition_match: bool | None = None
+    rows: tuple[DomainRow, ...] = ()
+    availability: AvailabilitySummary
+    summary: str
 
 
 def compile_manifest(

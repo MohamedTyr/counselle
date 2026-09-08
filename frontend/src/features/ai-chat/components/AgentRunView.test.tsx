@@ -62,7 +62,7 @@ describe("ToolStepBeat", () => {
         step={step({
           status: "start",
           kind: "db_tool",
-          tool: "get_domain",
+          tool: "get_facts",
           label: "Reading Yale’s admissions data…",
         })}
       />,
@@ -78,10 +78,10 @@ describe("ToolStepBeat", () => {
       <ToolStepBeat
         step={step({
           kind: "db_tool",
-          tool: "get_domain",
+          tool: "get_facts",
           label: "Read Yale University’s admissions data",
           detail: {
-            tool: "get_domain",
+            tool: "get_facts",
             value_count: 72,
             domain_id: "admissions",
             schools: ["Yale University"],

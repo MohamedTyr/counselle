@@ -118,7 +118,6 @@ def _hermetic(monkeypatch: pytest.MonkeyPatch) -> None:
     ) -> dict[str, Any]:
         del catalog, type, columns, rows, title, viz_signature_indexes
         registry.register_source(_CDS_CITATION, "Duke University — Common Data Set 2024-25")
-        registry.register_used_evidence(2, _EVIDENCE)
         registry.register_source(_PROFILE_CITATION, "Duke University — Profile snapshot 2024-12-31")
         viz_emitted.append(_CANNED_SPEC.model_dump(mode="json"))
         return {
@@ -191,8 +190,8 @@ _CANNED_SPEC = RenderSpec(
                     citation=_CDS_CITATION,
                     evidence=_EVIDENCE,
                     caveats=(
-                        Caveat(kind="stale_edition", text="This value is from 2024-25."),
-                        Caveat(kind="edition_mismatch_comparison", text="Editions differ."),
+                        Caveat(kind="stale_facts", text="This value is from 2024-25."),
+                        Caveat(kind="observed_at_spread", text="Confirmation dates differ."),
                     ),
                     marker="[2]",
                 ),
@@ -288,7 +287,7 @@ def _dossier_model(messages: list[ModelMessage], info: AgentInfo) -> ModelRespon
                             {
                                 "label": "Acceptance rate",
                                 "cells": [
-                                    {"metric_ref": "admissions.acceptance_rate"},
+                                    {"fact_key": "admissions.acceptance_rate"},
                                     {"display": "7.1%", "raw": 0.071, "marker": "[1]"},
                                 ],
                             },
@@ -342,7 +341,7 @@ def _transcript_dossier_model(messages: list[ModelMessage], info: AgentInfo) -> 
                             {
                                 "label": "Acceptance rate",
                                 "cells": [
-                                    {"metric_ref": "admissions.acceptance_rate"},
+                                    {"fact_key": "admissions.acceptance_rate"},
                                     {"display": "7.1%", "raw": 0.071, "marker": "[1]"},
                                 ],
                             },
@@ -588,24 +587,29 @@ async def test_golden_full_turn_events() -> None:
         if event.type == "step" and event.data["kind"] == "viz" and event.data["status"] == "end"
     )
     assert "result_for_agent" not in render_end
-    domain_step = ev_step(
+    # A real current db_tool step (`get_domain` and its "official"-tier,
+    # domain_id/row_count receipt shape are retired -- school-data-v3 Phase
+    # 3 source-vocabulary resolution; `get_school_profile`/`get_facts`/
+    # `resolve_school` are the three surviving db_tool tools, all `tier:
+    # null` per `config/assets/step_labels.yaml`, and `get_school_profile`'s
+    # receipt is `tool`/`schools`/`value_count` only -- `app/steps.py`
+    # `_get_school_profile_kwargs`).
+    profile_step = ev_step(
         StepData(
-            step_id="fixture-domain-read",
+            step_id="fixture-profile-read",
             status="end",
             kind="db_tool",
-            tool="get_domain",
-            label="Read admissions data",
-            tier="official",
+            tool="get_school_profile",
+            label="Read Duke University’s profile",
+            tier=None,
             detail=StepDetail(
-                tool="get_domain",
-                domain_id="admissions",
+                tool="get_school_profile",
                 value_count=1,
-                row_count=1,
                 schools=["Duke University"],
             ),
         )
     )
-    events.insert(types.index("viz"), domain_step)
+    events.insert(types.index("viz"), profile_step)
     _check_or_regen("turn_full", {"events": normalize(_dump(events))})
 
 

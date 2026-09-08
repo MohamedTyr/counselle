@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import UTC, date, datetime, timedelta
 from types import SimpleNamespace
 from typing import Any, cast
 from uuid import uuid4
@@ -11,6 +12,7 @@ import pytest
 from app.workspace import service_applications, service_reference, service_utils
 from app.workspace.changes import WorkspaceEventBus
 from app.workspace.models import ApplicationCreate, ApplicationView
+from counselle_db.models import FactsQueryResult, FactValueRow, SchoolBasics, SchoolFactsStatus
 from domain.envelope import Citation, CitationEnvelope
 
 
@@ -75,91 +77,75 @@ def _test_policy(*, vintage: str, source: str, raw: str) -> CitationEnvelope:
     )
 
 
-async def test_test_policy_uses_compatible_preference_fallback(
+def _test_policy_facts_result(
+    *, value: str, observed_at: datetime
+) -> FactsQueryResult:
+    row = FactValueRow(
+        fact_key="admissions.test_policy_sat_or_act",
+        tab="admissions",
+        section="getting-in",
+        label="Test policy",
+        value=value,
+        display=value,
+        unit=None,
+        value_type="text",
+        value_num=None,
+        value_text=value,
+        value_bool=None,
+        value_date=None,
+        reported_period=None,
+        reported_period_year=None,
+        observed_at=observed_at,
+    )
+    return FactsQueryResult(
+        school=SchoolBasics(unitid=1, name="Canonical School"),
+        status=SchoolFactsStatus(
+            facts_updated_at=observed_at, fact_count=1, has_collegedata=True, tabs={}
+        ),
+        rows=(row,),
+        profile_snapshot_date=date(2026, 1, 1),
+    )
+
+
+async def test_test_policy_reads_the_current_get_facts_value(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    row = SimpleNamespace(
-        available=True,
-        ref="admissions.test_policy_clarification",
-        label="Test policy",
-        display="Required",
-        value="Required",
-        vintage="CDS 2026-27",
-        unit=None,
-        evidence={
-            "eid": "admissions.test_policy_clarification",
-            "value_display": "Required",
-            "label": "Test policy",
-            "page": 1,
-            "excerpt": "Required",
-        },
-    )
+    fresh = datetime.now(UTC) - timedelta(days=5)
 
-    async def fake_get_domain(*_: object) -> SimpleNamespace:
-        return SimpleNamespace(
-            rows=(row,),
-            document_sha256="a" * 64,
-            source_kind="upload",
-            retrieved_at="2026-01-01T00:00:00Z",
-            academic_year=2026,
-            manifest_version="5.0.1",
-        )
+    async def fake_get_facts(*_: object, **__: object) -> FactsQueryResult:
+        return _test_policy_facts_result(value="Required", observed_at=fresh)
 
-    monkeypatch.setattr(service_reference, "get_domain", fake_get_domain)
+    monkeypatch.setattr(service_reference, "get_facts", fake_get_facts)
 
-    catalog = SimpleNamespace(settings=SimpleNamespace(cds_data_enabled=True))
-    result = await service_reference._compatible_test_policy(
-        cast(Any, catalog), unitid=1, cycle_year=2027
-    )
+    catalog = SimpleNamespace(settings=SimpleNamespace(facts_stale_days=120))
+    result = await service_reference._compatible_test_policy(cast(Any, catalog), unitid=1)
 
     assert result is not None
     assert result.available
     assert result.raw == "Required"
+    assert result.citation is not None
+    assert result.citation.source == "db"
 
 
 async def test_stale_test_policy_is_unavailable_and_requires_portal_verification(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    row = SimpleNamespace(
-        available=True,
-        ref="admissions.test_policy_clarification",
-        label="Test policy",
-        display="Optional",
-        value="Optional",
-        vintage="CDS 2024-25",
-        unit=None,
-        evidence={
-            "eid": "admissions.test_policy_clarification",
-            "value_display": "Optional",
-            "label": "Test policy",
-            "page": 1,
-            "excerpt": "Optional",
-        },
-    )
+    stale = datetime.now(UTC) - timedelta(days=200)
 
-    async def fake_get_domain(*_: object) -> SimpleNamespace:
-        return SimpleNamespace(
-            rows=(row,),
-            document_sha256="a" * 64,
-            source_kind="upload",
-            retrieved_at="2026-01-01T00:00:00Z",
-            academic_year=2024,
-            manifest_version="5.0.1",
-        )
+    async def fake_get_facts(*_: object, **__: object) -> FactsQueryResult:
+        return _test_policy_facts_result(value="Optional", observed_at=stale)
 
-    monkeypatch.setattr(service_reference, "get_domain", fake_get_domain)
+    monkeypatch.setattr(service_reference, "get_facts", fake_get_facts)
 
-    catalog = SimpleNamespace(settings=SimpleNamespace(cds_data_enabled=True))
-    result = await service_reference._compatible_test_policy(
-        cast(Any, catalog), unitid=1, cycle_year=2027
-    )
+    catalog = SimpleNamespace(settings=SimpleNamespace(facts_stale_days=120))
+    result = await service_reference._compatible_test_policy(cast(Any, catalog), unitid=1)
 
     assert result is not None
     assert result.available is False
     assert result.raw is None
     assert result.display == "not available"
     assert result.citation is None
-    assert result.caveats[0].kind == "stale_edition"
+    assert result.caveats[0].kind == "stale_facts"
 
 
 async def test_add_application_creates_only_the_application_and_no_children(

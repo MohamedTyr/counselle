@@ -114,6 +114,14 @@ function tierMatchesSource(source: SourceName, tier: Tier): boolean {
   return true;
 }
 
+function nullableDateOnly(value: unknown): boolean {
+  return (
+    value === null ||
+    value === undefined ||
+    (typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value))
+  );
+}
+
 export function isCurrentCitation(value: unknown): value is Citation {
   if (
     !record(value) ||
@@ -130,6 +138,7 @@ export function isCurrentCitation(value: unknown): value is Citation {
       "manifest_version",
       "school_unitid",
       "profile_sha256",
+      "facts_updated_at",
       "source_period",
       "source_period_basis",
       "source_period_evidence",
@@ -137,13 +146,19 @@ export function isCurrentCitation(value: unknown): value is Citation {
     ])
   )
     return false;
+  const tierValid =
+    value.source === "db"
+      ? value.tier === null
+      : typeof value.tier === "string" && tiers.has(value.tier as Tier);
   if (
     value.v !== 2 ||
     typeof value.source !== "string" ||
     !sourceNames.has(value.source as SourceName) ||
-    typeof value.tier !== "string" ||
-    !tiers.has(value.tier as Tier) ||
+    !tierValid ||
     !nonEmpty(value.vintage) ||
+    !nullableDateOnly(value.facts_updated_at) ||
+    (value.source !== "db" &&
+      !(value.facts_updated_at === undefined || value.facts_updated_at === null)) ||
     (!("url" in value) || nullableString(value.url)) === false ||
     (!("retrieved_at" in value) || nullableString(value.retrieved_at)) ===
       false ||
@@ -192,6 +207,15 @@ export function isCurrentCitation(value: unknown): value is Citation {
       dbKeys.slice(0, 5).every((key) => absentOrNull(value, key)) &&
       periodKeys.every((key) => absentOrNull(value, key))
     );
+  if (value.source === "db")
+    return (
+      value.tier === null &&
+      positiveInteger(value.school_unitid) &&
+      absentOrNull(value, "url") &&
+      dbKeys.slice(0, 5).every((key) => absentOrNull(value, key)) &&
+      absentOrNull(value, "profile_sha256") &&
+      periodKeys.every((key) => absentOrNull(value, key))
+    );
   return (
     tierMatchesSource(value.source as SourceName, value.tier as Tier) &&
     nonEmpty(value.url) &&
@@ -232,6 +256,20 @@ function jsonValue(value: unknown): boolean {
   return record(value) && Object.values(value).every(jsonValue);
 }
 
+function isCaveat(item: unknown): boolean {
+  return (
+    record(item) &&
+    only(item, ["kind", "text"]) &&
+    typeof item.kind === "string" &&
+    /^[a-z][a-z0-9_]*$/.test(item.kind) &&
+    nonEmpty(item.text)
+  );
+}
+
+function isFootItem(item: unknown): boolean {
+  return nonEmpty(item) || isCaveat(item);
+}
+
 function envelope(value: unknown): value is CitationEnvelope {
   if (
     !record(value) ||
@@ -256,14 +294,7 @@ function envelope(value: unknown): value is CitationEnvelope {
     (!("raw" in value) || jsonValue(value.raw)) === false ||
     (!("unit" in value) || nullableString(value.unit)) === false ||
     !Array.isArray(value.caveats) ||
-    !value.caveats.every(
-      (item) =>
-        record(item) &&
-        only(item, ["kind", "text"]) &&
-        typeof item.kind === "string" &&
-        /^[a-z][a-z0-9_]*$/.test(item.kind) &&
-        nonEmpty(item.text),
-    )
+    !value.caveats.every(isCaveat)
   )
     return false;
   if (!value.available)
@@ -293,12 +324,14 @@ export function isTabularRenderSpec(
 ): value is TabularRenderSpec {
   if (
     !record(value) ||
-    !only(value, ["v", "type", "title", "columns", "rows"]) ||
+    !only(value, ["v", "type", "title", "columns", "rows", "foot"]) ||
     value.v !== 2 ||
     (value.type !== "stat_block" && value.type !== "comparison_table") ||
     typeof value.title !== "string" ||
     !Array.isArray(value.columns) ||
-    !Array.isArray(value.rows)
+    !Array.isArray(value.rows) ||
+    !Array.isArray(value.foot) ||
+    !value.foot.every(isFootItem)
   )
     return false;
   const columns = value.columns;

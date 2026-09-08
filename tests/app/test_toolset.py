@@ -6,27 +6,21 @@ assert a disabled source's machinery is NEVER constructed (ADR 0013).
 
 from __future__ import annotations
 
-import sys
 from datetime import date
 from types import SimpleNamespace
 from typing import Any
 
-import pytest
 from pydantic_ai import Tool
-from pydantic_ai.mcp import MCPToolset
 
 from app.sources import SourceRegistry
 from app.tool_specs import build_tool_specs, gateable_tool_names
 from app.toolset import (
-    _DEFAULT_AGENT_MCP_READ_TIMEOUT_SECONDS,
     GATEABLE_TOOLS,
     ToolDeps,
     _allowed_subreddits,
-    annotate_mcp_result,
-    build_mcp_toolset,
+    build_db_tools,
     build_tools,
 )
-from domain.envelope import Citation, CitationEnvelope
 from domain.events import StepDetail
 from domain.specs import SourceConfig
 
@@ -244,147 +238,17 @@ class TestRedditAllowlist:
 
 
 # ---------------------------------------------------------------------------
-# The counselle-db MCP toolset wiring
+# get_facts argument contract
 # ---------------------------------------------------------------------------
 
 
-class TestMcpToolset:
-    @staticmethod
-    def _settings(**overrides: Any) -> SimpleNamespace:
-        values = {
-            "db_ro_dsn": "postgresql://ro@localhost:5432/pipeline",
-            "db_app_dsn": "postgresql://app@localhost:5432/pipeline",
-            "db_statement_timeout_ms": 8_000,
-            "db_row_cap": 500,
-            "query_database_max_bytes": 262_144,
-            "data_catalog_refresh_seconds": 3_600,
-            "supported_packet_extractor_versions": frozenset({"extractor-v8"}),
-            "db_pool_min": 1,
-            "db_pool_max": 5,
-            "log_level": "INFO",
-            "agent_mcp_read_timeout_s": 60.0,
-        }
-        values.update(overrides)
-        return SimpleNamespace(**values)
+class TestGetFactsArgumentContract:
+    async def test_sections_and_keys_together_is_a_clear_tool_error(self) -> None:
+        # get_facts documents "at most one of sections or keys" -- passing
+        # both must never silently prefer sections and drop keys.
+        get_facts = _fn(build_db_tools(catalog=None), "get_facts")
 
-    def test_build_mcp_toolset_wires_stdio_child_and_registry_hook(self) -> None:
-        settings = self._settings()
+        payload = await get_facts(unitid=1, sections=["getting-in"], keys=["identity.address"])
 
-        toolset = build_mcp_toolset(settings)
-
-        assert isinstance(toolset, MCPToolset)
-        assert toolset.id == "counselle-db"
-        assert toolset.process_tool_call is annotate_mcp_result
-        transport = toolset.client.transport
-        assert transport.command == sys.executable
-        assert transport.args == ["-m", "counselle_db.server"]
-        # The child env does NOT inherit the parent env (notes §2) — the DSNs
-        # must be passed explicitly.
-        assert transport.env["COUNSELLE_DB_RO_DSN"] == settings.db_ro_dsn
-        assert transport.env["COUNSELLE_SETTINGS_NO_ENV_FILE"] == "1"
-        assert "COUNSELLE_DB_APP_DSN" not in transport.env
-
-    def test_build_mcp_toolset_carries_bounded_read_timeout(self) -> None:
-        """A dead MCP child must not hang tool calls forever (fix 2).
-
-        MCPToolset passes read_timeout to the FastMCP Client as ``timeout``,
-        which is normalized to a timedelta and stored in
-        ``client._session_kwargs["read_timeout_seconds"]``.
-        """
-        from datetime import timedelta
-
-        settings = self._settings()
-
-        toolset = build_mcp_toolset(settings)
-
-        # FastMCP Client normalizes the float to a timedelta in _session_kwargs.
-        read_timeout_val = toolset.client._session_kwargs.get("read_timeout_seconds")
-        assert read_timeout_val is not None, "_session_kwargs must carry read_timeout_seconds"
-        # Accept either float or timedelta (depends on fastmcp version).
-        if isinstance(read_timeout_val, timedelta):
-            assert read_timeout_val.total_seconds() == _DEFAULT_AGENT_MCP_READ_TIMEOUT_SECONDS
-        else:
-            assert float(read_timeout_val) == _DEFAULT_AGENT_MCP_READ_TIMEOUT_SECONDS
-
-    def test_build_mcp_toolset_does_not_forward_tavily_key(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        """The Tavily key must NEVER reach the MCP child (fix 5)."""
-        monkeypatch.setenv("COUNSELLE_TAVILY_API_KEY", "tvly-secret")
-        monkeypatch.setenv("COUNSELLE_DB_RO_DSN", "postgresql://ro@localhost/pipeline")
-        settings = self._settings()
-
-        toolset = build_mcp_toolset(settings)
-        env = toolset.client.transport.env
-
-        assert "COUNSELLE_TAVILY_API_KEY" not in env
-        # DSNs must still be there
-        assert env["COUNSELLE_DB_RO_DSN"] == settings.db_ro_dsn
-        assert "COUNSELLE_DB_APP_DSN" not in env
-
-    def test_build_mcp_toolset_serializes_every_child_setting_from_parent(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        monkeypatch.setenv("COUNSELLE_VERTEX_API_KEY", "vertex-secret")
-        monkeypatch.setenv("GOOGLE_APPLICATION_CREDENTIALS", "/secret/vertex.json")
-        settings = self._settings(
-            db_statement_timeout_ms=321,
-            db_row_cap=17,
-            query_database_max_bytes=4_096,
-            data_catalog_refresh_seconds=23,
-            supported_packet_extractor_versions=frozenset({"v9", "v8"}),
-            db_pool_min=2,
-            db_pool_max=7,
-            log_level="WARNING",
-        )
-
-        env = build_mcp_toolset(settings).client.transport.env
-
-        assert env == {
-            "COUNSELLE_DB_RO_DSN": settings.db_ro_dsn,
-            "COUNSELLE_SETTINGS_NO_ENV_FILE": "1",
-            "COUNSELLE_DB_STATEMENT_TIMEOUT_MS": "321",
-            "COUNSELLE_DB_ROW_CAP": "17",
-            "COUNSELLE_QUERY_DATABASE_MAX_BYTES": "4096",
-            "COUNSELLE_DATA_CATALOG_REFRESH_SECONDS": "23",
-            "COUNSELLE_SUPPORTED_PACKET_EXTRACTOR_VERSIONS": "v8,v9",
-            "COUNSELLE_DB_POOL_MIN": "2",
-            "COUNSELLE_DB_POOL_MAX": "7",
-            "COUNSELLE_LOG_LEVEL": "WARNING",
-        }
-
-    async def test_annotate_mcp_result_routes_through_the_deps_registry(self) -> None:
-        registry = SourceRegistry()
-        ctx = SimpleNamespace(deps=SimpleNamespace(registry=registry))
-        envelope = CitationEnvelope(
-            field="admissions.acceptance_rate",
-            label="Acceptance rate",
-            display="6%",
-            raw=0.06,
-            available=True,
-            unit="percent",
-            citation=Citation(
-                source="web",
-                tier="official",
-                vintage="Retrieved 2026-01-01",
-                url="https://example.edu/admissions",
-            ),
-        ).model_dump(mode="json")
-
-        async def call_tool(name: str, args: dict[str, Any], *, metadata: Any = None) -> Any:
-            return [envelope]
-
-        result: Any = await annotate_mcp_result(ctx, call_tool, "get_values", {})  # type: ignore[arg-type]
-
-        assert result[0]["marker"] == "[1]"
-        assert len(registry) == 1
-
-    async def test_annotate_mcp_result_without_registry_passes_through(self) -> None:
-        ctx = SimpleNamespace(deps=SimpleNamespace())
-
-        async def call_tool(name: str, args: dict[str, Any], *, metadata: Any = None) -> Any:
-            return {"ok": True}
-
-        result = await annotate_mcp_result(ctx, call_tool, "get_data_calendar", {})  # type: ignore[arg-type]
-
-        assert result == {"ok": True}
+        assert payload["error"] == "tool_error"
+        assert "not both" in payload["root_cause"]

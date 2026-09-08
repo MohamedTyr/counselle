@@ -21,8 +21,6 @@ from uuid import UUID, uuid4
 import structlog
 import yaml
 from pydantic import BaseModel
-from sqlglot import exp, parse
-from sqlglot.errors import ParseError, TokenError
 
 from app.deps import Runtime, build_runtime
 from app.model_selection import counselor_model_selection, model_name_from_setting
@@ -34,10 +32,6 @@ from app.workspace.service_documents import create_document
 from app.workspace.service_memory import create_memories
 from config.logging import setup_logging
 from config.settings import get_settings
-from counselle_db.sql_guard import (
-    _join_has_exact_document_keys,
-    _ordered_column,
-)
 from domain.events import Event
 from domain.response_mode import ResponseMode
 from domain.specs import SourceConfig
@@ -108,16 +102,11 @@ def build_judge_agent(settings: Any) -> Any:
 class EvalSchool:
     unitid: int
     name: str
-    domains: tuple[str, ...]
-    year: int | None
-    currentness: str | None
-    partials: int
 
 
 @dataclass(frozen=True)
 class EvalContext:
-    manifest_version: str
-    domains: tuple[str, ...]
+    sections: tuple[str, ...]
     covered: int
     total: int
     stale_partial: EvalSchool
@@ -125,21 +114,23 @@ class EvalContext:
     common_a: EvalSchool
     common_b: EvalSchool
     comparison_peer: EvalSchool
-    common_domain: str
     common_metric_ref: str
     stat_metric_refs: tuple[str, ...]
     aid_metric_ref: str
     selectivity_applicants_ref: str
     selectivity_admitted_ref: str
-    need_blind_ref: str | None
-    not_in_template_available: bool
-    not_in_template_school: str | None = None
-    not_in_template_domain: str | None = None
-    not_in_template_ref: str | None = None
+    need_blind_ref: str | None = None
+    # Whether the two v3 cases that need a live state the current DB does
+    # not produce (school-data-v3 Phase 3, Unit E's fixture note: no
+    # `not_found` page status and no facts old enough to trip
+    # `facts_stale_days` exist live) can actually be exercised right now —
+    # checked live at context-build time so the harness degrades to an
+    # honest skip instead of silently passing a case it never ran.
+    not_published_available: bool = False
+    stale_facts_available: bool = False
 
     def substitutions(self) -> dict[str, str]:
         return {
-            "manifest_version": self.manifest_version,
             "covered": str(self.covered),
             "total": str(self.total),
             "stale_partial": self.stale_partial.name,
@@ -147,42 +138,110 @@ class EvalContext:
             "common_a": self.common_a.name,
             "common_b": self.common_b.name,
             "comparison_peer": self.comparison_peer.name,
-            "common_domain": self.common_domain,
             "common_metric_ref": self.common_metric_ref,
             "stat_metric_refs": ", ".join(self.stat_metric_refs),
             "aid_metric_ref": self.aid_metric_ref,
             "selectivity_applicants_ref": self.selectivity_applicants_ref,
             "selectivity_admitted_ref": self.selectivity_admitted_ref,
-            "need_blind_ref": self.need_blind_ref or "not defined in the current manifest",
-            "not_in_template_school": self.not_in_template_school or "",
-            "not_in_template_domain": self.not_in_template_domain or "",
-            "not_in_template_ref": self.not_in_template_ref or "",
+            "need_blind_ref": self.need_blind_ref
+            or "not defined as a fact key in the current catalog",
         }
 
 
-def _school(snapshot: Any, unitid: int) -> EvalSchool:
-    """Parked under school-data-v3 (see ``build_eval_context``)."""
-    raise NotImplementedError(
-        "evals.runner._school is parked under school-data-v3; the CDS "
-        "domain/coverage catalog it read no longer exists. Phase 3 rewrites "
-        "this against the facts store."
-    )
+def _school(catalog: Any, unitid: int) -> EvalSchool:
+    """One live fixture school, named off the atomic ``Catalog`` snapshot."""
+    record = catalog.snapshot.schools.get(unitid)
+    if record is None:
+        raise RuntimeError(f"eval fixture unitid {unitid} is not in the live school catalog")
+    return EvalSchool(unitid=unitid, name=record.basics.name)
+
+
+def _top_fact_key(fact_keys: Mapping[str, Any], prefix: str) -> str:
+    """The declared, live-covered fact key under ``prefix`` with the widest
+    coverage — picked from ``Catalog.snapshot.fact_keys`` (already the
+    ``fact_coverage`` view, `explore.*` and zero-coverage rows excluded), so
+    a fixture never names a key that has since lost every reporting school."""
+    candidates = [(key, row) for key, row in fact_keys.items() if key.startswith(prefix)]
+    if not candidates:
+        raise RuntimeError(f"no live fact_coverage rows under {prefix!r} to build a fixture from")
+    return max(candidates, key=lambda item: item[1].schools_with_value)[0]
+
+
+# school-data-v3 Phase 3 -- every fixture below is picked live off
+# `Catalog.snapshot`/`cds_library` state rather than pinned to today's
+# specific unitids, so the harness stays correct as the crawl grows.
+_STALE_PARTIAL_SQL = """SELECT school_id FROM cds_library.school_data_status s
+ WHERE has_collegedata AND EXISTS (
+   SELECT 1 FROM jsonb_each_text(s.tabs) t(tab, status) WHERE t.status <> 'ok'
+ ) ORDER BY school_id LIMIT 1"""
+_PROFILE_ONLY_SQL = """SELECT school_id FROM cds_library.school_data_status
+ WHERE NOT has_collegedata ORDER BY school_id LIMIT 1"""
+_COMMON_SCHOOLS_SQL = """SELECT school_id FROM cds_library.current_school_facts
+ WHERE fact_key = $1 ORDER BY school_id LIMIT 3"""
+_SCHOOL_FACT_KEYS_SQL = """SELECT fact_key FROM cds_library.current_school_facts
+ WHERE school_id = $1 AND fact_key = ANY($2::text[]) ORDER BY fact_key"""
+# Live gates for the two v3 cases that cannot be grounded in today's data
+# (see the `EvalContext` field comment above).
+_NOT_PUBLISHED_LIVE_SQL = """SELECT count(*) FROM cds_library.school_data_status s,
+ jsonb_each_text(s.tabs) t(tab, status) WHERE t.status = 'not_found'"""
+_STALE_FACTS_LIVE_SQL = """SELECT count(*) FROM cds_library.school_data_status
+ WHERE facts_updated_at < now() - make_interval(days => $1)"""
 
 
 async def build_eval_context(runtime: Runtime) -> EvalContext:
-    """Parked under school-data-v3 Phase 0.
-
-    This eval-fixture selection logic picked live schools by the old
-    manifest-era ``CatalogSnapshot``'s coverage/domains/metrics/version
-    fields — all dropped with the manifest. ``CatalogSnapshot.fact_keys``/
-    ``.sections`` are empty until Phase 2/3 fill them from the facts store,
-    so there is nothing to pick live eval fixtures from yet. Phase 3
-    rewrites this against the facts store.
+    """Build the eval fixture set from the live facts store (school-data-v3
+    Phase 3): fixture schools and fact keys are picked live off
+    ``Catalog.snapshot``/``cds_library`` rather than hardcoded, so the
+    harness keeps working as the crawl grows or its coverage shifts.
     """
-    raise NotImplementedError(
-        "evals.runner.build_eval_context is parked under school-data-v3; "
-        "the CDS manifest/domain catalog it depended on no longer exists. "
-        "Phase 3 rewrites this against the facts store."
+    catalog = runtime.deps.catalog
+    settings = runtime.deps.settings or get_settings()
+    snapshot = catalog.snapshot
+    fact_keys = snapshot.fact_keys
+    common_metric_ref = _top_fact_key(fact_keys, "admissions.")
+    aid_metric_ref = _top_fact_key(fact_keys, "aid.")
+    selectivity_applicants_ref = "admissions.applicants_total"
+    selectivity_admitted_ref = "admissions.admitted_total"
+    for ref in (selectivity_applicants_ref, selectivity_admitted_ref):
+        if ref not in fact_keys:
+            raise RuntimeError(f"eval fixture fact key {ref!r} has no live coverage")
+
+    async with catalog.pool.acquire() as conn:
+        partial_row = await conn.fetchrow(_STALE_PARTIAL_SQL)
+        profile_only_row = await conn.fetchrow(_PROFILE_ONLY_SQL)
+        common_rows = await conn.fetch(_COMMON_SCHOOLS_SQL, common_metric_ref)
+        not_published_count = await conn.fetchval(_NOT_PUBLISHED_LIVE_SQL)
+        stale_count = await conn.fetchval(_STALE_FACTS_LIVE_SQL, settings.facts_stale_days)
+    if partial_row is None or profile_only_row is None or len(common_rows) < 3:
+        raise RuntimeError("live DB does not have enough fixture schools for the eval harness")
+
+    common_a, common_b, comparison_peer = (
+        _school(catalog, row["school_id"]) for row in common_rows[:3]
+    )
+    admissions_keys = sorted(key for key in fact_keys if key.startswith("admissions."))
+    async with catalog.pool.acquire() as conn:
+        stat_rows = await conn.fetch(_SCHOOL_FACT_KEYS_SQL, common_a.unitid, admissions_keys)
+    stat_metric_refs = tuple(str(row["fact_key"]) for row in stat_rows[:4])
+    if len(stat_metric_refs) < 4:
+        raise RuntimeError(f"{common_a.name} does not report 4 admissions facts for a stat block")
+
+    return EvalContext(
+        sections=tuple(sorted(snapshot.sections)),
+        covered=snapshot.schools_with_facts,
+        total=len(snapshot.schools),
+        stale_partial=_school(catalog, partial_row["school_id"]),
+        profile_only=_school(catalog, profile_only_row["school_id"]),
+        common_a=common_a,
+        common_b=common_b,
+        comparison_peer=comparison_peer,
+        common_metric_ref=common_metric_ref,
+        stat_metric_refs=stat_metric_refs,
+        aid_metric_ref=aid_metric_ref,
+        selectivity_applicants_ref=selectivity_applicants_ref,
+        selectivity_admitted_ref=selectivity_admitted_ref,
+        need_blind_ref=None,
+        not_published_available=bool(not_published_count),
+        stale_facts_available=bool(stale_count),
     )
 
 
@@ -317,10 +376,6 @@ def _successful_tool_results(
     return successful
 
 
-def _successful_calls(capture: TurnCapture, name: str) -> list[dict[str, Any]]:
-    return [call for call, _payload in _successful_tool_results(capture, name)]
-
-
 def _caveat_kinds(capture: TurnCapture) -> set[str]:
     found: set[str] = set()
     for result in capture.tool_returns:
@@ -333,181 +388,44 @@ def _markers(text: str) -> list[str]:
     return re.findall(r"\[[1-9]\d*\]", text)
 
 
-def _walk_mappings(value: Any) -> list[Mapping[str, Any]]:
-    found: list[Mapping[str, Any]] = []
-    if isinstance(value, Mapping):
-        found.append(value)
-        for child in value.values():
-            found.extend(_walk_mappings(child))
-    elif isinstance(value, list | tuple):
-        for child in value:
-            found.extend(_walk_mappings(child))
-    return found
-
-
 def _normalized_period(value: str) -> str:
     return re.sub(r"[–—/]", "-", value).replace(" ", "")
 
 
-def _normalized_claim_value(value: str) -> str:
-    """Match display formatting without weakening the expected numeric value."""
-    return re.sub(r"[^0-9.]", "", value).removesuffix(".00")
-
-
-def _table_is(table: exp.Table, schema: str, name: str) -> bool:
-    return table.db.casefold() == schema and table.name.casefold() == name
-
-
-def _selected_document_cte(tree: exp.Query) -> tuple[str, exp.Select] | None:
-    for cte in tree.find_all(exp.CTE):
-        select = cte.this
-        if not isinstance(select, exp.Select):
-            continue
-        from_clause = select.args.get("from_")
-        source = from_clause.this if isinstance(from_clause, exp.From) else None
-        if not isinstance(source, exp.Table) or not _table_is(
-            source, "cds_library", "active_cds_documents"
-        ):
-            continue
-        distinct = select.args.get("distinct")
-        on = distinct.args.get("on") if isinstance(distinct, exp.Distinct) else None
-        distinct_expressions = list(on.expressions) if isinstance(on, exp.Tuple) else []
-        order = select.args.get("order")
-        ordered = (
-            [_ordered_column(item) for item in order.expressions]
-            if isinstance(order, exp.Order)
-            else []
-        )
-        projected = {
-            projection.name.casefold()
-            for projection in select.expressions
-            if isinstance(projection, exp.Column)
-        }
-        unfiltered = (
-            not any(
-                select.args.get(key) is not None
-                for key in ("where", "limit", "group", "having", "qualify")
-            )
-            and not select.args.get("joins")
-            and not any(nested is not select for nested in select.find_all(exp.Select))
-        )
-        if (
-            len(distinct_expressions) == 1
-            and isinstance(distinct_expressions[0], exp.Column)
-            and distinct_expressions[0].name.casefold() == "school_id"
-            and {"school_id", "document_id"} <= projected
-            and unfiltered
-            and ordered[:3]
-            == [
-                ("school_id", False),
-                ("academic_year", True),
-                ("document_id", True),
-            ]
-        ):
-            return cte.alias.casefold(), select
-    return None
-
-
-def _has_selected_document_candidate_sql(sql: str) -> bool:
-    try:
-        statements = parse(sql, read="postgres")
-    except (ParseError, TokenError):
-        return False
-    if len(statements) != 1 or not isinstance(statements[0], exp.Query):
-        return False
-    tree = statements[0]
-    selected = _selected_document_cte(tree)
-    if selected is None:
-        return False
-    selected_alias, _selected_query = selected
-    for select in tree.find_all(exp.Select):
-        from_clause = select.args.get("from_")
-        packet_table = from_clause.this if isinstance(from_clause, exp.From) else None
-        if not isinstance(packet_table, exp.Table) or not _table_is(
-            packet_table, "cds_library", "active_cds_domain_packets"
-        ):
-            continue
-        packet_alias = packet_table.alias_or_name.casefold()
-        for join in select.args.get("joins") or []:
-            relation = join.this
-            if (
-                isinstance(relation, exp.Table)
-                and relation.name.casefold() == selected_alias
-                and not join.args.get("side")
-                and join.args.get("kind") in {None, "INNER"}
-                and _join_has_exact_document_keys(
-                    join, relation.alias_or_name.casefold(), packet_alias
-                )
-            ):
-                return True
-    return False
-
-
-def _candidate_school_ids(payload: Mapping[str, Any]) -> set[int]:
-    columns = [str(column).casefold() for column in payload.get("columns") or []]
-    id_column = next(
-        (name for name in ("school_id", "unitid", "id") if name in columns), None
-    )
-    if id_column is None:
-        return set()
-    index = columns.index(id_column)
-    candidates: set[int] = set()
-    for row in payload.get("rows") or []:
-        if isinstance(row, list | tuple) and len(row) > index:
-            try:
-                candidates.add(int(row[index]))
-            except (TypeError, ValueError):
-                continue
-    return candidates
-
-
-def _typed_refetch_complete(
-    capture: TurnCapture, domain_id: str, required_refs: set[str]
-) -> tuple[bool, str]:
-    if not domain_id or not required_refs:
-        return False, "typed refetch domain/ref requirements are missing"
+def _query_database_citation_guard(capture: TurnCapture) -> tuple[bool, str]:
+    """v3-denominator-cross-school (plan §6a): ``query_database`` mints no
+    citation (``app/tool_middleware.py``'s ``_DB_CITATION_MINTERS`` omits it
+    on purpose — a cross-school result has no single school to attach a
+    ``db`` citation to). So a value the model only ever saw through
+    ``query_database`` must never surface as a cited claim in the final
+    prose unless a later successful ``get_facts`` call actually re-fetched
+    it through the typed, cited path. Passes when either no citation marker
+    is present at all (the model declined to state an unverified value) or
+    a successful ``get_facts`` call happened after the last successful
+    ``query_database`` call; fails when a marker is present with no such
+    re-fetch."""
     queries = _successful_tool_results(capture, "query_database")
     if not queries:
-        return False, "no successful candidate query"
-    query_call, query_payload = queries[-1]
-    candidates = _candidate_school_ids(query_payload)
-    query_index = next(
-        (index for index, call in enumerate(capture.tool_calls) if call is query_call), -1
+        return True, "no successful query_database call to guard against"
+    successful_query_calls = {id(call) for call, _payload in queries}
+    query_index = max(
+        index
+        for index, call in enumerate(capture.tool_calls)
+        if id(call) in successful_query_calls
     )
-    fetched: dict[int, set[str]] = {}
-    for call, payload in _successful_tool_results(capture, "get_domain"):
-        call_index = next(
-            (index for index, item in enumerate(capture.tool_calls) if item is call), -1
-        )
-        if call_index <= query_index or call["args"].get("domain_id") != domain_id:
-            continue
-        call_unitid = call["args"].get("unitid")
-        school = payload.get("school")
-        returned_unitid_value = school.get("unitid") if isinstance(school, Mapping) else None
-        if not isinstance(call_unitid, int | str) or not isinstance(
-            returned_unitid_value, int | str
-        ):
-            continue
-        try:
-            unitid = int(call_unitid)
-            returned_unitid = int(returned_unitid_value)
-        except (TypeError, ValueError):
-            continue
-        if returned_unitid != unitid or payload.get("domain_id") != domain_id:
-            continue
-        available_refs = {
-            str(row.get("field") or row.get("ref"))
-            for row in payload.get("rows") or []
-            if isinstance(row, Mapping)
-            and row.get("available") is True
-            and isinstance(row.get("display"), str)
-            and bool(row["display"].strip())
-        }
-        if required_refs <= available_refs:
-            fetched[unitid] = available_refs
-    return bool(candidates) and candidates <= fetched.keys(), (
-        f"candidates={sorted(candidates)}; domain={domain_id}; refs={sorted(required_refs)}; "
-        f"successfully refetched={sorted(fetched)}"
+    successful_get_facts_calls = {
+        id(call) for call, _payload in _successful_tool_results(capture, "get_facts")
+    }
+    refetched = any(
+        index > query_index and id(call) in successful_get_facts_calls
+        for index, call in enumerate(capture.tool_calls)
+    )
+    if refetched:
+        return True, "a successful get_facts call followed query_database"
+    markers = _markers(capture.prose)
+    return (
+        not markers,
+        f"markers={markers}; no successful get_facts re-fetch followed query_database",
     )
 
 
@@ -644,9 +562,6 @@ def score_routing(expects: dict[str, Any], capture: TurnCapture) -> dict[str, di
             len(positions) == len(expects["order"]) and positions == sorted(positions),
             f"order={called}",
         )
-    if expects.get("domain_id"):
-        selected = [c["args"].get("domain_id") for c in _calls(capture, "get_domain")]
-        checks["domain_selected"] = _check(expects["domain_id"] in selected, f"domains={selected}")
     return checks
 
 
@@ -671,6 +586,11 @@ def score_composition(expects: dict[str, Any], capture: TurnCapture) -> dict[str
             "unavailable cell must be inert",
         )
     if capture.vizzes:
+        # A `db` citation carries no tier by design (D3: Counselle's own data
+        # is never source-attributed, `domain/envelope.py`'s `Citation`
+        # validator enforces `tier is None` for `source="db"`) — only a
+        # non-`db` cell (web/edu/reddit, which the `Citation` model requires
+        # a tier for) is a real provenance gap when its tier is missing.
         available_cells = [
             c
             for v in capture.vizzes
@@ -678,9 +598,15 @@ def score_composition(expects: dict[str, Any], capture: TurnCapture) -> dict[str
             for c in row.get("cells", [])
             if c.get("available")
         ]
-        missing_tier = [c for c in available_cells if not (c.get("citation") or {}).get("tier")]
+        missing_tier = [
+            c
+            for c in available_cells
+            if (c.get("citation") or {}).get("source") != "db"
+            and not (c.get("citation") or {}).get("tier")
+        ]
         checks["cell_provenance_tier"] = _check(
-            not missing_tier, f"available cells missing a visible tier: {missing_tier}"
+            not missing_tier,
+            f"available non-db cells missing a visible tier: {missing_tier}",
         )
     checks["source_presence"] = _check(
         bool(capture.sources) or bool(expects.get("allow_no_sources")),
@@ -738,36 +664,6 @@ def score_deterministic(expects: dict[str, Any], capture: TurnCapture) -> dict[s
                 f"period_in_prose={prose_period}; forbidden={forbidden}"
             ),
         )
-    if vintage_claims := expects.get("vintage_claims"):
-        wanted_values = [str(value) for value in vintage_claims.get("values") or []]
-        claims: dict[str, str] = {}
-        for _call, payload in _successful_tool_results(capture, "get_domain"):
-            for row in _walk_mappings(payload):
-                display = str(row.get("display") or "")
-                citation = row.get("citation")
-                vintage = str(row.get("vintage") or "")
-                if not vintage and isinstance(citation, Mapping):
-                    vintage = str(citation.get("vintage") or "")
-                matched_value = next(
-                    (
-                        value
-                        for value in wanted_values
-                        if _normalized_claim_value(display) == _normalized_claim_value(value)
-                    ),
-                    None,
-                )
-                if matched_value is not None and vintage:
-                    claims[matched_value] = vintage
-        prose_has_bindings = all(
-            value in capture.prose and vintage in capture.prose
-            for value, vintage in claims.items()
-        )
-        checks["metric_vintage_bindings"] = _check(
-            set(claims) == set(wanted_values)
-            and len(set(claims.values())) == len(wanted_values)
-            and prose_has_bindings,
-            f"claims={claims}; prose_has_bindings={prose_has_bindings}",
-        )
     if forbidden_phrases := expects.get("forbidden_prose"):
         hits = [
             str(phrase)
@@ -783,51 +679,9 @@ def score_deterministic(expects: dict[str, Any], capture: TurnCapture) -> dict[s
             load_index is not None and sql_index is not None and load_index < sql_index,
             f"order={called}",
         )
-    if expects.get("selected_document_sql"):
-        sql_calls = _calls(capture, "query_database")
-        successful = _successful_calls(capture, "query_database")
-        latest_sql = str(successful[-1]["args"].get("sql") or "") if successful else ""
-        checks["selected_document_sql"] = _check(
-            _has_selected_document_candidate_sql(latest_sql),
-            f"query_database calls={len(sql_calls)}; successful={len(successful)}",
-        )
-    if expects.get("typed_refetch"):
-        complete, detail = _typed_refetch_complete(
-            capture,
-            str(expects.get("typed_refetch_domain_id") or ""),
-            {str(ref) for ref in expects.get("typed_refetch_refs") or ()},
-        )
-        checks["typed_refetch"] = _check(complete, detail)
-    if expects.get("no_profile_metric"):
-        profile_calls = _calls(capture, "get_school_profile")
-        domain_calls = _calls(capture, "get_domain")
-        checks["no_profile_as_metric"] = _check(
-            bool(domain_calls) or not expects.get("metric_required", True),
-            f"profile calls={len(profile_calls)}; domain calls={len(domain_calls)}",
-        )
-    if expects.get("template_absence_live"):
-        template_domain = expects.get("domain_id")
-        template_ref = expects.get("metric_ref")
-        domain_calls = _calls(capture, "get_domain")
-        payloads = [payload for _call, payload in _successful_tool_results(capture, "get_domain")]
-        has_call = any(
-            call["args"].get("domain_id") == template_domain for call in domain_calls
-        )
-        has_row = any(
-            row.get("field") == template_ref
-            and row.get("available") is False
-            and any(
-                isinstance(caveat, dict) and caveat.get("kind") == "not_in_template_version"
-                for caveat in row.get("caveats") or ()
-            )
-            for payload in payloads
-            for row in payload.get("rows", [])
-            if isinstance(row, dict)
-        )
-        checks["template_absence_live_evidence"] = _check(
-            has_call and has_row,
-            f"domain={template_domain}; ref={template_ref}; called={has_call}; evidenced={has_row}",
-        )
+    if expects.get("query_database_citation_guard"):
+        guarded, detail = _query_database_citation_guard(capture)
+        checks["query_database_citation_guard"] = _check(guarded, detail)
     if expects.get("caveat_kinds"):
         kinds = _caveat_kinds(capture)
         wanted = set(expects["caveat_kinds"])
@@ -1114,10 +968,15 @@ async def score_question(
         checks = score_clarify(expects, capture)
     elif kind == "narration_quality":
         checks = score_narration(expects, capture)
-    elif kind == "response_mode_behavior":
-        checks = score_routing(expects, capture) if expects.get("tools") else {}
     elif kind == "workspace_task":
         checks = score_workspace(expects, capture)
+    elif expects.get("tools"):
+        # A non-`routing` case (coverage_honesty/edition_caveat/honesty/
+        # denominator_honesty/response_mode_behavior) can still name
+        # required tools in `expects["tools"]` -- school-data-v3 Phase 3,
+        # Unit E's new v3 cases do this -- so score it the same way
+        # `routing` does rather than letting that list go silently unchecked.
+        checks = score_routing(expects, capture)
     else:
         checks = {}
     checks.update(score_deterministic(expects, capture))
@@ -1321,20 +1180,26 @@ def materialize_questions(
             return {key: substitute(item) for key, item in value.items()}
         return value
 
+    # A question's `live_gate` names a state the current live DB may not
+    # produce (school-data-v3 Phase 3, Unit E's fixture note: no
+    # `not_found` page and no stale-enough facts exist today) -- gated
+    # questions are skipped with an honest reason rather than silently
+    # scored against a state that never actually occurred, per
+    # `EvalContext.not_published_available`/`.stale_facts_available`.
+    live_gates: dict[str, bool] = {
+        "not_published": context.not_published_available,
+        "stale_facts": context.stale_facts_available,
+    }
     rendered = substitute(questions)
     for question in rendered:
         expects = question["expects"]
-        if expects.get("domain_role") == "common":
-            expects["domain_id"] = context.common_domain
         if expects.get("denominator"):
             expects["denominator_total"] = context.total
-        if question.get("live_not_in_template") and not context.not_in_template_available:
+        gate = question.get("live_gate")
+        if gate and not live_gates.get(gate, True):
             question["skip_reason"] = (
-                "current live DB contains no not_in_template_version availability"
+                f"current live DB contains no exercisable {gate!r} state for this case"
             )
-        elif question.get("live_not_in_template"):
-            expects["domain_id"] = context.not_in_template_domain
-            expects["metric_ref"] = context.not_in_template_ref
     return cast(list[dict[str, Any]], rendered)
 
 
@@ -1402,15 +1267,13 @@ def build_report(
         "response_mode": response_mode.value,
         "model": model,
         "eval_context": {
-            "manifest_version": context.manifest_version,
-            "domains": list(context.domains),
+            "sections": list(context.sections),
             "covered": context.covered,
             "total": context.total,
             "roles": {
                 k: getattr(context, k).__dict__
                 for k in ("stale_partial", "profile_only", "common_a", "common_b")
             },
-            "common_domain": context.common_domain,
             "common_metric_ref": context.common_metric_ref,
         },
         "total": len(results),

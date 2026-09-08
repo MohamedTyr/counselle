@@ -309,7 +309,7 @@ def _inline_viz_answer(messages: list[ModelMessage], info: AgentInfo) -> ModelRe
                 args={
                     "type": "stat_block",
                     "columns": [{"unitid": 1}],
-                    "rows": [{"label": "Rate", "cells": [{"metric_ref": "admissions.rate"}]}],
+                    "rows": [{"label": "Rate", "cells": [{"fact_key": "admissions.rate"}]}],
                     "title": "Inline card",
                 },
             )

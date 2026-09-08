@@ -3,11 +3,16 @@
 from __future__ import annotations
 
 from functools import lru_cache
-from typing import Any
+from typing import Any, get_args
 
 from app.asset_format import render_slots
 from config.settings import load_yaml_asset
-from domain.envelope import Caveat
+from domain.envelope import Caveat, CaveatKind
+
+# `CaveatKind` is the one place the eight-kind set is spelled out; this
+# module and the yaml asset are both checked against it (plan §6a's
+# `set(yaml) == set(assertion) == set(CaveatKind)`).
+_EXPECTED_KINDS = set(get_args(CaveatKind))
 
 
 @lru_cache(maxsize=1)
@@ -15,12 +20,7 @@ def caveat_catalog() -> dict[str, dict[str, Any]]:
     raw = load_yaml_asset("caveats")
     if not isinstance(raw, dict):
         raise ValueError("caveats asset must be a mapping")
-    expected = {
-        "profile_snapshot", "stale_edition", "partial_packet", "definition_drift",
-        "not_in_template_version", "edition_mismatch_comparison", "coverage_denominator",
-        "not_reported", "not_applicable", "suppressed", "vintage_period_unavailable",
-    }
-    if set(raw) != expected:
+    if set(raw) != _EXPECTED_KINDS:
         raise ValueError("caveats asset has an incomplete or unexpected kind set")
     for kind, item in raw.items():
         if not isinstance(item, dict) or set(item) != {"text", "slots"}:
@@ -29,7 +29,7 @@ def caveat_catalog() -> dict[str, dict[str, Any]]:
     return raw
 
 
-def render_caveat(kind: str, **values: Any) -> Caveat:
+def render_caveat(kind: CaveatKind, **values: Any) -> Caveat:
     try:
         item = caveat_catalog()[kind]
     except KeyError:

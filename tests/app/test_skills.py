@@ -313,10 +313,10 @@ def test_school_deep_dive_skill_contains_coverage_and_no_fixed_dossier_guidance(
     body = mod.load_skill("school-deep-dive")
 
     assert "resolve, see what's actually" in body or "resolve" in body.lower()
-    assert "coverage" in body.lower()
-    assert "at most the 2-3 domains" in body
-    assert "no fixed tier system" in body
-    assert "never a fixed shortlist" in body
+    assert "facts status" in body.lower()
+    assert "at most the 2-3 sections" in body
+    assert "There is no per-domain\npacket or edition any more" in body
+    assert "never a fixed\nshortlist" in body
     assert "not_found" in body
     assert "official_links" in body
     assert "net-price calculator" in body
@@ -328,23 +328,27 @@ def test_comparison_skill_contains_agent_defaults_and_etiquette() -> None:
     body = mod.load_skill("school-comparison")
 
     assert "no fixed school-count cap" in body
-    assert "cost, selectivity, outcomes are common defaults" in body
-    assert "edition_mismatch_comparison" in body
+    assert "cost, selectivity,\noutcomes are common defaults" in body
+    # `edition_mismatch_comparison` is retired (school-data-v3): there is no
+    # per-domain packet/edition model any more, only a facts observed-at
+    # spread across compared schools.
+    assert "edition_mismatch_comparison" not in body
+    assert "observed_at_spread" in body
     assert "all-or-nothing" in body
     assert "coverage_denominator" in body
 
 
-def test_db_recipes_pin_denominators_and_structural_manifest_retry() -> None:
+def test_db_recipes_pin_fact_coverage_denominators_and_five_views() -> None:
     mod = _fresh_skills()
     body = mod.load_skill("db-recipes")
 
-    assert "columns named `covered`, `total`, and `as_of`" in body
-    assert body.count("published_at") >= 3
-    assert body.count("AS as_of") >= 3
-    assert "Copy that entire statement verbatim" in body
-    assert "retry from this block" in body
-    assert "never improvise\na text scan, JSON join, or alternate JSONPath" in body
-    assert "use that exact\nqualified ref in each finalist cell" in body
+    assert "columns\nnamed `covered`, `total`, and `as_of`" in body
+    assert "cds_library.fact_coverage" in body
+    assert body.count("AS as_of") >= 2
+    assert "`fact_key LIKE`/`ILIKE` is rejected\noutright" in body
+    assert "re-fetch each finalist's\nreal value through `get_facts`" in body
+    assert "never substitute an uncited\nderived value" in body
+    assert "current_school_facts" in body and "never allow-listed here" in body
 
 
 # ---------------------------------------------------------------------------
@@ -447,14 +451,14 @@ def test_prompt_requires_db_markers_for_reveal(built_prompt: str) -> None:
     assert "cite those claims with their own external markers instead" in built_prompt
 
 
-def test_prompt_pins_ranking_columns_and_manifest_retry(built_prompt: str) -> None:
+def test_prompt_pins_ranking_columns_and_fact_coverage_retry(built_prompt: str) -> None:
     assert (
         "Every ranking or aggregate SQL query must return `covered`, `total`, and `as_of`"
         in built_prompt
     )
-    assert "copy the `db-recipes` JSONPath probe verbatim" in built_prompt
-    assert "Retry failed manifest probes with the same exact statement" in built_prompt
-    assert "use the exact requested qualified ref in each finalist cell" in built_prompt
+    assert "copy the `db-recipes` `fact_coverage`\n  recipe verbatim" in built_prompt
+    assert "Retry a failed coverage query with the same exact statement" in built_prompt
+    assert "use the exact requested `fact_key` in each finalist cell" in built_prompt
     assert "SQL aggregates never get bracket source markers" in built_prompt
     assert "copy each row's top-level `vintage` verbatim" in built_prompt
 

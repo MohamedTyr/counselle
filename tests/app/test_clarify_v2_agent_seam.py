@@ -148,7 +148,7 @@ def _ask_student_with_sibling_render_viz(
                 args={
                     "type": "stat_block",
                     "columns": [{"unitid": 1}],
-                    "rows": [{"label": "Rate", "cells": [{"metric_ref": "admissions.rate"}]}],
+                    "rows": [{"label": "Rate", "cells": [{"fact_key": "admissions.rate"}]}],
                     "title": "Should not render",
                 },
             ),
@@ -191,7 +191,7 @@ def _viz_then_ask_student(messages: list[ModelMessage], info: AgentInfo) -> Mode
                 args={
                     "type": "stat_block",
                     "columns": [{"unitid": 1}],
-                    "rows": [{"label": "Rate", "cells": [{"metric_ref": "admissions.rate"}]}],
+                    "rows": [{"label": "Rate", "cells": [{"fact_key": "admissions.rate"}]}],
                     "title": "Staged before the question",
                 },
             )

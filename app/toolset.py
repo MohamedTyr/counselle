@@ -1,15 +1,14 @@
-"""Per-request toolset assembly (ADR 0013) + the counselle-db MCP client wiring.
+"""Per-request toolset assembly (ADR 0013).
 
-Two halves:
+Two parts:
 
-1. ``build_mcp_toolset`` — the always-on counselle-db MCP server, mounted at
-   ``Agent(...)`` construction (notes-p4-apis §2: ``MCPServerStdio`` is
-   deprecated in pydantic-ai 1.107 → ``MCPToolset`` over fastmcp's
-   ``StdioTransport``). Its results are routed through the source registry via
-   the ``process_tool_call`` hook (``pydantic_ai/mcp.py:2138``); the registry
-   rides ``ctx.deps`` per run — never a module global (notes §7: interrupt
-   resume re-executes the node, so per-turn accumulation must rebuild from
-   graph state).
+1. ``build_db_tools`` — the four always-on CDS Library reader tools
+   (``resolve_school``, ``get_school_profile``, ``get_facts``,
+   ``query_database``), in-process over the read-only ``Catalog``/pool
+   (plan §5.4/§6a/appendix F-i). Each tool body mints its own ``db``
+   citation via ``app/tool_middleware.py``'s ``_normalize_db_payload`` —
+   minting happens in the result pipeline, the same seam every other tool
+   already uses.
 
 2. ``build_tools`` — the per-request Tavily tools, gated by the request's
    :class:`~domain.specs.SourceConfig`. A disabled source's tool object is
@@ -18,34 +17,34 @@ Two halves:
    Per-run toolsets are additive to construction-time toolsets (notes §3), so
    these mount at ``agent.run(..., toolsets=...)`` time.
 
-``write_plan`` / ``render_viz`` / ``load_skill`` are appended via
-``extra_tools`` by the agent node.
+``write_plan`` / ``render_viz`` / ``load_skill`` / the four ``build_db_tools``
+tools are appended via ``extra_tools`` by the agent node.
+
+The counselle-db MCP child (stdio transport, ``McpSupervisor``) was retired
+in school-data-v3 Phase 3 Unit C — the in-process ``build_db_tools`` below is
+what the agent has actually called since the CDS Library DB rewire.
 """
 
 from __future__ import annotations
 
-import os
-import sys
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from datetime import date
-from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
-from fastmcp.client.transports import StdioTransport
-from pydantic_ai import RunContext, Tool
-from pydantic_ai.mcp import CallToolFunc, MCPToolset, ToolResult
+from pydantic_ai import Tool
 
 from adapters import tavily_tools
+from app.facts.service import absence_display
 from app.sources import SourceRegistry
 from app.tool_middleware import ToolMiddlewareContext, process_tool_result
 from app.tool_specs import build_tool_specs, gateable_tool_names
-from config.settings import load_yaml_asset, serialize_db_child_environment
+from config.settings import load_yaml_asset
+from counselle_db import service as db_service
 from domain.events import StepDetail
+from domain.facts.models import PageStatus
+from domain.facts.state import fact_state
 from domain.specs import SourceConfig
-
-_REPO_ROOT = Path(__file__).resolve().parent.parent
-
 
 # ---------------------------------------------------------------------------
 # Deps
@@ -86,60 +85,288 @@ def make_tool_deps(settings: Any, catalog: Any) -> ToolDeps:
 
 
 # ---------------------------------------------------------------------------
-# The counselle-db MCP toolset (always on)
+# In-process CDS Library reader tools (always on, school-data-v3 §5.4/§6a)
 # ---------------------------------------------------------------------------
 
+# get_facts's row cap (plan §6a: "capped at get_facts_max_rows (60) in the
+# service, before the middleware"). A module constant rather than a Settings
+# field: nothing about this number is meant to be tuned per-deployment, and
+# the house rule for "one place, not a literal repeated across files" is
+# already satisfied — this is the only reader of it.
+_GET_FACTS_MAX_ROWS = 60
 
-async def annotate_mcp_result(
-    ctx: RunContext[Any], call_tool: CallToolFunc, name: str, args: dict[str, Any]
-) -> ToolResult:
-    """``process_tool_call`` hook: route every counselle-db result through the registry.
 
-    The registry comes from ``ctx.deps.registry`` — per-run deps rebuilt from
-    graph state each node execution (notes §7), never captured in this
-    module-level closure. Runs without a registry on deps (or with non-dict
-    results) pass through untouched.
-    """
-    result = await call_tool(name, args)
-    middleware = getattr(ctx.deps, "tool_overflow", None)
-    if not isinstance(middleware, ToolMiddlewareContext):
-        registry = getattr(ctx.deps, "registry", None)
-        middleware = ToolMiddlewareContext(
-            registry=registry if isinstance(registry, SourceRegistry) else None
+def _make_resolve_school_tool(
+    catalog: Any, middleware: ToolMiddlewareContext | None
+) -> Tool[Any]:
+    @db_service.tool_errors
+    async def _resolve(query: str) -> dict[str, Any]:
+        return (await db_service.resolve_school(catalog, query)).model_dump(mode="json")
+
+    async def resolve_school(query: str) -> dict[str, Any]:
+        """Resolve a school name, abbreviation, alias, or UNITID to one school.
+
+        Input: ``query`` — free text or a UNITID string.
+
+        Success returns exactly one of three ``status`` values:
+        - ``match`` — one school, plus its live data block: when Counselle last confirmed
+          this school's facts (``data.facts_updated_at``), how many facts it holds
+          (``data.fact_count``), whether a facts page was ever collected for it
+          (``data.has_collegedata``), and per-page fetch status (``data.tabs``). A school
+          with ``has_collegedata: false`` has **no** facts — say "not collected" and use
+          web/.edu search; never read it as "the school reports nothing". A tab whose
+          status is not ``ok`` is **not fetched**, which is also not "not reported".
+        - ``candidates`` — more than one campus matched; ask which campus the student
+          means, then resolve again with a more specific query.
+        - ``not_found`` — no school in the database matches; say so honestly and route to
+          web/.edu search instead of inventing a school.
+
+        Error returns ``error: tool_error`` with safe retry/stop guidance.
+
+        Args:
+            query: Free text school name/abbreviation/alias, or a UNITID string.
+        """
+        result = await _resolve(query)
+        return process_tool_result(result, middleware, tool_name="resolve_school")  # type: ignore[no-any-return]
+
+    return Tool(resolve_school, takes_ctx=False)
+
+
+def _make_get_school_profile_tool(
+    catalog: Any, middleware: ToolMiddlewareContext | None
+) -> Tool[Any]:
+    @db_service.tool_errors
+    async def _profile(unitid: int, groups: list[str] | None = None) -> dict[str, Any]:
+        return (await db_service.get_school_profile(catalog, unitid, groups)).model_dump(
+            mode="json"
         )
-    return process_tool_result(result, middleware, tool_name=name)  # type: ignore[no-any-return]
+
+    async def get_school_profile(unitid: int, groups: list[str] | None = None) -> dict[str, Any]:
+        """Read a school's stable identity profile: contact, classification, and
+        official links — never a current metric.
+
+        Input: ``unitid`` (from ``resolve_school``) and optional ``groups`` — a subset of
+        the group names the profile itself defines; omit to read every group. Group names
+        are data-derived, never a fixed enum — an unknown group fails with the actual
+        valid group list for this school; retry with one of those.
+
+        Success returns the school and requested groups (there is no synthetic success
+        status). Every field returned carries the profile's own snapshot vintage and a
+        per-field provenance receipt; it is identity data, not a current metric, and
+        always needs the ``profile_snapshot`` caveat when you state it. Error returns
+        ``error: tool_error``; correct the UNITID/group from ``resolve_school`` or stop
+        and say the profile field is unavailable.
+
+        Args:
+            unitid: The school's IPEDS unitid, from resolve_school.
+            groups: Profile group names to read; omit for every group.
+        """
+        result = await _profile(unitid, groups)
+        return process_tool_result(result, middleware, tool_name="get_school_profile")  # type: ignore[no-any-return]
+
+    return Tool(get_school_profile, takes_ctx=False)
 
 
-# Bound the MCP child's long-lived stdio connection — a dead child would
-# otherwise hang tool calls forever (read_timeout_seconds=None by default).
-# 60 s is generous for any single DB-backed tool call; change only if a
-# tool starts timing out legitimately in production.
-_DEFAULT_AGENT_MCP_READ_TIMEOUT_SECONDS: float = 60.0
+def _declared_fact_specs(catalog: Any, sections: list[str] | None) -> dict[str, Any]:
+    """Every declared ``SectionFact`` keyed by its ``fact_key``, for the given
+    sections (every section when ``sections`` is falsy) -- the only source
+    for a key's ``tab`` when there is no DB row to read it from directly
+    (school-data-v3 Phase 3 Unit B's ``get_facts`` state gap)."""
+    known = catalog.snapshot.sections
+    section_ids = sections if sections else list(known)
+    return {
+        fact.key: fact
+        for section_id in section_ids
+        for group in known[section_id].groups
+        for fact in group.facts
+    }
 
 
-def build_mcp_toolset(settings: Any) -> MCPToolset:
-    """The counselle-db MCP server as a stdio child (four DB tools).
+def _make_get_facts_tool(catalog: Any, middleware: ToolMiddlewareContext | None) -> Tool[Any]:
+    @db_service.tool_errors
+    async def _facts(
+        unitid: int, sections: list[str] | None = None, keys: list[str] | None = None
+    ) -> dict[str, Any]:
+        payload = (
+            await db_service.get_facts(catalog, unitid, sections=sections, keys=keys)
+        ).model_dump(mode="json")
+        present_rows = [dict(row, state="value") for row in payload["rows"]]
+        present_keys = {row["fact_key"] for row in present_rows}
+        status = payload["status"]
+        has_collegedata = status["has_collegedata"]
+        tabs: dict[str, str] = status["tabs"]
 
-    The child receives only the explicit ``_MCP_ENV_ALLOWLIST`` variables — it
-    must NOT receive the Tavily key or other credentials unrelated to DB access.
-    DSN overrides from the .env-loaded settings are always injected.
+        # Narrowed calls (sections or keys) can resolve a state for every
+        # *requested* key, present or not -- reusing `domain.facts.state`'s
+        # `fact_state` (the presenter's own honesty-critical rule, plan
+        # §5.1) plus `app.facts.service.absence_display` for the matching
+        # word, so the four unavailable states never grow a second
+        # vocabulary. An unnarrowed call keeps the old value-only shape
+        # (declaring absence for the whole catalog would dwarf the cap).
+        unavailable: list[dict[str, Any]] = []
+        if sections:
+            specs = _declared_fact_specs(catalog, sections)
+            requested_keys = list(specs)
+        elif keys:
+            specs = _declared_fact_specs(catalog, None)
+            requested_keys = keys
+        else:
+            specs = {}
+            requested_keys = None
+        if requested_keys is not None:
+            for key in requested_keys:
+                if key in present_keys:
+                    continue
+                spec = specs.get(key)
+                tab = spec.tab if spec is not None else None
+                # An undeclared key (reachable only via `keys=`; a handful of
+                # facts sit outside facts_sections.yaml, e.g. identity.address)
+                # has no tab to check -- treat its page as checked-and-ok, the
+                # least presumptive default, rather than guessing a fetch failure.
+                page_status = cast(PageStatus, tabs.get(tab, "ok") if tab else "ok")
+                state = fact_state(False, None, page_status, has_collegedata)
+                unavailable.append(
+                    {
+                        "fact_key": key,
+                        "label": spec.label if spec is not None else key,
+                        "tab": tab,
+                        "state": state,
+                        "display": absence_display(state, page_status),
+                    }
+                )
 
-    ``read_timeout`` is bounded by settings so a dead
-    child process does not hang the caller forever.
+        combined_total = len(present_rows) + len(unavailable)
+        truncated = combined_total > _GET_FACTS_MAX_ROWS
+        if truncated:
+            # Value rows first -- they carry real data, so they fill the
+            # budget before absence entries do.
+            rows = present_rows[:_GET_FACTS_MAX_ROWS]
+            unavailable = unavailable[: _GET_FACTS_MAX_ROWS - len(rows)]
+        else:
+            rows = present_rows
+        payload["rows"] = rows
+        payload["unavailable"] = unavailable
+        payload["truncated"] = truncated
+        if truncated:
+            payload["sections"] = sorted(catalog.snapshot.sections)
+        return payload
+
+    async def get_facts(
+        unitid: int, sections: list[str] | None = None, keys: list[str] | None = None
+    ) -> dict[str, Any]:
+        """Read Counselle's stored facts for one school — the only fact read path.
+
+        Input: ``unitid`` (from ``resolve_school``) and **at most one** narrowing
+        argument. ``sections`` — one or more of this school's six sections
+        (``getting-in``, ``money``, ``academics``, ``campus-life``, ``outcomes``,
+        ``applying``); each section already includes its own ``other`` group of
+        facts that don't fit its named groups, so narrowing by section returns
+        those too. ``keys`` — exact ``<domain>.<name>`` fact keys (this is also
+        the only way to reach the handful of facts declared outside those six
+        sections, e.g. ``identity.address``). Omit both to read every fact this
+        school has a reported value for.
+
+        Narrowing by ``sections`` or ``keys`` resolves a **state** for every
+        requested key, not just the ones with a value: ``rows`` holds facts this
+        school has a reported value for; ``unavailable`` holds every other
+        requested key with the reason it has no value —
+        ``not_reported`` (the page was checked and this key was blank),
+        ``not_fetched`` (we could not read this key's page on the last check,
+        or have never checked it), ``not_published`` (this school's site does
+        not have this page at all), or ``not_collected`` (no CollegeData crawl
+        exists for this school at all — check ``resolve_school``'s
+        ``data.has_collegedata`` first). **Never say "not in our database" for
+        a school that resolved** — say which of these four it is. An unnarrowed
+        call returns only ``rows``; a key that's missing from it is not
+        necessarily absent by the school's own choice — narrow by ``sections``
+        or ``keys`` to get its real state instead of guessing.
+
+        ``rows`` and ``unavailable`` share one budget, capped at 60 total
+        (``truncated: true`` means narrow further and call again); ``rows``
+        fills the budget first since it carries real data.
+
+        Each ``rows`` entry carries a preformatted ``display``, its typed
+        ``value``, and a code-owned ``vintage`` naming the reporting period it
+        covers (or that the period is unstated) and when it was checked. **Copy
+        ``display`` and ``vintage`` verbatim** — never reformat a number and
+        never merge two facts' vintages into one shared period. Each
+        ``unavailable`` entry carries its own ``display`` (the exact absence
+        word for its ``state``) — copy it verbatim too, never invent a
+        different absence phrase.
+
+        An unknown section or key fails with the valid list for this school; retry
+        with one of those. A school with no facts returns zero rows and a null
+        ``status.facts_updated_at`` — say the data is not collected and fall back to
+        official web/.edu search.
+
+        Error returns ``error: tool_error``; correct the unitid/section/key or stop
+        rather than inventing a value.
+
+        Args:
+            unitid: The school's IPEDS unitid, from resolve_school.
+            sections: Section ids to read; omit with keys for every fact.
+            keys: Exact fact keys to read; omit with sections for every fact.
+        """
+        result = await _facts(unitid, sections, keys)
+        return process_tool_result(result, middleware, tool_name="get_facts")  # type: ignore[no-any-return]
+
+    return Tool(get_facts, takes_ctx=False)
+
+
+def _make_query_database_tool(
+    catalog: Any, middleware: ToolMiddlewareContext | None
+) -> Tool[Any]:
+    @db_service.tool_errors
+    async def _query(sql: str, params: list[Any] | None = None) -> dict[str, Any]:
+        return (await db_service.query_database(catalog, sql, params)).model_dump(mode="json")
+
+    async def query_database(sql: str, params: list[Any] | None = None) -> dict[str, Any]:
+        """Run one guarded, read-only SQL read over the five reader views, for a
+        shape no typed tool covers: cross-school candidate selection, aggregates, or
+        coverage detail.
+
+        Input: ``sql`` — a single parameterized ``SELECT``/``WITH`` using ``$1..$n``
+        placeholders only — and optional ``params``. Bind every fact key as a
+        parameter, never inline it: bound keys are how the result gets its coverage
+        denominators.
+
+        Success returns ``columns``, ``rows``, ``row_count``, ``truncated``,
+        ``as_of``, and ``coverage`` — for each fact key the query named, how many
+        schools have a value for it out of how many profiles. Rows are raw and
+        bypass the typed reading rules and citations entirely: **never present a raw
+        row as a cited student-facing value.** Re-fetch any named final value through
+        ``get_facts``/``get_school_profile`` before stating it, and state the
+        covered/total denominator on any aggregate or ranking. If ``coverage`` is
+        empty on an aggregate, you do not have a denominator — name the fact key as a
+        bound parameter and re-run, or state the number without a population claim.
+
+        Error returns ``error: tool_error``; rewrite the query rather than retry it
+        verbatim.
+
+        Args:
+            sql: A single parameterized SELECT/WITH statement using $1..$n.
+            params: Bound parameter values, in placeholder order.
+        """
+        result = await _query(sql, params)
+        return process_tool_result(result, middleware, tool_name="query_database")  # type: ignore[no-any-return]
+
+    return Tool(query_database, takes_ctx=False)
+
+
+def build_db_tools(
+    catalog: Any, middleware: ToolMiddlewareContext | None = None
+) -> list[Tool[Any]]:
+    """The four always-on CDS Library reader tools, in-process over ``catalog``.
+
+    Unconditional — the DB is never optional (ADR 0032); unlike
+    ``build_tools``' source-gated tools, these mount on every request.
     """
-    env = serialize_db_child_environment(settings, uv_cache_dir=os.environ.get("UV_CACHE_DIR"))
-    read_timeout = settings.agent_mcp_read_timeout_s
-    return MCPToolset(
-        StdioTransport(
-            command=sys.executable,
-            args=["-m", "counselle_db.server"],
-            env=env,
-            cwd=str(_REPO_ROOT),
-        ),
-        id="counselle-db",
-        process_tool_call=annotate_mcp_result,
-        read_timeout=read_timeout,
-    )
+    return [
+        _make_resolve_school_tool(catalog, middleware),
+        _make_get_school_profile_tool(catalog, middleware),
+        _make_get_facts_tool(catalog, middleware),
+        _make_query_database_tool(catalog, middleware),
+    ]
 
 
 # ---------------------------------------------------------------------------

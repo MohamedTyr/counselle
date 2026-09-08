@@ -69,6 +69,7 @@ const spec: RenderSpec = {
       ],
     },
   ],
+  foot: [],
 };
 const web: Citation = {
   v: 2,

@@ -59,6 +59,7 @@
                       "manifest_version": "5.0.1",
                       "school_unitid": 198419,
                       "profile_sha256": null,
+                      "facts_updated_at": null,
                       "source_period": null,
                       "source_period_basis": null,
                       "source_period_evidence": null,
@@ -76,12 +77,12 @@
                     },
                     "caveats": [
                       {
-                        "kind": "stale_edition",
+                        "kind": "stale_facts",
                         "text": "This value is from 2024-25."
                       },
                       {
-                        "kind": "edition_mismatch_comparison",
-                        "text": "Editions differ."
+                        "kind": "observed_at_spread",
+                        "text": "Confirmation dates differ."
                       }
                     ],
                     "marker": "[2]"
@@ -107,6 +108,7 @@
                       "manifest_version": null,
                       "school_unitid": null,
                       "profile_sha256": null,
+                      "facts_updated_at": null,
                       "source_period": null,
                       "source_period_basis": null,
                       "source_period_evidence": null,
@@ -142,6 +144,7 @@
                       "manifest_version": null,
                       "school_unitid": 198419,
                       "profile_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                      "facts_updated_at": null,
                       "source_period": null,
                       "source_period_basis": null,
                       "source_period_evidence": null,
@@ -166,7 +169,8 @@
                   }
                 ]
               }
-            ]
+            ],
+            "foot": []
           }
         },
         {
@@ -246,6 +250,7 @@
             "manifest_version": null,
             "school_unitid": null,
             "profile_sha256": null,
+            "facts_updated_at": null,
             "source_period": null,
             "source_period_basis": null,
             "source_period_evidence": null,
@@ -272,6 +277,7 @@
             "manifest_version": "5.0.1",
             "school_unitid": 198419,
             "profile_sha256": null,
+            "facts_updated_at": null,
             "source_period": null,
             "source_period_basis": null,
             "source_period_evidence": null,
@@ -279,18 +285,7 @@
           },
           "label": "Duke University \u2014 Common Data Set 2024-25",
           "snippet": null,
-          "evidence": [
-            {
-              "eid": "admissions.acceptance_rate",
-              "value_display": "6.8%",
-              "label": "Acceptance rate",
-              "page": 7,
-              "section": "C1",
-              "row_label": "Total first-time applicants",
-              "column_label": "Percent admitted",
-              "excerpt": "Applicants admitted: 6.8%"
-            }
-          ],
+          "evidence": [],
           "evidence_omitted_count": 0
         },
         {
@@ -309,6 +304,7 @@
             "manifest_version": null,
             "school_unitid": 198419,
             "profile_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "facts_updated_at": null,
             "source_period": null,
             "source_period_basis": null,
             "source_period_evidence": null,
@@ -427,6 +423,7 @@
                       "manifest_version": "5.0.1",
                       "school_unitid": 198419,
                       "profile_sha256": null,
+                      "facts_updated_at": null,
                       "source_period": null,
                       "source_period_basis": null,
                       "source_period_evidence": null,
@@ -444,12 +441,12 @@
                     },
                     "caveats": [
                       {
-                        "kind": "stale_edition",
+                        "kind": "stale_facts",
                         "text": "This value is from 2024-25."
                       },
                       {
-                        "kind": "edition_mismatch_comparison",
-                        "text": "Editions differ."
+                        "kind": "observed_at_spread",
+                        "text": "Confirmation dates differ."
                       }
                     ],
                     "marker": "[2]"
@@ -475,6 +472,7 @@
                       "manifest_version": null,
                       "school_unitid": null,
                       "profile_sha256": null,
+                      "facts_updated_at": null,
                       "source_period": null,
                       "source_period_basis": null,
                       "source_period_evidence": null,
@@ -510,6 +508,7 @@
                       "manifest_version": null,
                       "school_unitid": 198419,
                       "profile_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                      "facts_updated_at": null,
                       "source_period": null,
                       "source_period_basis": null,
                       "source_period_evidence": null,
@@ -534,7 +533,8 @@
                   }
                 ]
               }
-            ]
+            ],
+            "foot": []
           }
         },
         {

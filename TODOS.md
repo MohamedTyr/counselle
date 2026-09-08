@@ -18,18 +18,17 @@
   `scripts/seed_reader_db.py`'s always-run DDL phase.
 - *(Logged from the school-data-v3 Phase 2 backend implementation, 2026-09-08.)*
 
-## `counselle_db/service.py` exceeds the 800-line file limit (Phase 3's own split closes this)
-- **What:** adding `get_facts`/`explore`/`majors` (school-data-v3 Phase 2) pushed
-  `counselle_db/service.py` to ~940 lines, over CLAUDE.md's 800-line ceiling. The plan's own
-  Phase 3 already schedules exactly this split — `counselle_db/service.py` (resolve, profile,
-  get_facts, explore, majors, name search) + `counselle_db/sql_guard.py` (`_guard_sql`, the
-  allow-lists, `query_database`), ~300 lines each.
-- **Why not fixed here:** the split touches `counselle_db/server.py`, `evals/runner.py`,
-  `app/viz.py`, `app/workspace/service_applications.py`, and four test files' imports (one of
-  which imports the private `_guard_sql` directly) — a wider surface than Phase 2's Units A/B, and
-  redoing it early risked breaking those callers without Phase 3's own verification pass. Left for
-  Phase 3 as planned.
-- *(Logged from the school-data-v3 Phase 2 backend implementation, 2026-09-08.)*
+## `counselle_db/service.py`'s 800-line breach is resolved — split landed in Phase 2, not Phase 3
+- **What:** the SQL-guard split this TODO used to defer to Phase 3 has already happened, in Phase
+  2's own commit `8bca991`. `counselle_db/sql_guard.py` now exists (692 lines) holding
+  `_guard_sql`, `query_database`, the allow-lists, and the AST-walking helpers;
+  `counselle_db/service.py` is down to 276 lines, well under CLAUDE.md's 800-line ceiling. The
+  extraction was verified behaviour-preserving by AST-equality comparison against the pre-split
+  code, and the callers this TODO worried about (`evals/runner.py`, and any others importing the
+  moved names) were updated in the same commit.
+- **Status:** closed. Nothing outstanding here.
+- *(Logged from the school-data-v3 Phase 2 backend implementation, 2026-09-08; corrected the same
+  day once the split landed in `8bca991`.)*
 
 ## Facts write can commit with no matching Explore row (pre-existing, deliberately deferred)
 - **What:** in `app/facts/crawl.py::_process_school_live` (and `_process_school_remap`), the
@@ -272,3 +271,34 @@
 the unauthenticated `GET /v1/config/public` (`api/routes/config.py`) serves the date — the
 consumer this entry was waiting on. `AuthLayout`'s sign-in notice UI (frontend, §5.6) is Unit E's
 follow-up in the same phase; this entry is closed on the backend side.
+
+## Six functions over CLAUDE.md's 50-line limit, introduced in school-data-v3 Phase 2 (deliberately deferred)
+- **What:** Phase 2's facts/Explore work introduced six functions past the 50-line house rule:
+  - `app/facts/service_explore.py::_build_clauses` — 182 lines
+  - `app/facts/service_explore.py::run_explore` — 166 lines
+  - `app/facts/service.py::_build_deadlines` — 68 lines
+  - `adapters/facts_store.py::retire_absent_slugs` — 65 lines (grew from a compliant 30 when the
+    crawl-retirement fraction/floor ceiling — see the remap-retirement fix in `8bca991` — was
+    added)
+  - `app/facts/service.py::get_school_facts` — 58 lines
+  - `app/facts/service.py::_try_band` — 57 lines
+- **Why not fixed here:** `_build_clauses` and `run_explore` own the Explore exclusion accounting
+  — the honesty-relevant filter/availability logic that four reviewers had just finished
+  auditing and approving. Splitting them is mechanical and the existing tests cover it, but
+  reshaping just-approved honesty-critical code immediately, with three plan phases still ahead,
+  traded a real regression risk for a readability gain. This is genuine debt to pay down, not a
+  false positive — it was consciously deferred, not overlooked.
+- **Context (start here):** the six functions above.
+- *(Logged from the school-data-v3 Phase 2 backend implementation, 2026-09-08.)*
+
+## Two pre-existing oversized files, unrelated to school-data-v3 Phase 2
+- **What:** two files were already over CLAUDE.md's 800-line file limit before Phase 2, and
+  remain so, untouched by its function-level work:
+  - `evals/runner.py` — 1,528 lines. Phase 2 changed exactly one line in it (the
+    `counselle_db.service` → `counselle_db.sql_guard` import fixup that followed the SQL-guard
+    split in `8bca991`).
+  - `frontend/src/test/render-app.tsx` — was already over 800 lines (878) before Phase 2. Phase 2
+    added 74 lines of facts-fixture test helpers, taking it to 952.
+- **Why not fixed here:** pre-existing, out of scope for Phase 2's facts/Explore surface; noted
+  so neither file's size is mistaken for something this phase introduced.
+- *(Logged from the school-data-v3 Phase 2 backend implementation, 2026-09-08.)*

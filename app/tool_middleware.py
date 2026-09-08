@@ -3,135 +3,216 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from datetime import date, datetime
+from typing import Any, cast
 
-from app.caveats import render_caveat
+from app.caveats import caveat_catalog, render_caveat
 from app.sources import SourceRegistry
 from app.tool_overflow import ToolResultStore, reduce_tool_result
 from app.workspace_step_receipts import with_workspace_public_receipt
-from counselle_db.formatting import format_cds_edition
 from counselle_db.models import ProfileProvenanceReceipt
-from domain.envelope import Citation, CitationEnvelope, EvidenceItem
+from domain.envelope import CaveatKind, Citation, CitationEnvelope
 from domain.events import tool_ui_from_payload
 
 _SEARCH_TOOLS = frozenset({"search_web", "search_school_site", "search_reddit"})
 _OVERFLOW_EXEMPT_TOOLS = frozenset({"render_viz"})
 
+# school-data-v3 §5.4/§6a -- the one name for this source on every chat
+# surface leads both vintage forms; "checked {month_year}" is the facts
+# vintage (a `get_facts` citation over a non-null `facts_updated_at`),
+# "identity profile from {snapshot_date}" is the identity vintage
+# (`get_school_profile`/`resolve_school`, always; `get_facts` too when
+# `facts_updated_at` is null -- a facts vintage is never minted over an
+# empty date slot). Per-fact vintage (the string each `get_facts` row
+# carries, distinct from the shared citation's own vintage) rides the fact's
+# own `reported_period`, never the citation.
+_FACTS_VINTAGE = "Counselle school data · checked {month_year}"
+_IDENTITY_VINTAGE = "Counselle school data · identity profile from {snapshot_date}"
+_FACT_VINTAGE_WITH_PERIOD = "Counselle school data · {period} · checked {month_year}"
+_FACT_VINTAGE_NO_PERIOD = "Counselle school data · reporting period unstated · checked {month_year}"
 
-def _caveats(
-    kinds: list[str] | tuple[str, ...], *, snapshot_date: str = "", edition: str = ""
-) -> tuple[Any, ...]:
+
+def _caveats(kinds: list[str] | tuple[str, ...], **values: Any) -> tuple[Any, ...]:
+    """Slot-driven from `caveat_catalog()` (plan §6a) instead of a hand-list
+    that silently drops any kind not explicitly wired here: a kind present
+    in the catalog always renders once the caller supplies its slots."""
+    catalog = caveat_catalog()
     rendered = []
     for kind in kinds:
-        if kind == "profile_snapshot":
-            rendered.append(render_caveat(kind, snapshot_date=snapshot_date))
-        elif kind == "stale_edition":
-            rendered.append(render_caveat(kind, edition=edition))
-        elif kind in {
-            "partial_packet",
-            "definition_drift",
-            "not_in_template_version",
-            "not_reported",
-            "not_applicable",
-            "suppressed",
-            "vintage_period_unavailable",
-        }:
-            rendered.append(render_caveat(kind))
+        item = catalog.get(kind)
+        if item is None or any(slot not in values for slot in item["slots"]):
+            continue
+        rendered.append(
+            render_caveat(cast(CaveatKind, kind), **{slot: values[slot] for slot in item["slots"]})
+        )
     return tuple(rendered)
 
 
-def _normalize_db_payload(result: Any, tool_name: str | None) -> Any:
-    if not isinstance(result, dict):
+def _month_year(observed_at_iso: str) -> str:
+    return datetime.fromisoformat(observed_at_iso).strftime("%B %Y")
+
+
+def identity_vintage(snapshot_date: str) -> str:
+    return _IDENTITY_VINTAGE.format(snapshot_date=snapshot_date)
+
+
+def _fact_row_vintage(reported_period: str | None, observed_at_iso: str) -> str:
+    month_year = _month_year(observed_at_iso)
+    if reported_period:
+        return _FACT_VINTAGE_WITH_PERIOD.format(period=reported_period, month_year=month_year)
+    return _FACT_VINTAGE_NO_PERIOD.format(month_year=month_year)
+
+
+def _resolve_school_db_citation(result: dict[str, Any]) -> Any:
+    """`resolve_school` mints exactly one `db` citation for a `match` --
+    always the identity vintage (plan §6a: `resolve_school` never mints the
+    facts vintage)."""
+    if result.get("status") != "match":
         return result
-    if tool_name == "get_domain" and isinstance(result.get("rows"), list):
-        school = result.get("school") or {}
-        year = result.get("academic_year")
-        sha = result.get("document_sha256")
-        if not (
-            year
-            and sha
-            and result.get("source_kind")
-            and result.get("retrieved_at")
-            and result.get("manifest_version")
-        ):
-            return result
-        citation = Citation(
-            source="cds",
-            tier="official",
-            vintage=format_cds_edition(year),
-            document_sha256=sha,
-            source_kind=result["source_kind"],
-            retrieved_at=result["retrieved_at"],
-            academic_year=year,
-            manifest_version=result["manifest_version"],
-            school_unitid=school.get("unitid"),
-        )
-        label = f"{school.get('name')} — {format_cds_edition(year)}"
+    school = result.get("school") or {}
+    unitid = school.get("unitid")
+    snapshot_date = result.get("profile_snapshot_date")
+    if not unitid or not snapshot_date:
+        return result
+    citation = Citation(
+        source="db", vintage=identity_vintage(str(snapshot_date)), school_unitid=unitid
+    )
+    return {
+        **result,
+        "citation": citation.model_dump(mode="json"),
+        "source_label": school.get("name"),
+    }
+
+
+def _get_school_profile_db_citation(result: dict[str, Any]) -> Any:
+    """`get_school_profile` mints exactly one `db` citation, always the
+    identity vintage -- unchanged from the CDS-era shape (appendix F-i's
+    "unchanged" note) except the citation `source` moves from `profile` to
+    `db` (F9) and drops the profile-only identity fields `db` cannot carry."""
+    if not isinstance(result.get("groups"), list):
+        return result
+    school = result.get("school") or {}
+    snapshot_date = str(result.get("profile_snapshot_date") or "")
+    citation = Citation(
+        source="db", vintage=identity_vintage(snapshot_date), school_unitid=school.get("unitid")
+    )
+    label = school.get("name")
+    groups = []
+    for group in result["groups"]:
         rows = []
-        for row in result["rows"]:
+        for row in group.get("rows") or []:
             available = bool(row.get("available"))
-            evidence = EvidenceItem.model_validate(row["evidence"]) if available else None
+            provenance = (
+                ProfileProvenanceReceipt.model_validate(row["provenance"]).model_dump(mode="json")
+                if isinstance(row.get("provenance"), dict)
+                else None
+            )
             envelope = CitationEnvelope(
                 field=row.get("ref"),
                 label=row.get("label") or row.get("ref") or "Value",
                 display=row.get("display") if available else "not available",
-                unit=row.get("unit"),
                 raw=row.get("value") if available else None,
                 available=available,
                 citation=citation if available else None,
-                evidence=evidence,
-                caveats=_caveats(row.get("caveat_kinds") or (), edition=citation.vintage),
+                caveats=_caveats(row.get("caveat_kinds") or (), snapshot_date=snapshot_date),
             )
             rows.append(
                 {
                     **envelope.model_dump(mode="json"),
-                    "vintage": row.get("vintage") or citation.vintage,
+                    "provenance": provenance,
                     "source_label": label,
                 }
             )
-        return {**result, "rows": rows}
-    if tool_name == "get_school_profile" and isinstance(result.get("groups"), list):
-        school = result.get("school") or {}
+        groups.append({**group, "rows": rows})
+    return {**result, "groups": groups}
+
+
+def get_facts_db_citation(result: dict[str, Any]) -> Any:
+    """`get_facts` mints exactly one `db` citation for the school: the facts
+    vintage when `status.facts_updated_at` is non-null, else the identity
+    vintage (never a facts vintage over an empty date slot, plan §6a). Every
+    row this unit's `get_facts` returns already has a reported value
+    (`current_school_facts` carries only reported facts), so every envelope
+    is `available=True`; each row also carries its own per-fact `vintage`
+    string, riding that fact's `reported_period` -- distinct from the shared
+    citation's vintage (plan §5.4)."""
+    if not isinstance(result.get("rows"), list):
+        return result
+    school = result.get("school") or {}
+    status = result.get("status") or {}
+    facts_updated_at = status.get("facts_updated_at")
+    if facts_updated_at:
+        citation = Citation(
+            source="db",
+            vintage=_FACTS_VINTAGE.format(month_year=_month_year(facts_updated_at)),
+            school_unitid=school.get("unitid"),
+            facts_updated_at=date.fromisoformat(str(facts_updated_at)[:10]),
+        )
+    else:
         snapshot_date = str(result.get("profile_snapshot_date") or "")
         citation = Citation(
-            source="profile",
-            tier="official",
-            vintage=f"Profile {result.get('profile_version')} ({snapshot_date})",
+            source="db",
+            vintage=identity_vintage(snapshot_date),
             school_unitid=school.get("unitid"),
-            profile_sha256=result.get("profile_sha256"),
         )
-        label = f"{school.get('name')} — profile snapshot {snapshot_date}"
-        groups = []
-        for group in result["groups"]:
-            rows = []
-            for row in group.get("rows") or []:
-                available = bool(row.get("available"))
-                provenance = (
-                    ProfileProvenanceReceipt.model_validate(row["provenance"]).model_dump(
-                        mode="json"
-                    )
-                    if isinstance(row.get("provenance"), dict)
-                    else None
-                )
-                envelope = CitationEnvelope(
-                    field=row.get("ref"),
-                    label=row.get("label") or row.get("ref") or "Value",
-                    display=row.get("display") if available else "not available",
-                    raw=row.get("value") if available else None,
-                    available=available,
-                    citation=citation if available else None,
-                    caveats=_caveats(row.get("caveat_kinds") or (), snapshot_date=snapshot_date),
-                )
-                rows.append(
-                    {
-                        **envelope.model_dump(mode="json"),
-                        "provenance": provenance,
-                        "source_label": label,
-                    }
-                )
-            groups.append({**group, "rows": rows})
-        return {**result, "groups": groups}
-    return result
+    label = school.get("name")
+    rows = []
+    for row in result["rows"]:
+        envelope = CitationEnvelope(
+            field=row.get("fact_key"),
+            label=row.get("label") or row.get("fact_key") or "Value",
+            display=row.get("display") or "",
+            unit=row.get("unit"),
+            raw=row.get("value"),
+            available=True,
+            citation=citation,
+        )
+        rows.append(
+            {
+                **envelope.model_dump(mode="json"),
+                "section": row.get("section"),
+                "state": row.get("state", "value"),
+                "reported_period": row.get("reported_period"),
+                "vintage": _fact_row_vintage(row.get("reported_period"), row.get("observed_at")),
+                # Passthrough for `app/viz.py`'s `observed_at_spread` caveat
+                # (school-data-v3 Phase 3, Unit D) -- the per-fact
+                # confirmation date, distinct from the shared citation's
+                # vintage string above.
+                "observed_at": row.get("observed_at"),
+                "source_label": label,
+            }
+        )
+    # Minted at top level too, not only per-row: a school with zero facts
+    # (has_collegedata=False, or every tab never_fetched) still names the
+    # school it describes -- "exactly one db citation" holds even when
+    # `rows` is empty. `source_key` dedup means this never double-registers
+    # against the per-row citations above (same citation, same key).
+    return {
+        **result,
+        "rows": rows,
+        "citation": citation.model_dump(mode="json"),
+        "source_label": label,
+    }
+
+
+_DB_CITATION_MINTERS = {
+    "resolve_school": _resolve_school_db_citation,
+    "get_school_profile": _get_school_profile_db_citation,
+    "get_facts": get_facts_db_citation,
+}
+
+
+def _normalize_db_payload(result: Any, tool_name: str | None) -> Any:
+    """Mint the `db` citation for the three tools plan §6a names --
+    `{get_facts, get_school_profile, resolve_school}`. `query_database`
+    mints none: appendix F-iii's validator requires `school_unitid` and a
+    cross-school result has no single school (its honesty carriers are the
+    `coverage_denominator` caveat and the printed-name sentence it already
+    carries, per `counselle_db.sql_guard`)."""
+    if not isinstance(result, dict):
+        return result
+    minter = _DB_CITATION_MINTERS.get(tool_name or "")
+    return minter(result) if minter is not None else result
 
 
 @dataclass

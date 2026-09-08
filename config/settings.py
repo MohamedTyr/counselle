@@ -65,52 +65,11 @@ _SECRET_FIELDS = frozenset(
 )
 
 
-class DbChildSettings(BaseSettings):
-    """Minimal settings surface for the credential-isolated DB MCP child."""
-
-    model_config = SettingsConfigDict(env_file=None, env_prefix=_ENV_PREFIX, extra="ignore")
-
-    db_ro_dsn: str
-    db_statement_timeout_ms: int = DEFAULT_DB_STATEMENT_TIMEOUT_MS
-    db_row_cap: int = Field(default=500, gt=0)
-    query_database_max_bytes: int = Field(default=262_144, gt=0)
-    data_catalog_refresh_seconds: int = Field(default=3600, gt=0)
-    supported_packet_extractor_versions: Annotated[frozenset[str], NoDecode] = frozenset(
-        {
-            "gemini-native-pdf-v2",
-            "gemini-native-pdf-v5",
-            "gemini-routed-extraction-v7",
-            "gemini-routed-extraction-v8",
-            "counselle-cds-v1",
-            "human-review-v1",
-        }
-    )
-    db_pool_min: int = DEFAULT_DB_POOL_MIN
-    db_pool_max: int = DEFAULT_DB_POOL_MAX
-    log_level: str = "INFO"
-
-    @field_validator("supported_packet_extractor_versions", mode="before")
-    @classmethod
-    def _parse_supported_extractors(cls, value: Any) -> Any:
-        if isinstance(value, str):
-            value = frozenset(part.strip() for part in value.split(","))
-        if not value or any(
-            not isinstance(part, str) or not part or part != part.strip() for part in value
-        ):
-            raise ValueError("extractor versions must be nonempty exact strings")
-        return frozenset(value)
-
-
-@lru_cache(maxsize=1)
-def get_db_child_settings() -> DbChildSettings:
-    return DbChildSettings()  # type: ignore[call-arg]
-
-
 class AssetSettings(BaseSettings):
     """Minimal settings surface for packaged editorial assets.
 
-    Asset readers are used by the credential-isolated DB child, so resolving an
-    asset path must not instantiate the unrelated application settings surface.
+    Resolving an asset path must not instantiate the unrelated application
+    settings surface.
     """
 
     model_config = SettingsConfigDict(env_file=".env", env_prefix=_ENV_PREFIX, extra="ignore")
@@ -262,9 +221,8 @@ class Settings(BaseSettings):
     # The third DSN (plan §C3): cds_library_app role, INSERT/SELECT/UPDATE on the
     # cds_library.* base tables. Optional — the app boots fine whether this is
     # unset or set-but-unreachable, and the CDS admin surface returns a clean
-    # 503 until it is configured (mirrors cds_data_enabled below).
+    # 503 until it is configured.
     db_pipeline_dsn: str | None = None
-    cds_data_enabled: bool = False
     db_statement_timeout_ms: int = DEFAULT_DB_STATEMENT_TIMEOUT_MS
     db_row_cap: int = Field(default=500, gt=0)
     query_database_max_bytes: int = Field(default=262_144, gt=0)
@@ -419,7 +377,6 @@ class Settings(BaseSettings):
         }
     )
     viz_max_cells: int = Field(default=600, gt=0)
-    source_evidence_max_items: int = Field(default=50, gt=0)
     db_pool_min: int = DEFAULT_DB_POOL_MIN
     db_pool_max: int = DEFAULT_DB_POOL_MAX
 
@@ -706,28 +663,6 @@ class Settings(BaseSettings):
         return f"Settings({', '.join(rendered)})"
 
     __str__ = __repr__
-
-
-def serialize_db_child_environment(
-    settings: DbChildSettings | Settings, *, uv_cache_dir: str | None = None
-) -> dict[str, str]:
-    """Serialize only the credential-isolated DB child's typed settings."""
-    child = DbChildSettings(
-        **{name: getattr(settings, name) for name in DbChildSettings.model_fields}
-    )
-    values = child.model_dump(mode="json")
-    env = {
-        "COUNSELLE_DB_RO_DSN": child.db_ro_dsn,
-        "COUNSELLE_SETTINGS_NO_ENV_FILE": "1",
-    }
-    for field, value in values.items():
-        if field == "db_ro_dsn":
-            continue
-        serialized = ",".join(sorted(value)) if isinstance(value, list) else str(value)
-        env[f"COUNSELLE_{field.upper()}"] = serialized
-    if uv_cache_dir is not None:
-        env["UV_CACHE_DIR"] = uv_cache_dir
-    return env
 
 
 @lru_cache

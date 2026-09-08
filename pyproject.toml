@@ -111,7 +111,6 @@ disable_error_code = ["no-untyped-call"]
 # checks from obscuring application type errors in the canonical `mypy .` gate.
 [[tool.mypy.overrides]]
 module = [
-    "tests.app.test_evidence_markers",
     "tests.app.test_school_workspace_live",
     "tests.app.test_school_workspace_models",
     "tests.app.test_state",

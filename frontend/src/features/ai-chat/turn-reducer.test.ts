@@ -83,13 +83,14 @@ function renderSpec(overrides: Partial<RenderSpec> = {}): RenderSpec {
             },
             evidence: null,
             caveats: [
-              { kind: "edition_mismatch_comparison", text: "Editions differ." },
+              { kind: "observed_at_spread", text: "Editions differ." },
             ],
             marker: "[2]",
           },
         ],
       },
     ],
+    foot: [],
     ...overrides,
   };
 }

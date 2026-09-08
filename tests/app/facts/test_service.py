@@ -12,7 +12,6 @@ from __future__ import annotations
 from datetime import UTC, date, datetime
 
 from app.facts.service import (
-    _absence_display,
     _build_deadlines,
     _build_fact,
     _control,
@@ -21,6 +20,7 @@ from app.facts.service import (
     _resolve_state,
     _section_line,
     _try_band,
+    absence_display,
 )
 from counselle_db.catalog import SectionFact, SectionGroup
 from counselle_db.models import FactValueRow
@@ -79,13 +79,13 @@ def test_a_reported_false_resolves_to_value_state_at_full_weight() -> None:
 
 
 def test_not_fetched_not_published_and_not_reported_are_distinct_words() -> None:
-    assert _absence_display(_resolve_state(None, "http_error", True), "http_error") == "Not checked"
+    assert absence_display(_resolve_state(None, "http_error", True), "http_error") == "Not checked"
     assert (
-        _absence_display(_resolve_state(None, "never_fetched", True), "never_fetched")
+        absence_display(_resolve_state(None, "never_fetched", True), "never_fetched")
         == "Not checked yet"
     )
-    assert _absence_display(_resolve_state(None, "not_found", True), "not_found") == "Not on file"
-    assert _absence_display(_resolve_state(None, "ok", True), "ok") == "Not reported"
+    assert absence_display(_resolve_state(None, "not_found", True), "not_found") == "Not on file"
+    assert absence_display(_resolve_state(None, "ok", True), "ok") == "Not reported"
 
 
 def test_not_collected_when_school_has_no_collegedata_row() -> None:

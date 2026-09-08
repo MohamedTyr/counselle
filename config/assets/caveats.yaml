@@ -1,33 +1,24 @@
 profile_snapshot:
   text: "Identity profile snapshot from {snapshot_date}; verify time-sensitive facts."
   slots: [snapshot_date]
-stale_edition:
-  text: "This value comes from the older {edition} CDS edition."
-  slots: [edition]
-partial_packet:
-  text: "This domain was only partially extracted from the source document."
-  slots: []
-definition_drift:
-  text: "The source definition differs from the current metric definition."
-  slots: []
-not_in_template_version:
-  text: "This item does not exist in this school's CDS template edition."
-  slots: []
-edition_mismatch_comparison:
-  text: "Compared values come from different CDS editions: {editions}."
-  slots: [editions]
 coverage_denominator:
   text: "Computed across {covered} covered schools out of {total} profiles as of {as_of}."
   slots: [covered, total, as_of]
 not_reported:
   text: "The school did not report this item."
   slots: []
-not_applicable:
-  text: "The school marked this item as not applicable."
+not_collected:
+  text: "Counselle does not collect facts for this school; this is not a report of zero or of the school withholding it."
   slots: []
-suppressed:
-  text: "The source suppresses this value."
-  slots: []
-vintage_period_unavailable:
-  text: "The reporting period (for example, which entering class or term this figure covers) isn't fully available for this figure; treat the vintage shown as the CDS academic-year, possibly missing part of that context."
-  slots: []
+not_fetched:
+  text: "{cause}, so its value is unknown — not absent."
+  slots: [cause]
+not_published:
+  text: "Counselle holds no {section} page for this school, so there is nothing to report here — this is not a value the school withheld, and not a report of zero."
+  slots: [section]
+stale_facts:
+  text: "Counselle last confirmed this value on {checked}; it may have changed since."
+  slots: [checked]
+observed_at_spread:
+  text: "Compared values were confirmed at different times: {checked_dates}."
+  slots: [checked_dates]

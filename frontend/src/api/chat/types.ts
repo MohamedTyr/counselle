@@ -6,7 +6,7 @@ export type ResponseMode = "quick" | "think";
 
 export type Tier = "official" | "community";
 
-export const SOURCE_NAMES = ["cds", "profile", "web", "edu", "reddit"] as const;
+export const SOURCE_NAMES = ["cds", "profile", "web", "edu", "reddit", "db"] as const;
 export type SourceName = (typeof SOURCE_NAMES)[number];
 export type SourceCurrentness = "current" | "historical" | "undated";
 export type SourcePeriodBasis = "page_content" | "metadata";
@@ -29,7 +29,9 @@ export type EvidenceItem = {
 export type Citation = {
   v: 2;
   source: SourceName;
-  tier: Tier;
+  /** `null` only for `source === "db"` (Counselle's own data carries no
+   * source tier, school-data-v3 D3) — required for every other source. */
+  tier: Tier | null;
   vintage: string;
   url?: string | null;
   document_sha256?: string | null;
@@ -39,6 +41,10 @@ export type Citation = {
   manifest_version?: string | null;
   school_unitid?: number | null;
   profile_sha256?: string | null;
+  /** "db"-only (school-data-v3 §5.4): when Counselle last confirmed this
+   * school's facts. `null`/absent on every other source, and on a "db"
+   * citation minting the identity vintage rather than a facts vintage. */
+  facts_updated_at?: string | null;
   source_period?: string | null;
   source_period_basis?: SourcePeriodBasis | null;
   source_period_evidence?: string | null;
@@ -84,6 +90,10 @@ export type TabularRenderSpec = {
   title: string;
   columns: SchoolRef[];
   rows: VizRow[];
+  /** Card-level footnotes (school-data-v3 Phase 3 Unit D) — a rendered
+   * caveat, or free text, shown once below the whole card rather than
+   * repeated per cell. */
+  foot: (Caveat | string)[];
 };
 
 export type OpaqueRenderSpec = {

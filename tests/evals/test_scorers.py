@@ -65,46 +65,28 @@ def make_query_capture(prose: str, *payloads: dict[str, Any]) -> TurnCapture:
     )
 
 
-def make_context() -> EvalContext:
-    school = EvalSchool(
-        unitid=1,
-        name="Example University",
-        domains=("admissions",),
-        year=2026,
-        currentness="current",
-        partials=0,
-    )
-    return EvalContext(
-        manifest_version="test",
-        domains=("admissions",),
-        covered=1,
-        total=1,
-        stale_partial=school,
-        profile_only=school,
-        common_a=school,
-        common_b=school,
-        comparison_peer=school,
-        common_domain="admissions",
-        common_metric_ref="admissions.applicants_total",
-        stat_metric_refs=("admissions.applicants_total",) * 4,
-        aid_metric_ref="financial_aid.need_met",
-        selectivity_applicants_ref="admissions.applicants_total",
-        selectivity_admitted_ref="admissions.admitted_total",
-        need_blind_ref=None,
-        not_in_template_available=False,
-    )
-
-
-_SELECTED_DOCUMENT_SQL = """WITH selected AS (
-  SELECT DISTINCT ON (school_id) school_id, document_id
-  FROM cds_library.active_cds_documents
-  ORDER BY school_id, academic_year DESC, document_id DESC
-), candidates AS (
-  SELECT d.school_id
-  FROM cds_library.active_cds_domain_packets d
-  INNER JOIN selected s ON s.school_id=d.school_id AND s.document_id=d.document_id
-)
-SELECT school_id FROM candidates"""
+def make_context(**overrides: Any) -> EvalContext:
+    school = EvalSchool(unitid=1, name="Example University")
+    values: dict[str, Any] = {
+        "sections": ("getting-in",),
+        "covered": 1,
+        "total": 1,
+        "stale_partial": school,
+        "profile_only": school,
+        "common_a": school,
+        "common_b": school,
+        "comparison_peer": school,
+        "common_metric_ref": "admissions.applicants_total",
+        "stat_metric_refs": ("admissions.applicants_total",) * 4,
+        "aid_metric_ref": "aid.avg_percent_need_met_all_undergraduates",
+        "selectivity_applicants_ref": "admissions.applicants_total",
+        "selectivity_admitted_ref": "admissions.admitted_total",
+        "need_blind_ref": None,
+        "not_published_available": False,
+        "stale_facts_available": False,
+    }
+    values.update(overrides)
+    return EvalContext(**values)
 
 
 def test_capture_turn_collects_v2_events_and_structural_messages() -> None:
@@ -190,23 +172,30 @@ def test_safe_summary_excludes_payload_values_and_excerpts() -> None:
     assert "also-secret" not in summary
 
 
-def test_routing_checks_order_and_dynamic_domain() -> None:
+def test_routing_checks_tools_called_and_order() -> None:
     capture = make_capture(
         tool_calls=[
             {"tool_name": "resolve_school", "args": {"query": "A"}},
-            {"tool_name": "get_domain", "args": {"unitid": 1, "domain_id": "dynamic"}},
+            {"tool_name": "get_facts", "args": {"unitid": 1}},
         ]
     )
     checks = score_routing(
-        {
-            "tools": ["resolve_school", "get_domain"],
-            "order": ["resolve_school", "get_domain"],
-            "domain_role": "common",
-            "domain_id": "dynamic",
-        },
+        {"tools": ["resolve_school", "get_facts"], "order": ["resolve_school", "get_facts"]},
         capture,
     )
     assert all(item["passed"] for item in checks.values())
+
+    out_of_order = make_capture(
+        tool_calls=[
+            {"tool_name": "get_facts", "args": {"unitid": 1}},
+            {"tool_name": "resolve_school", "args": {"query": "A"}},
+        ]
+    )
+    bad_checks = score_routing(
+        {"tools": ["resolve_school", "get_facts"], "order": ["resolve_school", "get_facts"]},
+        out_of_order,
+    )
+    assert bad_checks["tool_order"]["passed"] is False
 
 
 def test_composition_reads_v2_columns_and_inert_unavailable_cells() -> None:
@@ -358,19 +347,6 @@ async def test_judge_accepts_close_paraphrase() -> None:
     assert checks["criterion_1"]["passed"] is True
 
 
-def test_profile_identity_is_allowed_when_metric_uses_domain() -> None:
-    checks = score_deterministic(
-        {"no_profile_metric": True, "metric_required": True},
-        make_capture(
-            tool_calls=[
-                {"tool_name": "get_school_profile", "args": {"unitid": 1}},
-                {"tool_name": "get_domain", "args": {"unitid": 1, "domain_id": "admissions"}},
-            ]
-        ),
-    )
-    assert checks["no_profile_as_metric"]["passed"] is True
-
-
 def test_query_database_requires_db_recipes_first_when_requested() -> None:
     expects = {"load_skill_before_sql": True}
     ordered = make_capture(
@@ -386,234 +362,46 @@ def test_query_database_requires_db_recipes_first_when_requested() -> None:
     )
 
 
-def test_candidate_ranking_requires_selected_document_sql_and_typed_refetch() -> None:
-    expects = {
-        "selected_document_sql": True,
-        "typed_refetch": True,
-        "typed_refetch_domain_id": "admissions",
-        "typed_refetch_refs": ["admissions.applicants", "admissions.admitted"],
-    }
-    capture = make_capture(
+def test_query_database_citation_guard_fails_uncited_cross_school_claim() -> None:
+    """v3-denominator-cross-school (school-data-v3 Phase 3, Unit E): a value
+    seen only through `query_database` (which mints no citation) must never
+    surface with a citation marker unless a later `get_facts` call re-fetched
+    it through the typed, cited path."""
+    query_only = make_query_capture(
+        "The lowest admit rate found is 4% for the named school [1].",
+        {"columns": ["school_id", "admit_rate"], "rows": [[1, 0.04]]},
+    )
+    checks = score_deterministic({"query_database_citation_guard": True}, query_only)
+    assert checks["query_database_citation_guard"]["passed"] is False
+
+
+def test_query_database_citation_guard_passes_when_uncited_or_refetched() -> None:
+    declines_to_cite = make_query_capture(
+        "A school with a low admit rate was found, but I have not re-fetched it through "
+        "get_facts, so I will not state its value here.",
+        {"columns": ["school_id", "admit_rate"], "rows": [[1, 0.04]]},
+    )
+    refetched = make_capture(
+        prose="The lowest admit rate found is 4% [1].",
         tool_calls=[
-            {"tool_name": "query_database", "args": {"sql": _SELECTED_DOCUMENT_SQL}},
-            {"tool_name": "get_domain", "args": {"unitid": 1, "domain_id": "admissions"}},
+            {"tool_name": "query_database", "args": {"sql": "SELECT 1"}},
+            {"tool_name": "get_facts", "args": {"unitid": 1, "keys": ["admissions.admit_rate"]}},
         ],
         tool_returns=[
             {
                 "tool_name": "query_database",
-                "content": {"status": "ok", "columns": ["school_id"], "rows": [[1]]},
+                "content": {"columns": ["school_id"], "rows": [[1]]},
             },
             {
-                "tool_name": "get_domain",
-                "content": {
-                    "status": "ok",
-                    "domain_id": "admissions",
-                    "school": {"unitid": 1},
-                    "rows": [
-                        {"field": "admissions.applicants", "available": True, "display": "10"},
-                        {"field": "admissions.admitted", "available": True, "display": "2"},
-                    ],
-                },
+                "tool_name": "get_facts",
+                "content": {"rows": [{"fact_key": "admissions.admit_rate"}]},
             },
         ],
     )
-    checks = score_deterministic(expects, capture)
-    assert checks["selected_document_sql"]["passed"] is True
-    assert checks["typed_refetch"]["passed"] is True
-
-
-@pytest.mark.parametrize(
-    ("domain_id", "rows"),
-    [
-        ("admissions", []),
-        (
-            "cost",
-            [
-                {"field": "admissions.applicants", "available": True, "display": "10"},
-                {"field": "admissions.admitted", "available": True, "display": "2"},
-            ],
-        ),
-        (
-            "admissions",
-            [{"field": "admissions.applicants", "available": True, "display": "10"}],
-        ),
-        (
-            "admissions",
-            [
-                {"field": "admissions.applicants", "available": True, "display": "10"},
-                {"field": "admissions.admitted", "available": False, "display": "not available"},
-            ],
-        ),
-    ],
-)
-def test_typed_refetch_rejects_empty_unrelated_or_incomplete_domain_values(
-    domain_id: str, rows: list[dict[str, Any]]
-) -> None:
-    capture = make_capture(
-        tool_calls=[
-            {"tool_name": "query_database", "args": {"sql": _SELECTED_DOCUMENT_SQL}},
-            {"tool_name": "get_domain", "args": {"unitid": 1, "domain_id": domain_id}},
-        ],
-        tool_returns=[
-            {
-                "tool_name": "query_database",
-                "content": {"status": "ok", "columns": ["school_id"], "rows": [[1]]},
-            },
-            {
-                "tool_name": "get_domain",
-                "content": {
-                    "status": "ok",
-                    "domain_id": domain_id,
-                    "school": {"unitid": 1},
-                    "rows": rows,
-                },
-            },
-        ],
-    )
-
-    check = score_deterministic(
-        {
-            "typed_refetch": True,
-            "typed_refetch_domain_id": "admissions",
-            "typed_refetch_refs": ["admissions.applicants", "admissions.admitted"],
-        },
-        capture,
-    )["typed_refetch"]
-
-    assert check["passed"] is False
-
-
-@pytest.mark.parametrize(
-    "sql",
-    [
-        "SELECT document_id FROM cds_library.active_cds_documents",
-        """WITH selected AS (
-             SELECT DISTINCT ON (school_id) school_id, document_id
-             FROM cds_library.active_cds_documents
-             ORDER BY school_id, academic_year DESC, document_id DESC
-           )
-           SELECT d.school_id FROM cds_library.active_cds_domain_packets d
-           JOIN selected s ON s.school_id=d.school_id""",
-        """WITH selected AS (
-             SELECT DISTINCT ON (school_id) school_id, document_id
-             FROM cds_library.active_cds_documents
-             WHERE academic_year < 2024
-             ORDER BY school_id, academic_year DESC, document_id DESC
-           )
-           SELECT d.school_id FROM cds_library.active_cds_domain_packets d
-           JOIN selected s ON s.school_id=d.school_id AND s.document_id=d.document_id""",
-        """WITH selected AS (
-             SELECT DISTINCT ON (school_id) school_id, document_id
-             FROM cds_library.active_cds_documents
-             ORDER BY school_id, academic_year DESC, document_id DESC
-           )
-           SELECT d.school_id FROM cds_library.active_cds_domain_packets d
-           LEFT JOIN selected s
-             ON s.school_id=d.school_id AND s.document_id=d.document_id""",
-        """WITH selected AS (
-             SELECT DISTINCT ON (school_id) school_id, document_id,
-                    (SELECT count(*) FROM cds_library.active_cds_documents) AS decoy
-             FROM cds_library.active_cds_domain_packets
-             ORDER BY school_id, academic_year DESC, document_id DESC
-           )
-           SELECT d.school_id FROM cds_library.active_cds_domain_packets d
-           JOIN selected s
-             ON s.school_id=d.school_id AND s.document_id=d.document_id""",
-        """WITH selected AS (
-             SELECT DISTINCT ON (school_id) 1 AS school_id, 2 AS document_id
-             FROM cds_library.active_cds_documents
-             ORDER BY school_id, academic_year DESC, document_id DESC
-           )
-           SELECT d.school_id FROM cds_library.active_cds_domain_packets d
-           JOIN selected s
-             ON s.school_id=d.school_id AND s.document_id=d.document_id""",
-        """WITH selected AS (
-             SELECT DISTINCT ON (school_id) school_id, document_id
-             FROM cds_library.active_cds_documents
-             ORDER BY school_id, academic_year DESC, document_id DESC
-           )
-           SELECT d.school_id FROM cds_library.active_cds_domain_packets d
-           JOIN selected s
-             ON s.school_id=d.school_id OR s.document_id=d.document_id""",
-    ],
-)
-def test_selected_document_sql_rejects_nonselecting_or_inexact_join(sql: str) -> None:
-    capture = make_capture(
-        tool_calls=[{"tool_name": "query_database", "args": {"sql": sql}}],
-        tool_returns=[
-            {
-                "tool_name": "query_database",
-                "content": {"status": "ok", "columns": ["school_id"], "rows": [[1]]},
-            }
-        ],
-    )
-    assert (
-        score_deterministic({"selected_document_sql": True}, capture)[
-            "selected_document_sql"
-        ]["passed"]
-        is False
-    )
-
-
-def test_typed_refetch_requires_success_for_every_candidate() -> None:
-    capture = make_capture(
-        tool_calls=[
-            {"tool_name": "query_database", "args": {"sql": _SELECTED_DOCUMENT_SQL}},
-            {"tool_name": "get_domain", "args": {"unitid": 1, "domain_id": "admissions"}},
-            {"tool_name": "get_domain", "args": {"unitid": 2, "domain_id": "admissions"}},
-        ],
-        tool_returns=[
-            {
-                "tool_name": "query_database",
-                "content": {"status": "ok", "columns": ["school_id"], "rows": [[1], [2]]},
-            },
-            {
-                "tool_name": "get_domain",
-                "content": {
-                    "status": "ok",
-                    "domain_id": "admissions",
-                    "school": {"unitid": 1},
-                    "rows": [
-                        {"field": "admissions.applicants", "available": True, "display": "10"},
-                        {"field": "admissions.admitted", "available": True, "display": "2"},
-                    ],
-                },
-            },
-            {"tool_name": "get_domain", "content": {"status": "tool_error"}},
-        ],
-    )
-    assert score_deterministic(
-        {
-            "typed_refetch": True,
-            "typed_refetch_domain_id": "admissions",
-            "typed_refetch_refs": ["admissions.applicants", "admissions.admitted"],
-        },
-        capture,
-    )["typed_refetch"]["passed"] is False
-
-
-def test_selected_document_sql_requires_latest_successful_query() -> None:
-    broad_sql = "SELECT school_id FROM cds_library.active_cds_domain_packets"
-    capture = make_capture(
-        tool_calls=[
-            {"tool_name": "query_database", "args": {"sql": _SELECTED_DOCUMENT_SQL}},
-            {"tool_name": "query_database", "args": {"sql": broad_sql}},
-        ],
-        tool_returns=[
-            {
-                "tool_name": "query_database",
-                "content": {"status": "tool_error", "root_cause": "safe"},
-            },
-            {
-                "tool_name": "query_database",
-                "content": {"status": "ok", "columns": [], "rows": []},
-            },
-        ],
-    )
-    check = score_deterministic({"selected_document_sql": True}, capture)[
-        "selected_document_sql"
-    ]
-    assert check["passed"] is False
+    no_query_at_all = make_capture(prose="No cross-school lookup happened here.")
+    for capture in (declines_to_cite, refetched, no_query_at_all):
+        checks = score_deterministic({"query_database_citation_guard": True}, capture)
+        assert checks["query_database_citation_guard"]["passed"] is True
 
 
 def test_denominator_requires_query_evidence_and_exact_prose_pair() -> None:
@@ -923,63 +711,19 @@ def test_current_web_claim_requires_page_period_evidence_not_retrieval_date() ->
     assert score_deterministic(expects, undated)["current_web_source_period"]["passed"] is False
 
 
-def test_mixed_metric_vintages_must_be_copied_individually() -> None:
-    expects = {
-        "vintage_claims": {"values": ["6,814", "$69,900"]},
-        "forbidden_prose": ["same period"],
-    }
-    enrollment_vintage = "CDS 2024-25; enrollment snapshot: October 15, 2024"
-    tuition_vintage = "CDS 2024-25; cost reporting academic year: 2025-2026"
-    tool_returns = [
-        {
-            "tool_name": "get_domain",
-            "content": {
-                "rows": [
-                    {
-                        "display": "6,814",
-                        "vintage": enrollment_vintage,
-                        "citation": {"vintage": "Common Data Set 2024-25"},
-                    }
-                ]
-            },
-        },
-        {
-            "tool_name": "get_domain",
-            "content": {
-                "rows": [
-                    {
-                        "display": "69900",
-                        "vintage": tuition_vintage,
-                        "citation": {"vintage": "Common Data Set 2024-25"},
-                    }
-                ]
-            },
-        },
-    ]
-    calls = [
-        {"tool_name": "get_domain", "args": {"domain_id": "enrollment"}},
-        {"tool_name": "get_domain", "args": {"domain_id": "cost"}},
-    ]
-    correct = make_capture(
-        prose=(
-            f"Enrollment was 6,814 ({enrollment_vintage}) [1]. "
-            f"Tuition was $69,900 ({tuition_vintage}) [2]."
-        ),
-        tool_calls=calls,
-        tool_returns=tool_returns,
-    )
+def test_forbidden_prose_flags_a_merged_vintage_phrase() -> None:
+    """honesty-yale-mixed-vintages (still live): the per-fact vintage binding
+    itself is judged by the LLM judge's criteria now that `get_domain` (and
+    the old `vintage_claims` scorer branch that read its rows) is gone —
+    `forbidden_prose` is the one deterministic guard left, and it still must
+    catch the tell-tale "same period" merge phrase."""
+    correct = make_capture(prose="Enrollment was 6,814 [1]. Tuition was $69,900 [2].")
     merged = make_capture(
-        prose="Enrollment was 6,814 [1], and tuition for the same period was $69,900 [2].",
-        tool_calls=calls,
-        tool_returns=tool_returns,
+        prose="Enrollment was 6,814 [1], and tuition for the same period was $69,900 [2]."
     )
-
-    correct_checks = score_deterministic(expects, correct)
-    assert correct_checks["metric_vintage_bindings"]["passed"] is True
-    assert correct_checks["forbidden_prose"]["passed"] is True
-    merged_checks = score_deterministic(expects, merged)
-    assert merged_checks["metric_vintage_bindings"]["passed"] is False
-    assert merged_checks["forbidden_prose"]["passed"] is False
+    expects = {"forbidden_prose": ["same period"]}
+    assert score_deterministic(expects, correct)["forbidden_prose"]["passed"] is True
+    assert score_deterministic(expects, merged)["forbidden_prose"]["passed"] is False
 
 
 def test_workspace_scorer_requires_successful_persisted_rows() -> None:
@@ -1016,47 +760,6 @@ def test_workspace_scorer_requires_successful_persisted_rows() -> None:
         ],
     )
     assert score_workspace(expects, message_error)["items_created"]["passed"] is False
-
-
-def test_live_template_absence_requires_typed_row_evidence() -> None:
-    expects = {
-        "template_absence_live": True,
-        "domain_id": "admissions",
-        "metric_ref": "admissions.optional_row",
-    }
-    fabricated = score_deterministic(expects, make_capture(prose="It was absent."))
-    evidenced = score_deterministic(
-        expects,
-        make_capture(
-            tool_calls=[
-                {"tool_name": "get_domain", "args": {"domain_id": "admissions", "unitid": 1}}
-            ],
-            tool_returns=[
-                {
-                    "tool_name": "get_domain",
-                    "content": {
-                        "rows": [
-                            {
-                                "field": "admissions.optional_row",
-                                "available": False,
-                                "caveats": [
-                                    {
-                                        "kind": "not_in_template_version",
-                                        "text": (
-                                            "This item does not exist in this "
-                                            "school's CDS template edition."
-                                        ),
-                                    }
-                                ],
-                            }
-                        ]
-                    },
-                }
-            ],
-        ),
-    )
-    assert fabricated["template_absence_live_evidence"]["passed"] is False
-    assert evidenced["template_absence_live_evidence"]["passed"] is True
 
 
 def test_clarification_requires_v2_event_when_mandatory() -> None:
@@ -1189,6 +892,38 @@ async def test_response_mode_behavior_can_require_source_routing_tools() -> None
     assert checks["tools_called"]["passed"] is True
 
 
+@pytest.mark.asyncio
+async def test_coverage_honesty_case_still_scores_its_named_tools() -> None:
+    """school-data-v3 Phase 3, Unit E's new v3 cases (e.g.
+    v3-coverage-not-collected) are `coverage_honesty`/`edition_caveat`/
+    `honesty` type, not `routing`, but still name required tools in
+    `expects["tools"]` -- that list must not go silently unchecked just
+    because the type isn't `routing`."""
+    question = {
+        "type": "coverage_honesty",
+        "question": "q",
+        "expects": {"tools": ["resolve_school", "get_facts"]},
+    }
+    missing_get_facts = await score_question(
+        question,
+        make_capture(tool_calls=[{"tool_name": "resolve_school", "args": {}}]),
+        None,
+    )
+    assert missing_get_facts["tools_called"]["passed"] is False
+
+    both_called = await score_question(
+        question,
+        make_capture(
+            tool_calls=[
+                {"tool_name": "resolve_school", "args": {}},
+                {"tool_name": "get_facts", "args": {}},
+            ]
+        ),
+        None,
+    )
+    assert both_called["tools_called"]["passed"] is True
+
+
 def test_judge_case_contains_safe_summary_and_answer() -> None:
     case = build_judge_case("Question?", ["criterion"], make_capture(prose="Answer."))
     assert "## Student question" in case
@@ -1197,52 +932,64 @@ def test_judge_case_contains_safe_summary_and_answer() -> None:
 
 
 def test_eval_context_materializes_live_roles_without_mutating_template() -> None:
-    school = EvalSchool(1, "Live School", ("dynamic",), 2025, "current", 0)
-    profile = EvalSchool(2, "Profile School", (), None, None, 0)
-    context = EvalContext(
-        "5.0.1",
-        ("dynamic",),
-        1,
-        2,
-        school,
-        profile,
-        school,
-        school,
-        school,
-        "dynamic",
-        "dynamic.metric",
-        ("dynamic.metric", "dynamic.two", "dynamic.three", "dynamic.four"),
-        "dynamic.aid",
-        "admissions.applicants",
-        "admissions.admitted",
-        None,
-        False,
+    school = EvalSchool(1, "Live School")
+    profile = EvalSchool(2, "Profile School")
+    context = make_context(
+        stale_partial=school,
+        profile_only=profile,
+        common_a=school,
+        common_b=school,
+        comparison_peer=school,
+        covered=1,
+        total=2,
+        not_published_available=False,
+        stale_facts_available=True,
     )
     template: list[dict[str, Any]] = [
         {
             "id": "x",
             "type": "routing",
             "question": "Compare {common_a} over {covered} of {total}",
-            "expects": {"domain_role": "common"},
-            "live_not_in_template": True,
-        }
+            "expects": {"denominator": True},
+        },
+        {
+            "id": "gated-not-published",
+            "type": "coverage_honesty",
+            "question": "gated",
+            "expects": {},
+            "live_gate": "not_published",
+        },
+        {
+            "id": "gated-stale-facts",
+            "type": "edition_caveat",
+            "question": "ungated",
+            "expects": {},
+            "live_gate": "stale_facts",
+        },
     ]
     rendered = materialize_questions(template, context)
     assert rendered[0]["question"] == "Compare Live School over 1 of 2"
-    assert rendered[0]["expects"]["domain_id"] == "dynamic"
-    assert "skip_reason" in rendered[0]
-    assert "domain_id" not in template[0]["expects"]
+    assert rendered[0]["expects"]["denominator_total"] == 2
+    assert "denominator_total" not in template[0]["expects"]
+    gated = next(q for q in rendered if q["id"] == "gated-not-published")
+    assert gated.get("skip_reason")
+    ungated = next(q for q in rendered if q["id"] == "gated-stale-facts")
+    assert "skip_reason" not in ungated
 
+    # school-data-v3 Phase 3 Unit E: `denominator-most-selective` was re-pointed
+    # off the retired `get_domain`/`active_cds_domain_packets` typed-refetch
+    # scorer (`typed_refetch_domain_id`/`typed_refetch_refs`, both dead code
+    # against `get_facts`) onto a `get_facts`-based criteria check instead.
     selected = next(
         question
         for question in materialize_questions(load_questions(), context)
         if question["id"] == "denominator-most-selective"
     )
-    assert selected["expects"]["typed_refetch_domain_id"] == "admissions"
-    assert selected["expects"]["typed_refetch_refs"] == [
-        "admissions.admitted",
-        "admissions.applicants",
-    ]
+    assert selected["expects"]["denominator"] is True
+    assert "typed_refetch_domain_id" not in selected["expects"]
+    assert any(
+        "get_facts" in criterion for criterion in selected["expects"].get("criteria", [])
+    )
 
     mode_case = next(
         question

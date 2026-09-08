@@ -2,36 +2,39 @@
 hatch's allowlist/denylist over sqlglot's parsed AST (plan/ADR context: the
 five-view reader contract, `docs/DATABASE_GUIDE.md`).
 
-Split out of `counselle_db/service.py` (house limit: files < 800 lines,
-CLAUDE.md) as a pure move -- every function, constant, and docstring below
-is unchanged from its previous home; only imports and re-exports moved.
-`counselle_db.service` re-exports `query_database` so every existing caller
-(`counselle_db/server.py`'s MCP tool, `api/` routes, tests) keeps working
-unchanged.
+Re-pointed for school-data-v3 (plan §5.4/appendix F-ii): the CDS packet/
+manifest/selected-document machinery this guard used to allow-list is gone
+with the CDS Library reader views it protected. The five relations below are
+their replacement -- `cds_library.current_school_facts` is reader-granted
+(the `get_facts` service path reads it) but deliberately **not** allow-listed
+here, because it carries a `value jsonb` column; `school_facts_sql` is the
+long-form, jsonb-free surface `query_database` may actually touch.
+
 """
 
 from __future__ import annotations
 
 import re
 from datetime import UTC, datetime
-from typing import Any, cast
+from typing import Any
 
 from sqlglot import exp, parse
 from sqlglot.errors import ParseError, TokenError
 
 from config.settings import get_settings
 from counselle_db.catalog import Catalog
-from counselle_db.models import QueryResult, ServiceError
+from counselle_db.models import FactCoverageRow, QueryResult, ServiceError
+from domain.facts.state import MAJORS_MATCH_NOTE
 
 __all__ = ["query_database"]
 
 _ALLOWED_RELATIONS = frozenset(
     {
         "cds_library.school_profiles",
-        "cds_library.active_cds_domain_packets",
-        "cds_library.active_cds_documents",
-        "cds_library.cds_document_sources",
-        "cds_library.cds_manifest_snapshots",
+        "cds_library.school_facts_sql",
+        "cds_library.school_explore",
+        "cds_library.school_data_status",
+        "cds_library.fact_coverage",
     }
 )
 _PLACEHOLDER_RE = re.compile(r"\$(\d+)")
@@ -39,6 +42,8 @@ _SAFE_FUNCTIONS = frozenset(
     {
         "abs",
         "and",
+        "array",
+        "array_contains_all",
         "avg",
         "ceil",
         "ceiling",
@@ -54,11 +59,6 @@ _SAFE_FUNCTIONS = frozenset(
         "in",
         "length",
         "like",
-        "json_extract",
-        "json_extract_scalar",
-        "jsonb_build_object",
-        "jsonb_path_exists",
-        "jsonb_typeof",
         "lower",
         "max",
         "min",
@@ -70,32 +70,62 @@ _SAFE_FUNCTIONS = frozenset(
         "substring",
         "sum",
         "trim",
-        "to_jsonb",
         "upper",
     }
 )
 
-# The bytea-bearing columns in the five-view reader contract.  Guard these before
-# asyncpg executes the statement: the post-fetch recursion remains a final backstop,
-# but must never be the mechanism that prevents a PDF from being materialized.
-_BYTEA_COLUMNS = frozenset(
-    {"pdf_content", "pdf_sha256", "profile_sha256", "content_sha256", "domain_schema_hash"}
+# The one bytea-bearing column left in the five-view reader contract
+# (`school_profiles.profile_sha256`). Guard it before asyncpg executes the
+# statement: the post-fetch recursion in `query_database` remains a final
+# backstop, but must never be the mechanism that prevents a hash from being
+# materialized. (Plan appendix F-ii claims "no bytea column exists in any
+# allow-listed relation" -- verified false against the live schema; see this
+# unit's final report.)
+_BYTEA_COLUMNS = frozenset({"profile_sha256"})
+_BYTEA_RELATIONS = frozenset({"cds_library.school_profiles"})
+
+# Internal jsonb provenance/plumbing columns, reachable through the
+# allow-list with zero restriction (security review Finding 2):
+# `school_profiles.basic_profile`, `school_profiles.profile_provenance`, and
+# `school_data_status.tabs`. `profile_provenance` carries per-field IPEDS
+# extraction plumbing (`file_sha256`, `chosen_source`, `normalization`,
+# `source_column`) that was never meant to reach the model -- the same class
+# of detail the deleted `_reject_packet_projection` used to keep off this
+# surface, and the same reasoning the module docstring already applies to
+# excluding `current_school_facts` from the allow-list outright.
+# `basic_profile` is judged the same way rather than exposed via a narrow
+# accessor: `get_school_profile` already serves its content typed and
+# decoded (`counselle_db/service.py`'s `_walk_profile`), so `query_database`
+# -- the raw escape hatch -- has no legitimate need to duplicate it as an
+# unrestricted jsonb blob; blocking it outright is the simpler and safer
+# choice, not a shortcut past a real need.
+_JSON_COLUMNS = frozenset({"basic_profile", "profile_provenance", "tabs"})
+_JSON_RELATIONS = frozenset(
+    {"cds_library.school_profiles", "cds_library.school_data_status"}
 )
-_BYTEA_RELATIONS = frozenset(
-    {
-        "cds_library.school_profiles",
-        "cds_library.active_cds_domain_packets",
-        "cds_library.active_cds_documents",
-        "cds_library.cds_document_sources",
-        "cds_library.cds_manifest_snapshots",
-    }
+
+_FACT_KEY_COLUMN = "fact_key"
+_MAJORS_COLUMN = "majors"
+# The real `fact_coverage` key for the majors list itself (verified live:
+# `academics.undergraduate_majors`, 2219/2241 schools -- there is no
+# `explore.*` row in `fact_coverage` and none can ever exist, since
+# `rewrite_fact_coverage_counts` builds that table by `GROUP BY fact_key
+# FROM school_facts`, which only ever emits real domain-style keys).
+# `app/facts/explore_projection.py`'s `_FACT_KEY_MAP` confirms this key maps
+# onto `school_explore.majors`, the exact column the membership predicate
+# below tests. `academics.undergraduate_majors_count` is a different fact
+# (a derived scalar), not the denominator for "do we have a majors list".
+_MAJORS_FACT_KEY = "academics.undergraduate_majors"
+_DENOMINATOR_UNAVAILABLE_NOTE = (
+    "This ranking/aggregate has no bound fact key: denominator unavailable -- "
+    "bind the fact key as a parameter and re-run, or state the number without "
+    "a population claim."
 )
-_PACKET_RELATION = "cds_library.active_cds_domain_packets"
-_DOCUMENT_RELATION = "cds_library.active_cds_documents"
-_MANIFEST_RELATION = "cds_library.cds_manifest_snapshots"
-_INTERNAL_PACKET_KEYS = frozenset({"provider_contract", "diagnostic_code", "evidence"})
-_SAFE_PACKET_RESULT_KEYS = frozenset({"availability_status", "extraction_status", "value"})
-_MANIFEST_METRIC_JSONPATH = "$.domains[*].metrics[*] ? (@.id == $ref)"
+# Plan §5.3/§6a/appendix F-ii: `MAJORS_MATCH_NOTE` (`domain/facts/state.py`)
+# is the one canonical "matches on printed name" sentence, shared with
+# `app/facts/service_explore.py`'s `/majors`/`/explore` HTTP responses --
+# `domain/` sits below both `app/` and `counselle_db/` in ADR 0017's
+# layering, so either may import it without a cycle.
 
 
 def _catalog_settings(catalog: Catalog) -> Any:
@@ -128,7 +158,7 @@ def _reject_binary_projection(tree: exp.Query, relations: set[str]) -> None:
         if column.name.casefold() in _BYTEA_COLUMNS and not _inside_octet_length(column):
             raise ServiceError(
                 "Binary/PDF bytes cannot be returned; select metadata such as "
-                "octet_length(pdf_content)."
+                "octet_length(profile_sha256)."
             )
     for cast_expression in tree.find_all(exp.Cast):
         target = cast_expression.args.get("to")
@@ -139,410 +169,109 @@ def _reject_binary_projection(tree: exp.Query, relations: set[str]) -> None:
             raise ServiceError("Expressions returning binary/PDF bytes are not allowed.")
 
 
-def _json_path_parts(expression: exp.Expression, params: list[Any]) -> tuple[str, ...]:
-    """Return one safe, statically bound JSON extraction path.
-
-    Packet paths are a security boundary: accepting an expression we cannot
-    resolve here would let a query assemble an internal key at execution time
-    and bypass the denylist below.  Only quoted string keys and direct ``$n``
-    bind parameters are supported.
-    """
-    value = expression.args.get("expression")
-    if isinstance(value, exp.JSONPath):
-        parts = tuple(value.expressions)
-        if (
-            not parts
-            or not isinstance(parts[0], exp.JSONPathRoot)
-            or any(not isinstance(part, exp.JSONPathKey) for part in parts[1:])
-        ):
-            raise ServiceError(
-                "Packet JSON paths must use static string keys or direct positional parameters."
-            )
-        return tuple(str(key.this) for key in parts[1:])
-    if (
-        isinstance(value, exp.Parameter)
-        and isinstance(value.this, exp.Literal)
-        and value.this.is_int
-    ):
-        index = int(value.this.this) - 1
-        if 0 <= index < len(params):
-            return (str(params[index]),)
-    if isinstance(value, exp.Literal) and value.is_string:
-        return (str(value.this),)
-    raise ServiceError(
-        "Packet JSON paths must use static string keys or direct positional parameters."
+def _reject_json_projection(tree: exp.Query, relations: set[str]) -> None:
+    """Reject projections that can return internal jsonb provenance/plumbing
+    before the database is queried (security review Finding 2)."""
+    unsafe_star = any(
+        isinstance(expression, exp.Star)
+        or (isinstance(expression, exp.Column) and isinstance(expression.this, exp.Star))
+        for select in tree.find_all(exp.Select)
+        for expression in select.expressions
     )
-
-
-def _packet_path(column: exp.Column, params: list[Any]) -> tuple[str, ...]:
-    """Collect the chained ``packet -> ...`` path rooted at one packet column."""
-    parts: list[str] = []
-    child: exp.Expression = column
-    parent = child.parent
-    while isinstance(parent, (exp.JSONExtract, exp.JSONExtractScalar)):
-        if parent.this is not child:
-            break
-        parts.extend(_json_path_parts(parent, params))
-        child = parent
-        parent = child.parent
-    return tuple(parts)
-
-
-def _reject_dynamic_packet_paths(
-    tree: exp.Query, params: list[Any], packet_aliases: set[str]
-) -> None:
-    """Reject computed JSON keys on packet chains, including CTE aliases."""
-    packet_roots = {_PACKET_RELATION.rsplit(".", 1)[-1], "packet", *packet_aliases}
-    for extraction in tree.find_all(exp.JSONExtract, exp.JSONExtractScalar):
-        root = cast(exp.Expression, extraction)
-        while isinstance(root, (exp.JSONExtract, exp.JSONExtractScalar)):
-            root = root.this
-        if isinstance(root, exp.Column) and root.name.casefold() in packet_roots:
-            _json_path_parts(cast(exp.Expression, extraction), params)
-
-
-def _projection_body(expression: exp.Expression) -> exp.Expression:
-    return expression.this if isinstance(expression, exp.Alias) else expression
-
-
-def _packet_column(expression: exp.Expression) -> exp.Column | None:
-    return next(
-        (
-            column
-            for column in expression.find_all(exp.Column)
-            if column.name.casefold() == "packet"
-        ),
-        None,
-    )
-
-
-def _packet_path_keys(tree: exp.Query, params: list[Any]) -> set[str]:
-    keys = {str(key.this).casefold() for key in tree.find_all(exp.JSONPathKey)}
-    keys.update(
-        str(params[int(parameter.this.this) - 1]).casefold()
-        for parameter in tree.find_all(exp.Parameter)
-        if isinstance(parameter.this, exp.Literal)
-        and parameter.this.is_int
-        and 0 < int(parameter.this.this) <= len(params)
-        and isinstance(parameter.parent, (exp.JSONExtract, exp.JSONExtractScalar))
-    )
-    return keys
-
-
-def _returns_packet_object(
-    body: exp.Expression, params: list[Any], unsafe_aliases: set[str]
-) -> bool:
-    direct_packet = _packet_column(body)
-    if direct_packet is not None:
-        path = tuple(part.casefold() for part in _packet_path(direct_packet, params))
-        return not (
-            isinstance(body, exp.JSONExtractScalar)
-            or (bool(path) and path[-1] in _SAFE_PACKET_RESULT_KEYS)
-        )
-    columns = {column.name.casefold() for column in body.find_all(exp.Column)}
-    if not columns & unsafe_aliases:
-        return False
-    return not (
-        isinstance(body, exp.JSONExtractScalar)
-        or any(
-            str(key.this).casefold() in _SAFE_PACKET_RESULT_KEYS
-            for key in body.find_all(exp.JSONPathKey)
-        )
-    )
-
-
-def _packet_object_aliases(tree: exp.Query, params: list[Any]) -> set[str]:
-    unsafe_aliases: set[str] = set()
-    selects = list(tree.find_all(exp.Select))
-    for _ in range(len(selects)):
-        before = len(unsafe_aliases)
-        for projection in (projection for select in selects for projection in select.expressions):
-            alias = projection.alias_or_name.casefold()
-            if alias and _returns_packet_object(
-                _projection_body(projection), params, unsafe_aliases
-            ):
-                unsafe_aliases.add(alias)
-        if len(unsafe_aliases) == before:
-            break
-    return unsafe_aliases
-
-
-def _reject_packet_projection(tree: exp.Query, relations: set[str], params: list[Any]) -> None:
-    """Keep packet provenance and large JSON objects behind the typed parser.
-
-    The guarded SQL escape hatch may traverse one named metric for scalar
-    filtering and aggregation. It may not select the whole packet/metrics map,
-    internal evidence or diagnostics, or return a metric object to the model.
-    """
-    if _PACKET_RELATION not in relations:
-        return
-    if _packet_path_keys(tree, params) & _INTERNAL_PACKET_KEYS:
+    if relations & _JSON_RELATIONS and unsafe_star:
         raise ServiceError(
-            "Packet provenance, diagnostics, and raw evidence are internal; "
-            "use get_domain for typed values and citations."
+            "Internal profile/provenance columns cannot be selected with *; "
+            "name safe metadata columns."
         )
     for column in tree.find_all(exp.Column):
-        if column.name.casefold() != "packet":
-            continue
-        path = tuple(part.casefold() for part in _packet_path(column, params))
-        if len(path) < 2 or path[0] != "metrics":
+        if column.name.casefold() in _JSON_COLUMNS:
             raise ServiceError(
-                "Whole packet JSON cannot be selected; traverse one named metric "
-                "for scalar filtering or aggregation."
-            )
-    unsafe_aliases = _packet_object_aliases(tree, params)
-    _reject_dynamic_packet_paths(tree, params, unsafe_aliases)
-    root_select = tree if isinstance(tree, exp.Select) else tree.find(exp.Select)
-    if root_select is None:
-        return
-    for projection in root_select.expressions:
-        if _returns_packet_object(_projection_body(projection), params, unsafe_aliases):
-            raise ServiceError(
-                "Packet objects cannot be returned; select only scalar candidate values."
+                "Internal profile/provenance jsonb columns cannot be projected; "
+                "use get_school_profile for typed, decoded identity fields."
             )
 
 
-def _reject_manifest_text_search(tree: exp.Query, relations: set[str]) -> None:
-    """Prevent substring matches from masquerading as exact manifest membership."""
-    if _MANIFEST_RELATION not in relations:
-        return
-    for predicate in tree.find_all(exp.ILike, exp.Like):
+def _reject_fact_key_substring_search(tree: exp.Query) -> None:
+    """Fact keys are exact; a substring match must never masquerade as
+    membership -- the v3 form of "membership is structural, never substring"
+    (replaces the retired `_reject_manifest_text_search`, appendix F-ii)."""
+    for predicate in tree.find_all(exp.Like, exp.ILike):
         if any(
-            column.name.casefold() == "content" for column in predicate.this.find_all(exp.Column)
+            column.name.casefold() == _FACT_KEY_COLUMN
+            for column in predicate.find_all(exp.Column)
         ):
             raise ServiceError(
-                "Manifest metric references require exact structural JSON membership, "
-                "not a text substring search."
+                "Fact keys are exact; bind the key as a parameter instead of "
+                "a LIKE/ILIKE pattern."
             )
 
 
-def _table_is(table: exp.Table, relation: str) -> bool:
-    schema, name = relation.split(".", 1)
-    return table.db.casefold() == schema and table.name.casefold() == name
+def _is_known_fact_key(value: str, known: set[str]) -> bool:
+    """A fact key is "known" only if it's a real key from the catalog
+    (`CatalogSnapshot.fact_keys`, filled from `fact_coverage` -- which
+    already excludes `explore.*` pseudo-keys, `counselle_db/catalog.py`'s
+    `_FACT_COVERAGE_SQL`). There is no structural fallback any more: an
+    `explore.<column>`-shaped string is not itself a `fact_key` row and
+    can never exist in `fact_coverage` (verified live), so it is dropped
+    like any other unresolved string rather than treated as a key -- that
+    is what makes it impossible for a query to fabricate a denominator
+    (appendix F-ii's intent, now actually enforced)."""
+    return value in known
 
 
-def _ordered_column(item: exp.Expression) -> tuple[str, bool] | None:
-    if not isinstance(item, exp.Ordered) or not isinstance(item.this, exp.Column):
+def _named_fact_keys(tree: exp.Query, params: list[Any], known: set[str]) -> tuple[str, ...]:
+    """Fact keys this query names -- only catalog-known literals and
+    catalog-known **bound params that are actually used inside a
+    `fact_key = $n` / `fact_key IN (...)` predicate**, mirroring the scoping
+    already applied to the literal half of this function (a literal only
+    counts when it sits under an equality/IN test on the `fact_key` column).
+
+    This is the safety property behind the denominator mechanism: an
+    unresolved string, or a parameter bound to something other than
+    `fact_key`, is ignored, so neither can ever fabricate a coverage claim
+    that isn't backed by a real `fact_coverage` row.
+    """
+    named: set[str] = set()
+    for predicate in tree.find_all(exp.EQ, exp.In):
+        lhs = predicate.this
+        if not (isinstance(lhs, exp.Column) and lhs.name.casefold() == _FACT_KEY_COLUMN):
+            continue
+        for literal in predicate.find_all(exp.Literal):
+            if literal.is_string and _is_known_fact_key(str(literal.this), known):
+                named.add(str(literal.this))
+        for parameter in predicate.find_all(exp.Parameter):
+            index_literal = parameter.this
+            if not (isinstance(index_literal, exp.Literal) and index_literal.is_int):
+                continue
+            index = int(index_literal.this) - 1
+            if not (0 <= index < len(params)):
+                continue
+            value = params[index]
+            if isinstance(value, str) and _is_known_fact_key(value, known):
+                named.add(value)
+    return tuple(sorted(named))
+
+
+def _needs_denominator(tree: exp.Query) -> bool:
+    """A cross-school aggregate or ranking needs a stated population; a plain
+    row read (e.g. one bound fact key, no aggregate) does not."""
+    return tree.find(exp.AggFunc) is not None or tree.find(exp.Order) is not None
+
+
+def _majors_membership_key(tree: exp.Query, relations: set[str]) -> str | None:
+    """Detect a `majors @> ARRAY[...]` membership predicate over
+    `school_explore` -- a school publishes its major list with no standard
+    vocabulary, so this shape always carries the `academics.undergraduate_majors`
+    denominator plus the printed-name caveat (appendix F-ii's "majors
+    two-statement rule"), independent of whether the query is an aggregate.
+    `@>` is the only array-membership operator in `_SAFE_FUNCTIONS`."""
+    if "cds_library.school_explore" not in relations:
         return None
-    return item.this.name.casefold(), item.args.get("desc") is True
-
-
-def _selected_document_cte(tree: exp.Query) -> str | None:
-    """Find the unfiltered, deterministic selected-document CTE from db-recipes."""
-    for cte in tree.find_all(exp.CTE):
-        select = cte.this
-        if not isinstance(select, exp.Select):
-            continue
-        from_clause = select.args.get("from_")
-        source = from_clause.this if isinstance(from_clause, exp.From) else None
-        if not isinstance(source, exp.Table) or not _table_is(source, _DOCUMENT_RELATION):
-            continue
-        distinct = select.args.get("distinct")
-        on = distinct.args.get("on") if isinstance(distinct, exp.Distinct) else None
-        distinct_expressions = list(on.expressions) if isinstance(on, exp.Tuple) else []
-        order = select.args.get("order")
-        ordered = (
-            [_ordered_column(item) for item in order.expressions]
-            if isinstance(order, exp.Order)
-            else []
-        )
-        projected = {
-            projection.name.casefold()
-            for projection in select.expressions
-            if isinstance(projection, exp.Column)
-        }
-        unfiltered = (
-            not any(
-                select.args.get(key) is not None
-                for key in ("where", "limit", "group", "having", "qualify")
-            )
-            and not select.args.get("joins")
-            and not any(nested is not select for nested in select.find_all(exp.Select))
-        )
-        if (
-            len(distinct_expressions) == 1
-            and isinstance(distinct_expressions[0], exp.Column)
-            and distinct_expressions[0].name.casefold() == "school_id"
-            and {"school_id", "document_id"} <= projected
-            and unfiltered
-            and ordered[:3]
-            == [
-                ("school_id", False),
-                ("academic_year", True),
-                ("document_id", True),
-            ]
-        ):
-            return cte.alias.casefold()
+    for predicate in tree.find_all(exp.ArrayContainsAll):
+        for column in (predicate.this, predicate.expression):
+            if isinstance(column, exp.Column) and column.name.casefold() == _MAJORS_COLUMN:
+                return _MAJORS_FACT_KEY
     return None
-
-
-def _join_has_exact_document_keys(join: exp.Join, selected_alias: str, packet_alias: str) -> bool:
-    on = join.args.get("on")
-    if not isinstance(on, exp.Expression) or on.find(exp.Or) is not None:
-        return False
-    matched: set[str] = set()
-    for equality in on.find_all(exp.EQ):
-        left, right = equality.this, equality.expression
-        if not isinstance(left, exp.Column) or not isinstance(right, exp.Column):
-            continue
-        columns = (left, right)
-        names = {column.name.casefold() for column in columns}
-        tables = {column.table.casefold() for column in columns}
-        if len(names) == 1 and tables == {selected_alias, packet_alias}:
-            matched.update(names)
-    return {"school_id", "document_id"} <= matched
-
-
-def _uses_selected_document_ranking(tree: exp.Query) -> bool:
-    selected_alias = _selected_document_cte(tree)
-    if selected_alias is None:
-        return False
-    for select in tree.find_all(exp.Select):
-        from_clause = select.args.get("from_")
-        packet_table = from_clause.this if isinstance(from_clause, exp.From) else None
-        if not isinstance(packet_table, exp.Table) or not _table_is(packet_table, _PACKET_RELATION):
-            continue
-        packet_alias = packet_table.alias_or_name.casefold()
-        for join in select.args.get("joins") or []:
-            relation = join.this
-            if (
-                isinstance(relation, exp.Table)
-                and relation.name.casefold() == selected_alias
-                and not join.args.get("side")
-                and join.args.get("kind") in {None, "INNER"}
-                and _join_has_exact_document_keys(
-                    join, relation.alias_or_name.casefold(), packet_alias
-                )
-            ):
-                return True
-    return False
-
-
-def _select_direct_tables(select: exp.Select) -> list[exp.Table]:
-    return [
-        table for table in select.find_all(exp.Table) if table.find_ancestor(exp.Select) is select
-    ]
-
-
-def _has_single_school_constraint(tree: exp.Query) -> bool:
-    """Allow a direct document/packet join only when that join is one-school scoped."""
-    for select in tree.find_all(exp.Select):
-        tables = _select_direct_tables(select)
-        relations = {
-            _DOCUMENT_RELATION
-            if _table_is(table, _DOCUMENT_RELATION)
-            else _PACKET_RELATION
-            if _table_is(table, _PACKET_RELATION)
-            else ""
-            for table in tables
-        }
-        if not {_DOCUMENT_RELATION, _PACKET_RELATION} <= relations:
-            continue
-        aliases = {table.alias_or_name.casefold() for table in tables}
-        where = select.args.get("where")
-        if not isinstance(where, exp.Where) or where.find(exp.Or) is not None:
-            continue
-        for equality in where.find_all(exp.EQ):
-            left, right = equality.this, equality.expression
-            pairs = ((left, right), (right, left))
-            if any(
-                isinstance(column, exp.Column)
-                and column.name.casefold() == "school_id"
-                and (not column.table or column.table.casefold() in aliases)
-                and isinstance(value, (exp.Parameter, exp.Literal))
-                for column, value in pairs
-            ):
-                return True
-    return False
-
-
-def _reject_unselected_cross_school_ranking(tree: exp.Query, relations: set[str]) -> None:
-    """Prevent rankings from mixing multiple active editions per school."""
-    if not {_DOCUMENT_RELATION, _PACKET_RELATION} <= relations:
-        return
-    has_bounded_ranking = any(
-        select.args.get("order") is not None and select.args.get("limit") is not None
-        for select in tree.find_all(exp.Select)
-    )
-    if not has_bounded_ranking:
-        return
-    if _has_single_school_constraint(tree) or _uses_selected_document_ranking(tree):
-        return
-    raise ServiceError(
-        "Cross-school packet rankings require canonical selected-document semantics: "
-        "use the db-recipes DISTINCT ON selected-per-school CTE and join packets on "
-        "exact school_id + document_id."
-    )
-
-
-def _is_manifest_membership_call(function: exp.Anonymous, manifest_aliases: set[str]) -> bool:
-    args = function.expressions
-    if len(args) != 3:
-        return False
-    content, path, variables = args
-    if not (
-        isinstance(content, exp.Column)
-        and content.name.casefold() == "content"
-        and content.table.casefold() in manifest_aliases
-        and isinstance(path, exp.Literal)
-        and path.is_string
-        and path.this == _MANIFEST_METRIC_JSONPATH
-        and isinstance(variables, exp.Anonymous)
-        and variables.name.casefold() == "jsonb_build_object"
-        and len(variables.expressions) == 2
-        and isinstance(variables.expressions[0], exp.Literal)
-        and variables.expressions[0].is_string
-        and variables.expressions[0].this == "ref"
-    ):
-        return False
-    encoded_ref = variables.expressions[1]
-    if not (
-        isinstance(encoded_ref, exp.Anonymous)
-        and encoded_ref.name.casefold() == "to_jsonb"
-        and len(encoded_ref.expressions) == 1
-        and isinstance(encoded_ref.expressions[0], exp.Cast)
-    ):
-        return False
-    parameter = encoded_ref.expressions[0].this
-    target = encoded_ref.expressions[0].args.get("to")
-    return (
-        isinstance(parameter, exp.Parameter)
-        and isinstance(parameter.this, exp.Literal)
-        and parameter.this.is_int
-        and int(parameter.this.this) == 1
-        and isinstance(target, exp.DataType)
-        and target.this == exp.DataType.Type.TEXT
-    )
-
-
-def _reject_non_manifest_json_helpers(tree: exp.Query, relations: set[str]) -> None:
-    """Allow JSONPath only for the one bound exact-ref manifest predicate."""
-    manifest_aliases = {
-        table.alias_or_name.casefold()
-        for table in tree.find_all(exp.Table)
-        if table.db.casefold() == "cds_library"
-        and table.name.casefold() == "cds_manifest_snapshots"
-    }
-    membership_calls = [
-        function
-        for function in tree.find_all(exp.Anonymous)
-        if function.name.casefold() == "jsonb_path_exists"
-    ]
-    if membership_calls and (
-        _MANIFEST_RELATION not in relations
-        or any(
-            not _is_manifest_membership_call(function, manifest_aliases)
-            for function in membership_calls
-        )
-    ):
-        raise ServiceError("Only exact bound manifest metric membership JSONPath is allowed.")
-    for function in tree.find_all(exp.Anonymous):
-        if function.name.casefold() not in {"jsonb_build_object", "to_jsonb"}:
-            continue
-        if not any(
-            function is descendant for call in membership_calls for descendant in call.walk()
-        ):
-            raise ServiceError("Manifest JSON helper functions are restricted to exact membership.")
 
 
 def _contains_binary(value: Any) -> bool:
@@ -555,7 +284,7 @@ def _contains_binary(value: Any) -> bool:
     return False
 
 
-def _guard_sql(sql: str, params: list[Any]) -> str:
+def _guard_sql_impl(sql: str, params: list[Any]) -> tuple[str, exp.Query, set[str]]:
     if not isinstance(sql, str) or not sql.strip():
         raise ServiceError("Only one safe SELECT/WITH statement is allowed.")
     normalized = sql.strip()
@@ -623,19 +352,27 @@ def _guard_sql(sql: str, params: list[Any]) -> str:
     if any(_contains_binary(value) for value in params):
         raise ServiceError("Binary query parameters are not allowed.")
     _reject_binary_projection(tree, relations)
-    _reject_packet_projection(tree, relations, params)
-    _reject_unselected_cross_school_ranking(tree, relations)
-    _reject_manifest_text_search(tree, relations)
-    _reject_non_manifest_json_helpers(tree, relations)
-    return normalized
+    _reject_json_projection(tree, relations)
+    _reject_fact_key_substring_search(tree)
+    return normalized, tree, relations
+
+
+def _guard_sql(sql: str, params: list[Any]) -> str:
+    return _guard_sql_impl(sql, params)[0]
 
 
 async def query_database(
     catalog: Catalog, sql: str, params: list[Any] | None = None
 ) -> QueryResult:
     values = params or []
-    safe_sql = _guard_sql(sql, values)
+    safe_sql, tree, relations = _guard_sql_impl(sql, values)
     settings = _catalog_settings(catalog)
+    known_fact_keys = set(catalog.snapshot.fact_keys)
+    named_keys = set(_named_fact_keys(tree, values, known_fact_keys))
+    majors_key = _majors_membership_key(tree, relations)
+    if majors_key is not None:
+        named_keys.add(majors_key)
+    needs_denominator = _needs_denominator(tree)
     # The interpolated statement has passed the sqlglot relation/function/
     # statement allowlist above; every caller-supplied value remains an asyncpg
     # bind parameter. Only the code-owned row cap is added here.
@@ -644,11 +381,16 @@ async def query_database(
     columns: tuple[str, ...] = ()
     truncated = False
     as_of = datetime.now(UTC)
-    warning = (
+    warning_parts = [
         "Raw query rows bypass typed normalization. Re-fetch named student-facing "
-        "values through get_school_profile or get_domain; aggregates need as-of "
+        "values through get_school_profile or get_facts; aggregates need as-of "
         "and coverage-denominator attribution."
-    )
+    ]
+    if needs_denominator and not named_keys:
+        warning_parts.append(_DENOMINATOR_UNAVAILABLE_NOTE)
+    if majors_key is not None:
+        warning_parts.append(MAJORS_MATCH_NOTE)
+    warning = " ".join(warning_parts)
     async with catalog.pool.acquire() as conn, conn.transaction(readonly=True):
         await conn.execute(
             "SELECT set_config('statement_timeout', $1, true)",
@@ -665,7 +407,7 @@ async def query_database(
             if _contains_binary(row):
                 raise ServiceError(
                     "Binary/PDF bytes cannot be returned; select metadata such as "
-                    "octet_length(pdf_content)."
+                    "octet_length(profile_sha256)."
                 )
             candidate = QueryResult(
                 columns=columns,
@@ -679,6 +421,22 @@ async def query_database(
                 truncated = True
                 break
             rows.append(row)
+        coverage: tuple[FactCoverageRow, ...] = ()
+        if named_keys and (needs_denominator or majors_key is not None):
+            coverage_rows = await conn.fetch(
+                "SELECT fact_key, schools_with_value, schools_total, computed_at "
+                "FROM cds_library.fact_coverage WHERE fact_key = ANY($1::text[])",
+                sorted(named_keys),
+            )
+            coverage = tuple(
+                FactCoverageRow(
+                    fact_key=coverage_row["fact_key"],
+                    schools_with_value=coverage_row["schools_with_value"],
+                    schools_total=coverage_row["schools_total"],
+                    as_of=coverage_row["computed_at"],
+                )
+                for coverage_row in coverage_rows
+            )
     result = QueryResult(
         columns=columns,
         rows=tuple(rows),
@@ -686,6 +444,7 @@ async def query_database(
         truncated=truncated,
         as_of=as_of,
         warning=warning,
+        coverage=coverage,
     )
     if len(result.model_dump_json().encode()) > settings.query_database_max_bytes:
         raise ServiceError("Query metadata exceeds the configured serialized-result limit.")

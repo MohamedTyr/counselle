@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
-import counselle_db.server as db_server
 from app.tool_specs import build_tool_specs, gateable_tool_names
+from app.toolset import build_db_tools
 from config.settings import load_yaml_asset
 from domain.events import StepDetail
 
@@ -111,11 +111,19 @@ def _receipt(
 
 
 def test_registry_covers_the_agent_tool_surface() -> None:
+    """Set-equality against the *mounted* in-process toolset (school-data-v3
+    Phase 3 §6a) — ``build_db_tools`` (``resolve_school``, ``get_school_profile``,
+    ``get_facts``, ``query_database``), never the legacy stdio MCP server
+    (``counselle_db.server``), which ``app/toolset.py``'s own module docstring
+    says "mounts nothing today" and still defines the retired ``get_domain``.
+    Constructing the tools needs no live catalog/middleware: each closes over
+    them without touching either at construction time.
+    """
     labels = load_yaml_asset("step_labels")
     specs = build_tool_specs(labels, _receipt)
-    mcp_tools = {tool.name for tool in db_server.mcp._tool_manager.list_tools()}
+    db_tools = {tool.name for tool in build_db_tools(None, None)}
 
-    assert set(specs) == mcp_tools | FUNCTION_TOOLS
+    assert set(specs) == db_tools | FUNCTION_TOOLS
     assert "ask_student" not in specs
 
 
@@ -134,7 +142,7 @@ def test_registry_labels_resolve_and_gated_set_is_derived() -> None:
     assert not specs["read_tool_result"].visible
     assert all(spec.visible for name, spec in specs.items() if name != "read_tool_result")
     assert specs["resolve_school"].complete_label == "Found {school}"
-    assert specs["get_domain"].unavailable_label == "No {category} data available for {school}"
+    assert specs["get_facts"].unavailable_label == "No {category} data available for {school}"
 
 
 def test_workspace_tools_load_as_workspace_kind_gated_by_auth() -> None:

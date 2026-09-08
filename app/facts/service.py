@@ -35,7 +35,7 @@ from domain.facts import state as state_module
 from domain.facts.models import NOT_FETCHED_STATUSES, FactState, NormalizedValue, PageStatus
 from domain.facts.state import fact_state, is_stale, section_state
 
-__all__ = ["get_school_facts"]
+__all__ = ["absence_display", "get_school_facts"]
 
 _DEADLINES_SECTION_ID = "applying"
 _DEADLINES_GROUP_ID = "deadlines"
@@ -105,7 +105,7 @@ def _resolve_state(
 _NOT_REPORTED_DISPLAY = "Not reported"
 
 
-def _absence_display(state: FactState, page_status: PageStatus) -> str:
+def absence_display(state: FactState, page_status: PageStatus) -> str:
     if state == "not_reported":
         return _NOT_REPORTED_DISPLAY
     if state == "not_published":
@@ -190,7 +190,7 @@ def _build_fact(
         tab=spec.tab,
         state=state,
         kind="scalar",
-        display=_absence_display(state, page_status),
+        display=absence_display(state, page_status),
         unit=None,
         value=None,
         observed_at=None,
@@ -248,7 +248,7 @@ def _try_band(
             tab=spec.tab,
             state=state,
             kind="band",
-            display=_absence_display(state, page_status),
+            display=absence_display(state, page_status),
             unit=None,
             value=None,
             observed_at=None,
@@ -415,7 +415,7 @@ def _build_deadlines(
                 DeadlineRow(
                     round=_deadline_round_label(spec.label),
                     date=None,
-                    display=_absence_display(state, page_status),
+                    display=absence_display(state, page_status),
                     reported_period=None,
                     state=state,
                     observed_at=None,

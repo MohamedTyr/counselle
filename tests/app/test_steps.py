@@ -1,8 +1,8 @@
 """Unit tests for the StepMapper (app/steps.py) — labels, receipts, errors (B1a).
 
 Table-driven against ``config/assets/step_labels.yaml``: one row per tool the
-agent can call, plus exhaustiveness against the live tool surface (the MCP
-server's registered names + the function tools), the no-unfilled-templates
+agent can call, plus exhaustiveness against the live tool surface (the
+mounted in-process db tools + the function tools), the no-unfilled-templates
 net, and the receipts-never-carry-secrets house rule. No DB, no network.
 """
 
@@ -14,8 +14,8 @@ from typing import Any
 import pytest
 from pydantic_ai.messages import RetryPromptPart
 
-import counselle_db.server as db_server
 from app.steps import StepMapper
+from app.toolset import build_db_tools
 from config.settings import load_yaml_asset
 from domain.events import StepDetail
 
@@ -96,22 +96,22 @@ def mapper(labels: dict[str, Any]) -> StepMapper:
 
 # (tool, representative args, expected kind, expected tier, label must contain)
 _MAP_CALL_TABLE: list[tuple[str, dict[str, Any], str, str | None, list[str]]] = [
-    ("resolve_school", {"query": "duke"}, "db_tool", "official", ["duke"]),
+    ("resolve_school", {"query": "duke"}, "db_tool", None, ["duke"]),
     (
         "get_school_profile",
         {"unitid": 198419, "groups": ["identity"]},
         "db_tool",
-        "official",
+        None,
         ["Duke University", "profile"],
     ),
     (
-        "get_domain",
-        {"unitid": 198419, "domain_id": "admissions"},
+        "get_facts",
+        {"unitid": 198419, "sections": ["admissions"]},
         "db_tool",
-        "official",
+        None,
         ["Duke University", "admissions"],
     ),
-    ("query_database", {"sql": "SELECT 1"}, "sql", "official", ["query"]),
+    ("query_database", {"sql": "SELECT 1"}, "sql", None, ["query"]),
     ("search_web", {"query": "duke dorms"}, "web_search", None, ["duke dorms"]),
     (
         "search_school_site",
@@ -285,11 +285,16 @@ def test_map_call_table_covers_every_yaml_row(labels: dict[str, Any]) -> None:
 
 def test_yaml_covers_every_agent_tool(labels: dict[str, Any]) -> None:
     """Every tool the agent can call has a label row — no step ever falls to
-    the generic default in production (the asset and the surface move together)."""
-    mcp_tools = {tool.name for tool in db_server.mcp._tool_manager.list_tools()}
-    assert mcp_tools, "MCP tool registry introspection returned nothing"
+    the generic default in production (the asset and the surface move together).
 
-    surface = mcp_tools | FUNCTION_TOOLS
+    The db tools come from ``build_db_tools`` (the mounted in-process surface),
+    never the legacy stdio MCP server, which mounts nothing (school-data-v3
+    Phase 3 §6a) and still defines the retired ``get_domain``.
+    """
+    db_tools = {tool.name for tool in build_db_tools(None, None)}
+    assert db_tools, "build_db_tools returned nothing"
+
+    surface = db_tools | FUNCTION_TOOLS
     missing = surface - set(labels["tools"])
     assert not missing, f"tools with no step_labels row: {sorted(missing)}"
 
@@ -339,7 +344,7 @@ def test_every_row_with_empty_args_has_no_braces(
 
 
 def test_error_label_retry_class(mapper: StepMapper) -> None:
-    mapped = mapper.map_call("get_domain", {"unitid": 198419, "domain_id": "admissions"})
+    mapped = mapper.map_call("get_facts", {"unitid": 198419, "sections": ["admissions"]})
 
     label = mapper.error_label(mapped, retry=True)
 
@@ -356,7 +361,7 @@ def test_error_label_search_failed_class(mapper: StepMapper) -> None:
 
 
 def test_error_label_tool_failed_class(mapper: StepMapper) -> None:
-    for tool in ("get_domain", "query_database", "render_viz", "load_skill"):
+    for tool in ("get_facts", "query_database", "render_viz", "load_skill"):
         mapped = mapper.map_call(tool, {})
 
         label = mapper.error_label(mapped, retry=False)
@@ -398,8 +403,8 @@ def test_error_label_tool_failed_class(mapper: StepMapper) -> None:
             "Profile data unavailable for Yale University",
         ),
         (
-            "get_domain",
-            {"unitid": 198419, "domain_id": "financial_aid"},
+            "get_facts",
+            {"unitid": 198419, "sections": ["financial_aid"]},
             StepDetail(
                 value_count=1,
                 domain_id="financial_aid",
@@ -408,8 +413,8 @@ def test_error_label_tool_failed_class(mapper: StepMapper) -> None:
             "Read Yale University’s financial aid data",
         ),
         (
-            "get_domain",
-            {"unitid": 198419, "domain_id": "financial_aid"},
+            "get_facts",
+            {"unitid": 198419, "sections": ["financial_aid"]},
             StepDetail(
                 value_count=0,
                 domain_id="financial_aid",
@@ -447,8 +452,8 @@ def test_school_data_terminal_labels_use_safe_receipts(
             "Couldn’t read Duke University’s profile",
         ),
         (
-            "get_domain",
-            {"unitid": 198419, "domain_id": "financial_aid"},
+            "get_facts",
+            {"unitid": 198419, "sections": ["financial_aid"]},
             "Couldn’t read Duke University’s financial aid data",
         ),
     ],
@@ -473,8 +478,8 @@ def test_school_data_error_labels_are_specific_and_safe(
 def test_school_data_terminal_without_receipt_uses_neutral_finished_copy(
     mapper: StepMapper,
 ) -> None:
-    args = {"unitid": 198419, "domain_id": "admissions"}
-    mapped = mapper.map_call("get_domain", args)
+    args = {"unitid": 198419, "sections": ["admissions"]}
+    mapped = mapper.map_call("get_facts", args)
 
     assert mapper.terminal_label(
         mapped,
@@ -491,7 +496,7 @@ def test_school_data_terminal_without_receipt_uses_neutral_finished_copy(
 
 
 def test_result_is_error_retry_prompt_part() -> None:
-    part = RetryPromptPart(content="bad args", tool_name="get_domain", tool_call_id="c1")
+    part = RetryPromptPart(content="bad args", tool_name="get_facts", tool_call_id="c1")
 
     assert StepMapper.result_is_error(part, None) is True
 
@@ -720,26 +725,25 @@ def test_detail_for_get_school_profile(mapper: StepMapper) -> None:
     assert detail.row_count is None
 
 
-def test_detail_for_get_domain_uses_authoritative_available_count(mapper: StepMapper) -> None:
-    """value_count is availability.available, never verified or len(rows)."""
+def test_detail_for_get_facts_counts_only_present_value_rows(mapper: StepMapper) -> None:
+    """value_count is len(rows) -- facts actually returned with a value --
+    never counting ``unavailable`` entries (an absence, not a value; overcounting
+    those would misreport what was actually read)."""
     detail = mapper.detail_for(
-        "get_domain",
-        {"unitid": 198419, "domain_id": "admissions"},
+        "get_facts",
+        {"unitid": 198419, "sections": ["admissions"]},
         {
             "school": {"unitid": 198419, "name": "Duke University"},
-            "domain_id": "admissions",
-            "rows": [{"ref": "a"}, {"ref": "b"}, {"ref": "c"}],
-            "availability": {
-                "configured": 3,
-                "verified": 3,
-                "available": 2,
-                "not_in_template_version": 1,
-            },
+            "rows": [
+                {"fact_key": "admissions.admit_rate"},
+                {"fact_key": "admissions.yield_rate"},
+            ],
+            "unavailable": [{"fact_key": "admissions.sat_25", "state": "not_reported"}],
         },
         80,
     )
 
-    assert detail.tool == "get_domain"
+    assert detail.tool == "get_facts"
     assert detail.domain_id == "admissions"
     assert detail.schools == ["Duke University"]
     assert detail.value_count == 2

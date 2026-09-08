@@ -15,7 +15,7 @@ import structlog
 
 from config.settings import get_settings, load_yaml_asset
 from counselle_db.formatting import hex_digest
-from counselle_db.models import SchoolBasics, ServiceError
+from counselle_db.models import FactCoverageRow, SchoolBasics, ServiceError
 
 logger = structlog.get_logger(__name__)
 
@@ -106,6 +106,15 @@ _PROFILES_SQL = """SELECT id,name,aliases,city,state,search_name,official_domain
 # with fact_count=0 and facts_updated_at=NULL, never an absent row.
 _SCHOOL_DATA_STATUS_SQL = """SELECT school_id,fact_count,facts_updated_at
  FROM cds_library.school_data_status"""
+# The fact-key universe for viz cell validation and the data picture (plan
+# §6a/appendix F-ii): `explore.*` pseudo-keys are `school_explore` columns,
+# not `fact_key`-addressable facts, and a key no school has ever reported
+# can never ground a claim -- both are excluded so `CatalogSnapshot.fact_keys`
+# is exactly the set `query_database`'s guard (`_is_known_fact_key`) and the
+# agent's typed reads may treat as real.
+_FACT_COVERAGE_SQL = """SELECT fact_key,schools_with_value,schools_total,computed_at
+ FROM cds_library.fact_coverage
+ WHERE fact_key NOT LIKE 'explore.%' AND schools_with_value > 0"""
 
 
 def normalize_school_name(value: str) -> str:
@@ -155,11 +164,11 @@ class CatalogSnapshot:
     facts_updated_min: datetime | None
     facts_updated_max: datetime | None
     stale_facts_count: int
-    # Both empty until later phases: fact_keys is filled from fact_coverage in
-    # Phase 3 (viz validation + the data picture); sections is filled from
-    # facts_sections.yaml in Phase 2 (get_facts, the facts route). An empty
-    # fact_keys correctly rejects every metric cell while the agent is
-    # web-only (Phase 0-2, no in-process DB tools mounted).
+    # `fact_keys` -> its `FactCoverageRow` (school-data-v3 Phase 3, Unit B):
+    # `fact_coverage` filtered to non-`explore.*` rows with
+    # `schools_with_value > 0` -- the fact-key universe for `query_database`'s
+    # guard, viz cell validation, and the data picture. `sections` was filled
+    # from `facts_sections.yaml` in Phase 2 (`get_facts`, the facts route).
     fact_keys: Mapping[str, Any]
     sections: Mapping[str, Any]
 
@@ -206,6 +215,7 @@ class Catalog:
         ):
             profile_rows = await conn.fetch(_PROFILES_SQL)
             status_rows = await conn.fetch(_SCHOOL_DATA_STATUS_SQL)
+            fact_coverage_rows = await conn.fetch(_FACT_COVERAGE_SQL)
             now = datetime.now(UTC)
         if not profile_rows:
             raise ServiceError("The school profile catalog is empty.")
@@ -276,7 +286,17 @@ class Catalog:
             facts_updated_min=min(updated_ats) if updated_ats else None,
             facts_updated_max=max(updated_ats) if updated_ats else None,
             stale_facts_count=stale_facts_count,
-            fact_keys=MappingProxyType({}),
+            fact_keys=MappingProxyType(
+                {
+                    row["fact_key"]: FactCoverageRow(
+                        fact_key=row["fact_key"],
+                        schools_with_value=row["schools_with_value"],
+                        schools_total=row["schools_total"],
+                        as_of=row["computed_at"],
+                    )
+                    for row in fact_coverage_rows
+                }
+            ),
             sections=_load_sections(),
         )
 

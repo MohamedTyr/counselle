@@ -184,7 +184,18 @@ export function friendlySourceName(citation: Citation): string {
   }
   if (citation.source === "cds") return "Common Data Set";
   if (citation.source === "profile") return "School profile";
+  // Counselle's own data (school-data-v3 D3) — never attributed to a school
+  // or a third-party vendor.
+  if (citation.source === "db") return "Counselle";
   return hostOf(citation) ?? "Source";
+}
+
+/** The tier badge's exact label, or `null` when the citation carries no
+ * tier at all ("db" sources, school-data-v3 D3) — callers must render
+ * nothing rather than fall through to "Community" on a null tier. */
+export function tierBadgeLabel(tier: Citation["tier"]): "Official" | "Community" | null {
+  if (tier === null) return null;
+  return tier === "official" ? "Official" : "Community";
 }
 
 export function sourceDisplayName(entry: ReplaySourceEntry): string {

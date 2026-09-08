@@ -10,7 +10,7 @@ import { isTabularRenderSpec } from "@/api/chat/validation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
-import { faviconUrlForDomain } from "../citations";
+import { faviconUrlForDomain, tierBadgeLabel } from "../citations";
 
 export type VizBlockProps = {
   spec: RenderSpec;
@@ -43,37 +43,63 @@ function CellValue({
             ? { evidenceId: cell.field }
             : {}),
         };
+  const tierLabel = tierBadgeLabel(cell.citation.tier);
 
   return (
     <span className="inline-flex flex-wrap items-center gap-1.5 text-foreground [overflow-wrap:anywhere]">
       <span>{cell.display}</span>
       {focus === undefined ? (
-        <Badge
-          variant={cell.citation.tier === "official" ? "secondary" : "outline"}
-        >
-          {cell.citation.tier === "official" ? "Official" : "Community"}
-        </Badge>
+        tierLabel !== null && (
+          <Badge
+            variant={cell.citation.tier === "official" ? "secondary" : "outline"}
+          >
+            {tierLabel}
+          </Badge>
+        )
       ) : (
         <Button
-          aria-label={`Open ${cell.citation.tier} source ${focus.index}`}
+          aria-label={
+            tierLabel !== null
+              ? `Open ${cell.citation.tier} source ${focus.index}`
+              : `Open source ${focus.index}`
+          }
           className="h-6 px-2 text-[10px]"
           onClick={() => onSourceOpen?.(focus)}
           size="sm"
           type="button"
-          variant={cell.citation.tier === "official" ? "secondary" : "outline"}
+          variant={tierLabel !== null && cell.citation.tier === "official" ? "secondary" : "outline"}
         >
-          {cell.citation.tier === "official" ? "Official" : "Community"}
+          {tierLabel ?? "Source"}
         </Button>
       )}
     </span>
   );
 }
 
-function VizFrame({ title, children }: { title: string; children: ReactNode }) {
+function footText(item: TabularRenderSpec["foot"][number]): string {
+  return typeof item === "string" ? item : item.text;
+}
+
+function VizFrame({
+  title,
+  foot,
+  children,
+}: {
+  title: string;
+  foot?: TabularRenderSpec["foot"];
+  children: ReactNode;
+}) {
   return (
     <div className="not-prose my-3 max-w-full overflow-hidden rounded-xl border bg-card p-4">
       <div className="mb-2 text-sm font-medium text-foreground">{title}</div>
       {children}
+      {foot !== undefined && foot.length > 0 && (
+        <div className="mt-2 flex flex-col gap-0.5 border-t pt-2 text-xs text-muted-foreground">
+          {foot.map((item, index) => (
+            <p key={index}>{footText(item)}</p>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -113,7 +139,7 @@ function StatBlockView({
   onSourceOpen?: (focus: SourceFocus) => void;
 }) {
   return (
-    <VizFrame title={spec.title}>
+    <VizFrame foot={spec.foot} title={spec.title}>
       <div className="mb-2 text-xs text-muted-foreground">
         {spec.columns[0]?.name}
       </div>
@@ -142,7 +168,7 @@ function ComparisonTableView({
   onSourceOpen?: (focus: SourceFocus) => void;
 }) {
   return (
-    <VizFrame title={spec.title}>
+    <VizFrame foot={spec.foot} title={spec.title}>
       <div className="max-w-full overflow-x-auto">
         <table className="w-full border-collapse text-sm">
           <thead>

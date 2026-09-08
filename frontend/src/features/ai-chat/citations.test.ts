@@ -123,6 +123,7 @@ function viz(cells: CitationEnvelope[]): RenderSpec {
       name: `School ${index}`,
     })),
     rows: [{ label: "Rate", cells }],
+    foot: [],
   };
 }
 
@@ -199,6 +200,7 @@ describe("schoolDomainsFromBlocks", () => {
         { unitid: null, name: "Some Blog" },
       ],
       rows: [{ label: "Rate", cells: [cell("[1]"), cell("[2]", "web")] }],
+      foot: [],
     };
     const domains = schoolDomainsFromBlocks([{ kind: "viz", spec }]);
     expect(domains.get(1)).toBe("yale.edu");

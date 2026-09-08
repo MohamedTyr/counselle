@@ -7,9 +7,9 @@ description: Multi-source research procedure for substantive school-specific str
 
 ## Source-role matrix
 
-- **Counselle database / CDS (`resolve_school`, `get_school_profile`, `get_domain`)**
+- **Counselle database (`resolve_school`, `get_school_profile`, `get_facts`)**
   — structure, historical distributions, rates, costs, aid, selectivity, outcomes,
-  coverage, and comparison feasibility.
+  and comparison feasibility.
 - **Official school sites (`search_school_site`)** — the current-cycle rulebook:
   deadlines, requirements, rounds, test/portfolio policy, major restrictions, aid
   forms, scholarship deadlines, process details.
@@ -40,12 +40,13 @@ latency.
 
 ## Evidence query construction
 
-- **Resolve first.** Load `resolve_school`, read coverage/profile; state any campus
-  assumption before a domain claim.
-- **Database.** `get_domain` only on usable domains; preserve each row's `vintage`;
-  aggregate SQL only after `db-recipes`. Check the school's latest CDS edition first —
-  when it is materially stale, the DB is second-degree for year-to-year metrics (lead
-  with a verified current web/`.edu` figure), per the system prompt's CDS-recency rule.
+- **Resolve first.** Load `resolve_school`, read its facts status/profile; state any
+  campus assumption before a school-specific claim.
+- **Database.** `get_facts` narrowed by `sections` for exactly what's needed; preserve
+  each row's `vintage`; aggregate SQL only after `db-recipes`. Check the school's
+  `facts_updated_at` first — when it's materially stale, the DB is second-degree for
+  year-to-year metrics (lead with a verified current web/`.edu` figure), per the
+  system prompt's facts-freshness rule.
 - **Official.** Cycle-specific `search_school_site` queries in institutional
   vocabulary; policies before dates; retry year-specific when a page is undated.
 - **Broad web.** AO interviews, recent policy changes, expert framing, exceptions,

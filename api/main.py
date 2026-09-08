@@ -10,11 +10,10 @@
   fills their bodies (sessions, messages SSE, health);
 - the lifespan — logging, the Phase 4 runtime via ``app.deps.build_runtime``
   (RO pool + catalog, app pool, durable checkpointer incl. the D3 schema
-  assertion, compiled graph), plus the MCP child supervisor
-  (eng-review D4, ``api/supervision.py``).
+  assertion, compiled graph).
 
-Everything lives on ``app.state``: ``settings``, ``runtime``,
-``mcp_supervisor`` — Slice B's routes read them from there.
+Everything lives on ``app.state``: ``settings``, ``runtime`` — Slice B's
+routes read them from there.
 
 Run: ``uv run uvicorn api.main:create_app --factory``.
 """
@@ -60,7 +59,6 @@ from api.routes import (
     workspace_events,
 )
 from api.routes import config as config_routes
-from api.supervision import McpSupervisor, NoopMcpSupervisor
 from app.caveats import caveat_catalog
 from app.deps import build_runtime
 from app.facts.jobs import start_facts_worker
@@ -76,7 +74,7 @@ logger = structlog.get_logger(__name__)
 
 @asynccontextmanager
 async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
-    """Boot the runtime and MCP supervisor; put them away on shutdown."""
+    """Boot the runtime; put it away on shutdown."""
     settings = get_settings()
     setup_logging(settings.log_level)
     # Pre-load the data assets so a missing/broken file fails at boot, not per-request.
@@ -91,22 +89,12 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     load_all_skill_meta()
     runtime = await build_runtime(settings)  # pools + catalog + checkpointer (D3) + graph
     try:
-        supervisor = (
-            McpSupervisor(runtime.deps.mcp_toolset)
-            if runtime.deps.mcp_toolset is not None
-            else NoopMcpSupervisor()
-        )
-        supervisor.start()  # first probe spawns/verifies the counselle-db child (D4)
-        # Wire supervisor.kick to deps.on_failure so any turn crash immediately
-        # triggers a probe + restart of the MCP child (FIX 3; ADR 0017 carve-out).
-        runtime.deps.on_failure = supervisor.kick
         # B2: the turn registry — detached turns, reattach, cancel (G3–G5).
         registry = TurnRegistry(deps=runtime.deps, graph=runtime.graph, settings=settings)
         # B4: the auto-title hook (cheap-model retitle; never raises — see titles.py).
         registry.on_turn_complete = make_auto_titler(runtime.app_pool, runtime, settings)
         app.state.settings = settings
         app.state.runtime = runtime
-        app.state.mcp_supervisor = supervisor
         app.state.turn_registry = registry
         # B4: the process-local rate limiter (messages + auth windows). The named
         # constant governs both the write here and the read in get_limiter.
@@ -127,7 +115,6 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
             # Drain the registry FIRST: in-flight turns' final state writes
             # must land before runtime.aclose() closes the pools.
             await registry.aclose()
-            await supervisor.aclose()
     finally:
         await runtime.aclose()
 

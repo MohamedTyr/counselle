@@ -15,8 +15,8 @@ function step(overrides: Partial<StepData> = {}): StepData {
     kind: "db_tool",
     label: "Read Yale University’s admissions data",
     tier: "official",
-    tool: "get_domain",
-    detail: { tool: "get_domain", value_count: 72, domain_id: "admissions" },
+    tool: "get_facts",
+    detail: { tool: "get_facts", value_count: 72, domain_id: "admissions" },
     ...overrides,
   };
 }
@@ -28,7 +28,7 @@ describe("schoolDataToolPresentation", () => {
     );
 
     expect(presentation).toEqual({
-      tool: "get_domain",
+      tool: "get_facts",
       state: "running",
       icon: "loading",
       label: "Finding “Yale”…",
@@ -37,7 +37,7 @@ describe("schoolDataToolPresentation", () => {
 
   test("uses legacy terminal detail identity but never guesses for a legacy start", () => {
     expect(schoolDataToolPresentation(step({ tool: undefined }))?.tool).toBe(
-      "get_domain",
+      "get_facts",
     );
     expect(
       schoolDataToolPresentation(
@@ -90,7 +90,7 @@ describe("schoolDataToolPresentation", () => {
   test.each([
     ["get_school_profile", 0, "unavailable", undefined],
     ["get_school_profile", 1, "complete", "1 value"],
-    ["get_domain", 72, "complete", "72 values"],
+    ["get_facts", 72, "complete", "72 values"],
   ] as const)(
     "maps %s count %i honestly",
     (tool, valueCount, state, metadata) => {
@@ -146,11 +146,11 @@ describe("schoolDataToolPresentation", () => {
 
   test("falls back for incomplete or dishonest terminal counts", () => {
     expect(
-      schoolDataToolPresentation(step({ detail: { tool: "get_domain" } })),
+      schoolDataToolPresentation(step({ detail: { tool: "get_facts" } })),
     ).toBeNull();
     expect(
       schoolDataToolPresentation(
-        step({ detail: { tool: "get_domain", value_count: -1 } }),
+        step({ detail: { tool: "get_facts", value_count: -1 } }),
       ),
     ).toBeNull();
     expect(schoolDataToolPresentation(step({ label: "   " }))).toBeNull();
@@ -170,9 +170,9 @@ describe("tool identity compatibility", () => {
   test("prefers top-level identity over historical receipt identity", () => {
     expect(
       stepToolIdentity(
-        step({ tool: "get_domain", detail: { tool: "search_web" } }),
+        step({ tool: "get_facts", detail: { tool: "search_web" } }),
       ),
-    ).toBe("get_domain");
+    ).toBe("get_facts");
   });
 
   test("identifies only historical overflow plumbing", () => {

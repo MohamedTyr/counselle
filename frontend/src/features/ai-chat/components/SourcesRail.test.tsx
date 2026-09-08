@@ -44,6 +44,23 @@ function cds(): SourceEntry {
     ],
   };
 }
+function db(): SourceEntry {
+  return {
+    v: 2,
+    index: 1,
+    label: "Yale University",
+    snippet: null,
+    evidence: [],
+    evidence_omitted_count: 0,
+    citation: {
+      v: 2,
+      source: "db",
+      tier: null,
+      vintage: "Counselle school data · checked May 2026",
+      school_unitid: 1,
+    },
+  };
+}
 function web(): SourceEntry {
   return {
     v: 2,
@@ -247,5 +264,19 @@ describe("SourcesRail", () => {
       <SourcesRail isMobile={false} onClose={vi.fn()} payload={payload} />,
     );
     expect(container.querySelector("img[src*='yale.edu']")).not.toBeNull();
+  });
+
+  test("db entries show the Counselle mark (never the school favicon) and no tier badge", () => {
+    const payload: MessageSourcesPayload = {
+      sources: [db()],
+      schoolDomains: new Map([[1, "yale.edu"]]),
+    };
+    const { container } = render(
+      <SourcesRail isMobile={false} onClose={vi.fn()} payload={payload} />,
+    );
+    expect(container.querySelector("img")).toBeNull();
+    expect(container.querySelector("svg")).not.toBeNull();
+    expect(screen.queryByText("Official")).not.toBeInTheDocument();
+    expect(screen.queryByText("Community")).not.toBeInTheDocument();
   });
 });

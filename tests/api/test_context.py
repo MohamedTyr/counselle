@@ -68,11 +68,10 @@ def test_cors_preflight_allows_configured_origin(client: TestClient) -> None:
 
 @pytest.mark.live_db
 def test_app_boots_with_lifespan() -> None:
-    """The real factory boots with runtime and MCP supervisor, without the retired reconciler."""
+    """The real factory boots with runtime, without the retired reconciler."""
     from api.main import create_app
 
     app = create_app()
     with TestClient(app):
         assert app.state.runtime.graph is not None
         assert not hasattr(app.state, "reconciler")
-        assert app.state.mcp_supervisor.status()["status"] in {"ok", "restarting", "failed"}

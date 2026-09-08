@@ -1,27 +1,40 @@
 from datetime import UTC, date, datetime
 from types import MappingProxyType, SimpleNamespace
-from typing import cast
+from typing import cast, get_args
 
 import pytest
 
-from app.caveats import render_caveat
+from app.caveats import caveat_catalog, render_caveat
 from app.prompt import render_data_picture, validate_prompt_assets
+from config.settings import load_yaml_asset
 from counselle_db.catalog import CatalogSnapshot
+from domain.envelope import CaveatKind
 
 
 def test_strict_caveat_slots_and_multiple_kinds() -> None:
     profile = render_caveat("profile_snapshot", snapshot_date="2026-01-01")
-    partial = render_caveat("partial_packet")
+    not_collected = render_caveat("not_collected")
     assert profile.kind == "profile_snapshot"
-    assert partial.kind == "partial_packet"
+    assert not_collected.kind == "not_collected"
     with pytest.raises(ValueError):
         render_caveat("profile_snapshot")
     with pytest.raises(ValueError):
-        render_caveat("partial_packet", surprise="x")
+        render_caveat("not_collected", surprise="x")
     with pytest.raises(ValueError):
-        render_caveat("invented")
-    vintage_loss = render_caveat("vintage_period_unavailable")
-    assert vintage_loss.kind == "vintage_period_unavailable"
+        render_caveat("invented")  # type: ignore[arg-type]
+    not_fetched = render_caveat("not_fetched", cause="Counselle has not checked this yet")
+    assert not_fetched.kind == "not_fetched"
+
+
+def test_caveat_kind_set_is_pinned_across_yaml_assertion_and_type() -> None:
+    """school-data-v3 Phase 3, Unit D: the final eight-kind vocabulary is
+    spelled out exactly once (`CaveatKind`); `caveats.yaml` and
+    `caveat_catalog()`'s own assertion must both equal it."""
+    literal_kinds = set(get_args(CaveatKind))
+    yaml_kinds = set(cast(dict[str, object], load_yaml_asset("caveats")))
+    catalog_kinds = set(caveat_catalog())
+    assert literal_kinds == yaml_kinds == catalog_kinds
+    assert len(literal_kinds) == 8
 
 
 def test_phase3_prompt_assets_validate_at_boot() -> None:

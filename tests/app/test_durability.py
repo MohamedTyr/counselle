@@ -134,7 +134,6 @@ async def _make_instance(settings: Any) -> tuple[Any, AppDeps, AsyncPostgresSave
             subreddit_menu=[],
             tavily_client_factory=lambda: pytest.fail("no external source is enabled"),
         ),
-        mcp_toolset=None,
         model_factory=_fn_model,
     )
     return build_graph(saver, deps), deps, saver

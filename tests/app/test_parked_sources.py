@@ -1,20 +1,19 @@
 from app.parked_sources import ParkedSourceStore
 from app.sources import SourceRegistry
-from tests.app.test_sources import cds, evidence
+from tests.app.test_sources import cds
 
 
-def test_parked_registry_preserves_pending_and_is_identity_bound() -> None:
+def test_parked_registry_preserves_entries_and_is_identity_bound() -> None:
     registry = SourceRegistry()
-    marker = registry.register_source(cds(), "School")
-    registry.register_pending_evidence(marker, evidence())
+    registry.register_source(cds(), "School")
     store = ParkedSourceStore()
     store.park("session", "message", "user", registry)
 
     assert store.restore("session", "message", "other") is None
     restored = store.restore("session", "message", "user")
     assert restored is not None
-    assert restored.promote_pending_evidence(1, "admissions.applicants")
-    assert restored.entries_for_wire()[0].evidence[0].eid == "admissions.applicants"
+    assert len(restored.entries) == 1
+    assert restored.entries[0].citation == cds()
 
 
 def test_parked_registry_clear_is_turn_and_session_scoped() -> None:

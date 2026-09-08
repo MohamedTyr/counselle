@@ -18,7 +18,7 @@ from pydantic import (
     model_validator,
 )
 
-from domain.envelope import Citation, CitationEnvelope, JsonValue, reject_non_finite_json
+from domain.envelope import Caveat, Citation, CitationEnvelope, JsonValue, reject_non_finite_json
 
 
 class SourceConfig(BaseModel):
@@ -100,7 +100,7 @@ class ColumnInput(BaseModel):
 
 class MetricCellInput(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
-    metric_ref: str
+    fact_key: str
 
 
 class ProfileCellInput(BaseModel):
@@ -233,6 +233,12 @@ class TabularRenderSpec(BaseModel):
     title: str
     columns: tuple[SchoolRef, ...]
     rows: tuple[VizRow, ...]
+    # Card-level disclosures that apply to the whole card, not one cell
+    # (school-data-v3 Phase 3, Unit D) -- e.g. `BAND_CAPTION` under a card
+    # built from SAT/ACT band facts. A plain `str` is a code-owned sentence
+    # with no caveat kind (e.g. `BAND_CAPTION`); a `Caveat` is a rendered
+    # kind from `app.caveats`.
+    foot: tuple[Caveat | str, ...] = ()
 
     @model_validator(mode="after")
     def validate_grid(self) -> "TabularRenderSpec":

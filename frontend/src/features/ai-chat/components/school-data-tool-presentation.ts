@@ -3,10 +3,10 @@ import type { StepData } from "@/api/chat/types";
 const SCHOOL_DATA_TOOLS = new Set([
   "resolve_school",
   "get_school_profile",
-  "get_domain",
+  "get_facts",
 ] as const);
 
-type SchoolDataTool = "resolve_school" | "get_school_profile" | "get_domain";
+type SchoolDataTool = "resolve_school" | "get_school_profile" | "get_facts";
 
 export type SchoolDataToolVisualState =
   "running" | "complete" | "unavailable" | "error";

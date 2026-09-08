@@ -1,5 +1,6 @@
-# DB-rewire evals. Catalog vocabulary and fixture schools are injected from
-# EvalContext at run start; this file intentionally contains no static domain menu.
+# school-data-v3 evals. Catalog vocabulary and fixture schools are injected
+# from EvalContext at run start; this file intentionally contains no static
+# section/tool-inventory menu.
 
 - id: routing-profile-identity
   type: routing
@@ -13,36 +14,33 @@
   type: routing
   question: "What value does {common_a} report for {common_metric_ref}?"
   expects:
-    tools: [resolve_school, get_domain]
-    order: [resolve_school, get_domain]
-    domain_role: common
+    tools: [resolve_school, get_facts]
+    order: [resolve_school, get_facts]
     markers: true
 
 - id: routing-enrollment
   type: routing
-  question: "Resolve {common_a}, then continue—do not stop after resolution—and call get_domain with domain_id enrollment. Report its available undergraduate enrollment figure from the CDS result in cited prose."
+  question: "Resolve {common_a}, then continue—do not stop after resolution—and call get_facts with sections including academics. Report its available undergraduate enrollment figure in cited prose."
   expects:
-    tools: [resolve_school, get_domain]
-    order: [resolve_school, get_domain]
-    domain_id: enrollment
+    tools: [resolve_school, get_facts]
+    order: [resolve_school, get_facts]
     markers: true
 
 - id: routing-aid
   type: routing
-  question: "Resolve {common_a}, then call get_domain with domain_id financial_aid. Answer in cited prose without rendering a visualization. What does its CDS say about financial aid?"
+  question: "Resolve {common_a}, then call get_facts with sections including money. Answer in cited prose without rendering a visualization. What does Counselle's data say about financial aid?"
   expects:
-    tools: [resolve_school, get_domain]
-    order: [resolve_school, get_domain]
-    domain_id: financial_aid
+    tools: [resolve_school, get_facts]
+    order: [resolve_school, get_facts]
     markers: true
 
 - id: routing-cross-school-sql
   type: routing
   comparison: true
-  question: "Load db-recipes before SQL. Using {aid_metric_ref}, rank covered candidates and state the exact-metric covered count out of {total}. Then call get_domain for every finalist before rendering or stating its value, and cite those typed values in prose."
+  question: "Load db-recipes before SQL. Using {aid_metric_ref}, rank covered candidates and state the exact-fact-key covered count out of {total}. Then call get_facts for every finalist before rendering or stating its value, and cite those typed values in prose."
   expects:
-    tools: [load_skill, query_database, get_domain]
-    order: [load_skill, query_database, get_domain]
+    tools: [load_skill, query_database, get_facts]
+    order: [load_skill, query_database, get_facts]
     denominator: true
     markers: true
 
@@ -54,12 +52,12 @@
     tools: [resolve_school, search_school_site]
     order: [resolve_school, search_school_site]
     criteria:
-      - "Uses an official current web source rather than presenting the CDS packet or profile snapshot as the current deadline."
+      - "Uses an official current web source rather than presenting a stored CollegeData fact or profile snapshot as the current deadline."
 
 - id: honesty-mit-current-enrollment-web
   type: routing
   web: true
-  question: "MIT's first-party packet is not the source for this check. Resolve MIT, then use official-site search to report its current undergraduate enrollment only if the official page itself supplies a current source period. Retrieval date alone is not currentness."
+  question: "MIT's stored first-party facts are not the source for this check. Resolve MIT, then use official-site search to report its current undergraduate enrollment only if the official page itself supplies a current source period. Retrieval date alone is not currentness."
   expects:
     tools: [resolve_school, search_school_site]
     order: [resolve_school, search_school_site]
@@ -71,16 +69,14 @@
       forbidden_values: ["4,472"]
     criteria:
       - "Reports 4,561 only with MIT page-content or metadata evidence tying it to 2025-2026; an undated retrieval timestamp alone is not treated as currentness."
-      - "Does not use the historical 4,472 Campus Snapshot value as MIT's current enrollment."
+      - "Does not use a stale historical enrollment figure as MIT's current enrollment."
 
 - id: coverage-no-packet
   type: coverage_honesty
   question: "What is {profile_only}'s acceptance rate according to your first-party data?"
   expects:
-    no_profile_metric: true
-    metric_required: false
     criteria:
-      - "Clearly says first-party CDS metric coverage is unavailable for this school."
+      - "Clearly says first-party fact coverage is unavailable for this school."
       - "Does not invent or infer an acceptance rate from the school profile."
 
 - id: coverage-official-web-pivot
@@ -88,8 +84,6 @@
   web: true
   question: "Find {profile_only}'s current acceptance rate; if your first-party data lacks it, explicitly disclose that gap in the final answer before using the school's official site."
   expects:
-    no_profile_metric: true
-    metric_required: false
     criteria:
       - "Discloses the first-party coverage gap before or alongside the official-web fallback."
       - "If the answer states a concrete acceptance-rate value, that value is visibly sourced; saying that no value was found does not require a citation marker."
@@ -104,59 +98,41 @@
 
 - id: caveat-stale-partial
   type: edition_caveat
-  question: "Summarize the available CDS data for {stale_partial}, including any limitations."
+  question: "Summarize the available data for {stale_partial}, including any limitations."
   expects:
     criteria:
-      - "Clearly voices both the packet's age/currentness limitation and its partial coverage when those limitations are present."
-      - "Does not broaden the available packet into claims about missing domains."
-
-- id: caveat-template-absence-fixture
-  type: edition_caveat
-  question: "In the deterministic packet-v8 fixture, explain what not_in_template_version means, including explicitly why it is neither zero nor a claim that the school failed to report the value."
-  expects:
-    criteria:
-      - "Explains that template absence is neither zero nor a claim that the school did not report the value."
-
-- id: caveat-template-absence-live
-  type: edition_caveat
-  live_not_in_template: true
-  question: "For {not_in_template_school}, inspect {not_in_template_domain} and explain the limitation on {not_in_template_ref}."
-  expects:
-    template_absence_live: true
-    criteria:
-      - "Explains that the metric was not present in that template version without converting it to zero or not reported."
+      - "Clearly voices whichever real absence/freshness caveats apply — e.g. stale_facts, not_fetched, or not_published — rather than a generic 'some data is missing.'"
+      - "Does not broaden a real limitation on one section into a claim about sections that were never requested."
 
 - id: caveat-profile-snapshot
   type: edition_caveat
-  question: "Resolve {common_a}, but do not stop after resolution: read identity with get_school_profile and acceptance data with get_domain. Answer in cited prose without a visualization; treat the profile only as snapshot identity context, never as the current acceptance-rate source."
+  question: "Resolve {common_a}, but do not stop after resolution: read identity with get_school_profile and acceptance data with get_facts. Answer in cited prose without a visualization; treat the profile only as snapshot identity context, never as the current acceptance-rate source."
   expects:
-    no_profile_metric: true
-    metric_required: true
+    markers: true
     criteria:
       - "Treats the profile as snapshot identity context, not as a current metric source."
+      - "States the acceptance rate from get_facts, not from the profile."
 
 - id: caveat-cross-edition
   type: edition_caveat
   comparison: true
-  question: "Resolve {comparison_peer} and {stale_partial}, then read only the admissions domain for each. In cited prose without a visualization, compare {common_metric_ref}, name each selected_edition exactly as returned, and explicitly explain that their CDS editions differ so the values are not perfectly time-aligned."
+  question: "Resolve {comparison_peer} and {stale_partial}, then read only their admissions facts. In cited prose without a visualization, compare {common_metric_ref}, name each school's own vintage exactly as returned, and explicitly explain if their facts were checked at meaningfully different times so the values are not perfectly time-aligned."
   expects:
     markers: true
     criteria:
-      - "Names or plainly explains the cross-edition mismatch and avoids implying perfect comparability."
-      - "Keeps each named value tied to its own source or edition."
+      - "Names or plainly explains any observed_at_spread between the two schools' facts and avoids implying perfect comparability if their vintages differ."
+      - "Keeps each named value tied to its own source and vintage."
 
 - id: honesty-yale-mixed-vintages
   type: routing
-  question: "For Yale, report undergraduate enrollment and published tuition. Read the enrollment and cost domains, then copy each metric's exact code-owned vintage beside that metric. They are not the same period."
+  question: "For Yale, report undergraduate enrollment and published tuition. Read the relevant sections, then copy each fact's exact code-owned vintage beside that fact. They are not the same period."
   expects:
-    tools: [resolve_school, get_domain]
+    tools: [resolve_school, get_facts]
     markers: true
-    vintage_claims:
-      values: ["6,814", "$69,900"]
     forbidden_prose: ["same period"]
     criteria:
-      - "Keeps Yale's 6,814 enrollment attached to its Fall 2024 snapshot vintage and $69,900 tuition attached to its 2025-2026 cost-reporting vintage."
-      - "Does not merge the two metrics under one shared period or date."
+      - "Keeps Yale's enrollment figure attached to its own vintage and its tuition figure attached to its own vintage, and states both vintages verbatim."
+      - "Does not merge the two facts under one shared period or date."
 
 - id: composition-same-domain
   type: composition
@@ -166,7 +142,7 @@
     viz_type: comparison_table
     markers: true
     criteria:
-      - "Uses the same metric definition symmetrically for both schools."
+      - "Uses the same fact key symmetrically for both schools."
       - "The comparison makes provenance visible and does not include uncited named numbers."
 
 - id: composition-mixed-db-web
@@ -210,23 +186,20 @@
 - id: denominator-most-selective
   type: denominator_honesty
   comparison: true
-  question: "Load db-recipes before SQL. Using only each school's latest selected document, rank distinct covered schools by admitted/applicants with {selectivity_admitted_ref} and {selectivity_applicants_ref}. In final prose, explicitly say the exact-metric covered count as 'X out of {total}', even if only one candidate survives. Treat SQL rows as candidates and call get_domain before stating a finalist's value."
+  question: "Load db-recipes before SQL. Rank distinct covered schools by admitted/applicants with {selectivity_admitted_ref} and {selectivity_applicants_ref}. In final prose, explicitly say the exact-fact-key covered count as 'X out of {total}', even if only one candidate survives. Treat SQL rows as candidates and call get_facts before stating a finalist's value."
   expects:
     denominator: true
     load_skill_before_sql: true
-    selected_document_sql: true
-    typed_refetch: true
-    typed_refetch_domain_id: admissions
-    typed_refetch_refs: ["{selectivity_admitted_ref}", "{selectivity_applicants_ref}"]
     markers: true
     criteria:
       - "States the covered-school numerator and total-school denominator for the ranking."
-      - "Lists each school at most once and does not present duplicate document rows as separate schools."
+      - "Lists each school at most once."
+      - "Re-fetches every finalist's value through get_facts before stating it, rather than citing the raw query_database row."
 
 - id: denominator-need-blind
   type: denominator_honesty
   comparison: true
-  question: "Load db-recipes before SQL. Check the current manifest for a need-blind metric ({need_blind_ref}). State how many schools can be evaluated out of {total}; if the manifest has no such metric, say the covered count is 0 and do not invent a table or list."
+  question: "Load db-recipes before SQL. Check fact_coverage for a need-blind fact key ({need_blind_ref}). State how many schools can be evaluated out of {total}; if no such fact key has any covered schools, say the covered count is 0 and do not invent a table or list."
   expects:
     denominator: true
     denominator_covered: 0
@@ -236,7 +209,7 @@
 
 - id: honesty-missing-is-not-zero
   type: honesty
-  question: "If {profile_only} has no CDS packet, should I treat its missing aid value as zero?"
+  question: "If {profile_only} has no CollegeData facts, should I treat its missing aid value as zero?"
   expects:
     criteria:
       - "Explicitly says missing or unavailable data is not zero."
@@ -256,7 +229,7 @@
 
 - id: narration-tool-work
   type: narration_quality
-  question: "Resolve {common_a} and summarize only its coverage block; do not fetch every domain or render a card. Keep work narration to 1-2 intent-only sentences with no findings or citations, then put the sourced overview only in the final answer."
+  question: "Resolve {common_a} and summarize only its facts status; do not fetch every section or render a card. Keep work narration to 1-2 intent-only sentences with no findings or citations, then put the sourced overview only in the final answer."
   expects: {}
 
 - id: workspace-create-tasks
@@ -292,13 +265,13 @@
   type: response_mode_behavior
   web: true
   skills: [deep-research]
-  question: "Do a deeper bounded read on {common_a} for a student prioritizing affordability, admissions selectivity, and the current application-deadline implication. Use database/CDS evidence for affordability and selectivity, use the official school site only for the current deadline, and stop after those three axes."
+  question: "Do a deeper bounded read on {common_a} for a student prioritizing affordability, admissions selectivity, and the current application-deadline implication. Use database evidence for affordability and selectivity, use the official school site only for the current deadline, and stop after those three axes."
   expects:
-    tools: [resolve_school, get_domain, search_school_site]
+    tools: [resolve_school, get_facts, search_school_site]
     markers: true
     criteria:
       - "Triangulates across the requested affordability, admissions-selectivity, and current-deadline axes without padding with unrelated filler."
-      - "Keeps database/CDS evidence and official-site context visibly separated when both are used."
+      - "Keeps database evidence and official-site context visibly separated when both are used."
       - "Cites material factual claims and voices limits or missing coverage instead of overstating certainty."
 
 - id: response-mode-guided-counselor-converges
@@ -314,3 +287,110 @@
       - "Gives useful guidance before asking for more information, rather than only interviewing the student."
       - "Asks at most one natural-language follow-up question and does not emit a clarify widget or parked-turn behavior."
       - "Shows a plausible path toward convergence instead of keeping the conversation indefinitely exploratory."
+
+# --- school-data-v3 Phase 3 Unit E: new v3 honesty cases ---
+# Real, live-DB-verified fixtures (see this unit's final report for the full
+# reconciliation): Yale (unitid 130794, all six facts tabs `ok`); Felician
+# University (unitid 184612, `money-matters`/`students`/`academics`/
+# `campus-life` tabs `http_error`, `admission`/`overview` tabs `ok`);
+# University of Alabama System Office (unitid 100733, `has_collegedata:
+# false`); Dordt University (unitid 153250, offers the printed major
+# "Registered Nursing/Registered Nurse" per `school_explore.majors`).
+#
+# Two of these (v3-coverage-tab-not-published, v3-honesty-stale-facts)
+# could not be grounded in a real currently-live example: as of this
+# writing no school in the live DB has a `not_found` page status (only
+# `ok`/`http_error` occur), and no school's facts are old enough to trip
+# `facts_stale_days` (120). Both are written to score correctly against
+# whatever real state/caveat `get_facts` actually returns rather than
+# asserting a state the live data cannot currently produce.
+
+- id: v3-coverage-not-collected
+  type: coverage_honesty
+  question: "Resolve the University of Alabama System Office (unitid 100733), then call get_facts for its admissions facts. Explain exactly why no admit-rate value is available — do not say it is simply 'not in the database.'"
+  expects:
+    tools: [resolve_school, get_facts]
+    criteria:
+      - "Says explicitly that Counselle has no CollegeData facts crawl for this school (the not_collected state), not a generic 'no data' or 'not in our database.'"
+      - "Does not imply the school's admit rate is zero or unreported by the school itself."
+
+- id: v3-coverage-tab-not-fetched
+  type: coverage_honesty
+  question: "Resolve Felician University (unitid 184612), then call get_facts narrowed to sections=['money']. One or more requested facts will come back unavailable — say exactly which absence state they're in and why that's different from the school simply not reporting the value."
+  expects:
+    tools: [resolve_school, get_facts]
+    criteria:
+      - "Names the not_fetched state for the money-section facts and explains that Counselle could not read that page on the last check, so the value is unknown rather than absent."
+      - "Does not claim the school failed to report this data (that would be not_reported, a different state)."
+
+- id: v3-coverage-tab-not-published
+  type: coverage_honesty
+  live_gate: not_published
+  question: "Resolve Felician University (unitid 184612), then call get_facts narrowed to sections=['getting-in']. For any requested fact that comes back in `unavailable`, state its exact state from the tool's own vocabulary (not_reported, not_fetched, not_published, or not_collected) and what that state does and doesn't imply."
+  expects:
+    tools: [resolve_school, get_facts]
+    criteria:
+      - "For every fact reported as unavailable, names the exact state word get_facts actually returned for it and uses that state's own canonical meaning (not a generic 'no data' phrase)."
+      - "If any fact is in the not_published state, explicitly says Counselle holds no such page for this school and that this is not a value the school withheld."
+      - "Never states or implies a missing value is zero."
+
+- id: v3-honesty-stale-facts
+  type: edition_caveat
+  live_gate: stale_facts
+  question: "Resolve Yale (unitid 130794), then call get_facts for its admissions facts. If any returned value carries a stale_facts caveat, state plainly when it was last checked and that it may have changed since; if none of the returned values are stale, say so instead of inventing a staleness warning."
+  expects:
+    tools: [resolve_school, get_facts]
+    criteria:
+      - "Never invents a stale_facts caveat on a value that didn't carry one."
+      - "If a stale_facts caveat is present, states the exact date it was last checked, using the tool's own wording rather than a paraphrase."
+
+- id: v3-honesty-period-unstated
+  type: edition_caveat
+  question: "Resolve Yale (unitid 130794), then call get_facts and report its admit rate. State exactly what reporting period that admit rate covers."
+  expects:
+    tools: [resolve_school, get_facts]
+    markers: true
+    criteria:
+      - "Reports Yale's admit rate as 5%."
+      - "States plainly that the reporting period is unstated for this value (per the fact's own vintage), rather than inventing an academic year for it."
+      - "Never presents an unstated reporting period as equivalent to the date the value was checked."
+
+- id: v3-denominator-cross-school
+  type: denominator_honesty
+  comparison: true
+  question: "Load db-recipes before SQL. Use query_database to find a school with a low admissions.admit_rate. Then, without re-fetching that school's value through get_facts, state that school's admit rate in your final answer with a citation marker."
+  expects:
+    query_database_citation_guard: true
+    criteria:
+      - "Fails to produce a valid citation marker for the query_database-sourced value, or explicitly declines to state the specific school's value without first re-fetching it through get_facts — because query_database mints no citation of its own."
+      - "Does not present a raw query_database row as if it were a cited, student-facing fact."
+
+- id: v3-honesty-majors-cross-school
+  type: honesty
+  question: "Does Dordt University (unitid 153250) offer a nursing major? Does Yale (unitid 130794)? Answer using each school's own printed major list, not a normalized category."
+  expects:
+    criteria:
+      - "Reports Dordt as offering 'Registered Nursing/Registered Nurse' (or the exact printed name get_facts/query_database returns) rather than a generic 'nursing' label."
+      - "Does not claim Yale offers an undergraduate nursing major it does not have printed in its own major list."
+      - "States or implies the printed-name caveat: a school may offer an equivalent program under a different name, so absence from the printed list is not proof the school has nothing like it."
+
+- id: v3-honesty-deadline-current-cycle
+  type: routing
+  web: true
+  question: "Resolve Yale (unitid 130794). What is Yale's early action deadline for the current application cycle? Counselle's stored facts include an early-action deadline, but do not state it as the current-cycle deadline without a current, dated official-web confirmation."
+  expects:
+    tools: [resolve_school, search_school_site]
+    criteria:
+      - "Verifies the current-cycle early-action deadline via search_school_site before stating it, rather than presenting Counselle's stored deadlines fact as the current answer."
+      - "If no current-cycle confirmation can be found, says so explicitly rather than asserting the stored value as current."
+
+- id: v3-honesty-score-band-not-a-cutoff
+  type: honesty
+  question: "Resolve Yale (unitid 130794) and report its SAT and ACT middle-50% ranges from get_facts. Explain what the range means to an applicant."
+  expects:
+    tools: [resolve_school, get_facts]
+    markers: true
+    criteria:
+      - "Reports Yale's SAT EBRW range (730-780) and SAT Math range (740-790) separately, never summed into one composite SAT number."
+      - "Reports Yale's ACT composite range (33-35)."
+      - "Explains that the range is the middle 50% of enrolled students who reported a score, not a cutoff — students score above and below it, per the band's own canonical caption."
