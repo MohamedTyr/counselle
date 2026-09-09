@@ -6,6 +6,14 @@ enforces, and the shared-URL sort/region-label parsing fallbacks.
 
 from __future__ import annotations
 
+import json
+from decimal import Decimal
+from types import SimpleNamespace
+from typing import Any
+
+import pytest
+
+from adapters.facts_store import EXPLORE_COLUMNS
 from app.facts.explore_models import ExploreQuery
 from app.facts.service_explore import (
     METRIC_LABELS,
@@ -13,7 +21,9 @@ from app.facts.service_explore import (
     _combine,
     _resolve_sort,
     _split_region_label,
+    run_explore,
 )
+from counselle_db import service as _db_service
 
 
 def test_metric_labels_are_noun_phrases_of_at_most_four_words_no_trailing_period() -> None:
@@ -92,3 +102,79 @@ def test_region_option_label_splits_the_state_list_from_the_region_name() -> Non
     label, states = _split_region_label("U.S. Service schools")
     assert label == "U.S. Service schools"
     assert states is None
+
+
+def _fake_settings() -> Any:
+    return SimpleNamespace(
+        facts_explore_page_size=24,
+        facts_explore_max_page_size=100,
+        facts_explore_max_count=3000,
+        facts_stale_days=365,
+    )
+
+
+class _FakeCatalog:
+    """`run_explore` only threads `catalog` through to `db_service.explore` --
+    never touches it directly -- so a placeholder is enough."""
+
+
+async def test_explore_wire_payload_serializes_numeric_columns_as_json_numbers(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Regression for the 2026-09-09 `TypeError: value.toFixed is not a
+    function` crash: asyncpg returns Postgres `numeric` columns (admit_rate,
+    grad_rate_6y, ...) as `Decimal`, and `ExploreSchoolCard.fields` is typed
+    `dict[str, object]` -- untyped, so nothing coerced it before this test
+    existed. Pydantic serializes an unconverted `Decimal` to a JSON *string*.
+    `tests/app/facts/test_service_explore.py`'s other tests call `run_explore()`
+    but never inspect the serialized JSON shape of `fields`, so they never
+    caught it. This test goes through `run_explore` -> `ExploreResponse.model_dump_json()`
+    -> `json.loads()`, the same path the frontend actually receives, and
+    asserts on real JSON types rather than Python objects survivable by
+    duck typing."""
+    main_row: dict[str, Any] = dict.fromkeys(EXPLORE_COLUMNS)
+    main_row.update(
+        school_id=1,
+        name="Test University",
+        city="Testville",
+        state="CA",
+        official_website="https://example.edu",
+        facts_updated_at=None,
+        total_count=1,
+        region="West",
+        control="public",
+        hbcu=False,
+        tribal=False,
+        land_grant=False,
+        # The crashing case: a non-integer `numeric` column.
+        admit_rate=Decimal("12.5"),
+        # A whole-valued `numeric` column -- silently wrong as a string
+        # (`"90" % 1 === 0` is truthy in JS) rather than a loud crash, which
+        # is exactly why this bug shipped undetected on some cards.
+        grad_rate_6y=Decimal("90"),
+        # An `integer` column -- must stay a JSON integer, never `90.0`.
+        undergraduates=1200,
+    )
+
+    async def fake_explore(catalog: Any, statements: list[Any]) -> list[list[dict[str, Any]]]:
+        results: list[list[dict[str, Any]]] = []
+        for i, _ in enumerate(statements):
+            if i == 0:
+                results.append([main_row])
+            elif i in (1, 2):
+                results.append([{"n": 1}])
+            else:
+                results.append([])
+        return results
+
+    monkeypatch.setattr(_db_service, "explore", fake_explore)
+
+    response = await run_explore(_FakeCatalog(), ExploreQuery(), _fake_settings())  # type: ignore[arg-type]
+    payload = json.loads(response.model_dump_json())
+    fields = payload["schools"][0]["fields"]
+
+    assert fields["admit_rate"] == pytest.approx(12.5)
+    assert isinstance(fields["admit_rate"], float)
+    assert isinstance(fields["grad_rate_6y"], (int, float))
+    assert not isinstance(fields["grad_rate_6y"], str)
+    assert isinstance(fields["undergraduates"], int)

@@ -32,6 +32,17 @@ export function formatPercent(value: number | null): string | null {
     return null;
   }
 
+  // Defense against a backend regression, not a legitimate input path: the
+  // wire contract promises a JSON number here (fixed 2026-09-09 after
+  // `numeric` DB columns leaked to the client as strings). Render as
+  // absent rather than crashing the whole Explore page, but say so loudly
+  // -- silently coercing the string would hide the very regression this
+  // guards against.
+  if (typeof value !== "number" || Number.isNaN(value)) {
+    console.error("formatPercent: expected a number, got", value);
+    return null;
+  }
+
   return `${value % 1 === 0 ? value : value.toFixed(1)}%`;
 }
 

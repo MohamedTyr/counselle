@@ -12,6 +12,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from decimal import Decimal
 from typing import Any
 
 from adapters.facts_store import EXPLORE_COLUMNS
@@ -469,6 +470,19 @@ def _split_region_label(value: str) -> tuple[str, str | None]:
     return value, None
 
 
+def _wire_value(value: object) -> object:
+    """asyncpg returns Postgres `numeric` columns as `Decimal`, which pydantic
+    serializes to a JSON *string* on an untyped `fields: dict[str, object]`
+    (`ExploreSchoolCard.fields` is deliberately not a hand-typed mirror of
+    `EXPLORE_COLUMNS`, plan §5.3). `integer` columns already come back as
+    native `int` -- only `numeric` columns need this. Every `numeric` column
+    here (rates, GPA, percentages) is written from a Python `float` in the
+    first place (`app/facts/explore_projection.py`'s `_as_float`), so the
+    Decimal->float round trip loses nothing that wasn't already lost when it
+    was first stored."""
+    return float(value) if isinstance(value, Decimal) else value
+
+
 async def run_explore(catalog: Catalog, query: ExploreQuery, settings: Settings) -> ExploreResponse:
     clauses = _build_clauses(query)
     where, params = _combine(clauses)
@@ -550,7 +564,7 @@ async def run_explore(catalog: Catalog, query: ExploreQuery, settings: Settings)
             city=row["city"],
             state=row["state"],
             website_url=row["official_website"],
-            fields={col: row[col] for col in EXPLORE_COLUMNS},
+            fields={col: _wire_value(row[col]) for col in EXPLORE_COLUMNS},
         )
         for row in main_rows
     )
