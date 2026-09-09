@@ -241,6 +241,55 @@ not evidence of anything until it is re-run and observed directly. `seed_reader_
 above); do not run `scripts/seed_reader_db.py` against any database sharing a cluster with a
 database whose credentials matter.
 
+## Found after all six phases were reviewed: Explore's route binding
+
+All six phases were committed and reviewed before this was found. It surfaced only when
+end-to-end verification actually booted the server and curled the endpoints, so it is recorded
+separately from the phase-by-phase divergences above rather than folded into that numbered list.
+
+**The defect.** `GET /v1/schools/explore` returned **500 on every request**, with or without
+query parameters. Explore — Phase 2's headline feature — had never worked over HTTP at any point
+on this branch.
+
+**Root cause.** `api/routes/schools_facts.py` bound the model as `query: ExploreQuery =
+Depends()`. Bare `Depends()` on a `BaseModel` subclass makes FastAPI treat the class as a
+callable dependency and introspect *pydantic's own generated* `__signature__`. For a
+`default_factory` field, pydantic puts a display-only `_HAS_DEFAULT_FACTORY` sentinel in that
+signature — it mimics stdlib dataclasses and is never meant to be read as a real default. FastAPI
+took it literally, so all five list fields (`state`, `region`, `size_bucket`, `campus_setting`,
+`include_missing`) were constructed from the sentinel and failed validation before the handler
+ran.
+
+**The second, quieter defect in the same line — arguably the more important one.** `Depends()`
+signature introspection also strips `Annotated`/`Query()` metadata and classifies any non-scalar
+annotation (`list[...]`) as a JSON *body* parameter rather than a query parameter. So even with
+the crash worked around, `?state=CA&state=NY` would have bound to nothing and defaulted to `[]`.
+Every Explore filter would have silently returned unfiltered results. A 500 is loud and gets
+fixed; a filter that quietly does nothing ships.
+
+**The fix.** `Annotated[ExploreQuery, Query()]` — FastAPI's documented query-parameter-model
+feature (0.115+), which reads `model_fields` directly, calls default factories correctly, and
+binds repeated params into lists. No change to `ExploreQuery` itself was needed. Shipped in
+`fbf8cb4`.
+
+**Why every gate missed it — the part most worth recording.** 1957 routine tests, 235 `live_db`
+tests, and 1078 frontend tests all passed with this route completely dead.
+`tests/app/facts/test_service_explore.py` calls `run_explore()` directly, bypassing `Depends()`
+entirely, and nothing anywhere exercised the route through FastAPI's real query-binding layer.
+The defect lived precisely in the seam no test crossed. A regression test
+(`tests/api/test_schools_explore_route.py`) now goes through `TestClient` and fails with the
+original `ValidationError` without the fix.
+
+**The generalizable lesson**, which is the reason this entry earns its place: *a green test
+suite is evidence about the code the tests call, not about the application.* This was found only
+by booting the server and curling the endpoint. Phase-level review, two independent reviewers,
+and a whole-plan cross-phase review all passed over it, because all of them were reading code and
+running tests rather than running the app.
+
+A sweep of every router confirmed `ExploreQuery` was the only `BaseModel` bound via bare
+`Depends()` in the repo — every other `Depends()` is a function dependency — so this was one
+instance, not a pattern.
+
 ## Known-deferred `live_db` test failures (predate this work)
 
 Three `live_db`-marked tests were failing before this branch began and remain failing; none were
