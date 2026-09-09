@@ -253,6 +253,19 @@ def main() -> int:
         if pipeline_dsn:
             _, pipeline_password = _credentials("COUNSELLE_DB_PIPELINE_DSN", "cds_library_app")
 
+        # WARNING -- these _ensure_role calls are CLUSTER-GLOBAL, not scoped
+        # to `database` above. CREATE ROLE / ALTER ROLE (including LOGIN
+        # state and password) apply to the whole Postgres cluster, not the
+        # single database this connection's DSN happens to name. Running
+        # this script -- directly, or via scripts/entrypoint.sh on
+        # container boot -- against a scratch or throwaway database on a
+        # cluster that also hosts a real one WILL silently rewrite that
+        # real database's counselle_app / counselle_ro / cds_library_app
+        # role passwords and LOGIN state out from under its own .env, with
+        # no error at the time it happens (this has already happened once
+        # in this project -- see docs/DEPLOY.md). Only ever point this
+        # script at a cluster whose shared roles you are prepared to have
+        # rewritten, in full.
         _ensure_role(cur, app_role, app_password)
         _ensure_role(cur, ro_role, ro_password)
         _ensure_role(cur, "cds_library_reader", None)

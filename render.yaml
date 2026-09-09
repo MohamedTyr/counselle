@@ -2,7 +2,12 @@ services:
   - type: web
     name: counselle
     runtime: docker
-    plan: free
+    # Paid, always-on tier (Render renamed compute plans in Aug 2026; the
+    # legacy "starter" name still resolves to this same plan id). A free
+    # instance sleeps on inactivity, so the in-process facts crawl worker
+    # (COUNSELLE_FACTS_WORKER_ENABLED) would never get to run a pass —
+    # school-data-v3 plan §8 Q-tier, owner decision 2026-09-09.
+    plan: 0.5c-512mb
     region: oregon
     dockerfilePath: ./Containerfile
     dockerContext: .

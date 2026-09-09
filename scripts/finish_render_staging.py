@@ -125,7 +125,7 @@ def _service_payload(args: argparse.Namespace, env_vars: list[dict[str, Any]]) -
         "envVars": env_vars,
         "serviceDetails": {
             "runtime": "docker",
-            "plan": "free",
+            "plan": args.plan,
             "region": args.region,
             "healthCheckPath": "/v1/health",
             "envSpecificDetails": {
@@ -143,7 +143,7 @@ def _service_patch(args: argparse.Namespace) -> dict[str, Any]:
         "autoDeploy": "yes",
         "serviceDetails": {
             "runtime": "docker",
-            "plan": "free",
+            "plan": args.plan,
             "healthCheckPath": "/v1/health",
             "envSpecificDetails": {
                 "dockerContext": ".",
@@ -167,8 +167,25 @@ def _find_service(token: str, *, owner_id: str, name: str) -> dict[str, Any] | N
     return None
 
 
+def _get_env_vars(token: str, service_id: str) -> list[dict[str, Any]]:
+    results = _request("GET", f"/services/{service_id}/env-vars", token=token)
+    return [item.get("envVar", item) for item in results or []]
+
+
 def _put_env_vars(token: str, service_id: str, env_vars: list[dict[str, Any]]) -> None:
-    _request("PUT", f"/services/{service_id}/env-vars", token=token, body=env_vars)
+    """Merge onto the service's existing env vars, then replace the set.
+
+    The Render API's env-vars PUT is a full replace, not a patch: it drops
+    any variable not present in the body. A bare PUT of this script's fixed
+    dict would silently delete every var set out-of-band (dashboard secrets
+    like a rotated `COUNSELLE_DB_ADMIN_DSN`, an operator's one-off flag), on
+    every re-run. Reading the current set first and letting this script's
+    keys win keeps everything else intact.
+    """
+    current = {item["key"]: item.get("value", "") for item in _get_env_vars(token, service_id)}
+    current.update({item["key"]: item["value"] for item in env_vars})
+    merged = [{"key": key, "value": value} for key, value in current.items()]
+    _request("PUT", f"/services/{service_id}/env-vars", token=token, body=merged)
 
 
 def _current_commit() -> str:
@@ -226,6 +243,12 @@ def _required_env(dotenv: dict[str, str]) -> list[dict[str, Any]]:
     required = {
         "COUNSELLE_DB_RO_DSN": _env_value("COUNSELLE_DB_RO_DSN", dotenv),
         "COUNSELLE_DB_APP_DSN": _env_value("COUNSELLE_DB_APP_DSN", dotenv),
+        # Required at boot under v3, not just for the facts crawler:
+        # scripts/entrypoint.sh's required_env list hard-fails with exit 1
+        # if this is empty (the crosswalk-sync step needs it). Enforcing it
+        # here fails this script fast instead of deploying a Render service
+        # that crash-loops on every boot (docs/DEPLOY.md § environment matrix).
+        "COUNSELLE_DB_PIPELINE_DSN": _env_value("COUNSELLE_DB_PIPELINE_DSN", dotenv),
         "COUNSELLE_VERTEX_API_KEY": _env_value("COUNSELLE_VERTEX_API_KEY", dotenv),
         "COUNSELLE_TAVILY_API_KEY": tavily,
     }
@@ -257,10 +280,31 @@ def _required_env(dotenv: dict[str, str]) -> list[dict[str, Any]]:
         "COUNSELLE_DB_POOL_MAX": "5",
         "COUNSELLE_RESPONSE_MODE_THINK_ENABLED": "false",
         "COUNSELLE_THINKING_STREAM": "false",
+        # The parked CDS extraction poller must never run against the
+        # facts-store schema (config/settings.py's cds_worker_enabled
+        # docstring) -- set explicitly rather than relying on its default.
+        "COUNSELLE_CDS_WORKER_ENABLED": "false",
+        # The facts crawler is off by default even on a paid, always-on
+        # instance (school-data-v3 plan §8 Q9): turning it on is a
+        # deliberate step after staging verification, not a side effect of
+        # this script's other env plumbing.
+        "COUNSELLE_FACTS_WORKER_ENABLED": _env_value(
+            "COUNSELLE_FACTS_WORKER_ENABLED", dotenv, fallback="false"
+        ),
         "COUNSELLE_JWT_SECRET": _env_value("COUNSELLE_JWT_SECRET", dotenv)
         or secrets.token_urlsafe(48),
         **required,
     }
+    # Optional secrets this script does not require but must not clobber
+    # once set: pass them through when already present in the environment
+    # or .env, otherwise leave them for the merge in _put_env_vars (or the
+    # Render Blueprint's `sync: false` prompt on first create) to supply.
+    # (COUNSELLE_DB_PIPELINE_DSN is required now -- it's already in `fixed`
+    # via `**required` above -- so only COUNSELLE_DB_ADMIN_DSN passes through here.)
+    for key in ("COUNSELLE_DB_ADMIN_DSN",):
+        value = _env_value(key, dotenv)
+        if value:
+            fixed[key] = value
     return [{"key": key, "value": value} for key, value in fixed.items()]
 
 
@@ -271,6 +315,15 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--repo", default=DEFAULT_REPO)
     parser.add_argument("--branch", default=DEFAULT_BRANCH)
     parser.add_argument("--region", default="oregon")
+    parser.add_argument(
+        "--plan",
+        default="0.5c-512mb",
+        help=(
+            "Render compute plan id (render.yaml's committed default is the "
+            "paid, always-on 0.5c-512mb tier -- a free instance sleeps and "
+            "never runs the facts crawl worker)."
+        ),
+    )
     parser.add_argument("--wait", action="store_true", help="Wait for deploy and verify URLs.")
     parser.add_argument(
         "--dry-run",
@@ -337,8 +390,9 @@ def main() -> int:
         details = service.get("serviceDetails", {})
         url = details.get("url")
         if url:
+            # There is no separate /v1/ready route -- /v1/health is the one
+            # liveness/readiness endpoint the app exposes (api/routes/system.py).
             _wait_for_url(url, "/v1/health", 300)
-            _wait_for_url(url, "/v1/ready", 300)
             print(f"Render URL: {url}")
         print(f"Render dashboard: {service.get('dashboardUrl')}")
     return 0

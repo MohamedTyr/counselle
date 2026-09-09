@@ -23,6 +23,11 @@ done
 # and the counselle schema before migrations run. No-op once seeded.
 .venv/bin/python scripts/seed_reader_db.py
 
+# The seed creates collegedata_schools empty; sync the committed crosswalk
+# CSV into it on every boot (app/facts/crosswalk.py is its only loader,
+# school-data-v3 plan §4.2/§4.6 -- upsert, so this is a no-op once synced).
+.venv/bin/python -m app.facts crosswalk-sync
+
 schema_dsn="${COUNSELLE_DB_APP_DSN}"
 case "$schema_dsn" in
   *\?*) schema_dsn="${schema_dsn}&schema=counselle" ;;

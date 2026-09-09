@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import re
 import secrets
 import subprocess
 import sys
@@ -21,9 +22,34 @@ ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_DUMP = ROOT / "artifacts" / "deploy" / "counselle-supabase.dump"
 SETUP_SQL = ROOT / "scripts" / "setup_db.sql"
 
+# Matches the password segment of a postgresql://user:password@host DSN so it
+# can be masked out of anything that might reach a terminal or CI log.
+_DSN_PASSWORD_RE = re.compile(r"(://[^:/@\s]+:)([^@\s]+)(@)")
+
+
+def _redact(text: str) -> str:
+    """Mask any DSN password embedded in ``text`` (CLAUDE.md: never log secrets)."""
+    return _DSN_PASSWORD_RE.sub(r"\1***\3", text)
+
 
 def _run(command: list[str], *, env: dict[str, str] | None = None) -> None:
-    subprocess.run(command, check=True, env=env)
+    """Run a subprocess without letting a DSN's password reach the log on failure.
+
+    Several call sites here pass an admin DSN with an embedded password as a
+    bare argument (``pg_restore --dbname``, ``psql``). ``subprocess.run``'s
+    default ``check=True`` raises ``CalledProcessError``, whose string form
+    includes the full command list -- that would print the live password to
+    the terminal or CI log. Capture output instead of letting it stream
+    unfiltered, and redact the command and any captured output before
+    re-raising.
+    """
+    result = subprocess.run(command, env=env, capture_output=True, text=True)
+    if result.stdout:
+        sys.stdout.write(result.stdout)
+    if result.returncode != 0:
+        sys.stderr.write(_redact(result.stderr))
+        redacted_command = [_redact(arg) for arg in command]
+        raise subprocess.CalledProcessError(result.returncode, redacted_command)
 
 
 def _secret_from_env(name: str) -> str:
@@ -62,20 +88,27 @@ def _runtime_dsn(admin_dsn: str, *, role: str, password: str) -> str:
 def _psql_scalar(dsn: str, sql: str) -> str:
     result = subprocess.run(
         ["psql", dsn, "-Atqc", sql],
-        check=True,
         text=True,
         capture_output=True,
     )
+    if result.returncode != 0:
+        sys.stderr.write(_redact(result.stderr))
+        raise subprocess.CalledProcessError(
+            result.returncode, ["psql", _redact(dsn), "-Atqc", sql]
+        )
     return result.stdout.strip()
 
 
 def _verify_reader(ro_dsn: str) -> None:
+    # The six cds_library_reader views (school-data-v3 plan §3.2; the exact
+    # grant list lives in deploy/seed/cds_library_schema.sql).
     views = [
         "school_profiles",
-        "active_cds_documents",
-        "active_cds_domain_packets",
-        "cds_document_sources",
-        "cds_manifest_snapshots",
+        "current_school_facts",
+        "school_facts_sql",
+        "school_explore",
+        "school_data_status",
+        "fact_coverage",
     ]
     for view in views:
         count = _psql_scalar(ro_dsn, f"select count(*) from cds_library.{view};")
@@ -123,6 +156,13 @@ def main() -> int:
 
     ro_password = _secret_from_env("COUNSELLE_RO_PASSWORD")
     app_password = _secret_from_env("COUNSELLE_APP_PASSWORD")
+    # cds_library_app (ADR 0037): the facts crawler's write role. Always
+    # provisioned with a login password here, matching setup_db.sql's
+    # role-always-exists contract -- the crawler is optional at runtime
+    # (COUNSELLE_DB_PIPELINE_DSN unset just leaves the worker off), but the
+    # role and its DSN are provisioned up front so turning it on later is a
+    # flag flip, not another staging bootstrap.
+    pipeline_password = _secret_from_env("COUNSELLE_PIPELINE_PASSWORD")
 
     if not args.skip_restore:
         print(f"restoring {args.dump} into Supabase")
@@ -143,16 +183,21 @@ def main() -> int:
         **os.environ,
         "COUNSELLE_RO_PASSWORD": ro_password,
         "COUNSELLE_APP_PASSWORD": app_password,
+        "COUNSELLE_PIPELINE_PASSWORD": pipeline_password,
     }
     _run(["psql", args.admin_dsn, "-f", str(SETUP_SQL)], env=env)
 
     ro_dsn = _runtime_dsn(args.admin_dsn, role="counselle_ro", password=ro_password)
     app_dsn = _runtime_dsn(args.admin_dsn, role="counselle_app", password=app_password)
+    pipeline_dsn = _runtime_dsn(args.admin_dsn, role="cds_library_app", password=pipeline_password)
     _verify_reader(ro_dsn)
 
     print("\nRender secret env vars:")
     print(f"COUNSELLE_DB_RO_DSN={ro_dsn}")
     print(f"COUNSELLE_DB_APP_DSN={app_dsn}")
+    print(f"COUNSELLE_DB_PIPELINE_DSN={pipeline_dsn}")
+    print("  # required at boot under v3 (crosswalk-sync); turning the facts")
+    print("  # crawler itself on is the separate COUNSELLE_FACTS_WORKER_ENABLED flag")
     print("\nKeep these out of Git. Paste them into the Render Blueprint secret prompts.")
     return 0
 
