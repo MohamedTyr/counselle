@@ -10,6 +10,7 @@ would 422 a non-int `unitid` rather than silently falling through either way.
 from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query, Request, Response
 
@@ -69,7 +70,25 @@ async def get_facts_route(
 async def explore_route(
     request: Request,
     response: Response,
-    query: ExploreQuery = Depends(),
+    # `Annotated[ExploreQuery, Query()]`, not `= Depends()`: FastAPI's actual
+    # "query parameter model" feature (0.115+). `Depends()` on a bare
+    # `BaseModel` subclass makes FastAPI call the class as if it were a
+    # dependency function, introspecting *pydantic's own generated
+    # `__signature__`* for its params -- and for any `default_factory`
+    # field, pydantic puts the display-only `_HAS_DEFAULT_FACTORY` sentinel
+    # in that signature's default (it mimics stdlib dataclasses; the
+    # factory is never meant to be read off `Signature.default`). FastAPI
+    # took that sentinel as the literal default, so a request omitting the
+    # param failed `ExploreQuery` validation on the raw sentinel -- this
+    # route 500'd unconditionally. Worse, `Depends()`'s signature
+    # introspection also strips `Annotated`/`Query()` metadata and treats
+    # any non-scalar field (a `list[...]`) as a JSON *body* param, not
+    # query -- so `?state=CA&state=NY` was silently dropped even once the
+    # crash was worked around. `Query()` instead reads `ExploreQuery.model_fields`
+    # directly (real `FieldInfo`s, default factories called correctly) and
+    # binds every field -- scalars and repeated-list fields alike -- to the
+    # query string, matching `majors_route`'s plain `Query()` params below.
+    query: Annotated[ExploreQuery, Query()],
     user: UserDB = Depends(current_active_user),
 ) -> ExploreResponse:
     catalog = request.app.state.runtime.deps.catalog
