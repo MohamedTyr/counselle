@@ -23,7 +23,7 @@ exactly what you'd need to classify properly, and invite it — don't stall.
 
 Use `counselor-research` for routing. In the post-`resolve_school` round, collect:
 
-- CDS coverage + admissions/selectivity context.
+- `get_facts` coverage + admissions/selectivity context.
 - official `.edu` data for current-cycle policy and restrictions.
 - broad web when institutional language is conflicting or ambiguous.
 - Reddit for recurring applicant-level implementation signals.

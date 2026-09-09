@@ -3,7 +3,7 @@
  * (`/app/admin/facts`, plan §5.5, D12): `GET /v1/admin/facts/status`,
  * `GET /v1/admin/facts/unmapped`, `POST /v1/admin/facts/passes`.
  *
- * Types mirror `app/facts/models.py::FactsStatusResponse` (Unit E's shape —
+ * Types mirror `app/facts/models.py::FactsStatusResponse` (that shape —
  * not redesigned here) and `api/routes/admin_facts.py`'s two local response
  * models. One file, matching the surface's size: this is a three-endpoint,
  * one-screen admin feature, not a multi-file API module like `cds-admin`.

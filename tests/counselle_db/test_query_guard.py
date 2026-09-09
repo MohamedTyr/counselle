@@ -203,7 +203,7 @@ def test_query_guard_fails_closed_on_tokenizer_errors() -> None:
 # --- `_named_fact_keys` -- the denominator mechanism's safety property ---
 #
 # `CatalogSnapshot.fact_keys` is filled from `fact_coverage` (school-data-v3
-# Phase 3, Unit B) and already excludes `explore.*` pseudo-keys
+# Phase 3) and already excludes `explore.*` pseudo-keys
 # (`counselle_db/catalog.py`'s `_FACT_COVERAGE_SQL`). These tests exercise
 # `_named_fact_keys` directly against an explicit `known` set -- `set(
 # catalog.snapshot.fact_keys)`'s real shape, whether empty or populated --

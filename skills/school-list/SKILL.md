@@ -25,7 +25,7 @@ Use `counselor-research` for routing. In the first evidence round:
 - `view_schools` to audit the actual board when workspace tools are mounted.
 - `query_database` (after loading `db-recipes`) for candidate discovery, then
   resolve and re-fetch each finalist through typed reads.
-- CDS domains for admissions/selectivity and cost/aid context.
+- `get_facts` sections for admissions/selectivity and cost/aid context.
 - `.edu` for current admitted-class or policy pages when needed for current-cycle
   decisions.
 - Reddit and broad web only to identify real-world fit, hidden friction, and recurring

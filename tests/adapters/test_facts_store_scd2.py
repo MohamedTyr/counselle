@@ -1,6 +1,6 @@
 """`live_db` exit tests for `adapters/facts_store.write_school_facts`'s
 SCD2 close-then-insert rule (plan §3.4, §7 Phase 1 row) — the honesty-
-critical core of Unit E:
+critical core of the facts store:
 
 - a second write with identical values inserts/closes nothing;
 - a label removed between two writes is closed with no successor;

@@ -329,7 +329,7 @@ def admission_rate_group(group: Sequence[WalkedNode]) -> list[MappedFact]:
     """The "Overall Admission Rate" NestedTitleValue (+ Women/Men children):
     `"5% of 50,264 applicants were admitted"` -> admit_rate + applicants_total
     per (parent/dimension). Deliberately never derives `admitted_total` here
-    (the unit's report explains why) — the honest source for that is
+    — the honest source for that is
     `enrolled_group`'s own explicit count.
     """
     facts: list[MappedFact] = []

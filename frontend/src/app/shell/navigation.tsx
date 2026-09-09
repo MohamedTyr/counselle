@@ -72,7 +72,7 @@ export const shellRoutes: ShellRoute[] = [
  * true (plan §F1) — one entry, not a section.
  *
  * Restored in Phase 1 (school-data-v3, `PARKED.md`'s exact instruction):
- * the CDS admin screen this used to link to is parked (ADR 0037), and its
+ * the CDS admin screen this used to link to is parked (ADR 0038), and its
  * replacement, `/app/admin/facts` (plan §5.5, D12), now exists. */
 export const adminShellRoutes: ShellRoute[] = [
   {

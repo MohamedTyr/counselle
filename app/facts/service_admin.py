@@ -1,7 +1,7 @@
 """Assembles `FactsStatusResponse` from `adapters/facts_queries.py` plus a
-settings-derived "next pass" estimate (plan §4.3/§5.5, appendix ii, Unit E).
+settings-derived "next pass" estimate (plan §4.3/§5.5, appendix ii).
 
-`api/routes/admin_facts.py` (Unit F) is the only caller.
+`api/routes/admin_facts.py` is the only caller.
 """
 
 from __future__ import annotations

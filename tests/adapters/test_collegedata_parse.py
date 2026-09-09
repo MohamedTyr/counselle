@@ -1,7 +1,7 @@
 """Tests for adapters/collegedata/parse.py — NO network calls (all fixtures
 inline, condensed from live captures verified 2026-09-07 against Yale's six
-tabs; the committed 11-school fixture corpus is Unit D's job, not this
-unit's).
+tabs; the committed 11-school fixture corpus is
+`tests/app/facts/test_mapper_fixtures.py`'s job, not this module's).
 """
 
 from __future__ import annotations
@@ -25,7 +25,7 @@ def _top_level(profile: dict[str, JsonValue]) -> dict[str, JsonValue]:
 
 # A condensed but structurally real body, covering all nine node types plus
 # the academics-only headerCardContent shape — every `data` field name and
-# nesting matches a live capture (see Unit C's session notes / artifacts).
+# nesting matches a live capture.
 _BODY: list[JsonValue] = [
     {
         "type": "ExpandableSection",

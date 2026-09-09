@@ -2,7 +2,7 @@
 shared with the catalog).
 
 ``format_cds_edition`` moved out to ``counselle_db.packets`` in
-school-data-v3 Phase 3 (Unit B) so that module — the parked CDS
+school-data-v3 Phase 3 so that module — the parked CDS
 manifest/packet reader — is fully self-contained; nothing outside
 ``packets.py`` reads a CDS edition label any more.
 """

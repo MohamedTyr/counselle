@@ -12,11 +12,11 @@
 # a fact. Everything else that matches no rule at all becomes `unmapped:
 # <source_path>` (mapper.py's own fallback — not expressed here).
 #
-# See the Unit D report for the handful of one-owning-tab / dedupe decisions
-# this file encodes that the plan's appendix did not call out (fullTimeFaculty/
-# partTimeFaculty on admission's header duplicate academics' own body rows;
-# the admission body's "Regular Admission Deadline" duplicates the header
-# pair used to build deadlines.regular).
+# A handful of one-owning-tab / dedupe decisions this file encodes were not
+# called out in the plan's appendix and were settled by checking live pages
+# instead (fullTimeFaculty/partTimeFaculty on admission's header duplicate
+# academics' own body rows; the admission body's "Regular Admission
+# Deadline" duplicates the header pair used to build deadlines.regular).
 version: 1
 rules:
   # ===========================================================================
@@ -28,7 +28,7 @@ rules:
   - {tab: overview, node_type: header, match: universityType, handler: scalar, kind: enum, fact_key: identity.control_reported, section: campus-life}
   - {tab: overview, node_type: header, match: populationType, handler: scalar, kind: enum, fact_key: identity.gender_model_reported, section: campus-life}
   # undergradPopulation/gradPopulation/male|femalePercentage are dropped, not
-  # mapped: verified live (Unit D report) to be exact duplicates of the
+  # mapped: verified live to be exact duplicates of the
   # `students` tab's own richer "All Undergraduates" NestedTitleValue
   # (students.undergraduate_total/_men_count/_men_pct/...) and "All Graduate
   # Students" TitleValue (students.graduate_total) — one-owning-tab, students

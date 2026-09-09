@@ -104,7 +104,7 @@ def test_profile_normalization_preserves_only_typed_provenance_fields() -> None:
 
 
 def test_get_domain_payload_passes_through_unminted() -> None:
-    """school-data-v3 Phase 3 (Unit B): `_normalize_db_payload`'s minting set
+    """school-data-v3 Phase 3: `_normalize_db_payload's minting set
     is `{get_facts, get_school_profile, resolve_school}` -- `get_domain` is
     no longer one of them (its CDS-era branch is retired with the parked
     packet/manifest machinery), so its payload passes through untouched
@@ -237,7 +237,7 @@ def test_render_viz_result_keeps_agent_values_when_large() -> None:
     assert store.dump() == {}
 
 
-# --- school-data-v3 Phase 3 (Unit B): the `db` citation-minting matrix ---
+# --- school-data-v3 Phase 3: the `db` citation-minting matrix ---
 #
 # get_facts / get_school_profile / resolve_school each mint exactly one `db`
 # citation for the school they name; query_database mints none (plan

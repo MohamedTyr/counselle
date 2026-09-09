@@ -7,8 +7,8 @@
  *
  * One file, matching the surface's size (the `api/admin/facts-status.ts`
  * precedent) -- `keys.ts`/`hooks.ts` in this directory belong to the facts
- * page (Unit C); this endpoint's query key and hook live here instead of
- * splitting across files this unit does not own.
+ * page; this endpoint's query key and hook live here instead of
+ * splitting across files that belong to that other feature.
  */
 
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
@@ -27,8 +27,8 @@ export type ExclusionReason = "missing" | "not_reported";
  * projection actually populates, minus the ones the plan itself drops
  * (net price, out-of-state %, admit rate by home state, REA, any SAT
  * composite -- R14/D10). `needFullyMet` and `meritAid` are real, filterable
- * columns that are NULL on every seeded row today; see this unit's final
- * report. */
+ * columns, populated on 1,425 and 1,365 of 2,239 `cds_library.school_explore`
+ * rows respectively (verified live) -- not NULL on every row. */
 export type RangeKey =
   | "admit"
   | "cost"

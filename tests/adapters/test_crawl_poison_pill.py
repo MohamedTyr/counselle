@@ -1,4 +1,4 @@
-"""`live_db` exit tests for the Finding 1 poison-pill fix (plan §4.2, Unit E):
+"""`live_db` exit tests for the Finding 1 poison-pill fix (plan §4.2):
 a single school whose page shape breaks the mapper, or whose body breaks the
 typed parser, must be recorded and skipped -- the pass itself must still
 reach `close_run`/`complete_job` and process every other school. Before this
@@ -273,7 +273,7 @@ def _patch_fetcher_and_pending(
     # `_fetch_config`/`build_client`/`CollegeDataFetcher` are all bypassed by
     # `_FakeFetcher` -- stub `_fetch_config` too so the routine `.env`'s
     # documented placeholder `facts_crawl_user_agent` (never a real contact
-    # URL, ADR 0037 R0) never fails `FetchConfig`'s own validation for a
+    # URL, ADR 0038 R0) never fails `FetchConfig`'s own validation for a
     # config this test never actually uses.
     monkeypatch.setattr(crawl, "_fetch_config", lambda settings: None)
     monkeypatch.setattr(crawl, "CollegeDataFetcher", lambda *a, **kw: fetcher)

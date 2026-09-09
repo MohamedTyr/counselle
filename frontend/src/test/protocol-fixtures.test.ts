@@ -203,7 +203,7 @@ describe("shared protocol fixtures", () => {
         event.type === "sources",
     );
     // The sources rail no longer enriches any entry with evidence (the
-    // pending-evidence registry was retired, school-data-v3 Phase 3 Unit C)
+    // pending-evidence registry was retired, school-data-v3 Phase 3)
     // — a CDS rail entry's `evidence` is always empty; exact evidence still
     // lives only on the per-cell `CitationEnvelope` above.
     expect(sources?.data.sources).toEqual(

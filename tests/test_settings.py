@@ -228,7 +228,7 @@ class TestDefaults:
 
 
 class TestFactsCrawlSettings:
-    """ADR 0037 R0's identification mitigation: a User-Agent with no contact
+    """ADR 0038 R0's identification mitigation: a User-Agent with no contact
     URL must never boot (plan §4.3)."""
 
     def test_defaults_match_plan_section_4_3(self, clean_env: None) -> None:
@@ -294,7 +294,7 @@ class TestFactsCrawlSettings:
         """school-data-v3 fix-review Finding 1: an operator who deploys
         outside `development` without setting
         COUNSELLE_FACTS_CRAWL_USER_AGENT must never boot clean — that was
-        the "most natural mistake" that silently defeated ADR 0037 R0's
+        the "most natural mistake" that silently defeated ADR 0038 R0's
         identification mitigation."""
         monkeypatch.setenv("COUNSELLE_ENVIRONMENT", "staging")
         monkeypatch.setenv("COUNSELLE_COOKIE_SECURE", "true")

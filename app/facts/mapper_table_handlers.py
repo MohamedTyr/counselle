@@ -86,7 +86,7 @@ def hs_requirements_table(
 ) -> list[MappedFact]:
     """Dispatches on the table's own columns, not on which `CategoryDivider`
     hosts it or its ordinal position — both shapes below appear under either
-    divider across the real captures (the unit's report explains why)."""
+    divider across the real captures."""
     if not group:
         return []
     columns = group[0].raw.get("columns") if isinstance(group[0].raw, dict) else None
@@ -168,8 +168,7 @@ def forms_required_table(group: Sequence[WalkedNode]) -> list[MappedFact]:
     """The "Forms Required" table: `FAFSA Code is NNNNNN` (the code is a label
     capture, not a cell value) and `CSS/Financial Aid Profile` (a free-text
     fee — no clean boolean vocabulary is observed in the real captures, so
-    `money.css_profile_required` is deliberately not derived; the unit's
-    report explains why)."""
+    `money.css_profile_required` is deliberately not derived)."""
     out: list[MappedFact] = []
     for row in group:
         fafsa = re.match(r"^FAFSA Code is\s+(?P<code>\S+)$", row.label.strip(), re.IGNORECASE)

@@ -1,13 +1,13 @@
-# ADR 0037 — CollegeData facts store; in-process tools; CDS system parked
+# ADR 0038 — CollegeData facts store; in-process tools; CDS system parked
 
-**Status:** Proposed / Draft. This ADR records the school-data v3 re-architecture as it lands across
-Phase 0; it is not final. Phase 5 finalizes the text against the shipped system. Two of the
-decisions this ADR depends on are still **owner ratifications outstanding, not yet given**: **Q5**
-(the CollegeData Terms of Use / copyright legal posture, R0 below — a hard gate on Phase 1's live
-crawling, though not on Phase 0's offline work) and **Q-tier** (the paid, always-on Render web
-instance the crawler needs to ever run a pass — an owner cost decision required before Phase 4).
-Until both are ratified, this ADR describes the intended and technically-verified design, not a
-fully authorized one.
+**Status:** Implemented and verified against the shipped system (Phase 5); not Accepted. This ADR
+records the school-data v3 re-architecture as it has landed across Phases 0–5. Two of the decisions
+this ADR depends on remain **owner ratifications outstanding, not yet given**: **Q5** (the
+CollegeData Terms of Use / copyright legal posture, R0 below — a hard gate on live crawling) and
+**Q-tier** (the paid, always-on Render web instance the crawler needs to run a pass — the owner has
+declared a Starter tier but has not authorized provisioning it). Until both are ratified, this ADR
+describes a technically-verified, implemented design that has not received the owner sign-off
+needed to call it Accepted.
 
 ## Context
 
@@ -35,8 +35,8 @@ number further — it changes which source answers the "every school" requiremen
 CDS PDF's role in the live product while preserving everything the pipeline built.
 
 Full technical evidence, the measured crawl constraints, the schema design, and the reviewed
-CollegeData label inventory are in `plans/school-data-v3.md` (thirteen review rounds) and its
-companion `plans/school-data-v3-appendix.md`.
+CollegeData label inventory are in `../../specs/school-data-v3/plan/school-data-v3.md` (thirteen review rounds) and its
+companion `../../specs/school-data-v3/plan/school-data-v3-appendix.md`.
 
 ## Decision
 
@@ -69,7 +69,8 @@ companion `plans/school-data-v3-appendix.md`.
    stdlib `gzip`/`xml.etree`, a single token bucket at a configured crawl rate, tenacity retries on
    transport errors, a self-identifying `User-Agent` carrying a contact URL, and no browser. The
    one-off crosswalk match between CollegeData slugs and IPEDS `unitid`s is a reviewed, committed
-   CSV produced by a one-time subagent-adjudicated script — not a runtime LLM step.
+   CSV produced by a one-time, hand-reviewed adjudication script — never resolved by an LLM,
+   at build time or at runtime.
 6. **The schema name (`cds_library`) and the writer DSN name (`COUNSELLE_DB_PIPELINE_DSN`) are kept
    unchanged**, even though the writer's actual job changes from CDS extraction to the facts crawl.
    Renaming either would touch every grant, doc, test, and `.env.example` reference for zero
@@ -77,13 +78,16 @@ companion `plans/school-data-v3-appendix.md`.
    the facts crawler going forward, not the retired document-extraction pipeline.
 7. **The three-role, three-DSN model is unchanged.** `cds_library_reader` / `COUNSELLE_DB_RO_DSN`
    reads exactly six views (up from five) with zero base-table grants; `cds_library_app` /
-   `COUNSELLE_DB_PIPELINE_DSN` writes the new facts-store base tables under the same
-   `INSERT, SELECT, UPDATE`, no-`DELETE` shape it had for CDS writes (repurposed, not re-provisioned
-   — mutually exclusive by design with the parked CDS worker via
-   `COUNSELLE_CDS_WORKER_ENABLED=false`); `counselle_app` / `COUNSELLE_DB_APP_DSN` is unaffected in
-   schema shape, though every row in it is reset once (D9 — a one-time data reset, not a schema
-   change; ADR 0019's decision to use LangGraph's Postgres checkpointer in `counselle.*` is
-   unaffected).
+   `COUNSELLE_DB_PIPELINE_DSN` writes the new facts-store base tables (repurposed, not
+   re-provisioned — mutually exclusive by design with the parked CDS worker via
+   `COUNSELLE_CDS_WORKER_ENABLED=false`). The grant shape is *not* identical to the parked CDS write
+   path: that path never held `DELETE` on anything; the facts-store path keeps `INSERT, SELECT,
+   UPDATE` (no `DELETE`) on every base table except `page_snapshots`, which grants `DELETE` too —
+   the one narrow exception, needed for snapshot retention (verified against
+   `deploy/seed/cds_library_schema.sql` and the live grants). `counselle_app` / `COUNSELLE_DB_APP_DSN`
+   is unaffected in schema shape, though every row in it is reset once (D9 — a one-time data reset,
+   not a schema change; ADR 0019's decision to use LangGraph's Postgres checkpointer in
+   `counselle.*` is unaffected).
 8. **Risk R0 — the CollegeData Terms of Use position — is accepted knowingly, with mitigations,
    pending final owner ratification (Q5).** See "Risk R0" below.
 
@@ -229,7 +233,7 @@ since they touch no live traffic.
   per-field presence) rather than an edition question (which document, which manifest version).
 - The MCP child process, its supervisor, and the stdio transport are deleted (Phase 3), not parked —
   they are dead code once every DB call is in-process, per ADR 0017's no-shallow-wrapper rule. This
-  is a `DEAD`, not `PARKED`, disposition (see `plans/school-data-v3.md` §10).
+  is a `DEAD`, not `PARKED`, disposition (see `../../specs/school-data-v3/plan/school-data-v3.md` §10).
 - The CDS pipeline's parked code is a maintenance liability of a specific, bounded kind: its own
   unit tests must keep passing as the rest of the codebase evolves around it, and any refactor that
   would break a parked import edge (`PARKED.md` lists the nine that matter) must either preserve the
@@ -248,7 +252,9 @@ since they touch no live traffic.
 
 ## Amendment log
 
-- This ADR is filed as **Proposed / Draft** at Phase 0. Phase 5 replaces this status line with
-  **Accepted** once Q5 and Q-tier are ratified and the full re-architecture (Phases 1-4) has shipped
-  against this decision, or amends this ADR if either ratification changes the design materially
-  (e.g., Q5 is declined, which would require re-opening the crawl-vs-no-crawl question entirely).
+- This ADR was filed as **Proposed / Draft** at Phase 0. At Phase 5, the full re-architecture
+  (Phases 0–5) has shipped against this decision and the text above is corrected to describe the
+  system as built, but the status is **not** moved to Accepted: Q5 and Q-tier are still owner
+  ratifications outstanding, not yet given. The status becomes Accepted once both are ratified, or
+  this ADR is amended if either ratification changes the design materially (e.g., Q5 is declined,
+  which would require re-opening the crawl-vs-no-crawl question entirely).

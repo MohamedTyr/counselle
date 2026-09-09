@@ -1,4 +1,4 @@
--- PARKED (D8, plans/school-data-v3.md §3.5, ADR 0037): the CDS extraction
+-- PARKED (D8, ../../../specs/school-data-v3/plan/school-data-v3.md §3.5, ADR 0038): the CDS extraction
 -- pipeline's write-path schema, preserved for the future -- not mounted or
 -- started by anything in this repo. This file is the pre-v3
 -- deploy/seed/cds_library_schema.sql, moved verbatim and completed with the

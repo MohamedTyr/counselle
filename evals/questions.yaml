@@ -288,9 +288,8 @@
       - "Asks at most one natural-language follow-up question and does not emit a clarify widget or parked-turn behavior."
       - "Shows a plausible path toward convergence instead of keeping the conversation indefinitely exploratory."
 
-# --- school-data-v3 Phase 3 Unit E: new v3 honesty cases ---
-# Real, live-DB-verified fixtures (see this unit's final report for the full
-# reconciliation): Yale (unitid 130794, all six facts tabs `ok`); Felician
+# --- school-data-v3 Phase 3: new v3 honesty cases ---
+# Real, live-DB-verified fixtures: Yale (unitid 130794, all six facts tabs `ok`); Felician
 # University (unitid 184612, `money-matters`/`students`/`academics`/
 # `campus-life` tabs `http_error`, `admission`/`overview` tabs `ok`);
 # University of Alabama System Office (unitid 100733, `has_collegedata:

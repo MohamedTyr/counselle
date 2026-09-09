@@ -79,8 +79,7 @@ _SAFE_FUNCTIONS = frozenset(
 # statement: the post-fetch recursion in `query_database` remains a final
 # backstop, but must never be the mechanism that prevents a hash from being
 # materialized. (Plan appendix F-ii claims "no bytea column exists in any
-# allow-listed relation" -- verified false against the live schema; see this
-# unit's final report.)
+# allow-listed relation" -- verified false against the live schema.)
 _BYTEA_COLUMNS = frozenset({"profile_sha256"})
 _BYTEA_RELATIONS = frozenset({"cds_library.school_profiles"})
 
@@ -331,7 +330,9 @@ def _guard_sql_impl(sql: str, params: list[Any]) -> tuple[str, exp.Query, set[st
             continue
         relation = f"{table.db}.{table.name}" if table.db and not table.catalog else ""
         if relation not in _ALLOWED_RELATIONS:
-            raise ServiceError("Queries may use only the five schema-qualified CDS reader views.")
+            raise ServiceError(
+                "Queries may use only the five schema-qualified facts store reader views."
+            )
         relations.add(relation)
     for function in tree.find_all(exp.Func):
         name = (

@@ -8,7 +8,7 @@ Also hosts the code-owned, backend-authored strings this module accumulates
 across phases — `BAND_CAPTION` and `ENTRANCE_DIFFICULTY_NOTE` landed in
 Phase 1/2 because `config/assets/facts_sections.yaml` already references
 them by name via `foot_ref:`. `MAJORS_MATCH_NOTE` lands in Phase 3
-(school-data-v3, Unit B): it is the one canonical "matches on printed
+(school-data-v3): it is the one canonical "matches on printed
 program name" sentence, imported by both `app/facts/service_explore.py`
 (the `/majors`/`/explore` HTTP responses) and `counselle_db/sql_guard.py`
 (the `query_database` majors two-statement rule) — the two call sites
@@ -47,7 +47,7 @@ __all__ = [
     "section_state",
 ]
 
-# The two `not_fetched` caveat cause clauses (school-data-v3 Phase 3, Unit D
+# The two `not_fetched` caveat cause clauses (school-data-v3 Phase 3
 # / plan §6a) -- one templated `caveats.yaml` entry (`not_fetched:
 # "{cause}, so its value is unknown -- not absent."`) picked by the same
 # `never_checked` flag `section_state` resolves, so a page that failed to

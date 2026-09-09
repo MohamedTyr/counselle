@@ -26,7 +26,7 @@ an explicit answer to the prompt — so say so and drop the six-beat/montage
 machinery rather than miniaturizing it.
 
 **No research round.** In statement coaching the only evidence source is the
-student — never search the web, Reddit, or the CDS for a brainstorming,
+student — never search the web, Reddit, or the facts store for a brainstorming,
 drafting, revision, or depth turn; searching here produces generic advice.
 `essay-fit` (named campus specifics) is the sole essay skill that searches.
 

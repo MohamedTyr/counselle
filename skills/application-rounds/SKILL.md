@@ -23,7 +23,7 @@ lecture.
 Use `counselor-research` for source routing. In the same round as `resolve_school`,
 gather each distinct source that changes the decision:
 
-- CDS for historical context and profile constraints.
+- `get_facts` for historical context and profile constraints.
 - Official school sites for current-cycle deadlines, restriction language, and policy terms.
 - Broad web for recent changes and admissions-communications context.
 - Reddit for hidden friction and implementation patterns that can change what is

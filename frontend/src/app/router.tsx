@@ -124,7 +124,7 @@ export function createAppRouter() {
                 {
                   /*
                    * The school-data admin dashboard (plan §5.5, D12) that
-                   * replaces the parked CDS admin screens (ADR 0037,
+                   * replaces the parked CDS admin screens (ADR 0038,
                    * PARKED.md) — superuser-gated the same way the CDS admin
                    * routes were.
                    */
@@ -138,7 +138,7 @@ export function createAppRouter() {
                 {
                   /*
                    * The CDS admin screens are parked (not deleted, ADR
-                   * 0037/PARKED.md) — this redirect exists only for a stale
+                   * 0038/PARKED.md) — this redirect exists only for a stale
                    * `/app/admin/cds/*` bookmark or link, now that
                    * `/app/admin/facts` (above) exists.
                    */

@@ -1,4 +1,4 @@
-"""Shared `live_db` fixtures for the facts store adapter tests (Unit E)."""
+"""Shared `live_db` fixtures for the facts store adapter tests."""
 
 from __future__ import annotations
 

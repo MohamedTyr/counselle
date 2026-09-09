@@ -1,7 +1,7 @@
 """Unit tests for `tool_errors` (the D6 safe-error formatter).
 
 Moved here from the retired `counselle_db/server.py` MCP shell
-(school-data-v3 Phase 3, Unit C): `tool_errors` itself lives in
+(school-data-v3 Phase 3): `tool_errors` itself lives in
 `counselle_db.service` and is what `app/toolset.py`'s in-process tools use,
 so these behavioral tests still describe live code even though the MCP
 server they used to import through is gone.

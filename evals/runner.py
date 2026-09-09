@@ -121,7 +121,7 @@ class EvalContext:
     selectivity_admitted_ref: str
     need_blind_ref: str | None = None
     # Whether the two v3 cases that need a live state the current DB does
-    # not produce (school-data-v3 Phase 3, Unit E's fixture note: no
+    # not produce (school-data-v3 Phase 3: no
     # `not_found` page status and no facts old enough to trip
     # `facts_stale_days` exist live) can actually be exercised right now —
     # checked live at context-build time so the harness degrades to an
@@ -973,8 +973,8 @@ async def score_question(
     elif expects.get("tools"):
         # A non-`routing` case (coverage_honesty/edition_caveat/honesty/
         # denominator_honesty/response_mode_behavior) can still name
-        # required tools in `expects["tools"]` -- school-data-v3 Phase 3,
-        # Unit E's new v3 cases do this -- so score it the same way
+        # required tools in `expects["tools"]` -- school-data-v3 Phase 3's
+        # new v3 cases do this -- so score it the same way
         # `routing` does rather than letting that list go silently unchecked.
         checks = score_routing(expects, capture)
     else:
@@ -1181,7 +1181,7 @@ def materialize_questions(
         return value
 
     # A question's `live_gate` names a state the current live DB may not
-    # produce (school-data-v3 Phase 3, Unit E's fixture note: no
+    # produce (school-data-v3 Phase 3: no
     # `not_found` page and no stale-enough facts exist today) -- gated
     # questions are skipped with an honest reason rather than silently
     # scored against a state that never actually occurred, per

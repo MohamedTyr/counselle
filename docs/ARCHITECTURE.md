@@ -17,9 +17,9 @@
 5. [Repository layout](#5-repository-layout)
 6. [The agent API & event protocol](#6-the-agent-api--event-protocol)
 7. [Sessions, state & the platform-ready identity model](#7-sessions-state--the-platform-ready-identity-model)
-8. [The data-access layer: the `counselle-db` MCP server](#8-the-data-access-layer-the-counselle-db-mcp-server)
-9. [Packet, evidence, and citation truth boundary](#9-packet-evidence-and-citation-truth-boundary)
-10. [Dynamic catalog and qualified references](#10-dynamic-catalog-and-qualified-references)
+8. [The data-access layer: in-process facts-store tools](#8-the-data-access-layer-in-process-facts-store-tools)
+9. [Fact states, provenance, and citation truth boundary](#9-fact-states-provenance-and-citation-truth-boundary)
+10. [Dynamic catalog and fact keys](#10-dynamic-catalog-and-fact-keys)
 11. [School coverage](#11-school-coverage-no-scope-gate)
 12. [The agent runtime (PydanticAI + LangGraph)](#12-the-agent-runtime-pydanticai--langgraph)
 13. [The deep-research subsystem (GPT-Researcher)](#13-the-deep-research-subsystem-gpt-researcher)
@@ -50,7 +50,8 @@
 35. [Risks & open questions](#35-risks--open-questions)
 36. [Student profile, documents & agent memory](#36-student-profile-documents--agent-memory)
 37. [Onboarding](#37-onboarding)
-38. [The CDS extraction pipeline & admin surface](#38-the-cds-extraction-pipeline--admin-surface)
+38. [The CDS extraction pipeline & admin surface (parked)](#38-the-cds-extraction-pipeline--admin-surface-parked)
+39. [The CollegeData facts crawl pipeline & admin surface](#39-the-collegedata-facts-crawl-pipeline--admin-surface)
 
 ---
 
@@ -58,7 +59,7 @@
 
 ## 1. Guiding principles
 
-1. **Honesty lives in code, never in the LLM's head.** The packet boundary validates edition/domain identity, availability, typed values, compiled context, physical-PDF evidence, and canonical displays/caveats. The LLM composes already-safe facts and copies evidence markers; it never interprets packet JSON or repairs a rejected value. (ADRs 0006, 0032.)
+1. **Honesty lives in code, never in the LLM's head.** The fact-state boundary (§9) resolves every requested key to exactly one of five states, and the citation envelope enforces that Counselle's own data carries no fake source tier. The LLM composes already-safe, pre-formatted facts and copies their `display`/`vintage` verbatim; it never reformats a value or invents an absence phrase the code didn't hand it. (ADRs 0006, 0032, 0038.)
 
 2. **Use the stack's native seams; never wrap them.** Every major extension point we need already exists in a chosen tool: PydanticAI's `model=` *is* the model seam, MCP *is* the tool/transport seam, LangGraph's checkpointer protocol *is* the session-persistence seam, SKILL.md *is* the workflow seam, Tavily-behind-thin-tools *is* the search seam. A hand-rolled abstraction layered over any of these would be a shallow pass-through — interface as complex as the thing it hides, deletable without losing anything. Our own code adds exactly three seams the stack doesn't provide: the **domain core** (§4), the **event protocol** (§6), and the **configuration surface** (§18).
 
@@ -85,27 +86,27 @@
             │                     Counselle agent service (Python)                     │
             │  api/    — FastAPI edge: routes, SSE streaming, request context          │
             │  app/    — LangGraph orchestration, PydanticAI agents, research, skills  │
-            │  domain/ — packet/evidence/value types, caveats, season, event specs     │
+            │  domain/ — fact/value/state types, caveats, season, event specs         │
             └──────┬──────────────────────┬───────────────────────────┬────────────────┘
-                   │ MCP                  │ MCP / retriever           │ SQL (counselle-owned)
+                   │ in-process           │ MCP / retriever           │ SQL (counselle-owned)
         ┌──────────▼─────────┐  ┌─────────▼──────────┐   ┌────────────▼─────────────────┐
-        │ counselle-db       │  │ Tavily (search_web │   │ Postgres `counselle.*` schema│
-        │ MCP server         │  │ /_school_site      │   │  sessions/checkpoints,       │
+        │ counselle_db/       │  │ Tavily (search_web │   │ Postgres `counselle.*` schema│
+        │ app.facts          │  │ /_school_site      │   │  sessions/checkpoints,       │
         │ (read-only)        │  │ /_reddit)          │   │  users/workspace/checkpoints │
         └──────────┬─────────┘  └────────────────────┘   └──────────────────────────────┘
                    │ asyncpg (cds_library_reader, READ ONLY)
         ┌──────────▼───────────────────────┐
-        │ CDS Library Postgres 16          │
-        │ exactly five reader views        │
+        │ Facts-store Postgres 16          │
+        │ exactly six reader views         │
         └──────────────────────────────────┘
 ```
 
 **Request flow (the dossier wedge, canonical):**
 
 1. A message arrives on a session: question + **source-config** (§14). The API edge attaches a trace ID and request context, and hands it to the orchestrator.
-2. The orchestrator calls `resolve_school` before school-specific reads. **Not in the database → short-circuit**; otherwise the result supplies profile identity and selected-edition domain coverage. Material underspecification can produce a structured clarifying-question bundle (§12.1).
-3. `get_school_profile` serves stable identity groups; `get_domain` serves a usable current-manifest domain. Both return code-owned displays, availability, caveats, and registered evidence markers. `query_database` is reserved for parameterized cross-school candidate/aggregate work.
-4. Gaps the DB can't fill (this year's deadline, campus vibe) → the agent calls the three **Tavily search tools** (`search_web` / `search_school_site` / `search_reddit`) for the *enabled* sources, steering which to use (§14). *(The dedicated deep-research subagent + verification pass — §13 — is designed but not yet wired; the inline Tavily tools fill this gap in the meantime.)*
+2. The orchestrator calls `resolve_school` before school-specific reads. **Not in the database → short-circuit**; otherwise the result supplies identity plus a live-data summary (fact count, last-checked vintage, whether a CollegeData crawl exists at all, per-tab fetch status). Material underspecification can produce a structured clarifying-question bundle (§12.1).
+3. `get_school_profile` serves stable identity groups; `get_facts` serves this school's stored CollegeData facts, narrowed by section or exact key, each resolved to one of five states (§9). Both return code-owned displays and per-field provenance. `query_database` is reserved for parameterized cross-school candidate/aggregate work.
+4. Gaps the DB can't fill (this year's deadline, campus vibe, or a fact whose state is `not_reported`/`not_fetched`/`not_published`/`not_collected`) → the agent calls the three **Tavily search tools** (`search_web` / `search_school_site` / `search_reddit`) for the *enabled* sources, steering which to use (§14). *(The dedicated deep-research subagent + verification pass — §13 — is designed but not yet wired; the inline Tavily tools fill this gap in the meantime.)*
 5. The answer streams out as protocol events: text deltas with inline citation markers, **viz events** (§17), `step`/`thinking` work-visibility events (§27), then a final `done` event with sources + usage.
 
 ---
@@ -116,10 +117,10 @@ Chosen by surveying the frontier and picking proven pieces (never reinvent the w
 
 | Layer | Choice | Why (for us specifically) | ADR |
 |---|---|---|---|
-| **Agent runtime** | **PydanticAI** | Model-agnostic (`model=` from config — the model seam); native MCP client; typed outputs (the citation envelope *is* a `result_type`). | 0003 |
+| **Agent runtime** | **PydanticAI** | Model-agnostic (`model=` from config — the model seam); native MCP client capability, unused today now that the DB path is in-process (ADR 0038) — the seam remains available for GPT-Researcher's pluggable sources when §13 activates; typed outputs (the citation envelope *is* a `result_type`). | 0003 |
 | **Orchestration** | **LangGraph** | Multi-agent research subgraphs; checkpointer = session persistence (and the platform's chat history later). Clarifying questions are a PydanticAI typed-output lifecycle (§12.1). | 0003, 0035 |
 | **API edge** | **FastAPI** (+ SSE) | Matches the Python stack; typed request/response; streaming-native. | 0016 |
-| **Database access** | **`counselle-db` MCP server** (Python, asyncpg, `cds_library_reader`) | Four tools over five reader views; typed packet/evidence boundary and guarded SQL. | 0004, 0005, 0012, 0032 |
+| **Database access** | **In-process facts-store tools** (Python, asyncpg, `cds_library_reader`) closures over `counselle_db/service.py` | Four tools over six reader views; per-field fact-state honesty boundary and guarded SQL. No MCP transport on this path — ADR 0038 retires the standalone `counselle-db` MCP server once every caller is in-process. | 0005, 0012, 0032, 0038 |
 | **Deep research** | **GPT-Researcher** (embedded) | Only OSS deep-research with pluggable MCP sources (our DB first-class); best controllable cost. Designed but not yet wired — see §13. | 0009 |
 | **External search** | **Tavily** | One search+extract backend for web / .edu / Reddit, scoped by domain; also GPT-Researcher's retriever. No scraping of our own. | 0015 |
 | **Skills** | **SKILL.md** open standard | Portable workflow layer, loaded on demand. | 0010 |
@@ -136,18 +137,18 @@ Chosen by surveying the frontier and picking proven pieces (never reinvent the w
 
 | Layer | Package | Contains | May import |
 |---|---|---|---|
-| **Domain core** | `domain/` | Typed packet values, availability/evidence/citation/caveat models, render/clarify/source/event specs, and `admission_season(today)`. Pure functions and Pydantic models. **No I/O, no LLM calls, no LangGraph/FastAPI imports.** | stdlib, pydantic |
-| **Application** | `app/` | LangGraph/PydanticAI orchestration, source-config tool mounting, skills, live data-picture injection, evidence/source registry, and verified viz assembly. | `domain/`, the stack |
-| **Adapters** | `adapters/` (+ the separate `counselle-db` server) | Tavily search, email, checkpointer/provider integrations, and asyncpg access to the five reader views. | `domain/`, vendor SDKs |
+| **Domain core** | `domain/` | Typed fact/value/state models (`domain/facts/`), citation/caveat models, render/clarify/source/event specs, and `admission_season(today)`. Pure functions and Pydantic models. **No I/O, no LLM calls, no LangGraph/FastAPI imports.** The parked `domain/cds/` (manifest compile, packet build, claims, page math — §38) stays whitelisted in the same purity gate. | stdlib, pydantic |
+| **Application** | `app/` | LangGraph/PydanticAI orchestration, source-config tool mounting, skills, live data-picture injection, evidence/source registry, verified viz assembly, and the facts-store read/crawl services (`app/facts/`, §39). | `domain/`, the stack |
+| **Adapters** | `adapters/` | Tavily search, email, checkpointer/provider integrations, the CollegeData fetcher/parser (`adapters/collegedata/`, §39), and asyncpg access to the six reader views (`counselle_db/`). No standalone MCP server on this path — every DB call is in-process. | `domain/`, vendor SDKs |
 | **API edge** | `api/` | FastAPI routes, SSE encoding, request context (trace ID + optional principal), translation of graph output → protocol events. | `app/`, `domain/` |
 
 Rules of thumb (the seam discipline):
 
-- **The domain core is the deletion-test survivor.** Deleting it would scatter packet identity, availability, evidence, display, and caveat rules across tools and prompts. It is the most-tested code in the repo (§21).
+- **The domain core is the deletion-test survivor.** Deleting it would scatter fact-state, citation, display, and caveat rules across tools and prompts. It is the most-tested code in the repo (§21).
 - **One adapter = hypothetical seam; two = real.** We do not write interfaces for things with one implementation and no honesty stake. The model seam is real (Vertex/Anthropic — via PydanticAI, not ours). The search seam is the three thin tools (Tavily today; the tool signatures are the seam). The session seam is LangGraph's checkpointer protocol (theirs, not ours).
-- **No pass-through wrappers.** If a module's interface is as complex as what it hides, delete it.
-- **Accepted deviation (ADR 0017 as amended by ADR 0032):** `app/` imports `counselle_db/service.py` directly in-process for verified rendering and workspace reference checks. MCP remains the LLM tool-loop seam; there is no field reconciler.
-- **The CDS admin write path (ADR 0036, §38) follows the same four layers as a self-contained subsystem** — `domain/cds/`, `adapters/cds_*.py`, `app/cds/`, `api/routes/cds_admin.py` — and is additive to this table, not an exception to it. It is called out separately here only because it is the one place in the repo that writes `cds_library` at all; everywhere else in this table, "adapters" reading the five views is the entire pipeline-database story.
+- **No pass-through wrappers.** If a module's interface is as complex as what it hides, delete it. This is exactly why the standalone `counselle-db` MCP server was deleted (not parked) in ADR 0038: once every remaining caller of `counselle_db/service.py` was in-process anyway, the stdio child, its supervisor, and its restart backoff were a whole subsystem serving one caller — a shallow wrapper by this same rule.
+- **Accepted deviation (ADR 0017, now the norm rather than an exception since ADR 0038):** `app/` and the LLM tool loop both import `counselle_db/service.py` directly in-process; there is no separate MCP transport and no field reconciler for the facts-store read path.
+- **The CDS admin write path (ADR 0036, §38, now parked) followed the same four layers as a self-contained subsystem** — `domain/cds/`, `adapters/cds_*.py`, `app/cds/`, `api/routes/cds_admin.py` — additive to this table, not an exception to it. Its code stays in-tree and importable (PARKED.md) but is unmounted; it is called out separately only because, while live, it was the one place in the repo that wrote `cds_library` at all. **The CollegeData facts crawler (§39) is its live successor as the same kind of write path** — `adapters/collegedata/`, `app/facts/`, `api/routes/admin_facts.py` — over the same third DSN/role, repurposed rather than reprovisioned.
 
 ---
 
@@ -168,29 +169,36 @@ counselle/
 │       ├── greeting_templates.yaml / starter_prompts.yaml  # home-screen config (§32, GET /v1/config)
 │       ├── step_labels.yaml      # tool-call → work-visibility step labels (§27.1)
 │       ├── abbreviations.yaml    # school-name abbreviation expansion (used by resolve_school)
-│       └── data_picture.md       # live manifest/coverage prompt template
+│       ├── data_picture.md       # live facts-coverage prompt template
+│       └── facts_sections.yaml / facts_keys.yaml  # the facts catalog layout (§10)
 ├── domain/                       # the pure honesty core (§4)
-│   └── cds/                      # manifest compile, packet build, claims, page math — the CDS write-side honesty core (§38)
+│   ├── facts/                    # fact-state, normalized-value, and tab/page-status types (§9, §39)
+│   └── cds/                      # PARKED (ADR 0038, PARKED.md) — manifest compile, packet build, claims, page math (§38)
 ├── app/                          # orchestration: graph, agent node, steps/turns/records/transcript, skills
-│   └── cds/                      # extraction engine, job poller, ingest/review services (§38)
+│   ├── facts/                    # facts-page reads, Explore/Majors, the crawl pass, the crosswalk, the crawl-worker poller (§39)
+│   └── cds/                      # PARKED (ADR 0038, PARKED.md) — extraction engine, job poller, ingest/review services (§38)
 ├── adapters/                     # tavily tools, email adapter, embedding client (§4)
-│   ├── cds_gemini.py             # Vertex gemini-3.1-flash-lite extraction calls (§38)
-│   ├── cds_pdf.py                # PyMuPDF page ops (§38)
-│   └── cds_store.py / cds_admin_queries.py   # the only writer of cds_library base tables (§38)
+│   ├── collegedata/               # the CollegeData fetcher (httpx+tenacity, robots-checked) + page parser (§39)
+│   ├── facts_store.py / facts_jobs_store.py / admin_facts_queries.py   # the only writer of the facts-store base tables (§39)
+│   ├── cds_gemini.py             # PARKED (§38) — Vertex extraction calls
+│   ├── cds_pdf.py                # PARKED (§38) — PyMuPDF page ops
+│   └── cds_store.py / cds_admin_queries.py   # PARKED (§38) — the CDS write path's own writer
 ├── api/                          # FastAPI edge: routes, SSE, auth, request context
-│   └── routes/cds_admin.py       # /v1/admin/cds/*, current_superuser-gated (§38)
-├── counselle_db/                 # the counselle-db MCP server (own process; imports domain/) — read path only
-├── config/cds/                   # ported, versioned CDS manifest/prompt/domain YAMLs (§38)
+│   ├── routes/schools_facts.py   # facts page, Explore, Majors (§39)
+│   ├── routes/admin_facts.py     # /v1/admin/facts/*, current_superuser-gated (§39)
+│   └── routes/cds_admin.py       # PARKED (§38) — in-tree, unmounted; not routed by api/main.py
+├── counselle_db/                 # in-process facts-store service (no MCP transport) — read path only; imports domain/ for normalization
+├── config/cds/                   # PARKED (§38) — the ported, versioned CDS manifest/prompt/domain YAMLs, kept importable
 ├── skills/                       # SKILL.md files (§15)
-├── migrations/                   # Counselle-owned migrations for the counselle.* schema ONLY (0001–0015)
+├── migrations/                   # Counselle-owned migrations for the counselle.* schema ONLY
 ├── evals/                        # the eval question set + runner (§21)
 ├── frontend/                     # the React SPA (§31) — the sole protocol client
-├── scripts/                      # one-off utilities (setup_db.sql, chat_cli.py, smoke scripts)
-├── specs/                        # PRDs + execution plans (mvp1/, mvp2/, deep-research/)
+├── scripts/                      # one-off utilities (setup_db.sql, chat_cli.py, smoke scripts, the parked cds_* scripts)
+├── specs/                        # PRDs + execution plans (mvp1/, mvp2/, deep-research/, school-data-v3/)
 └── tests/
 ```
 
-The `counselle-db` MCP server ships in the same repo (it imports the domain core for normalization) but runs as its own process — already the right shape to split out later if ever needed.
+`counselle_db/` runs fully in-process — there is no separate MCP server process any more (ADR 0038 deletes the standalone `counselle-db` MCP server and its stdio transport, since every remaining caller of `counselle_db/service.py` was already in-process). `PARKED.md` is the authoritative list of every parked file, its import edges, and its revival steps.
 
 ---
 
@@ -245,99 +253,141 @@ The `counselle-db` MCP server ships in the same repo (it imports the domain core
 
 ---
 
-## 8. The data-access layer: the `counselle-db` MCP server
+## 8. The data-access layer: in-process facts-store tools
 
-*This section describes the agent's read path only. Since ADR 0036, Counselle
-also contains a separate, superuser-gated write path (§38) that produces the
-rows this section reads — on its own DSN and Postgres role, never touched by
-the agent runtime or the MCP server below.*
+*This section describes the agent's read path only. A separate, superuser-gated
+write path (§39) produces the rows this section reads — on its own DSN and
+Postgres role, never touched by the agent runtime. A second, parked write
+path (§38) shares the same database but is unmounted.*
 
-The standalone MCP server and its in-process service share one asyncpg catalog over
-the `cds_library_reader` contract. That role can select exactly five views:
-`school_profiles`, `active_cds_documents`, `active_cds_domain_packets`,
-`cds_document_sources`, and `cds_manifest_snapshots`. The agent path never imports
-pipeline-writer code or reads pipeline base tables — it only ever connects through
-`COUNSELLE_DB_RO_DSN`. The LLM sees exactly four tools:
+The agent's DB access is fully in-process (ADR 0038): `counselle_db/service.py`
+and `counselle_db/catalog.py` are called directly by the tool closures in
+`app/toolset.py`, over one asyncpg pool authenticated as `cds_library_reader`.
+That role can select exactly six views: `school_profiles`, `current_school_facts`,
+`school_facts_sql`, `school_explore`, `school_data_status`, and `fact_coverage`.
+The agent path never imports any writer code or reads a base table directly —
+it only ever connects through `COUNSELLE_DB_RO_DSN`. **There is no MCP server,
+no stdio child process, and no supervisor on this path any more** — ADR 0038
+deletes the standalone `counselle-db` MCP server outright once every remaining
+caller went in-process, on the same "no pass-through wrapper" ground ADR 0017
+already argued (§4). The LLM sees exactly four tools:
 
 | Tool | Purpose |
 |---|---|
-| `resolve_school(query)` | Resolve name/unitid and return safe identity plus selected-edition coverage, or ambiguity/not-found. |
-| `get_school_profile(unitid, groups?)` | Read dynamic stable profile groups with provenance and snapshot caveat. |
-| `get_domain(unitid, domain_id)` | Read one usable current-manifest domain for the selected document, with typed values/evidence/availability. |
+| `resolve_school(query)` | Resolve name/alias/abbreviation/unitid and return safe identity plus a live-data summary (fact count, last-checked vintage, whether a CollegeData crawl exists, per-tab fetch status), or ambiguity/not-found. |
+| `get_school_profile(unitid, groups?)` | Read dynamic stable profile groups (identity, contact, classification) with provenance and a snapshot caveat. |
+| `get_facts(unitid, sections?, keys?)` | Read this school's stored CollegeData facts, narrowed by section or exact key; narrowed calls resolve one of five states (§9) for every requested key, present or not. |
 | `query_database(sql, params)` | One guarded parameterized `SELECT`/`WITH` over the five views for candidate selection or aggregates. |
 
 The first three are the normal path. SQL results are not cited student truth: state
 the as-of and covered/total denominator, then re-fetch named final values through a
-typed read. The query guard enforces schema allowlisting, positional parameters,
-statement/row/serialized-byte limits, and rejects packet/PDF/provider payloads.
+typed read (`get_facts`/`get_school_profile`). The query guard (`counselle_db/sql_guard.py`)
+enforces schema allowlisting, positional parameters, and statement/row/serialized-byte
+limits.
 
-At startup the catalog validates exactly one current manifest. Manifest `5.1.0`
-(extraction contract 8) is the current immutable patch successor; domains,
-metric definitions, profile groups, labels, and counts are derived rather than copied
-into prompts or code.
-
----
-
-## 9. Packet, evidence, and citation truth boundary
-
-The active packet view explicitly includes every current-manifest domain, including a
-null packet. For a school, code selects the greatest `(academic_year, document_id)`
-document and pins every domain read to it—never merging an older edition to fill a
-hole. Typed parsing validates document/year/domain/manifest/hash identity, compatible
-extractor identifiers, physical page evidence, and value states while dropping
-provider contracts and diagnostics.
-
-Only `extraction_status=verified` plus `availability_status=reported` produces a
-student value. Verified `not_reported`, `not_applicable`, `suppressed`, and
-`not_in_template_version` states remain explicit unavailable claims with evidence;
-`not_extracted`, `conflict`, and `invalid` never carry a value. Displays and canonical
-caveat text are copied from code. Compiled context binders supply value-specific term,
-cohort, or snapshot vintage; prose instructions are never parsed to infer it.
-
-Every typed value exposes compact visible and internal evidence markers. The model
-copies both verbatim beside supported prose; the runtime registers the immutable PDF
-source and removes internal tokens before the student sees the answer. Live computed
-aggregates receive no fake source marker. Source chips use official school domains
-only for resolved DB schools; external official/community sources retain their own
-tier and provenance.
+At startup the catalog (`counselle_db/catalog.py`) builds one atomic, immutable
+snapshot: the section/group/fact layout from `config/assets/facts_sections.yaml`
+and `facts_keys.yaml`, plus live-derived counts and vintages read straight from
+the database. Fact keys, section ids, and school counts are always derived,
+never hardcoded — there is no manifest or extraction-contract version to pin
+on this path (that concept belongs to the parked CDS system, §38).
 
 ---
 
-## 10. Dynamic catalog and qualified references
+## 9. Fact states, provenance, and citation truth boundary
 
-The current manifest is the catalog. Metric IDs are only unambiguous as
-`<domain_id>.<metric_id>`; the typed packet boundary is the sole minting point for
-these refs. The same ref flows through domain results, evidence IDs, viz cells, and
-eval fixtures. Unknown refs are rejected rather than silently shown unavailable.
+**Every fact request resolves to exactly one of five states** (`domain/facts/state.py`'s
+`fact_state`, the single function every consumer — the facts HTTP endpoint,
+the agent's `get_facts`, the caveat emitter, and Explore's exclusion
+accounting — calls, so none re-derives a state from raw statuses on its own):
 
-The runtime injects a compact **data picture** derived from the current manifest,
-profile snapshot, selected-document editions, usable-domain coverage, and safe
-aggregate counts. It guides routing without putting packets, metric inventories, or
-values into ambient context. Current-cycle deadlines and facts beyond the CDS edition
-route to official web search even when a packet exists.
+| State | Meaning |
+|---|---|
+| `value` | A reported value is on file. |
+| `not_reported` | The page carrying this fact was read successfully and the fact was blank there — a real, present observation of absence, not a gap. |
+| `not_fetched` | The page could not be read on the last check, or has never been checked — the value's presence is genuinely unknown. |
+| `not_published` | The school's CollegeData profile does not have this page at all. |
+| `not_collected` | No CollegeData crawl exists for this school at all (`resolve_school`'s `has_collegedata: false`). |
+
+These five make different claims about *why* a number is missing, and the
+model must never collapse them into one "not available" phrase — `not_reported`
+is not `not_fetched`, and neither is "not in our database" for a school that
+resolved at all. A legitimate `0` or `False` value is a real, present
+`NormalizedValue` and always renders at full weight; it is never treated as
+absent. Each fact carries its own `observed_at` (when Counselle last checked
+the page it lives on) and, where CollegeData states one, a `reported_period` —
+there is no shared edition or manifest vintage across facts the way the
+parked CDS packet model had; every value's vintage is its own.
+
+**Scraped facts are Counselle's own data, deliberately.** A `db`-sourced
+citation carries `source: "db"` and `tier: null` — no source label, no
+attribution, no evidence marker is ever surfaced to the student (the citation
+envelope enforces this: a `db` citation with a non-null tier fails validation).
+Lineage from the raw CollegeData snapshot to the stored fact is kept
+internally (`page_snapshots.body`, retained only for "why did this change"
+debugging) and never rendered verbatim or exposed through any API. External
+sources (`web` / `edu` / `reddit`) keep their own tier and provenance, unchanged.
+
+**No composite score is ever synthesized.** Distributions (GPA/SAT/ACT bands,
+selection factors, class sizes, ethnicity) are stored structured for a future
+chancing engine, but nothing in this path computes or presents a derived
+"chance" or ranking number from them.
+
+**There is no RAG anywhere in this path.** Facts are read straight through
+the six typed views above — never embedded, chunked, or retrieved by
+similarity; the same is true of the parked CDS pipeline's own read model.
+
+---
+
+## 10. Dynamic catalog and fact keys
+
+The catalog snapshot (`counselle_db/catalog.py`'s `CatalogSnapshot`) is the
+one source of section/group/fact layout, compiled once at boot from
+`config/assets/facts_sections.yaml` and `facts_keys.yaml`. A fact is
+addressed by its exact `<domain>.<name>` key (e.g. `identity.address`); an
+unknown section or key fails with the valid list for that school, retried
+rather than silently shown unavailable. Section ids, fact-key counts, and
+per-school coverage are always derived from the live database at startup —
+never a hardcoded inventory or a versioned manifest, unlike the parked CDS
+system's manifest/packet contract (§38).
+
+The runtime injects a compact **data picture** (`app/prompt.py`'s
+`render_data_picture`) derived from the catalog snapshot: profile-snapshot
+date range, the facts-updated range across schools, how many schools have
+any CollegeData facts, the fact-key count, the section menu, and a
+stale-facts count. It guides routing without putting raw facts or a full key
+inventory into ambient context. Current-cycle deadlines and anything beyond
+what CollegeData reports route to official web search even when a school has
+facts on file.
 
 ---
 
 ## 11. School coverage (no scope gate)
 
-Any row in `school_profiles` is in scope; an absent school receives the explicit
-not-in-database response. Coverage is selected-edition and current-manifest based:
+Any row in `school_profiles` is in scope; an absent school receives the
+explicit not-in-database response — there is no tracked-school gate (ADR 0002).
+Coverage for a resolved school is a **fact-count, not an edition, question**:
 
-- **covered:** at least one domain row for the selected document has an accepted packet;
-- **fully:** accepted packets equal the current domain count and none is partial;
-- **partial:** covered but not fully.
+- `resolve_school` and `school_data_status` report whether a CollegeData crawl
+  has ever run for this school (`has_collegedata`), how many facts it holds,
+  when they were last checked, and each tab's own fetch status.
+- A school with `has_collegedata: false` has no facts at all — say "not
+  collected," not "reports nothing," and route to web/.edu search.
+- A school with facts still has per-key gaps, each resolved to one of the
+  five states in §9 rather than a blanket "partial" edition state — there is
+  no accepted/partial-packet or stale-edition concept on this path (that
+  belongs to the parked CDS system, §38).
 
-Usable domains are those the typed coverage result permits. No document, no accepted
-packet, partial packet, stale edition, and current-definition mismatch remain distinct
-states with code-owned caveats. Missing/current values fall back to the school's
-official site/search with disclosure; cross-school comparisons disclose edition
-mismatch and aggregate denominators.
+Missing or current-cycle values fall back to the school's official site or
+web search with disclosure; cross-school comparisons (`query_database`,
+`fact_coverage`) disclose the covered/total denominator for whatever fact key
+was bound as a parameter, never a raw unqualified count.
 
 ---
 
 ## 12. The agent runtime (PydanticAI + LangGraph)
 
-(ADR 0003, amended by ADR 0035.) PydanticAI defines each agent with `model=` from config, native MCP connections, and typed outputs. LangGraph orchestrates: state passing and session persistence via the checkpointer (§7). Clarifying questions are now a structured PydanticAI output path, not the product's live `interrupt()` lifecycle.
+(ADR 0003, amended by ADR 0035, ADR 0038.) PydanticAI defines each agent with `model=` from config, function tools (§8, §14), and typed outputs — no MCP connection is wired today (ADR 0038 retired the last one, the DB path). LangGraph orchestrates: state passing and session persistence via the checkpointer (§7). Clarifying questions are now a structured PydanticAI output path, not the product's live `interrupt()` lifecycle.
 
 The **counselor** agent is the primary agent. The **researcher** and **verifier** agents are designed (§13) but not yet wired — they are part of the deep-research follow-up (`specs/deep-research/plan.md`). Parallel research subgraphs attach when that subsystem is activated.
 
@@ -394,7 +444,7 @@ reply response server-side. The continuation is A2, a new assistant record with
 
 Embedded as a research subagent inside the LangGraph orchestrator — not adopted wholesale, and **not** a hosted research black box (our DB must be a first-class source; our model routing and source tiering must apply). (ADR 0009; bake-off in `docs/research/deep-research-bakeoff.md`.)
 
-**Cost-optimized configuration (added with the deep-research follow-up):** three model tiers — `FAST_LLM`/`STRATEGIC_LLM` → Gemini 2.5 Flash, `SMART_LLM` → Gemini 2.5 Pro, escalatable per question; hard depth/breadth/concurrency caps. **DB-first does the heavy lifting:** web research fills gaps or current-cycle facts the selected profile/domain contract cannot support.
+**Cost-optimized configuration (added with the deep-research follow-up):** three model tiers — `FAST_LLM`/`STRATEGIC_LLM` → Gemini 2.5 Flash, `SMART_LLM` → Gemini 2.5 Pro, escalatable per question; hard depth/breadth/concurrency caps. **DB-first does the heavy lifting:** web research fills gaps the facts store cannot support — a key whose state is `not_reported`/`not_fetched`/`not_published`/`not_collected` (§9), or a current-cycle fact CollegeData does not carry at all.
 
 **What we add (already PRD features):** source-type tagging (each source tags `official`/`community`, carried into citations), the **verification pass** (a cheap post-pass cross-checking the top 2–3 cited sources before stating a fact), and the eval set (§21).
 
@@ -404,7 +454,7 @@ Embedded as a research subagent inside the LangGraph orchestrator — not adopte
 
 ## 14. External search & source control
 
-(ADR 0015.) All three external searches are **one backend — Tavily — scoped by domain**, as three thin tools. Nothing is scraped by us. The DB is the fourth, always-on source; search fires when selected profile/domain data is unavailable or when deadlines/current-cycle facts exceed the CDS edition.
+(ADR 0015.) All three external searches are **one backend — Tavily — scoped by domain**, as three thin tools. Nothing is scraped by us on this path — the facts crawler's own scraping (§39) is a separate, offline, LLM-free ingestion process, not a search tool the agent calls. The DB is the fourth, always-on source; search fires when a requested fact resolves to an unavailable state (§9) or when deadlines/current-cycle facts exceed what the facts store carries.
 
 | Tool | Scope | Tier |
 |---|---|---|
@@ -434,19 +484,19 @@ The primary composer mode is also skills-backed. `/v1/config` exposes a separate
 - **Citation UX:** lightweight **inline expandable markers** — each claim gets a marker with an official/community chip; expanding reveals source, vintage, caveat. The `sources` event (§6) carries the turn's full deduplicated list.
 - **Recency is per-value** (the vintage resolver) plus three always-available temporal facts, none guessed by the model:
   - **Today's date** — injected by the runtime each request.
-  - **The live data picture** (§10) — manifest/profile snapshot, selected-edition and coverage context. The agent routes DB-vs-web without a hardcoded calendar.
+  - **The live data picture** (§10) — profile snapshot range, facts-updated range, school/fact-key counts, and section menu. The agent routes DB-vs-web without a hardcoded calendar.
   - **The admission season** — `admission_season(today)` (pure, in `domain/`; the phase table is a data asset) → cycle phase + active entering class. Jun–Jul = list-building/essay prep; Nov = early deadlines; Mar–Apr = decisions; etc.
-- **Boundary (KISS):** season awareness is *context*, not a deadline tracker (process management is deferred, PRD). School-specific dates are **data** — CDS fields or live web, fetched and cited like any value, never inferred from the generic calendar.
+- **Boundary (KISS):** season awareness is *context*, not a deadline tracker (process management is deferred, PRD). School-specific dates are **data** — facts-store fields or live web, fetched and cited like any value, never inferred from the generic calendar.
 
 ---
 
 ## 17. Visualizations
 
-(ADRs 0014, 0024, 0032.) Viz protocol v2 has an open type seam. Known `stat_block` and `comparison_table` cards render natively; unknown opaque types degrade safely. A cell must be a qualified metric ref, a profile ref, a registered external value, or explicit unavailable.
+(ADRs 0014, 0024, 0032, 0038.) Viz protocol v2 has an open type seam. Known `stat_block` and `comparison_table` cards render natively; unknown opaque types degrade safely. A cell must be a qualified fact key (`<domain>.<name>`), a profile ref, a registered external value, or explicit unavailable.
 
-**The provenance boundary:** the model proposes shape and references; code fetches DB/profile refs and verifies registered external values. Rejected refs must be corrected, never converted into unavailable. No trend chart may imply editions the data does not contain.
+**The provenance boundary:** the model proposes shape and references; code fetches DB/profile refs and verifies registered external values. Rejected refs must be corrected, never converted into unavailable. No comparison may imply a shared vintage the data does not have — each fact's own `observed_at` is carried through.
 
-**Mechanism:** `render_viz` resolves metric refs through `get_domain`, profile refs through `get_school_profile`, external refs through the source registry, and unavailable cells without lookup. The backend stages/deduplicates successful specs and returns only a compact acknowledgment to the model. Clients render canonical displays and provenance; unknown card types use the generic fallback.
+**Mechanism:** `render_viz` resolves fact-key cells through `get_facts` (one call per school, batched across every cell that school needs), profile refs through `get_school_profile`, external refs through the source registry, and unavailable cells without lookup. The backend stages/deduplicates successful specs and returns only a compact acknowledgment to the model. Clients render canonical displays and provenance; unknown card types use the generic fallback.
 
 **Accuracy guarantee:** no visible numeric/text value is accepted from an unregistered model literal. All-or-nothing validation prevents a partly truthful card.
 
@@ -461,7 +511,7 @@ The primary composer mode is also skills-backed. `/v1/config` exposes a separate
 | Group | Knobs |
 |---|---|
 | Models | per-agent `model=` — `model_counselor` (Quick), `model_counselor_think` (Think), `model_cheap`, `model_clarifier`, `model_title` (the cheap-tier auto-title model); counselor display/preview labels for `/v1/config`; `response_mode_think_enabled` (honest-disable switch: omit Think, never remap it); `thinking_stream` (bool — gates native Gemini thought-summary requests/display for Think, §27.2; **default on**; `thinking_summaries` remains a compatibility alias only; see `config/settings.py`); `agent_max_model_requests`; provider credentials; per-model prices including Pro's >200K tier. Researcher/verifier knobs, GPT-Researcher's `FAST/STRATEGIC/SMART` tiers, and a LiteLLM sidecar endpoint are added with the deep-research follow-up (§13). |
-| Database | CDS Library reader-login DSN, application DSN, statement/row/byte limits, pool sizes |
+| Database | facts-store reader-login DSN, facts-crawler/pipeline DSN, application DSN, statement/row/byte limits, pool sizes |
 | Counselle schema | `counselle.*` DSN, checkpointer on/off (memory for tests), session TTL/cleanup |
 | Sources | default source-config (web/Reddit/.edu on/off), Tavily key, per-tool result limits |
 | API | host/port, CORS origins, SSE keepalive, protocol version |
@@ -474,11 +524,11 @@ live-derived school count is read from `Catalog.school_count` (not a Settings
 literal); password length is `password_min_length`; the thinking splitter uses
 `thinking_threshold_chars`; production CORS defaults to an empty `cors_origins` list.
 
-**2. Versioned data assets (`config/assets/`).** Editorial prompts (including the live data-picture template), subreddit menu, and season calendar. Reviewable in diffs, no magic strings in control flow.
+**2. Versioned data assets (`config/assets/`).** Editorial prompts (including the live data-picture template), the facts catalog layout (`facts_sections.yaml`, `facts_keys.yaml`), subreddit menu, and season calendar. Reviewable in diffs, no magic strings in control flow.
 
-**3. Live-derived from the DB (never configured, never hardcoded).** Current manifest/domains, profile groups/snapshot, selected editions, coverage, evidence, and school URLs.
+**3. Live-derived from the DB (never configured, never hardcoded).** The fact-key/section catalog snapshot, profile groups/snapshot, per-school fact counts and vintages, coverage, and school URLs.
 
-**What may be hardcoded:** only invariants — packet/availability/evidence validation, versioned protocol schemas, and SQL safety.
+**What may be hardcoded:** only invariants — fact-state resolution, citation validation, versioned protocol schemas, and SQL safety.
 
 ---
 
@@ -488,7 +538,7 @@ Cheap on day one, brutal to retrofit:
 
 - **Structured logging (structlog)** — JSON logs; a **trace ID** minted per request at the API edge rides through the graph, tools, and research subagent, and is returned in the `meta`/`error` events. Never log secrets (house rule); never log full student messages at INFO.
 - **Per-request usage accounting** — every model call's tokens (PydanticAI exposes usage) and Tavily/research calls roll up into the turn's `usage` event and a log line: per-session and per-turn cost visibility from the first day, which is also how the research cost caps get verified in practice.
-- **Health** — `GET /v1/health` checks process/database reachability, checkpointer, and the MCP child supervisor. Turn-registry and limiter counters remain best-effort process state.
+- **Health** — `GET /v1/health` checks process/database reachability and the checkpointer. There is no MCP child supervisor to report on any more — the DB path is fully in-process (ADR 0038). Turn-registry and limiter counters remain best-effort process state.
 - Metrics/dashboards are a platform-phase concern; the structured logs are designed so that adding them is aggregation, not re-instrumentation.
 
 ---
@@ -498,10 +548,10 @@ Cheap on day one, brutal to retrofit:
 **Nothing may block containerized deployment** — deployability is a property, not a phase. The full-stack app deployment delta (same-origin SPA serving, the amended statelessness clause, entrypoint migrations) is §33. The points below describe the as-designed deployability.
 
 - **12-factor:** all config comes from the environment; durable state lives in Postgres (`counselle.*`), so the service can restart or move safely.
-- **One container** (a `Containerfile` from day one) running the API service; the `counselle-db` MCP server runs as a child process inside it, supervised by `api/supervision.py` (`McpSupervisor`: exponential-backoff restart, status on `/v1/health`).
-- **Migrations** (`migrations/`, chain 0001–0006 over `counselle.*` only). Migration-on-boot via the container entrypoint is planned per §33; until then, `uv run yoyo apply` is run manually before first launch.
-- **Secrets** in `.env`/secret manager only; shared with the pipeline **credentials only** (the read-only DSN + Vertex/GCP keys) — no shared code, config, or runtime dependency. The DB is the contract.
-- **Read-only boundary** — the reader LOGIN can select exactly the five `cds_library` views; the separate application DSN owns only `counselle.*`. (ADRs 0012, 0032.)
+- **One container** (a `Containerfile` from day one) running the API service. There is no second process to supervise any more: the facts-store read path is fully in-process, and the CollegeData facts crawl-pass worker (§39) runs as an `asyncio` task inside the same FastAPI lifespan (ADR 0023's one-deployable constraint) — the parked CDS extraction worker's own lifespan start/stop call was removed when it was parked (§38), so it does not run alongside it.
+- **Migrations** (`migrations/`, over `counselle.*` only). Migration-on-boot via the container entrypoint is planned per §33; until then, `uv run yoyo apply` is run manually before first launch. The `cds_library` schema (identity profile + facts store, plus the parked CDS tables' preserved DDL) is provisioned separately from `deploy/seed/`, not through this migration chain.
+- **Secrets** in `.env`/secret manager only; shared with the facts-store database **credentials only** (the read-only DSN + Vertex/GCP keys) — no shared code, config, or runtime dependency. The DB is the contract.
+- **Read-only boundary** — the reader LOGIN can select exactly the six `cds_library` views; the separate application DSN owns only `counselle.*`. (ADRs 0012, 0032, 0038.)
 
 ---
 
@@ -509,8 +559,8 @@ Cheap on day one, brutal to retrofit:
 
 (Per the PRD: test where lying to a student is possible; skip ceremony elsewhere. Behavior, not implementation.)
 
-- **The honesty core is the test surface.** Packet identity/compatibility, extraction and availability states, displays, compiled contexts, evidence, caveats, editions, and ref rejection receive deterministic tests.
-- **The eval set (`evals/`)** scores routing, coverage/edition/composition/denominator honesty, citations, clarify/narration quality, and workspace behavior; live roles derive from the data picture.
+- **The honesty core is the test surface.** Fact-state resolution (`fact_state`/`section_state`), value normalization, displays, caveats, citation validation (no tier on a `db` source), and fact-key rejection receive deterministic tests. The parked CDS honesty core (packet identity/compatibility, extraction/availability states, evidence, editions) keeps its own deterministic tests passing too — PARKED.md's requirement, not dead weight.
+- **The eval set (`evals/`)** scores routing, coverage/state/denominator honesty, citations, clarify/narration quality, and workspace behavior; live roles derive from the data picture.
 - **Runtime schema validation and shared protocol fixtures enforce the contract** — typed specs (envelope, render, clarify, events) validate at runtime via Pydantic, while the small checked-in backend/frontend fixtures catch Python↔TypeScript drift without a separate contract-test service.
 - **Three pytest marker tiers** (`pyproject.toml`): `live_db`, `live_search`, and `live_llm`. Routine runs exclude all three.
 - **Response-mode verification:** routine tests pin server-side mode routing,
@@ -527,20 +577,20 @@ Cheap on day one, brutal to retrofit:
 
 | PRD feature | Component(s) |
 |---|---|
-| DB access | four `counselle-db` tools over five reader views (§8, §10) |
+| DB access | four in-process facts-store tools over six reader views (§8, §10) |
 | Web / Reddit / .edu search | Tavily, 3 domain-scoped tools; Reddit agent-steered (§14) |
 | Source-control dropdown | per-request source-config gating the toolset (§14) |
 | Deep research + verification | GPT-Researcher subagent + verification pass (§13) — designed; activates with the follow-up plan |
 | Citations (official vs community) | citation envelope `tier` (§9); `sources` event (§6) |
 | Citation UX (inline expandable markers) | `delta` markers + `sources` event; client renders (§6, §16) |
-| Recency & temporal awareness | compiled contexts + selected edition + live data picture + injected date + `admission_season` (§9, §16) |
+| Recency & temporal awareness | per-fact `observed_at`/`reported_period` + live data picture + injected date + `admission_season` (§9, §16) |
 | Clarifying questions | PydanticAI `ask_student` typed output → durable A1 `clarify` event → A2 continuation (§12.1) |
 | In-session working memory | LangGraph state via Postgres checkpointer (§7) |
 | Skills | SKILL.md in `skills/` (§15) |
 | Visualizations | `render_viz` → render spec → `viz` event → dumb components (§17) |
 | Model configurability | per-agent `model=` from Settings (§18) |
-| School coverage | selected-edition, current-manifest coverage; in-DB-or-not boundary (§11) |
-| Honesty / no-misread | packet/evidence anti-corruption boundary (§9, §21) |
+| School coverage | per-school fact count/vintage, has-CollegeData-crawl boundary (§11) |
+| Honesty / no-misread | five-state fact boundary + no-fake-tier citation rule (§9, §21) |
 | Product client | `frontend/` React SPA — the sole protocol client (§31) |
 | Work visibility (steps / thinking) | `step` + `thinking` events; `app/steps.py` (`StepMapper`/`EmissionRouter`), `domain/events.py` (§27.1–27.2) |
 | Resume & cancel | the turn registry `app/turns.py` (Last-Event-ID reattach, `POST .../cancel`); the self-contained turn record `app/records.py` (§27.3, §27.7) |
@@ -580,9 +630,10 @@ The discipline: **every platform feature lands as new adapters/rows/clients agai
 | `COUNSELLE_JWT_SECRET` missing or too short | Fail-fast validated at boot (≥32 bytes); the service refuses to start. Set it before first launch — the most likely first-boot failure (§32). |
 | Deep-research cost blowup *(future — §13)* | When activated: DB-first + depth/breadth caps + cheap-model tiers + per-question cost ceiling + usage accounting making spend visible per turn (§19). |
 | GPT-Researcher has no published citation-accuracy benchmark *(applies when §13 activates)* | The eval set, measured before launch. |
-| CDS sparsity → missing domains/values | Distinct availability states plus official-site fallback with disclosure (§11). |
+| Facts-store sparsity → missing sections/keys | Five distinct fact states plus official-site fallback with disclosure (§9, §11). |
 | Checkpoint/session data growth | Configurable TTL/cleanup (§7, §18); rows are cheap until they aren't — knob exists from day one. |
-| Pipeline publication changes domains/coverage | Catalog and coverage derive from immutable current manifest/views; contract checks reject an invalid pointer. |
+| Daily crawl changes a school's fact-key set | The catalog snapshot is rebuilt from the live database at boot; an unknown key at request time fails with the current valid list rather than serving a stale key inventory (§10). |
+| CollegeData Terms-of-Use exposure (contractual, not technical — ADR 0038 Risk R0) | Robots-respecting, rate-limited, honestly-identified fetcher; no evasion, no bulk export, no raw-snapshot exposure. Accepted knowingly pending final owner ratification — not eliminated by any mitigation. |
 | Config sprawl / drift | One `Settings` surface, fail-fast validation, `.env.example` as the documented inventory (§18). |
 
 ---
@@ -619,7 +670,7 @@ The agent service was built API-first precisely so the full-stack app layer woul
               │  domain/   UNCHANGED — the honesty core ships as-is         │
               └────────────────┬─────────────────────────────────────────────┘
                                │  everything below identical to Part I, §2
-                  (counselle-db MCP · Tavily · Postgres counselle.* · pipeline DB read-only)
+              (in-process facts-store tools · Tavily · Postgres counselle.* · facts-store read-only)
 ```
 
 **Principles of the full-stack app layer (deltas to Part I, §1):**
@@ -1213,32 +1264,44 @@ against the other's already-applied change instead of clobbering it.
 
 ---
 
-## 38. The CDS extraction pipeline & admin surface
+## 38. The CDS extraction pipeline & admin surface (parked)
 
-(ADR 0036.) Counselle contains a second subsystem beside the agent: a
-superuser-gated write path that produces the `cds_library` rows the agent's
-read path (§8, §9) consumes. It follows the same four-layer discipline as the
-rest of the app (§4), isolated from the agent by both code and, more
-strongly, by Postgres role and DSN — a bug in this subsystem cannot let the
-agent's own connections write, because the agent's pool is never given the
-write role's credentials.
+(ADR 0036, parked by ADR 0038.) Counselle still contains a second subsystem
+beside the agent: a superuser-gated write path that used to produce the
+`cds_library` rows the agent's read path once consumed via a packet/evidence
+model. **It is parked, not deleted** — its code stays in-tree, importable,
+and unit-tested; nothing from it is mounted or started at runtime; its live
+tables were dropped, with both DDL and data preserved. `PARKED.md` is the
+authoritative register: exact file list, the nine import edges into it that
+must stay stable, and the bounded revival procedure. This section describes
+the architecture as built, for a reader deciding whether reviving it is
+worth the cost — not a live system.
 
-**Three DSNs, three roles, one database.** The agent path (§8) connects as
-`cds_library_reader` over `COUNSELLE_DB_RO_DSN` — `SELECT` on exactly the five
-reader views, nothing else. Counselle's own application state connects as
-`counselle_app` over `COUNSELLE_DB_APP_DSN` — read-write, but only inside
-`counselle.*`, never `cds_library`. This subsystem adds a third: `cds_library_app`
-over `COUNSELLE_DB_PIPELINE_DSN` — `INSERT, SELECT, UPDATE` (never `DELETE`) on
-the eight `cds_library` base tables the five reader views are built from.
-Every route in this subsystem sits behind the pre-existing `current_superuser`
-dependency (ADR 0021); there is no path from an ordinary authenticated
-session into it. If this DSN is set but the pipeline database is briefly
-unreachable at boot, pool creation fails locally and the pipeline pool
-degrades to unavailable rather than failing the whole app's startup — chat,
-auth, and workspace all still serve; only the CDS admin router returns its
-documented clean 503 until the DSN is reachable again.
+It followed the same four-layer discipline as the rest of the app (§4),
+isolated from the agent by both code and, more strongly, by Postgres role and
+DSN — a bug in this subsystem could not let the agent's own connections
+write, because the agent's pool was never given the write role's
+credentials. **That role isolation is why parking it was safe**: dropping
+its tables and unmounting its router touches no code path the agent or the
+facts crawler (§39) depends on.
 
-**Layout, mirroring the read side's layering:**
+**Three DSNs, three roles, one database — while this subsystem was live.**
+The agent path (§8) connects as `cds_library_reader` over `COUNSELLE_DB_RO_DSN`
+— `SELECT` on exactly the six reader views, nothing else. Counselle's own
+application state connects as `counselle_app` over `COUNSELLE_DB_APP_DSN` —
+read-write, but only inside `counselle.*`, never `cds_library`. This
+subsystem added a third: `cds_library_app` over `COUNSELLE_DB_PIPELINE_DSN` —
+`INSERT, SELECT, UPDATE` (never `DELETE`) on the seven CDS-specific
+`cds_library` base tables. **That third role and DSN are not idle** — ADR
+0038 repurposes them, unchanged in shape, to drive the CollegeData facts
+crawler instead (§39); the two writers are mutually exclusive at runtime
+(`COUNSELLE_CDS_WORKER_ENABLED=false` while `COUNSELLE_FACTS_WORKER_ENABLED`
+gates the crawler), never both live against the same DSN at once. Every
+route in this (now-unmounted) subsystem sat behind the pre-existing
+`current_superuser` dependency (ADR 0021); there was no path from an
+ordinary authenticated session into it.
+
+**Layout, mirroring the read side's layering (all parked, importable, unmounted):**
 
 ```
 domain/cds/            manifest compile, packet build, page math, claims —
@@ -1272,51 +1335,58 @@ frontend/src/features/cds-admin/
                         nested inside the existing workspace shell
 ```
 
-**The extraction engine.** A candidate document (an uploaded CDS PDF) is
-routed to the domains/pages an extraction job requests, then extracted
-through one-shot, schema-constrained Vertex calls — inline PDF,
-`response_schema` strict JSON, temperature 0 — using a model id read from
-Settings, never a literal. Large documents are page-routed rather than sent
-whole; a lease with background renewal, not a hard per-call page cap, is the
-load-bearing mitigation for pathological page counts.
+**The extraction engine (as built; not running).** A candidate document (an
+uploaded CDS PDF) was routed to the domains/pages an extraction job
+requested, then extracted through one-shot, schema-constrained Vertex calls —
+inline PDF, `response_schema` strict JSON, temperature 0 — using a model id
+read from Settings, never a literal. Large documents were page-routed rather
+than sent whole; a lease with background renewal, not a hard per-call page
+cap, was the load-bearing mitigation for pathological page counts.
 
-**The job poller.** `app/cds/jobs.py`'s `Poller`, started from the FastAPI
-lifespan and stopped before the pools it depends on close, claims and runs
-extraction jobs using
-lease/claim columns on `cds_extractions` — no Celery, no Redis, no second
-container (ADR 0023, one deployable). It is a no-op, not a startup failure,
-when `COUNSELLE_DB_PIPELINE_DSN` is unset or the `cds_worker_enabled` kill
-switch (default on) is off. On boot it sweeps any extraction a prior process
-abandoned mid-run to a terminal `failed`/`worker_lost` state so it is
-re-runnable rather than stuck.
+**The job poller.** `app/cds/jobs.py`'s `Poller` is importable and unit-tested
+but is never started — `api/main.py` no longer imports it or calls its
+lifespan start/stop (that was the mechanism of "unmounted": seven lines
+removed, named in `PARKED.md`'s revival steps). While live it claimed and ran
+extraction jobs using lease/claim columns on `cds_extractions` — no Celery,
+no Redis, no second container (ADR 0023, one deployable) — and swept any
+extraction a prior process abandoned mid-run to a terminal
+`failed`/`worker_lost` state. `COUNSELLE_CDS_WORKER_ENABLED` now defaults to
+`false`, and even if flipped true it would not start anything by itself,
+since the lifespan call that started it is gone; see `PARKED.md` for what a
+revival re-adds.
 
-**The write is never trusted by convention.** Every packet this engine
-builds — a model extraction or a human correction — is round-tripped through
-the reader's own `parse_packet_row()` (§9) inside the same transaction,
-before COMMIT. If the read path would reject it, the write aborts. This is
-the same anti-corruption boundary the agent's read path relies on, exercised
-against the writer at write time rather than trusted separately. Packets are
-tagged with one of two extractor identities added to the allow-list
-alongside the legacy `gemini-*` identities: `counselle-cds-v1` for model
-extractions, `human-review-v1` for admin corrections that are new rows, not
-mutations — `cds_domain_packets` has a BEFORE UPDATE immutability trigger
-that makes new-row-per-correction the only possible shape.
+**The write was never trusted by convention.** Every packet this engine
+built — a model extraction or a human correction — was round-tripped through
+the reader's own `parse_packet_row()` (`counselle_db/packets.py`, still
+importable — it is import edge #2 in `PARKED.md`) inside the same
+transaction, before COMMIT: if the read path would reject it, the write
+aborted. That was the same anti-corruption boundary the agent's read path
+relied on, exercised against the writer at write time rather than trusted
+separately. Packets carried one of two extractor identities on the
+allow-list alongside the legacy `gemini-*` identities: `counselle-cds-v1` for
+model extractions, `human-review-v1` for admin corrections that were new
+rows, not mutations — `cds_domain_packets` had a BEFORE UPDATE immutability
+trigger that made new-row-per-correction the only possible shape.
 
-**Manifest publish and drift.** The manifest snapshot table is immutable by
-trigger (row-level `INSERT`-then-flip, never `UPDATE` of a published row's
-content); publishing a new version is a dedicated script
-(`scripts/publish_cds_manifest.py`), not an admin-UI action — an advisory
-lock, a refusal if the target version already exists with different content,
-a refusal if any extraction is mid-flight, a dry-run diff by default, and an
+**Manifest publish and drift (as built).** The manifest snapshot table was
+immutable by trigger (row-level `INSERT`-then-flip, never `UPDATE` of a
+published row's content); publishing a new version was a dedicated script
+(`scripts/publish_cds_manifest.py`, still importable — parked in
+`PARKED.md`'s script list), not an admin-UI action — an advisory lock, a
+refusal if the target version already existed with different content, a
+refusal if any extraction was mid-flight, a dry-run diff by default, and an
 explicit flag to commit. A pre-flight drift guard
-(`app/cds/manifest.py`'s `verify_manifest_current()`) runs before any model
-spend on every extraction: if the compiled `config/cds/` no longer matches
-the published, current manifest, the job fails immediately with a distinct
-`manifest_drift` error and zero model calls are made.
+(`app/cds/manifest.py`'s `verify_manifest_current()`) ran before any model
+spend on every extraction: if the compiled `config/cds/` no longer matched
+the published, current manifest, the job failed immediately with a distinct
+`manifest_drift` error and zero model calls were made. `uv run python
+scripts/cds_manifest_check.py` still reproduces the same byte-identical hash
+from `config/cds/` on disk today, since that config directory is parked
+verbatim, not deleted.
 
-**Review and correction.** A newly uploaded document goes through
+**Review and correction (as built).** A newly uploaded document went through
 upload → detect (duplicate/mismatch checks) → extract → review → approve or
-reject, gated by `is_candidate`. Detection never fills a gap with a guess:
+reject, gated by `is_candidate`. Detection never filled a gap with a guess:
 the document's stated school name and year are nullable, and a document
 whose identity isn't actually grounded in its own text — a blank/illegible
 A0 section, or one that fails the independent "does page 1 even claim to be
@@ -1350,24 +1420,115 @@ reactivating it, so a domain a concurrent re-extraction already finished is
 never silently reverted back to the stale snapshot the approve request
 started with.
 
-**The admin surface.** Fourteen endpoints under `/v1/admin/cds/*`
-(`api/routes/cds_admin.py`), all `current_superuser`-gated: coverage (a grid
-of school × domain currentness), school listing, upload, job status, document
-detail and page images, metric edits, approve/reject, and rerun. Three
-screens in `frontend/src/features/cds-admin/` (coverage, upload, review) are
-nested inside the existing authenticated workspace shell (§31) and visible
-only to superusers — `AdminGate` redirects any other user away before the
-route renders.
+**The admin surface (in-tree, unmounted).** Fourteen endpoints were defined
+under `/v1/admin/cds/*` (`api/routes/cds_admin.py`), all `current_superuser`-
+gated: coverage (a grid of school × domain currentness), school listing,
+upload, job status, document detail and page images, metric edits,
+approve/reject, and rerun. The file and its route definitions still exist,
+but `api/main.py` no longer imports or mounts this router — hitting any of
+these paths 404s. Three screens in `frontend/src/features/cds-admin/`
+(coverage, upload, review) still exist too, nested inside the authenticated
+workspace shell (§31), but their `router.tsx` entries are removed, so they
+are unreachable from the UI; the sidebar entry that used to link to them
+now points at the facts admin screen instead (§39).
 
-**What this subsystem is not.** It is not a second agent, not a second model
-seam, and not reachable from any student-facing request path. The read
-contract in `docs/DATABASE_GUIDE.md` — the five views, the packet/evidence
-truth boundary, every honesty rule — describes the same data this subsystem
-writes, unchanged by its existence. Full operational history (cutover,
-manifest republish, database-pollution disposal, the live ship-gate proof)
-lives in `specs/cds-pipeline/plan/CUTOVER.md`, not here — this section describes
-the architecture, not a point-in-time build record.
+**What this subsystem is not, and was not.** It was never a second agent, a
+second model seam, or reachable from any student-facing request path. Its
+own read contract — the five reader views it fed, and the packet/evidence
+truth boundary — is retired; `docs/DATABASE_GUIDE.md` now documents the
+facts-store contract this subsystem's runtime role was replaced by (§8, §9),
+not this one. Full operational history while this subsystem was live
+(cutover, manifest republish, database-pollution disposal, the live
+ship-gate proof) lives in `specs/cds-pipeline/plan/CUTOVER.md`, not here —
+this section describes the architecture as built, not a point-in-time
+record, and `PARKED.md` is the authority on its current disposition.
 
 ---
 
-*Companions: `specs/mvp1/PRD.md` (agent service product spec), `specs/mvp2/PRD.md` (full-stack app product spec), `specs/user-onboarding/plan/` (onboarding plan and phase record), `docs/DATABASE_GUIDE.md` (the data contract), `docs/DEPLOY.md` (the deploy runbook), `docs/adr/` (decisions — Part I added ADRs 0016–0019; Part II added ADRs 0020–0031; hardening added ADR 0025; workspace/service and run/message parity added ADRs 0026–0030; profile/document/memory added ADR 0031; db-rewire to the CDS Library added ADR 0032; onboarding's reserved-settings-namespace and locked merge added ADR 0033; counselor response modes added ADR 0034; the in-app CDS extraction pipeline and admin write path added ADR 0036), `docs/research/` (stack survey). Keep this current as decisions change.*
+## 39. The CollegeData facts crawl pipeline & admin surface
+
+(ADR 0038.) The live successor to §38's write path: a free, LLM-free, daily
+scrape of CollegeData.com's own structured per-school data, over the same
+third DSN/role §38 used (`cds_library_app` / `COUNSELLE_DB_PIPELINE_DSN`),
+repurposed rather than reprovisioned. It follows the same four-layer
+discipline as the rest of the app (§4) and the same role/DSN isolation from
+the agent's own connections that made §38 safe to park.
+
+**The fetcher (`adapters/collegedata/fetch.py`).** No LLM anywhere in
+ingestion. `httpx` + `tenacity`, not a browser and not a scraping framework
+(ADR 0038's rationale rejects Crawlee, Scrapy, Playwright, and any
+evasion-postured client on both correctness and posture grounds — CollegeData
+serves this data to a bare `curl`, and evading detection would contradict
+the crawler's own good-faith posture). `robots.txt` is fetched fresh every
+pass and checked before every outbound URL — not a stale transcription.
+Identification is truthful: a `User-Agent` self-identifying with a contact
+URL, boot-validated to contain one. A single shared token bucket caps the
+whole crawl at 1 request/second, with adaptive backoff on rate-limit
+responses down to a five-minute floor. Sitemap and robots XML parse through
+`defusedxml`, not stdlib `xml.etree`, against untrusted input.
+
+**The mapper (`app/facts/mapper.py` + `mapper_handlers.py` /
+`mapper_table_handlers.py`).** Pure per-page computation: parses one fetched
+CollegeData page (`adapters/collegedata/parse.py`) into typed `FactRow`s
+(`domain/facts/models.py`) with no knowledge of a school id, a snapshot, or
+SCD2 history — those are attached at persistence time by the caller, keeping
+the mapper itself trivially testable against fixture pages.
+
+**One crawl pass, one transaction per school.** `app/facts/crawl.py`'s
+`run_crawl_pass` — called both by the in-process poller below and by
+`python -m app.facts --once` — does discovery → a six-tab fetch per school →
+mapper → one transaction per school → `adapters/facts_store.py`. Two crawl
+passes running at once is structurally impossible: a non-blocking
+`pg_try_advisory_lock` is held for the pass's whole duration, and a worker
+that cannot take it stamps its own job claim `error`/`pass_already_running`
+and returns without touching the pass owner's row. Storage is **SCD2,
+close-then-insert**: a changed fact's old row gets `valid_to = now()` in the
+same transaction that inserts its replacement, so a fact's full history is
+queryable, not just its current value. `python -m app.facts remap` re-runs
+only the mapper+SCD2 half over already-fetched `school_pages` snapshots — no
+network, no re-fetch — for when a mapping bug needs correcting without
+re-crawling.
+
+**The job poller (`app/facts/jobs.py`).** Copies §38's `app/cds/jobs.py`
+poller shape (boot sweep, transient-DB-error survival, background
+lease-renewal) with two deliberate differences: no concurrency semaphore (a
+partial unique index already guarantees at most one live pass) and a swept
+abandoned lease re-queues rather than fails forward, so the next claim
+resumes the same `crawl_runs` row instead of restarting the pass. Started
+from the FastAPI lifespan (`api/main.py`'s `start_facts_worker` call) — the
+only DB-writer poller the lifespan starts today, since the CDS poller's own
+lifespan call was removed when it was parked (§38). `start_facts_worker` is a
+no-op, not a startup failure, when the pipeline DSN is unset or
+`COUNSELLE_FACTS_WORKER_ENABLED` (default off) is false.
+
+**The admin surface.** Three endpoints under `/v1/admin/facts/*`
+(`api/routes/admin_facts.py`), all `current_superuser`-gated: `GET /status` (a
+bird's-eye view of the last runs and unmapped-label pressure), `GET
+/unmapped` (a paginated view of CollegeData labels the mapper doesn't yet
+recognize, so a coverage gap surfaces before it silently drops facts), and
+`POST /passes` (the "run a pass now" button, 409s if one is already
+queued/running). This is deliberately a much smaller surface than §38's
+fourteen endpoints — there is no per-document review/approve workflow here,
+because there is no per-document artifact to review: a crawl pass either
+updates a fact or leaves it as it was. The one screen this mounts replaces
+the CDS admin nav entry §38's `AdminGate`-protected routes used to occupy.
+
+**The crosswalk (`app/facts/crosswalk.py`).** The one-time, reviewed mapping
+from a CollegeData school slug to an IPEDS `unitid` is a committed CSV
+produced by a one-off, hand-reviewed adjudication script — never resolved by
+an LLM, at build time or at runtime —
+matching a slug to a `unitid` at crawl time would reintroduce exactly the
+per-request LLM cost this design avoids.
+
+**What this subsystem is not.** It is not a second agent and not reachable
+from any student-facing request path. It never publishes a workspace
+`ChangeEvent` (ADR 0027) — a crawl pass is not a per-user actor's mutation.
+It writes no composite score, no ranking, and no derived "chance" number from
+the distributions it stores (§9). Its Terms-of-Use exposure (CollegeData's
+browsewrap prohibition on commercial reuse) is a real, accepted, ongoing
+legal risk the mitigations above evidence good-faith operation against but
+do not eliminate (ADR 0038, Risk R0) — not a resolved question.
+
+---
+
+*Companions: `specs/mvp1/PRD.md` (agent service product spec), `specs/mvp2/PRD.md` (full-stack app product spec), `specs/user-onboarding/plan/` (onboarding plan and phase record), `specs/school-data-v3/` (the graduated facts-store plan and its divergence record), `docs/DATABASE_GUIDE.md` (the facts-store data contract — the six reader views, fact states, and honesty rules), `PARKED.md` (the parked CDS system's file list, import edges, and revival steps), `docs/DEPLOY.md` (the deploy runbook), `docs/adr/` (decisions — Part I added ADRs 0016–0019; Part II added ADRs 0020–0031; hardening added ADR 0025; workspace/service and run/message parity added ADRs 0026–0030; profile/document/memory added ADR 0031; db-rewire to the CDS Library added ADR 0032; onboarding's reserved-settings-namespace and locked merge added ADR 0033; counselor response modes added ADR 0034; the in-app CDS extraction pipeline and admin write path added ADR 0036; the CollegeData facts store, in-process DB tools, and CDS-parking decision added ADR 0038), `docs/research/` (stack survey). Keep this current as decisions change.*

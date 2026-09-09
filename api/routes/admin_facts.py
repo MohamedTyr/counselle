@@ -1,13 +1,13 @@
 """The school-data admin router (plan §5.5, D12): `GET /v1/admin/facts/status`,
 `GET /v1/admin/facts/unmapped`, `POST /v1/admin/facts/passes` — the minimal
 bird's-eye view of the CollegeData facts crawler that replaces the parked CDS
-admin nav entry (ADR 0037, `PARKED.md`).
+admin nav entry (ADR 0038, `PARKED.md`).
 
 Every route is gated by `current_superuser` at router level, mirroring
 `api/routes/cds_admin.py:45-49`. Thin translation only: `status` assembles
-`app.facts.service_admin.get_facts_status` (Unit E); `unmapped` pages the
+`app.facts.service_admin.get_facts_status`; `unmapped` pages the
 live `cds_library.school_facts` population via `adapters/admin_facts_queries`
-(this module's own adapter, kept separate from Unit E's
+(this module's own adapter, kept separate from
 `adapters/facts_queries.py` — see that file's docstring); `passes` enqueues
 through `adapters/facts_jobs_store.enqueue_now`, the same function `--once`
 uses.

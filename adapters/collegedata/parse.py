@@ -8,7 +8,7 @@ scalars (appendix E-ii §H) — and a **typed walk** that flattens that tree
 into `(source_path, label, raw)` leaves. It does *not* decide `fact_key`s,
 match labels against `config/assets/facts_keys.yaml`, or call
 `domain.facts.normalize` — that pattern-matching and normalization is
-`app/facts/mapper.py`'s job (Unit D), which consumes this module's typed
+`app/facts/mapper.py`'s job, which consumes this module's typed
 tree and walk as its raw material. Concretely:
 
 - A `LabeledTable`/`IconTable` row is walked as ONE leaf carrying the whole
@@ -29,11 +29,11 @@ decoded JSON.
 
 Node shapes and the header field list were verified 2026-09-07 against six
 live pages (Yale's overview/admission/money-matters/academics/campus-life/
-students tabs) — see the Unit C progress notes for the raw captures. Every
+students tabs). Every
 node's `data` key set is closed (`extra="forbid"`); the header model uses
 `extra="ignore"` so an as-yet-unseen header key on some other school's page
-degrades to "not parsed" rather than crashing the whole crawl pass — Unit
-D's mapper only ever sees keys this module declares, so a silently-ignored
+degrades to "not parsed" rather than crashing the whole crawl pass —
+`app/facts/mapper.py` only ever sees keys this module declares, so a silently-ignored
 new key is invisible to the mapper either way, never a silent product bug.
 """
 
@@ -420,7 +420,7 @@ def parse_page(tab: TabName, top_level: Mapping[str, JsonValue]) -> ParsedPage:
 class WalkedNode(BaseModel):
     """One flattened leaf from `walk_page`/`walk_header`. `raw` preserves
     the JSON shape as printed — a `list[str]` stays a list, a table row
-    keeps its `values`/`columns` pairing — so the mapper (Unit D) has every
+    keeps its `values`/`columns` pairing — so the mapper has every
     bit of structure it needs to decide the `fact_key`, split a sentence
     value into several facts, or reject the label as unmapped.
     """

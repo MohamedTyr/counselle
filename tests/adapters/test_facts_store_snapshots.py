@@ -5,7 +5,7 @@ rules (plan §3.4, §7 Phase 1 row):
   without reopening a closed fact;
 - a fourth distinct body leaves exactly three snapshots and orphans no live
   fact's `snapshot_id`;
-- a rotation... (build_id_rotations itself is Unit C's own exit test,
+- a rotation... (build_id_rotations itself has its own exit test,
   `tests/adapters/test_collegedata_fetch.py` — not duplicated here).
 
 Uses a permanently reserved, entirely test-owned synthetic school id

@@ -13,7 +13,7 @@ import type { StudentProfile } from "@/features/schools/explore/explore-types";
 import { SchoolResultCard } from "@/features/schools/explore/SchoolResultCard";
 
 /*
- * Honesty/a11y surfaces this unit is directly responsible for (plan §7
+ * Honesty/a11y surfaces this feature is directly responsible for (plan §7
  * Phase 2 row): the band caption is a wire string mounted exactly once,
  * every card that shows a band points its own evidence line at that one
  * node, and no exclusion chip ever states an absence as "no {metric}".

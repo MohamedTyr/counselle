@@ -446,6 +446,15 @@ RAG" — supersedes ADR 0015's no-fetch clause and ADR 0032's packet-as-only-met
 amends ADR 0036 (engine becomes lazy/on-demand; approve gate retired); partially
 revives ADR 0007/0008's embedding-reconcile design for the corpus.
 
+**Number collision, not yet resolved:** this proposal is unimplemented, and the number
+"0037" it reserves now collides with `main`'s real, shipped `docs/adr/0037-per-turn-agent-surface.md`
+(the essay AI panel's per-turn surface decision — an unrelated subject). The school-data-v3
+work that *did* ship from this same research took the next number, 0038
+(`docs/adr/0038-collegedata-facts-store-cds-parked.md`), for exactly this reason. Do not
+renumber this stub to 0038 — that number is taken and this RAG/watched-sources proposal is
+not being built. Whoever picks this proposal back up must allocate a fresh, still-unused
+ADR number before filing it for real.
+
 ---
 
 ## 10. Phasing (each phase ships value on its own)

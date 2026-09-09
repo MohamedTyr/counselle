@@ -234,7 +234,7 @@ class TabularRenderSpec(BaseModel):
     columns: tuple[SchoolRef, ...]
     rows: tuple[VizRow, ...]
     # Card-level disclosures that apply to the whole card, not one cell
-    # (school-data-v3 Phase 3, Unit D) -- e.g. `BAND_CAPTION` under a card
+    # (school-data-v3 Phase 3) -- e.g. `BAND_CAPTION` under a card
     # built from SAT/ACT band facts. A plain `str` is a code-owned sentence
     # with no caveat kind (e.g. `BAND_CAPTION`); a `Caveat` is a rendered
     # kind from `app.caveats`.

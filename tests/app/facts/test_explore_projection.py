@@ -1,4 +1,4 @@
-"""Exit test for R14/D10 (plan §4.5, Unit E): no `school_explore_rows`
+"""Exit test for R14/D10 (plan §4.5): no `school_explore_rows`
 column may be the sum of two percentile facts — the 25th percentile of a
 combined score is not the sum of the two section 25th percentiles. A
 fabricated `sat_total_p25`/`sat_total_p75` (`sat_math_p25 + sat_ebrw_p25`)
@@ -116,7 +116,7 @@ def test_gender_model_men_and_women_only_still_resolve() -> None:
 
 def _fact_row(fact_key: str, **overrides: object) -> dict[str, object]:
     """A plain dict duck-types as the `asyncpg.Record` the extractors index
-    with `record["..."]` -- no live connection needed for this unit."""
+    with `record["..."]` -- no live connection needed for these tests."""
     row: dict[str, object] = {
         "fact_key": fact_key,
         "value": None,

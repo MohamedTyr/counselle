@@ -158,8 +158,8 @@ class SectionSpec(BaseModel):
     layout — that is Phase 1's own asset-authoring surface
     (`config/assets/facts_sections.yaml`, `app/facts/mapper.py`) and Phase 2's
     wire contract (`counselle_db/catalog.py`'s `CatalogSnapshot.sections`),
-    neither of which this unit owns; keeping this shape minimal avoids
-    pinning a layout decision that unit hasn't made yet.
+    neither of which this module owns; keeping this shape minimal avoids
+    pinning a layout decision that has not been made yet.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")

@@ -1,8 +1,8 @@
 """The five-state absence model and the section fetch-state derivation
-(plan §5.1/§5.2) — the honesty-critical core of this unit. Table-driven per
-CLAUDE.md's testing stance: one row per distinguishable state, plus the two
-"a reported 0/false is not absence" regression cases that motivated this
-unit's `has_row`/`value` split.
+(plan §5.1/§5.2) — the honesty-critical core of `domain/facts/state.py`.
+Table-driven per CLAUDE.md's testing stance: one row per distinguishable
+state, plus the two "a reported 0/false is not absence" regression cases
+that motivated the `has_row`/`value` split.
 """
 
 from datetime import UTC, datetime, timedelta

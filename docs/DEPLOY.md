@@ -2,7 +2,7 @@
 
 > This is the deployment runbook — how Counselle is deployed and the traps to avoid. For the current deployment **status** (whether a given environment is live), see `CLAUDE.md`. **Deploy itself is deferred** — this is the plan, updated for the school-data-v3 topology, not a verified runbook. Nothing in this document has been executed end to end against a fresh managed Postgres; the exit test below (§ Deploy checklist) is what proves it, and it has not been run.
 
-Decision context: ADR 0023 (SPA same-origin, one deployable), ADR 0037 (school-data-v3: the CollegeData facts store replaces the CDS Library as the deployed data surface; the CDS extraction pipeline is parked in place, per `PARKED.md`). The execution narrative lives in [`../specs/mvp2/plan/ship-plan.md`](../specs/mvp2/plan/ship-plan.md); the schema/role model referenced throughout is `plans/school-data-v3.md` §3.
+Decision context: ADR 0023 (SPA same-origin, one deployable), ADR 0038 (school-data-v3: the CollegeData facts store replaces the CDS Library as the deployed data surface; the CDS extraction pipeline is parked in place, per `PARKED.md`). The execution narrative lives in [`../specs/mvp2/plan/ship-plan.md`](../specs/mvp2/plan/ship-plan.md); the schema/role model referenced throughout is `../specs/school-data-v3/plan/school-data-v3.md` §3.
 
 ## What the deploy image must include
 
@@ -30,7 +30,7 @@ Under school-data-v3 the `cds_library` schema holds the **CollegeData facts stor
 
 ### Storage budget (the crawl worker's own growth, once turned on)
 
-Snapshot bodies are byte-stable per page (verified), so `page_snapshots` grows only on an actual content change, capped at 3 retained snapshots per page in-pass. The plan's measured estimate (`plans/school-data-v3.md` §6c, R5): **≈95 MB of jsonb after the first full pass**, growing with steady-state changed pages toward **≈300 MB worst case**. Check the managed provider's plan against that before turning the worker on — this was not re-measured against a live production pass, it's the plan's own estimate.
+Snapshot bodies are byte-stable per page (verified), so `page_snapshots` grows only on an actual content change, capped at 3 retained snapshots per page in-pass. The plan's measured estimate (`../specs/school-data-v3/plan/school-data-v3.md` §6c, R5): **≈95 MB of jsonb after the first full pass**, growing with steady-state changed pages toward **≈300 MB worst case**. Check the managed provider's plan against that before turning the worker on — this was not re-measured against a live production pass, it's the plan's own estimate.
 
 ### The Render Starter + Supabase staging path
 
@@ -78,9 +78,9 @@ The owner's current free Render Postgres project expires **2026-09-18** — nine
 
 ### The first v3 deploy drops the entire `counselle` schema
 
-The first deploy of this branch against an existing staging database **drops the entire `counselle` schema** — all accounts, OAuth links, student profiles, workspaces, feedback, and sessions. This is a one-time consequence of the school-data-v3 cutover (D9, `plans/school-data-v3.md` §0), not a property of every future deploy — but whoever runs this cutover on the shared staging environment needs to know it in advance, not discover it after.
+The first deploy of this branch against an existing staging database **drops the entire `counselle` schema** — all accounts, OAuth links, student profiles, workspaces, feedback, and sessions. This is a one-time consequence of the school-data-v3 cutover (D9, `../specs/school-data-v3/plan/school-data-v3.md` §0), not a property of every future deploy — but whoever runs this cutover on the shared staging environment needs to know it in advance, not discover it after.
 
-**Do not run the drop below before D9's backup step.** D9 requires "a restore-verified full dump copied off the workstation" before anything is dropped (`plans/school-data-v3.md` §0, execution detail in §7 Phase 0). Do that first:
+**Do not run the drop below before D9's backup step.** D9 requires "a restore-verified full dump copied off the workstation" before anything is dropped (`../specs/school-data-v3/plan/school-data-v3.md` §0, execution detail in §7 Phase 0). Do that first:
 
 ```bash
 mkdir -p artifacts/deploy
@@ -118,7 +118,7 @@ A first deploy easily forgets the agent-core half. The complete set:
 **Database & sessions**
 - `COUNSELLE_DB_RO_DSN`, `COUNSELLE_DB_APP_DSN` (required)
 - `COUNSELLE_DB_ADMIN_DSN` (required — the container's own bootstrap connection; see § Database first)
-- `COUNSELLE_DB_PIPELINE_DSN` — the facts crawler's write role (`cds_library_app`, ADR 0037), and also the parked CDS admin write path's DSN. **Required at boot** under v3 (the entrypoint's `crosswalk-sync` step needs it), even before the crawl worker itself is turned on. The app degrades the CDS admin surface to its documented 503 and no-ops the facts worker (logs, does not fail boot) if this DSN is set but unreachable.
+- `COUNSELLE_DB_PIPELINE_DSN` — the facts crawler's write role (`cds_library_app`, ADR 0038), and also the parked CDS admin write path's DSN. **Required at boot** under v3 (the entrypoint's `crosswalk-sync` step needs it), even before the crawl worker itself is turned on. The app degrades the CDS admin surface to its documented 503 and no-ops the facts worker (logs, does not fail boot) if this DSN is set but unreachable.
 - `COUNSELLE_CDS_WORKER_ENABLED` — **must stay `false`** wherever `COUNSELLE_DB_PIPELINE_DSN` drives the facts crawler (the parked CDS extraction poller would otherwise spin forever against a dropped `cds_extractions` table). Defaults `false`; set it explicitly rather than relying on the default.
 - `COUNSELLE_FACTS_WORKER_ENABLED` — the in-process facts crawl worker's kill switch. Defaults `false`: turning a brand-new crawler against a third-party site on is a deliberate step taken after staging verification, not a side effect of setting the other DSNs. Requires an **always-on** web instance (see § Render Starter path above) — a sleeping free instance never runs a pass.
 - `COUNSELLE_CHECKPOINTER=postgres`

@@ -11,19 +11,19 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 
 type JsonScalar = str | int | float | bool
 type JsonValue = JsonScalar | list[JsonValue] | dict[str, JsonValue] | None
-# "db" added school-data-v3 Phase 3 (Unit B) -- Counselle's own CollegeData
+# "db" added school-data-v3 Phase 3 -- Counselle's own CollegeData
 # facts store, minted by `app/tool_middleware.py` for `get_facts`,
 # `get_school_profile`, and `resolve_school` (plan §5.4/§6a). Nothing mints
 # "cds" or "profile" any more (`get_domain` is deleted; `app/viz.py`'s
-# profile-cell path moved onto "db" in the source-vocabulary resolution
-# unit) -- but appendix F-iii's call to retire both from this Literal is
+# profile-cell path moved onto "db" during the same source-vocabulary
+# resolution) -- but appendix F-iii's call to retire both from this Literal is
 # WRONG and must not be done: sessions are durable via the LangGraph
 # Postgres checkpointer with no backfill migration (ADR 0019), and
 # `RegisteredSource.citation` (`app/state.py`) re-validates every persisted
 # `source_registry` entry against this exact `Citation` model on every read
 # of a session's turn history (`app/turns.py`, `app/agent_node.py`,
 # `app/run_turn.py`) -- not just on resume. A session that ever called
-# `get_domain` (live 2026-08-27 to this unit) or the pre-F9
+# `get_domain` (live 2026-08-27 until this change) or the pre-F9
 # `get_school_profile` (which minted "profile", not "db", until this same
 # Phase 3) still carries those literals in its checkpointed state. Dropping
 # them from `SourceName` would not fail a test -- it would throw the moment
@@ -37,7 +37,7 @@ SourcePeriodBasis = Literal["page_content", "metadata"]
 
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
 
-# The eight v3 caveat kinds (school-data-v3 Phase 3, Unit D; plan §6a).
+# The eight v3 caveat kinds (school-data-v3 Phase 3; plan §6a).
 # `config/assets/caveats.yaml` and `app/caveats.py::caveat_catalog()`'s
 # expected-kind set are pinned equal to this literal by a test
 # (`tests/app/test_caveats.py`) -- this is the one place the set is spelled

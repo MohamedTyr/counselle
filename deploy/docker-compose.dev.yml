@@ -1,4 +1,4 @@
-# Local dev Postgres for school-data-v3 (plans/school-data-v3.md §6c,
+# Local dev Postgres for school-data-v3 (../specs/school-data-v3/plan/school-data-v3.md §6c,
 # appendix G-iii). Deliberately a NEW container/volume name, not the retired
 # counselle-data-pipeline repo's `counselle-data-pipeline-db-1` /
 # `counselle-data-pipeline_postgres_data` -- D9's "rebuild from a new seed"

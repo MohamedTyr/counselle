@@ -131,7 +131,7 @@ def get_facts_db_citation(result: dict[str, Any]) -> Any:
     """`get_facts` mints exactly one `db` citation for the school: the facts
     vintage when `status.facts_updated_at` is non-null, else the identity
     vintage (never a facts vintage over an empty date slot, plan §6a). Every
-    row this unit's `get_facts` returns already has a reported value
+    row `get_facts` returns already has a reported value
     (`current_school_facts` carries only reported facts), so every envelope
     is `available=True`; each row also carries its own per-fact `vintage`
     string, riding that fact's `reported_period` -- distinct from the shared
@@ -175,7 +175,7 @@ def get_facts_db_citation(result: dict[str, Any]) -> Any:
                 "reported_period": row.get("reported_period"),
                 "vintage": _fact_row_vintage(row.get("reported_period"), row.get("observed_at")),
                 # Passthrough for `app/viz.py`'s `observed_at_spread` caveat
-                # (school-data-v3 Phase 3, Unit D) -- the per-fact
+                # (school-data-v3 Phase 3) -- the per-fact
                 # confirmation date, distinct from the shared citation's
                 # vintage string above.
                 "observed_at": row.get("observed_at"),

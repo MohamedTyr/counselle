@@ -21,7 +21,7 @@ Two parts:
 tools are appended via ``extra_tools`` by the agent node.
 
 The counselle-db MCP child (stdio transport, ``McpSupervisor``) was retired
-in school-data-v3 Phase 3 Unit C — the in-process ``build_db_tools`` below is
+in school-data-v3 Phase 3 — the in-process ``build_db_tools`` below is
 what the agent has actually called since the CDS Library DB rewire.
 """
 
@@ -171,7 +171,7 @@ def _declared_fact_specs(catalog: Any, sections: list[str] | None) -> dict[str, 
     """Every declared ``SectionFact`` keyed by its ``fact_key``, for the given
     sections (every section when ``sections`` is falsy) -- the only source
     for a key's ``tab`` when there is no DB row to read it from directly
-    (school-data-v3 Phase 3 Unit B's ``get_facts`` state gap)."""
+    (school-data-v3 Phase 3's ``get_facts`` state gap)."""
     known = catalog.snapshot.sections
     section_ids = sections if sections else list(known)
     return {

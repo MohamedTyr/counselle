@@ -1,14 +1,17 @@
 """Strict anti-corruption boundary for pipeline manifest and packet JSON.
 
-Fully self-contained under school-data-v3 (Phase 3, Unit B): `DomainRow`,
+Fully self-contained under school-data-v3 (Phase 3): `DomainRow`,
 `AvailabilitySummary`, `DomainResult`, and `format_cds_edition` moved in
 from `counselle_db.models`/`counselle_db.formatting` — this parked module is
-the only remaining CDS packet/manifest reader (`counselle_db.service.get_domain`
-is its sole caller), so its result types belong beside it rather than in the
-general-purpose `models.py`. Moving them here also avoids a circular import:
-`models.py` no longer needs anything from this module, so this module is
-free to depend on `models.py` (for `ServiceError`/`SchoolBasics`) in one
-direction only.
+the only remaining CDS packet/manifest reader. It is no longer wired into the
+live `get_facts` agent path (which replaced the retired `get_domain`); its
+importers today are the parked CDS admin write path (`adapters/cds_store.py`,
+`domain/cds/packet_build.py`) and the standalone verification script
+(`scripts/verify_cds_engine.py`), so its result types belong beside it rather
+than in the general-purpose `models.py`. Moving them here also avoids a
+circular import: `models.py` no longer needs anything from this module, so
+this module is free to depend on `models.py` (for `ServiceError`/
+`SchoolBasics`) in one direction only.
 """
 
 from __future__ import annotations

@@ -18,7 +18,7 @@ async def test_catalog_snapshot_matches_the_six_view_contract(catalog: Catalog) 
 
 
 async def test_resolve_school_single_match_returns_live_facts_status(catalog: Catalog) -> None:
-    """school-data-v3 Phase 3 (Unit B): a single-candidate match no longer
+    """school-data-v3 Phase 3: a single-candidate match no longer
     calls the CDS-era coverage reader (``_live_document``/``_coverage``,
     permanently parked) -- it reads ``school_data_status`` live and returns
     a real ``SchoolFactsStatus``, for every school (the view's LEFT JOIN

@@ -1,4 +1,4 @@
-"""`python -m app.facts` — the facts crawl CLI (plan §4.2, Unit E).
+"""`python -m app.facts` — the facts crawl CLI (plan §4.2).
 
 Subcommands:
 
@@ -9,7 +9,7 @@ Subcommands:
 - `remap`: enqueues and runs a `remap` job (no network, no `school_pages`
   writes).
 - `crosswalk-sync`: upserts the committed CSV into `collegedata_schools`
-  (Unit A's `sync_crosswalk`).
+  (`app/facts/crosswalk.py`'s `sync_crosswalk`).
 
 All three share the identical `run_crawl_pass`/`run_remap_pass` the poller
 calls — there is no second code path.

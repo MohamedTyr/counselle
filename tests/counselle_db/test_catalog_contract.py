@@ -161,7 +161,7 @@ async def test_catalog_load_is_one_atomic_read_and_builds_the_full_snapshot() ->
     assert snapshot.facts_updated_min == fresh
     assert snapshot.facts_updated_max == fresh
     assert snapshot.stale_facts_count == 0
-    # fact_keys fills from fact_coverage (Phase 3, Unit B); sections fills
+    # fact_keys fills from fact_coverage (Phase 3); sections fills
     # from facts_sections.yaml in Phase 2 — the real committed asset, six
     # sections keyed by id.
     assert set(snapshot.fact_keys) == {"admissions.rate"}

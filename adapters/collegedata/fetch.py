@@ -1,4 +1,4 @@
-"""HTTP fetch adapter for collegedata.com (plan §2/§4.1, ADR 0037 risk R0).
+"""HTTP fetch adapter for collegedata.com (plan §2/§4.1, ADR 0038 risk R0).
 
 **This is the only code in the project that talks to collegedata.com** — its
 rate-limiting and identification posture is a hard requirement, not a
@@ -47,7 +47,7 @@ of every mitigation below being implemented, never relaxed:
   `xml.etree.ElementTree`, which Python's own docs flag as vulnerable to
   entity-expansion and quadratic-blowup attacks on untrusted input.
 - **Snapshots are for lineage only, never served** — enforced by `parse.py`/
-  `adapters/facts_store.py` (Unit D/E), not this module, but named here
+  `adapters/facts_store.py`, not this module, but named here
   because it is part of the same R0 mitigation set.
 
 `CollegeDataFetcher` is a **stateful, one-instance-per-pass** object: it
@@ -56,7 +56,7 @@ owns the token bucket, the cached `robots.txt` ruleset, the current Next.js
 plan's rotation and backoff rules ("concurrent 404s that resolve to the
 same new id are one rotation"; "three consecutive [429/403] blocks abort
 the pass") need state that spans every fetch call in the pass, not just
-one. `app/facts/crawl.py` (Unit E, not built by this unit) constructs one
+one. `app/facts/crawl.py` (not part of this module) constructs one
 `CollegeDataFetcher` per pass from a `Settings`-derived `FetchConfig` and an
 `httpx.AsyncClient`, and reacts to
 `BuildIdRotationLimitExceeded`/`TooManyRateLimitBlocks`/`RobotsDisallowedError`/
@@ -125,7 +125,7 @@ _GZIP_MAGIC = b"\x1f\x8b"
 _SITEMAP_NS = {"sm": "http://www.sitemaps.org/schemas/sitemap/0.9"}
 _BUILD_ID_RE = re.compile(r'"buildId"\s*:\s*"([^"]+)"')
 _UA_URL_RE = re.compile(r"https?://\S+")
-# The documented, never-real `facts_crawl_user_agent` placeholder (ADR 0037
+# The documented, never-real `facts_crawl_user_agent` placeholder (ADR 0038
 # R0 Finding 1) — duplicated in `config/settings.py` for the same layering
 # reason `user_agent_has_contact_url` itself is duplicated there.
 _UA_PLACEHOLDER_MARKER = "<domain>"
@@ -195,7 +195,7 @@ def user_agent_has_contact_url(user_agent: str) -> bool:
 
 class FetchConfig(BaseModel):
     """Every crawl-rate/identification tunable this module consumes (plan
-    §4.3). Constructed by the caller (`app/facts/crawl.py`, Unit E) from
+    §4.3). Constructed by the caller (`app/facts/crawl.py`) from
     `Settings` — this module does not import `config.settings` directly
     (matching every other `adapters/` module today)."""
 
@@ -242,7 +242,7 @@ class AllowedPathViolation(FetchError):
 
 class RobotsDisallowedError(FetchError):
     """The live `robots.txt`, fetched fresh at the start of this pass,
-    disallows a path this crawler needs (ADR 0037 R0: "robots.txt is
+    disallows a path this crawler needs (ADR 0038 R0: "robots.txt is
     respected exactly as published"). Unlike `AllowedPathViolation` (a
     fixed, construction-time `/api/*` guard), this reflects the actual,
     current document — a new disallow, or a narrowed `/_next/data/`
@@ -620,7 +620,7 @@ class CollegeDataFetcher:
         return await self._fetch_tab_under(slug, tab, self._build_id)
 
     async def _ensure_robots_loaded(self) -> None:
-        """Fetch and parse the live `robots.txt` once per pass (ADR 0037
+        """Fetch and parse the live `robots.txt` once per pass (ADR 0038
         R0: "robots.txt is respected exactly as published" — a live check,
         not a hardcoded transcription of a past read). A missing
         `robots.txt` (404) means nothing is disallowed (standard robots

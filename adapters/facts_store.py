@@ -1,7 +1,7 @@
 """The only writer to the CollegeData facts *data* tables (`school_pages`,
 `page_snapshots`, `school_facts`, `school_explore_rows`, `fact_coverage_
 counts`, `collegedata_schools`'s sitemap bookkeeping) in `cds_library`
-(plan §3.1/§3.4/§4.2, Unit E). Mirrors `adapters/cds_store.py`'s role:
+(plan §3.1/§3.4/§4.2). Mirrors `adapters/cds_store.py`'s role:
 every asyncpg write for the facts crawl's per-school pass lives here,
 callers own the transaction boundary, and nothing here commits or rolls
 back a transaction itself.
@@ -328,8 +328,10 @@ async def write_school_facts(
     drops every `FactRow` whose `value is None` (unmapped labels and
     explicit-absence observations — neither is ever written as a row, per
     `domain/facts/normalize.py`'s own resolution of plan §5.1/§4.4: "an
-    explicit absence is real, but it is not a value" — see Unit E's final
-    report for why this reading was chosen over the plan's literal text)."""
+    explicit absence is real, but it is not a value" — chosen deliberately
+    over the plan's literal text so a page that prints "Not reported" or
+    "Not available" never gets stored as a row a reader could mistake
+    for a fetched value)."""
     if not changed_tabs:
         return FactsWriteResult(0, 0, 0)
     # `row.value is None` already covers both unmapped labels and explicit
@@ -445,9 +447,9 @@ async def write_school_facts(
 # school_explore_rows (one upsert per school, plan §3.1/§4.2)
 # ---------------------------------------------------------------------------
 
-# The subset of school_explore_rows columns this unit populates (plan §3.1's
+# The subset of school_explore_rows columns this module populates (plan §3.1's
 # ~100-column table minus every column requiring distribution-bucket
-# percentile extraction from BarGraph values — see Unit E's final report;
+# percentile extraction from BarGraph values, which is not implemented;
 # every other column stays NULL, a legitimate "not yet projected" state,
 # never a 0/invented value). Fixed, code-owned list — never built from
 # untrusted input, so this is safe despite being interpolated into the SQL.
@@ -536,7 +538,7 @@ async def upsert_explore_row(
     conn: asyncpg.Connection, *, school_id: int, values: Mapping[str, Any], mapper_version: str
 ) -> None:
     """One upsert per school, after all six tabs (plan §3.4/§4.2). `values`
-    must carry every key in `EXPLORE_COLUMNS`; a column this unit doesn't
+    must carry every key in `EXPLORE_COLUMNS`; a column this module doesn't
     populate should be passed as `None` explicitly (never omitted)."""
     args = [values.get(col) for col in EXPLORE_COLUMNS]
     await conn.execute(_EXPLORE_UPSERT_SQL, school_id, *args, mapper_version)

@@ -90,7 +90,7 @@ export type TabularRenderSpec = {
   title: string;
   columns: SchoolRef[];
   rows: VizRow[];
-  /** Card-level footnotes (school-data-v3 Phase 3 Unit D) — a rendered
+  /** Card-level footnotes (school-data-v3 Phase 3) — a rendered
    * caveat, or free text, shown once below the whole card rather than
    * repeated per cell. */
   foot: (Caveat | string)[];

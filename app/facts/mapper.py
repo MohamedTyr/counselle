@@ -1,4 +1,4 @@
-"""The mapper: snapshot tree -> `FactRow`s (plan §4.4, Unit D).
+"""The mapper: snapshot tree -> `FactRow`s (plan §4.4).
 
 `map_snapshot` is the one public entry point. It takes whichever tabs were
 fetched `ok` this pass (a school never has all six on a bad day — a missing
@@ -7,7 +7,7 @@ tab just means fewer input pages, never an error) plus an optional
 when the `admission` tab itself was not fetched this pass — plan §4.4: "if
 the admission tab was not fetched ok this pass the anchor is taken from the
 current stored `deadlines.regular` fact"; sourcing that value from the store
-is `app/facts/crawl.py`'s job, Unit E, not this module's).
+is `app/facts/crawl.py`'s job, not this module's).
 
 Routing is driven entirely by `config/assets/facts_keys.yaml` — label
 patterns keyed by `(tab, expandable_section, divider, node_type)` plus an
@@ -380,8 +380,8 @@ def _cycle_year(pages: Mapping[TabName, ParsedPage], fallback_cycle_year: int | 
 def _admission_deadline_facts(admission: ParsedPage) -> Iterator[FactRow]:
     """`deadlines.regular` (+ `admissions.regular_deadline_is_rolling`) from the
     admission-tab header pair — the header wins over the body's pre-formatted
-    duplicate row (dropped in `facts_keys.yaml`; the unit's report explains
-    why: the header's ISO date is parseable, the body's spelled-out prose is
+    duplicate row (dropped in `facts_keys.yaml`, because
+    the header's ISO date is parseable, the body's spelled-out prose is
     not, and the header cleanly carries the Rolling case too)."""
     header = admission.header
     source_path = "admission/@profile/admissionDeadline"

@@ -27,7 +27,7 @@ def test_strict_caveat_slots_and_multiple_kinds() -> None:
 
 
 def test_caveat_kind_set_is_pinned_across_yaml_assertion_and_type() -> None:
-    """school-data-v3 Phase 3, Unit D: the final eight-kind vocabulary is
+    """school-data-v3 Phase 3: the final eight-kind vocabulary is
     spelled out exactly once (`CaveatKind`); `caveats.yaml` and
     `caveat_catalog()`'s own assertion must both equal it."""
     literal_kinds = set(get_args(CaveatKind))

@@ -156,7 +156,7 @@ def main() -> int:
 
     ro_password = _secret_from_env("COUNSELLE_RO_PASSWORD")
     app_password = _secret_from_env("COUNSELLE_APP_PASSWORD")
-    # cds_library_app (ADR 0037): the facts crawler's write role. Always
+    # cds_library_app (ADR 0038): the facts crawler's write role. Always
     # provisioned with a login password here, matching setup_db.sql's
     # role-always-exists contract -- the crawler is optional at runtime
     # (COUNSELLE_DB_PIPELINE_DSN unset just leaves the worker off), but the

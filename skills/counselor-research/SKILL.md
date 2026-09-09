@@ -1,6 +1,6 @@
 ---
 name: counselor-research
-description: Multi-source research procedure for substantive school-specific strategy, optimization, fit, and application questions. Routes evidence across CDS, official sources, broad web, and Reddit; performs unknown-unknown discovery, handles conflicting signals, and delivers a direct, recommendation-first answer.
+description: Multi-source research procedure for substantive school-specific strategy, optimization, fit, and application questions. Routes evidence across Counselle's facts store, official sources, broad web, and Reddit; performs unknown-unknown discovery, handles conflicting signals, and delivers a direct, recommendation-first answer.
 ---
 
 # Counselor Research

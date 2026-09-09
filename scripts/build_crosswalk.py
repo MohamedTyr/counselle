@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""One-off CollegeData <-> IPEDS crosswalk builder (plan §2/§4.6, Unit A).
+"""One-off CollegeData <-> IPEDS crosswalk builder (plan §2/§4.6).
 
 Three sub-commands, run in order once:
 
@@ -9,7 +9,7 @@ Three sub-commands, run in order once:
 
 ``fetch`` is the only sub-command that talks to collegedata.com, through
 ``adapters/collegedata/fetch.py``'s ``CollegeDataFetcher`` at its configured
-1 req/s with the real self-identifying User-Agent (ADR 0037 R0) — it fetches
+1 req/s with the real self-identifying User-Agent (ADR 0038 R0) — it fetches
 exactly one tab (``overview``, the index route) per slug, never the other
 five, because the crosswalk only needs ``profile.{id, name, alternativeName,
 address}`` (plan §4.6: "built from each school's own payload ... not from a
@@ -105,7 +105,8 @@ _STOPWORDS = {
 
 
 # ---------------------------------------------------------------------------
-# Slug discovery (offline — reuses Unit C's committed sitemap capture, no
+# Slug discovery (offline — reuses the committed sitemap capture at
+# `artifacts/school-data-v3/captures/collegedata/sitemap`, no
 # live fetch needed just to enumerate slugs; `fetch` still needs one live
 # HTML request to resolve the current buildId).
 # ---------------------------------------------------------------------------
@@ -113,7 +114,7 @@ _STOPWORDS = {
 
 def discover_slugs_offline() -> tuple[str, ...]:
     """Mirrors ``CollegeDataFetcher.discover_slugs`` but reads the sitemap
-    bytes Unit C already captured live, instead of hitting the network."""
+    bytes already captured live, instead of hitting the network."""
     slug_tabs: dict[str, set[str]] = {}
     slug_order: list[str] = []
     for name in ("a-sitemap.xml", "b-sitemap.xml"):

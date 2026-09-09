@@ -1,5 +1,5 @@
 """`facts_jobs`/`crawl_runs` writes: enqueue, claim, lease, sweep, close
-(plan §3.1/§4.2/§4.3, Unit E). Split out of `adapters/facts_store.py` to
+(plan §3.1/§4.2/§4.3). Split out of `adapters/facts_store.py` to
 keep both files under the 800-line house limit -- job/lease/resume
 machinery is a distinct concern from the per-school page/fact writes in
 `facts_store.py` proper (CLAUDE.md: "things that change together live

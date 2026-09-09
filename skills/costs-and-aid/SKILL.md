@@ -22,7 +22,7 @@ determines it, what's uncertain, and the earliest date that binds them.
 Use `counselor-research` for source routing. In one round after `resolve_school`,
 pull:
 
-- CDS cost/aid structure and historical price/need context.
+- `get_facts` cost/aid structure and historical price/need context.
 - `.edu` for current-cycle aid mechanics, forms, deadlines, and calculator links.
 - Broad web for federal platform shifts (FAFSA/tax-year/process changes).
 - Reddit for friction points around calculator behavior, aid appeals, and real timelines.

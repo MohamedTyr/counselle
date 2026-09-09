@@ -1,9 +1,9 @@
 """The DB-leased job runner for the facts crawl pass (plan §4.2/§4.3,
-appendix J-iii, Unit E).
+appendix J-iii).
 
 Copies `app/cds/jobs.py`'s shape (boot sweep, transient-error survival, the
 background lease-renewal keeper, `start_*_worker`'s no-op-when-unconfigured
-contract) with **two deliberate divergences**, per this unit's brief:
+contract) with **two deliberate divergences**:
 
 1. **No semaphore.** `facts_jobs_one_live_pass_idx` (a partial unique index
    on `status IN ('queued','running')`) already guarantees at most one live
@@ -16,7 +16,7 @@ contract) with **two deliberate divergences**, per this unit's brief:
    of restarting the pass (plan §4.2).
 
 This module does **not** import `app.cds.jobs` or `adapters.cds_store` —
-those are parked (ADR 0037/D8).
+those are parked (ADR 0038/D8).
 """
 
 from __future__ import annotations

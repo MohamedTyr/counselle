@@ -1,4 +1,4 @@
--- cds_library v3 live seed (school-data-v3, plans/school-data-v3.md §3).
+-- cds_library v3 live seed (school-data-v3, ../../specs/school-data-v3/plan/school-data-v3.md §3).
 --
 -- This is the ONLY schema-DDL source of record for cds_library in this repo:
 -- this repo's own yoyo migrations/ never touch cds_library, and the old
@@ -10,7 +10,7 @@
 -- completed, to deploy/seed/parked/cds_extraction_schema.sql -- D8, the CDS
 -- extraction pipeline is parked, not deleted) with the CollegeData facts
 -- store: `schools` (unchanged) plus eight new tables and exactly six reader
--- views. See plans/school-data-v3.md §3.1-§3.4 for the schema chapter this
+-- views. See ../../specs/school-data-v3/plan/school-data-v3.md §3.1-§3.4 for the schema chapter this
 -- file implements.
 --
 -- Idempotent: every CREATE is guarded (IF NOT EXISTS / OR REPLACE / a
@@ -199,7 +199,7 @@ CREATE INDEX IF NOT EXISTS school_facts_snapshot_idx
 -- read by nothing yet (plan §5.6).
 
 -- school_explore_rows: the ~100 typed nullable metric/filter columns from
--- plans/school-data-v3-appendix.md Appendix E-iv, minus its identity columns
+-- ../../specs/school-data-v3/plan/school-data-v3-appendix.md Appendix E-iv, minus its identity columns
 -- (name/city/state/website_url -- the school_explore view supplies those
 -- from `schools`) and minus `size_bucket` (dropped, plan §3.1: the shipped
 -- four size buckets do not nest inside IPEDS's five, so the column is null

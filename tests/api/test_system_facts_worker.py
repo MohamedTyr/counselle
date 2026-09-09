@@ -1,5 +1,5 @@
 """Routine (no DB) tests for `/v1/health`'s `facts_worker` key
-(plan §7 Phase 1 exit criteria, `api/routes/system.py`, Unit E)."""
+(plan §7 Phase 1 exit criteria, `api/routes/system.py`)."""
 
 from __future__ import annotations
 

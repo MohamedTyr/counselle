@@ -1,6 +1,6 @@
 # School data v3 — companion appendix (verification-round material)
 
-**Status:** companion to `plans/school-data-v3.md` (thirteenth round, 2026-09-06). This file carries the
+**Status:** companion to `school-data-v3.md` (thirteenth round, 2026-09-06). This file carries the
 long-form material produced by the ten verification agents: the complete CollegeData label
 inventory and proposed `fact_key`s, the `facts_sections.yaml` draft, the `school_explore_rows`
 columns and index list, the API/pydantic and TypeScript shapes, the worker/SCD2 SQL, the citation
@@ -2485,7 +2485,7 @@ deterministic): `query_database` rejects `current_school_facts` and rejects a `L
 | **0023** one deployable | not listed | ⚠️ | state *explicitly unchanged*, with the ADR-0036 precedent (poller state lives in the `jobs` table, not in-process) so nobody reads the facts worker as a third in-process state owner à la ADR 0027 (**F18**) |
 | 0024 remove score_band | untouched | ✅ | §5's "there is no score-band card" is correct |
 | **0026** MVP3 frontend reset | untouched | ✅ | grep finds no honesty-surface coupling |
-| **0027** workspace events | untouched | ✅ | correct — but ADR 0037 should say facts changes deliberately do **not** publish `ChangeEvent`s (0027 governs student-owned mutations) so nobody wires it later (**F18**) |
+| **0027** workspace events | untouched | ✅ | correct — but ADR 0038 should say facts changes deliberately do **not** publish `ChangeEvent`s (0027 governs student-owned mutations) so nobody wires it later (**F18**) |
 | **0032** db-rewire | supersede | ✅ | 0032 locks "exactly five reader views", "exactly four LLM-facing tools", `get_domain` as the only metric path, packet-as-only-evidence, one-selected-edition, and the four-shape viz cell grammar. v3 keeps the reader-role/view boundary, code-owned availability/caveats, and the viz provenance boundary — say which survives, as 0032 itself did |
 | **0036** CDS pipeline in-app | amend as **parked** | ✅ | 0036's "every packet the writer builds is validated through the reader's own `parse_packet_row()` before COMMIT" invariant survives only if `counselle_db/packets.py` stays importable — §6a's "move `DomainRow`/`format_cds_edition` into `packets.py`" is exactly right and load-bearing for this |
 
@@ -2699,7 +2699,7 @@ plan text that the owner has not been asked to confirm. Recommended default in t
 | # | Decision the plan makes silently | Where | Recommended default |
 |---|---|---|---|
 | **Q5** | **Re-accept the ToS/legal exposure under D1 (whole site, daily) + D3 (no label, no attribution)**, with two of the four originally-recorded mitigations removed. | §0 D1/D3 vs `rearchitecture.md` §11.1 | **Owner must answer explicitly.** Recommend: accept, with `robots.txt` respected, an identifying UA with a contact URL, 2 req/s, and no bulk-export endpoint — and record it as risk R0. |
-| **Q6** | Schema name stays `cds_library` even though nothing CDS remains in it. | §1 | **Keep.** The plan's reason (renaming touches every DSN/grant/doc/test for zero value) is right; but say so in ADR 0037 so the name is not read as a leftover. |
+| **Q6** | Schema name stays `cds_library` even though nothing CDS remains in it. | §1 | **Keep.** The plan's reason (renaming touches every DSN/grant/doc/test for zero value) is right; but say so in ADR 0038 so the name is not read as a leftover. |
 | **Q7** | DSN env names stay `COUNSELLE_DB_PIPELINE_DSN` / role `cds_library_app` for the facts writer. | §1, §3 | **Keep**, and document in `docs/DATABASE_GUIDE.md` §1 that "pipeline" now means "facts crawler". Note this is the same DSN F1 shows cannot double as the parking switch. |
 | **Q8** | The old dev container/volume (`counselle-data-pipeline-db-1`, `counselle-data-pipeline_postgres_data`) is orphaned by the new compose file. | §6c | **Leave it untouched until Phase 5**; it is the only surviving copy of the pre-nuke DB until F16's dump exists. Removal is a Phase 5 checklist line. |
 | **Q9** | `facts_crawl_rps = 2` (≈2 h/pass, 15.5k requests/day against one site). | §4 | **Confirm.** 2 req/s sustained for two hours daily is the single most visible thing Counselle does to CollegeData; 1 req/s (≈4 h) halves the footprint at no product cost since the pass is nightly. Recommend **1**. |
@@ -2820,7 +2820,7 @@ Proposed names/paths, for the plan to adopt verbatim.
     paths · The preserved data and its restore command · The six import edges into live code · The
     revival steps, in order · The dormant tests and the two untriaged failures · What must not be
     deleted*.
-15. `docs/adr/0037-school-data-v3.md` — outline: *Context (D1–D11; what 0032/0036 assumed) · Decision
+15. `docs/adr/0038-school-data-v3.md` — outline: *Context (D1–D11; what 0032/0036 assumed) · Decision
     (CollegeData facts store, seven tables, seven views, four in-process tools, CDS parked) ·
     Rationale · Alternatives (keep packets; RAG corpus — see `plans/school-data-v2.md`; a second
     service) · Consequences (supersedes 0032, 0004, 0015's no-fetch clause; amends
@@ -2858,7 +2858,7 @@ Proposed names/paths, for the plan to adopt verbatim.
 
 ---
 
-## I — ARCHITECTURE.md / DATABASE_GUIDE.md dispositions, all-36 ADR table + ADR 0037 outline, CLAUDE.md replacement text, other docs
+## I — ARCHITECTURE.md / DATABASE_GUIDE.md dispositions, all-36 ADR table + ADR 0038 outline, CLAUDE.md replacement text, other docs
 
 ### Appendix (i): `docs/ARCHITECTURE.md` section disposition (definitive)
 
@@ -2926,14 +2926,14 @@ own header claiming to be "the ONLY schema-DDL source of record." Decision neede
 two — retire the existing file at its current path in the same commit that writes the fresh
 `pg_dump` to `deploy/seed/parked/cds_extraction_schema.sql`.
 
-### Appendix (iii): ADR disposition table (all 36) + ADR 0037 outline
+### Appendix (iii): ADR disposition table (all 36) + ADR 0038 outline
 
 | ADR | Title | Disposition | Note |
 |---|---|---|---|
 | 0001 | Primary user/scope | Untouched | No DB-source coupling |
 | 0002 | Any school in scope | **Keep, add third old-data layer** | Already carries an "Old-data note (ADR 0032)" blockquote (verified); needs a fourth-generation layer noting the facts-store coverage model (per-field presence, not edition/tier) replaces 0032's language too |
 | 0003 | PydanticAI + LangGraph | Untouched | Runtime choice, source-agnostic |
-| 0004 | DB access as MCP server | **Fully superseded by 0037** | No remaining true content once MCP child is deleted; use the 0007/0008 "Superseded by [ADR 0037]" blockquote pattern, body kept historical |
+| 0004 | DB access as MCP server | **Fully superseded by 0038** | No remaining true content once MCP child is deleted; use the 0007/0008 "Superseded by [ADR 0038]" blockquote pattern, body kept historical |
 | 0005 | Three-layer + SQL escape hatch | **Keep shape, new old-data note (4th gen)** | Already has an ADR-0032-era "Old-data note" blockquote (verified, quoted in body); needs updating to name the new 4-tool roster (`get_facts` replaces `get_domain`) |
 | 0006 | Reading rules/citations in code | **Keep core, new old-data note (3rd gen)** | Already has an ADR-0032 old-data note (verified); needs a third-generation note describing `observed_at`/no-evidence facts-store model |
 | 0007 | Hybrid field discovery | Untouched | Already "Superseded by ADR 0032," historical, unaffected further |
@@ -2961,7 +2961,7 @@ two — retire the existing file at its current path in the same commit that wri
 | 0029 | Agent workspace tools direct-service | Untouched | No coupling |
 | 0030 | Essay markdown projection | Untouched | No coupling |
 | 0031 | Student profile/documents/memory | Untouched | No coupling |
-| 0032 | DB rewire to CDS Library | **Fully superseded by 0037** | Already carries an "Amendment (ADR 0036)" blockquote (verified) narrowing it to the read path only — 0037 supersedes that entire read path; use a "Superseded by [ADR 0037]" note, keep body historical |
+| 0032 | DB rewire to CDS Library | **Fully superseded by 0038** | Already carries an "Amendment (ADR 0036)" blockquote (verified) narrowing it to the read path only — 0038 supersedes that entire read path; use a "Superseded by [ADR 0038]" note, keep body historical |
 | 0033 | Reserved settings namespace | Untouched | No coupling |
 | 0034 | Counselor response modes | Untouched | No coupling |
 | 0035 | Structured clarifying questions | Untouched | No coupling |
@@ -2969,19 +2969,19 @@ two — retire the existing file at its current path in the same commit that wri
 
 **ADR file-naming convention** (verified against `0032-db-rewire-cds-library.md`,
 `0036-cds-pipeline-in-app.md`): `NNNN-kebab-case-title.md`, 2-6 words, no dates in the filename.
-Proposed: **`0037-collegedata-facts-store-cds-parked.md`**.
+Proposed: **`0038-collegedata-facts-store-cds-parked.md`**.
 
 **README.md index-row format** (verified: `| [0032](...) | Title | One-line supersede/amend summary |`,
 matching how 0032's own row named "replaces the retired wide field store"):
 
 ```
-| [0037](0037-collegedata-facts-store-cds-parked.md) | School data v3: CollegeData facts store, in-process tools, CDS system parked | Supersedes 0032 (five views/four tools/manifest/packet-v8) and 0004 (MCP as DB transport); narrows 0015 (no-fetch clause — search half stands); amends 0005/0006/0012/0014/0017/0018 with a facts-store-generation old-data note; amends 0036 as parked, not retired. |
+| [0038](0038-collegedata-facts-store-cds-parked.md) | School data v3: CollegeData facts store, in-process tools, CDS system parked | Supersedes 0032 (five views/four tools/manifest/packet-v8) and 0004 (MCP as DB transport); narrows 0015 (no-fetch clause — search half stands); amends 0005/0006/0012/0014/0017/0018 with a facts-store-generation old-data note; amends 0036 as parked, not retired. |
 ```
 
-**ADR 0037 draft outline:**
+**ADR 0038 draft outline:**
 
 ```
-# ADR 0037 — School data v3: CollegeData facts store, in-process tools, CDS system parked
+# ADR 0038 — School data v3: CollegeData facts store, in-process tools, CDS system parked
 
 ## Context
 - Counselle's CDS extraction pipeline (ADR 0036) shipped but has 4 real documents behind
@@ -3031,8 +3031,8 @@ matching how 0032's own row named "replaces the retired wide field store"):
 
 | Location | Current text (verbatim, from the live file) | Becomes |
 |---|---|---|
-| "What we're building" ¶2 | "...since ADR 0036, it is also the **CDS extraction pipeline and its admin tool**... **The student-facing agent path is still a strictly read-only consumer** of the CDS Library: it authenticates as `cds_library_reader` over `COUNSELLE_DB_RO_DSN`..." | "...since ADR 0036, this repo also contains the (now parked) CDS extraction pipeline and its admin tool — see the new Status paragraph. The student-facing agent path reads a CollegeData facts store (ADR 0037): stable identity (`cds_library.schools`, unchanged) plus daily-rescraped, per-field facts, still through the same reader role/DSN pattern (`cds_library_reader` / `COUNSELLE_DB_RO_DSN`)." |
-| "Status" section | every CDS-cutover/pipeline/polish-2 paragraph stands as-is | append (don't edit in place, per the historical-record rule) a closing note on each: "Superseded by the school-data-v3 re-architecture (ADR 0037) — the CDS system described above is parked, not deleted; see the new Status paragraph below." Then add **one new** dated Status paragraph documenting the facts-store cutover once it ships. |
+| "What we're building" ¶2 | "...since ADR 0036, it is also the **CDS extraction pipeline and its admin tool**... **The student-facing agent path is still a strictly read-only consumer** of the CDS Library: it authenticates as `cds_library_reader` over `COUNSELLE_DB_RO_DSN`..." | "...since ADR 0036, this repo also contains the (now parked) CDS extraction pipeline and its admin tool — see the new Status paragraph. The student-facing agent path reads a CollegeData facts store (ADR 0038): stable identity (`cds_library.schools`, unchanged) plus daily-rescraped, per-field facts, still through the same reader role/DSN pattern (`cds_library_reader` / `COUNSELLE_DB_RO_DSN`)." |
+| "Status" section | every CDS-cutover/pipeline/polish-2 paragraph stands as-is | append (don't edit in place, per the historical-record rule) a closing note on each: "Superseded by the school-data-v3 re-architecture (ADR 0038) — the CDS system described above is parked, not deleted; see the new Status paragraph below." Then add **one new** dated Status paragraph documenting the facts-store cutover once it ships. |
 | "Commands" | `uv run python scripts/cds_manifest_check.py` line + its "P1 hard gate" comment | drop the command line entirely (no manifest exists to check under v3); note in the same commit that the script itself is parked, not deleted, alongside the rest of `domain/cds/` |
 | Documentation map — `docs/ARCHITECTURE.md` row | "...including the four-tool CDS Library data surface, packet/evidence truth boundary, live data picture, viz v2..." | "...including the CollegeData facts-store data-access layer, the facts-store honesty boundary (per-field `observed_at`), live data picture, viz v2..." |
 | Documentation map — `docs/DATABASE_GUIDE.md` row | "Exhaustive contract for the five CDS Library reader views: profiles, dynamic manifest, selected editions, packet v8, availability/evidence/caveat rules, coverage, limits, and safe SQL recipes." | "Exhaustive contract for the six facts-store reader views: profiles, current facts, explore, data status, fact coverage; per-field `observed_at`/availability/caveat rules, coverage, limits, and safe SQL recipes." |
@@ -3042,7 +3042,7 @@ matching how 0032's own row named "replaces the retired wide field store"):
 | "The stack" — Reading rules/citations bullet | "...every value decoded, formatted, dated, **source-tiered**..." | drop "source-tiered" for `db` — note `db` citations carry no tier (D6); tiering applies only to `web`/`edu`/`reddit`. |
 | "The stack" — DB bullet | "...The agent path reads exactly five `cds_library` views... the CDS admin write path (ADR 0036) is the one exception..." | "...The agent path reads exactly six facts-store views... the CDS admin write path (ADR 0036, parked) no longer runs; a facts-crawl writer (`cds_library_app`) is the only exception, gated by `COUNSELLE_FACTS_WORKER_ENABLED`." |
 | "Scope guardrails" — "Any profiled school" bullet | "...CDS coverage is derived from the selected document and usable current-manifest domain packets..." | "...facts coverage is derived from `school_data_status` (per-field presence, no manifest/edition concept)..." |
-| "Scope guardrails" — "Read-only" bullet | "...reads only the five views granted to `cds_library_reader`. ADRs 0012, 0032." | "...reads only the six views granted to `cds_library_reader`. ADRs 0012, 0037." |
+| "Scope guardrails" — "Read-only" bullet | "...reads only the five views granted to `cds_library_reader`. ADRs 0012, 0032." | "...reads only the six views granted to `cds_library_reader`. ADRs 0012, 0038." |
 | "Writing the agent" | no direct CDS reference | untouched (confirmed — prompts-as-data/model-call-isolation/tool-schema/authz/typed-output/eval-not-unit-test philosophy is source-agnostic) |
 | "Frontend components" section | no CDS reference | untouched |
 

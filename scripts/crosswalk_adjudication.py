@@ -1,4 +1,4 @@
-"""Hand-authored crosswalk adjudication decisions (plan §2/§4.6, Unit A).
+"""Hand-authored crosswalk adjudication decisions (plan §2/§4.6).
 
 Every slug the ladder's six automatic stages could not resolve
 (``artifacts/school-data-v3/crosswalk/shortlist.md`` after ``ladder`` runs,

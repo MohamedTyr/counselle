@@ -363,7 +363,7 @@ def test_query_database_requires_db_recipes_first_when_requested() -> None:
 
 
 def test_query_database_citation_guard_fails_uncited_cross_school_claim() -> None:
-    """v3-denominator-cross-school (school-data-v3 Phase 3, Unit E): a value
+    """v3-denominator-cross-school (school-data-v3 Phase 3): a value
     seen only through `query_database` (which mints no citation) must never
     surface with a citation marker unless a later `get_facts` call re-fetched
     it through the typed, cited path."""
@@ -894,7 +894,7 @@ async def test_response_mode_behavior_can_require_source_routing_tools() -> None
 
 @pytest.mark.asyncio
 async def test_coverage_honesty_case_still_scores_its_named_tools() -> None:
-    """school-data-v3 Phase 3, Unit E's new v3 cases (e.g.
+    """school-data-v3 Phase 3's new v3 cases (e.g.
     v3-coverage-not-collected) are `coverage_honesty`/`edition_caveat`/
     `honesty` type, not `routing`, but still name required tools in
     `expects["tools"]` -- that list must not go silently unchecked just
@@ -976,7 +976,7 @@ def test_eval_context_materializes_live_roles_without_mutating_template() -> Non
     ungated = next(q for q in rendered if q["id"] == "gated-stale-facts")
     assert "skip_reason" not in ungated
 
-    # school-data-v3 Phase 3 Unit E: `denominator-most-selective` was re-pointed
+    # school-data-v3 Phase 3: `denominator-most-selective` was re-pointed
     # off the retired `get_domain`/`active_cds_domain_packets` typed-refetch
     # scorer (`typed_refetch_domain_id`/`typed_refetch_refs`, both dead code
     # against `get_facts`) onto a `get_facts`-based criteria check instead.

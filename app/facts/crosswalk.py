@@ -1,7 +1,7 @@
 """The committed CollegeData<->IPEDS crosswalk CSV: loader + DB sync (plan §2/§4.6).
 
 ``config/facts/collegedata_crosswalk.csv`` is built once, offline, by
-``scripts/build_crosswalk.py`` (Unit A) — a six-stage automatic matching
+``scripts/build_crosswalk.py`` — a six-stage automatic matching
 ladder plus a hand-reviewed adjudication pass, never an LLM at build or run
 time (D7). This module is the CSV's **only** loader; nothing else in the
 codebase parses it directly. ``load_crosswalk()`` is registered with
@@ -10,7 +10,7 @@ server never serves a stale copy after the file changes on disk.
 
 ``sync_crosswalk()`` upserts the CSV into ``cds_library.collegedata_schools``
 (seeded empty) — the one write this module performs, run by
-``python -m app.facts crosswalk-sync`` (Unit E's ``__main__.py``, not built
+``python -m app.facts crosswalk-sync`` (``app/facts/__main__.py``, not built
 here) and by ``dev.py reset-db`` / the Phase 4 bootstrap. It is idempotent:
 re-running it with an unchanged CSV changes no row.
 """
@@ -59,7 +59,7 @@ _UPSERT_SQL = """
         note = EXCLUDED.note
 """  # nosec B608
 # `last_seen_in_sitemap_at`/`retired_at` are deliberately untouched here —
-# they are crawl-pass bookkeeping (Unit E's `app/facts/crawl.py` territory),
+# they are crawl-pass bookkeeping (`app/facts/crawl.py` territory),
 # not something a CSV sync should stamp; touching either would make a
 # second, otherwise-identical sync look like a change.
 

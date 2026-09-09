@@ -161,8 +161,8 @@ export const scoreFitOptions: Option<ScoreFit>[] = [
  * (2026-09-08, 910/2,587 schools): every row so far is one of these five /
  * six values. A value outside this list simply fails to match any option
  * -- it is never coerced into a neighbour -- so a future new slug shows up
- * as "the filter matched nothing" rather than a wrong answer. See this
- * unit's final report: `filter_options` should grow these two server-side,
+ * as "the filter matched nothing" rather than a wrong answer. A future
+ * improvement: `filter_options` should grow these two server-side,
  * the same way it already derives region/campus_setting/religious_affiliation.
  */
 export const entranceDifficultyOptions: Option<string>[] = [
@@ -197,11 +197,11 @@ export const sortOptions: Option<SortKey>[] = [
 /**
  * `school_explore.state` has no `filter_options` entry on the wire (only
  * region/campus_setting/religious_affiliation are server-derived, plan
- * §5.3) -- this is a plain 51-jurisdiction list rather than data this unit
+ * §5.3) -- this is a plain 51-jurisdiction list rather than data this feature
  * can query. Every entry is a real IPEDS jurisdiction, so the gap is never
  * an option matching zero schools, only a possible option for a state the
  * crawl has not reached yet on the current filter set (the same shape as
- * `exclusions`, already disclosed there). See this unit's final report.
+ * `exclusions`, already disclosed there).
  */
 export const US_STATES: string[] = [
   "AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE", "DC", "FL",

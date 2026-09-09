@@ -52,8 +52,8 @@ Recommend the schools the *field* rates, with the real reason each is strong.
 **Archetype mode** ("what does school X look for?", profile-building, "MIT vs Harvard
 vs …"). Each selective school builds toward a **distinct** applicant archetype — verify
 it per school and keep them distinct; never blur several into one generic "be excellent
-and well-rounded". Triangulate from: the school's `important factors` in CDS if
-available, its admissions/mission language (`.edu`, `"what [school] values in
+and well-rounded". Triangulate from: the school's `important factors` in `get_facts`
+if available, its admissions/mission language (`.edu`, `"what [school] values in
 applicants"`), AO interviews and reputable analysis (broad web), and a Reddit **sweep
 of accepted-profile threads** (`{school}` + ApplyingToCollege + chanceme): `"accepted
 [school] profile"`, `"[school] what got me in"`. Produce a separate, concrete

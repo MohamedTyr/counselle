@@ -44,7 +44,7 @@ DEFAULT_DB_POOL_MAX = 5
 #: A JWT signing secret shorter than this is rejected (pyjwt 2.13 warns below 32).
 _MIN_JWT_SECRET_BYTES = 32
 
-#: The documented, never-real `facts_crawl_user_agent` placeholder (ADR 0037
+#: The documented, never-real `facts_crawl_user_agent` placeholder (ADR 0038
 #: R0 Finding 1). Shared by both `facts_crawl_user_agent` validators below;
 #: also duplicated (by necessity, see the validators' docstrings) in
 #: `adapters/collegedata/fetch.py`.
@@ -249,9 +249,9 @@ class Settings(BaseSettings):
     # The shared token-bucket rate for adapters/collegedata/fetch.py's
     # CollegeDataFetcher — one request per (1 / facts_crawl_rps) seconds,
     # shared across facts_crawl_concurrency schools in flight (plan §4.1/
-    # §4.3; ADR 0037 R0's rate-limit mitigation). 1 req/s, not 2 (Q9).
+    # §4.3; ADR 0038 R0's rate-limit mitigation). 1 req/s, not 2 (Q9).
     facts_crawl_rps: float = Field(default=1.0, gt=0)
-    # How many schools app/facts/crawl.py (Unit E) is *designed* to run
+    # How many schools app/facts/crawl.py is *designed* to run
     # concurrently against the same shared token bucket above — 1 means
     # requests are strictly sequential (plan §4.1). NOT YET CONSUMED: the
     # current app/facts/crawl.py loop always processes schools sequentially
@@ -259,14 +259,14 @@ class Settings(BaseSettings):
     # actual behavior is more conservative than this setting's name implies,
     # never less. Kept rather than deleted because the plan's crawl-duration
     # math (plan §4.1: "~4.3h at 1 req/s") and the shared-token-bucket design
-    # both name it as the real Unit E orchestration knob; wire it into
+    # both name it as the real crawl-pass orchestration knob; wire it into
     # app/facts/crawl.py when concurrent scheduling is actually built,
     # rather than re-adding the setting from scratch.
     facts_crawl_concurrency: int = Field(default=1, gt=0)
     # Per-request httpx timeout, seconds (adapters/collegedata/fetch.py).
     facts_crawl_request_timeout_s: float = Field(default=20.0, gt=0)
     # The truthful, self-identifying User-Agent every collegedata.com
-    # request carries (ADR 0037 R0's identification mitigation) — boot-
+    # request carries (ADR 0038 R0's identification mitigation) — boot-
     # validated below to contain a contact URL and to not still be the
     # documented `<domain>` placeholder. Consumed by
     # adapters/collegedata/fetch.py's FetchConfig, which independently
@@ -278,7 +278,7 @@ class Settings(BaseSettings):
     # How many distinct Next.js buildId rotations adapters/collegedata/
     # fetch.py's CollegeDataFetcher tolerates in one crawl pass before
     # raising BuildIdRotationLimitExceeded (plan §4.1) — app/facts/crawl.py
-    # (Unit E) closes the pass as 'aborted' when this is exceeded.
+    # closes the pass as 'aborted' when this is exceeded.
     facts_crawl_max_build_rotations: int = Field(default=3, gt=0)
     # Hard ceiling on any single fetched response body from collegedata.com
     # (after gunzip, if applicable) — adapters/collegedata/fetch.py is the
@@ -290,7 +290,7 @@ class Settings(BaseSettings):
     # this is a safety floor against a malformed/adversarial response, not a
     # tuning knob for legitimate traffic.
     facts_crawl_max_response_bytes: int = Field(default=20_000_000, gt=0)
-    # How often the in-process poller (app/facts/jobs.py, Unit E) sweeps
+    # How often the in-process poller (app/facts/jobs.py) sweeps
     # expired leases / checks for claimable work / runs the daily enqueue
     # tick when idle — mirrors cds_worker_poll_seconds's shape.
     facts_worker_poll_seconds: int = Field(default=30, gt=0)
@@ -479,7 +479,7 @@ class Settings(BaseSettings):
     # (decompression-bomb DoS). Bounded the same way as the summary model call.
     document_extraction_timeout_s: float = 8.0
 
-    # --- CDS admin pipeline (parked, ADR 0036/0037 — D8) ---
+    # --- CDS admin pipeline (parked, ADR 0036/0038 — D8) ---
     # In-process asyncio poller kill switch — all queue state lives in
     # cds_extractions (Postgres), so flipping this off just stops new claims.
     # Defaults false under school-data-v3: the CDS extraction pipeline is
@@ -542,7 +542,7 @@ class Settings(BaseSettings):
                 # Finding 1 (school-data-v3 fix review): the documented
                 # `<domain>` placeholder resolves to nothing — an operator
                 # who deploys without setting COUNSELLE_FACTS_CRAWL_USER_AGENT
-                # would otherwise boot clean and silently defeat ADR 0037
+                # would otherwise boot clean and silently defeat ADR 0038
                 # R0's identification mitigation the moment a crawl runs.
                 # Deliberately placed here (a model validator gated on
                 # `environment`), not in `_facts_crawl_user_agent_has_contact_url`
@@ -554,14 +554,14 @@ class Settings(BaseSettings):
                     "facts_crawl_user_agent is still the documented '<domain>' "
                     "placeholder — set COUNSELLE_FACTS_CRAWL_USER_AGENT to your "
                     "own real, reachable contact URL before deploying outside "
-                    "development (ADR 0037 R0)"
+                    "development (ADR 0038 R0)"
                 )
         return self
 
     @field_validator("facts_crawl_user_agent")
     @classmethod
     def _facts_crawl_user_agent_has_contact_url(cls, value: str) -> str:
-        # ADR 0037 R0's identification mitigation: the fetcher must always
+        # ADR 0038 R0's identification mitigation: the fetcher must always
         # be truthfully self-identifying with a reachable contact URL.
         # Shared logic lives in adapters.collegedata.fetch (this module
         # cannot import adapters/ without inverting ADR 0017's layering, so

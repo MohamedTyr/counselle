@@ -1,5 +1,5 @@
 """One crawl pass: discovery -> per-school 6-tab fetch -> mapper -> one
-transaction per school -> `adapters/facts_store.py` (plan §4.1-§4.4, Unit E).
+transaction per school -> `adapters/facts_store.py` (plan §4.1-§4.4).
 
 `run_crawl_pass` is called both by `app/facts/jobs.py`'s poller and by
 `python -m app.facts --once` (one shared code path, appendix J-iii).
@@ -171,7 +171,7 @@ def _wrap_top_level(profile: Mapping[str, Any]) -> dict[str, Any]:
     """`parse_page` expects the raw `/_next/data/...json` shape
     (`{"pageProps": {"profile": ...}}`); `FetchedPage.profile` is already
     the extracted `profile` dict — this is the one-line adapter between
-    Unit C's fetcher and Unit D's parser (see Unit E's final report)."""
+    `adapters/collegedata/fetch.py`'s fetcher and `adapters/collegedata/parse.py`'s parser."""
     return {"pageProps": {"profile": profile}}
 
 

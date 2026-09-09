@@ -1,5 +1,7 @@
-"""The CDS Library service API (in-process; the MCP server it used to back
-was retired in school-data-v3 Phase 3, Unit C).
+"""The CollegeData facts-store service API (in-process; the MCP server it
+used to back was retired in school-data-v3 Phase 3) -- `resolve_school`,
+`get_school_profile`, `get_facts`, `explore`, and `majors` over the six
+`cds_library` reader views (ADR 0038).
 
 `query_database`'s SQL guard (`_guard_sql`, its ~20 AST-walking helpers, and
 `query_database` itself) lives in `counselle_db/sql_guard.py` -- split out
@@ -116,15 +118,6 @@ def tool_errors(fn: Any) -> Any:
     return wrapper
 
 
-_SELECTED_DOCUMENT_SQL = """SELECT d.*,p.manifest_version AS target_manifest_version
- FROM cds_library.active_cds_documents d
- LEFT JOIN cds_library.active_cds_domain_packets p
- ON p.school_id=d.school_id AND p.document_id=d.document_id AND p.domain_id=$2
- WHERE d.school_id=$1 ORDER BY d.academic_year DESC,d.document_id DESC LIMIT 1"""
-_DOMAIN_ROWS_SQL = """SELECT p.*,d.currentness,d.staleness_reason
- FROM cds_library.active_cds_domain_packets p
- JOIN cds_library.active_cds_documents d ON d.school_id=p.school_id AND d.document_id=p.document_id
- WHERE p.school_id=$1 AND p.document_id=$2 AND p.domain_id=ANY($3::text[])"""
 _PROFILE_SQL = """SELECT id,name,city,state,official_domain,basic_profile,profile_provenance,
  profile_version,profile_snapshot_date,profile_sha256
  FROM cds_library.school_profiles WHERE id=$1"""
@@ -312,7 +305,7 @@ async def get_facts(
     read; passing neither returns every current fact row for the school --
     the HTTP facts page's shape (`app/facts/service.py` needs the whole
     school to resolve every declared key's state, including keys with no row
-    at all). This unit does not add capping/`truncated` on top of the
+    at all). This function does not add capping/`truncated` on top of the
     unnarrowed read, since the full-page read has no such budget (plan
     §5.2's ≤150 KB payload budget is a property of the data, not an
     artificial cap); the agent tool (`app/toolset.py`) applies its own cap

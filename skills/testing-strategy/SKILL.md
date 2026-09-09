@@ -28,8 +28,8 @@ is materially weaker than the rest of the file.
 
 ## Evidence plan
 
-Use `counselor-research` for routing. In the same evidence round: CDS testing
-distributions for positioning; official sources for current status and deadlines
+Use `counselor-research` for routing. In the same evidence round: `get_facts`
+testing distributions for positioning; official sources for current status and deadlines
 (test-optional, superscoring, section treatment, redesigned-ACT rules); broad web for
 platform mechanics; Reddit for applicant implementation details. With several schools,
 produce one policy-and-decision row per school — never generalize one school's policy.

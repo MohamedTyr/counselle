@@ -5,9 +5,9 @@ composed here, once, server-side -- the frontend authors none of it.
 
 Band composition (SAT/ACT `_p25`/`_p75` pairs -> one `band` fact) and the
 `_BAND_SCALES` min/max table live here rather than in
-`domain/facts/normalize.py` (where plan §5.2 places them): this unit does
-not touch `domain/facts/` (Phase 1's, and the crawl is running against it).
-See this unit's final report.
+`domain/facts/normalize.py` (where plan §5.2 places them): this module
+deliberately does not touch `domain/facts/` (it is Phase 1's code, and the
+crawl runs against it live).
 """
 
 from __future__ import annotations

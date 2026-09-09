@@ -24,8 +24,9 @@ ExclusionReason = Literal["missing", "not_reported"]
 # projection never populates (net price, out-of-state %, admit rate by home
 # state, REA, any SAT composite -- dropped by the plan itself, R14/D10) and
 # minus `sports`/ethnicity (no §5.3 filter reads them). `need_fully_met` and
-# `merit_aid` are real columns with a real filter but are NULL on every row
-# today -- see this unit's final report.
+# `merit_aid` are real columns with a real filter, populated on 1,425 and
+# 1,365 of 2,239 `cds_library.school_explore` rows respectively (verified
+# live) -- not NULL on every row.
 RangeKey = Literal[
     "admit",
     "cost",
@@ -77,7 +78,7 @@ class ExploreQuery(BaseModel):
     # rate/pct columns mirror the underlying percent-kind fact's `value_num`
     # verbatim (e.g. "58%" -> 58), matching what the facts page displays.
     # Appendix B's superseded draft assumed 0-1; live data (measured against
-    # the running crawl) confirms 0-100 -- see this unit's final report.
+    # the running crawl) confirms 0-100.
     admit_min: float | None = Field(default=None, ge=0, le=100)
     admit_max: float | None = Field(default=None, ge=0, le=100)
     cost_min: float | None = None

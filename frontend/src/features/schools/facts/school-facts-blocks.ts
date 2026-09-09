@@ -5,7 +5,7 @@ import type { Fact } from "@/features/schools/facts/school-facts-types";
  *
  * `FactGroup.chart` rides the wire (plan §5.2) but the shipped catalog never
  * populates it (`app/facts/service.py::_build_section` always emits
- * `chart=None` — see this unit's final report). So there is no group-level
+ * `chart=None`). So there is no group-level
  * chart config to key off; each fact's OWN `kind` decides how it renders,
  * and this module's only job is deciding which consecutive facts share one
  * visual instead of each getting its own.

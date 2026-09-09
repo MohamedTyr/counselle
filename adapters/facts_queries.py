@@ -1,4 +1,4 @@
-"""Read-side SQL for the facts admin dashboard (plan §4.3/§5.5, Unit E).
+"""Read-side SQL for the facts admin dashboard (plan §4.3/§5.5).
 
 Mirrors `adapters/cds_admin_queries.py`'s role: every function here takes
 the *pipeline pool* (`Runtime.pipeline_pool`, `cds_library_app` role) and

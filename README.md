@@ -1,20 +1,22 @@
 # Counselle
 
-Counselle is an AI agent for the US college-admissions process — a thinking and answering partner about US universities for student applicants. It resolves any profiled school and answers from stable identity plus whatever evidence-backed CDS domains its selected edition actually covers, with official-web fallback for missing or current facts. Honesty about values, sources, editions, and coverage is enforced in code.
+Counselle is an AI agent for the US college-admissions process — a thinking and answering partner about US universities for student applicants. It resolves any profiled school and answers from stable identity (IPEDS) plus whatever CollegeData-sourced facts are present for that school, with official-web fallback for missing facts. Honesty about values, sources, and coverage is enforced in code. There is no retrieval-augmented generation in this path — facts are read straight through typed views.
 
 It is two pieces, both in this repo:
 
-- **The agent** — an API-first FastAPI service behind a versioned SSE event protocol, plus a React/Vite frontend that consumes it. It is a strictly read-only consumer of the CDS Library's Postgres database, connecting through a dedicated reader role over exactly five reader views — see `docs/DATABASE_GUIDE.md`.
-- **The CDS extraction pipeline & admin tool** (`domain/cds/`, `adapters/cds_*`, `app/cds/`, `api/routes/cds_admin.py`) — the writer that produces the data the agent reads: upload, extraction, review, and approval of CDS documents, gated end-to-end behind superuser auth. It writes through its own Postgres role and DSN, isolated from the agent's read path by both code and credentials — see `docs/adr/0036-cds-pipeline-in-app.md`.
+- **The agent** — an API-first FastAPI service behind a versioned SSE event protocol, plus a React/Vite frontend that consumes it. It is a strictly read-only consumer of the facts store's Postgres database (schema `cds_library`), connecting through a dedicated reader role over exactly six reader views, called in-process (no MCP server on this path) — see `docs/DATABASE_GUIDE.md`.
+- **The CollegeData facts crawler** (`adapters/collegedata/`, `app/facts/`) — the writer that produces the data the agent reads: a free, rate-limited, `httpx`+`tenacity` daily scrape of CollegeData.com with change detection, no LLM anywhere in ingestion. It writes through its own Postgres role and DSN, isolated from the agent's read path by both code and credentials — see `docs/adr/0038-collegedata-facts-store-cds-parked.md`.
+
+**Also in this repo, parked (not deleted):** the CDS extraction pipeline and admin tool (`domain/cds/`, `adapters/cds_*`, `app/cds/`, `api/routes/cds_admin.py`) built under ADR 0036 — in-tree, importable, unit-tested, but unmounted at runtime and not reachable from any route. See `PARKED.md` for exactly what's parked and how to revive it, and ADR 0038 for why.
 
 ## Project layout
 
 | Path | What lives here |
 |------|-----------------|
-| `domain/` | The pure honesty core — packet/value/evidence/caveat types, events, and render specs. No I/O. Also `domain/cds/`: the extraction pipeline's pure types. |
-| `app/` | Agent orchestration — the turn lifecycle, step/thinking emission, turn registry, transcript builder, runtime wiring. Also `app/cds/`: the extraction/review/approval flow. |
-| `adapters/` | External integrations — Tavily search, email, model-provider seams. Also `adapters/cds_*`: PDF parsing, the extraction LLM call, and the `cds_library` write layer. |
-| `counselle_db/` | The `counselle-db` MCP server + in-process service layer: four read-only tools over the CDS Library's five reader views. |
+| `domain/` | The pure honesty core — value/caveat types, events, and render specs. No I/O. Also `domain/cds/`: the parked extraction pipeline's pure types (ADR 0036, PARKED.md). |
+| `app/` | Agent orchestration — the turn lifecycle, step/thinking emission, turn registry, transcript builder, runtime wiring. Also `app/facts/`: the CollegeData crawl, crosswalk, and Explore/admin services (ADR 0038); `app/cds/`: the parked extraction/review/approval flow. |
+| `adapters/` | External integrations — Tavily search, email, model-provider seams. `adapters/collegedata/`: the CollegeData fetcher/parser. `adapters/facts_store.py` + `adapters/*facts_queries.py`: the `cds_library` facts write/read layer. Also `adapters/cds_*`: the parked extraction pipeline's PDF parsing and LLM call. |
+| `counselle_db/` | In-process service layer only (no MCP server) — four read-only tools over the facts store's six `cds_library` reader views. |
 | `api/` | The FastAPI service — routers, auth (fastapi-users), the SSE protocol, rate limiting, lifespan. |
 | `config/` | The typed Settings surface (`settings.py`) + versioned data assets (prompts, subreddit menu, season table) in `config/assets/`. |
 | `migrations/` | yoyo migrations for Counselle's own `counselle.*` schema. |
@@ -31,42 +33,50 @@ It is two pieces, both in this repo:
 
 - **Python 3.12+** and **[uv](https://github.com/astral-sh/uv)**
 - **Node 22.12+** and **npm** (for the frontend)
-- **Postgres 16** running on `localhost:5433` by default, containing the CDS Library schema and Counselle's application schema
+- **Postgres 16** — a local dev instance is provided by `deploy/docker-compose.dev.yml` (container `counselle-db-v3`, port `5433` by default via `COUNSELLE_DB_PORT`, and note that port is only a default — pick a free one if something else on your machine already holds it), containing the facts-store `cds_library` schema and Counselle's application schema. `./scripts/dev.py` (below) manages this container for you; the manual steps below are for a from-scratch bootstrap.
 - A LOGIN role that is a member only of `cds_library_reader`, plus the `counselle_app` role and `counselle.*` schema. On a genuinely fresh database, first create the `cds_library` schema itself — this repo's own yoyo migrations never touch it (see `docs/DATABASE_GUIDE.md` §1) — then run `scripts/setup_db.sql` for role/grant bootstrap, then apply migrations with `yoyo`:
 
 ```bash
 # Fresh database only: cds_library's own schema/tables/views/function
 # (source of record — see docs/DATABASE_GUIDE.md §1). Skip this step
 # against a database that already has cds_library populated.
-psql "$COUNSELLE_ADMIN_DSN" -f deploy/seed/cds_library_schema.sql
+psql "$COUNSELLE_DB_ADMIN_DSN" -f deploy/seed/cds_library_schema.sql
 
 # setup_db.sql reads role passwords from the environment via \getenv (see
 # the script header) — never pass them as psql -v argv. Supply the two
 # required passwords, matching the passwords in your .env DSNs.
-# COUNSELLE_PIPELINE_PASSWORD is optional — set it to also bootstrap
-# `cds_library_app` (the CDS admin write path, ADR 0036); omit it and that
-# role/grant block is skipped.
-COUNSELLE_RO_PASSWORD="<CDS Library reader-login password>" \
+# COUNSELLE_PIPELINE_PASSWORD is optional — set it to also give `cds_library_app`
+# LOGIN (ADR 0038: it now drives the CollegeData facts crawler, not the parked
+# CDS admin write path); omit it and that role is created NOLOGIN (present but inert).
+#
+# WARNING: roles and passwords are cluster-global, not database-local — this
+# script rewrites counselle_ro/counselle_app/cds_library_app cluster-wide.
+# Point it only at a scratch/local Postgres instance you own, never at a
+# shared cluster (see the script's own header comment).
+COUNSELLE_RO_PASSWORD="<facts-store reader-login password>" \
 COUNSELLE_APP_PASSWORD="<counselle_app password>" \
 COUNSELLE_PIPELINE_PASSWORD="<cds_library_app password, optional>" \
-  psql "$COUNSELLE_ADMIN_DSN" -f scripts/setup_db.sql
+  psql "$COUNSELLE_DB_ADMIN_DSN" -f scripts/setup_db.sql
 # Append ?schema=counselle so yoyo keeps its bookkeeping tables in the
 # counselle schema (owned by counselle_app), not in public.
 uv run yoyo apply --batch --database "${COUNSELLE_DB_APP_DSN}?schema=counselle" migrations/
 ```
 
-The local CDS Library cutover is technically complete, but Counselle traffic remains
-closed pending final technical gates and explicit owner acceptance. The current protected
-cleanup evidence is under `artifacts/db-rewire/20260716T205303Z-round3-cleanup/`.
-Two post-boundary sessions whose ownership could not be proven were retained, so zero-loss
-rollback has expired; do not switch back to the old DSN and discard new writes.
+The manual recipe above is superseded for local dev by `./scripts/dev.py reset-db`, which drives
+`scripts/setup_db.sql` and `deploy/seed/cds_library_schema.sql` against `COUNSELLE_DB_ADMIN_DSN`
+for you (see "Run it" below). The earlier CDS Library DB-rewire cutover (ADR 0032, the
+`artifacts/db-rewire/20260716T205303Z-round3-cleanup/` evidence, its "traffic remains closed"
+status) is superseded: school-data-v3 (ADR 0038) nuked and rebuilt both `cds_library` and
+`counselle.*` from a fresh seed, so that earlier evidence describes a database generation that no
+longer exists. School-data-v3 itself is **technically shipped but owner acceptance is still
+pending** — see the AGENTS.md/CLAUDE.md Status section for what remains open.
 
 ## Environment setup
 
 ```bash
 cp .env.example .env
 # Required to start the server:
-#   COUNSELLE_DB_RO_DSN     — LOGIN member of cds_library_reader (five views only)
+#   COUNSELLE_DB_RO_DSN     — LOGIN member of cds_library_reader (six views only)
 #   COUNSELLE_DB_APP_DSN    — read-write DSN for Counselle's own counselle.* schema
 #   COUNSELLE_VERTEX_API_KEY — Vertex express-mode API key (or GOOGLE_APPLICATION_CREDENTIALS)
 #   COUNSELLE_JWT_SECRET    — JWT cookie signing secret, ≥32 bytes
@@ -157,8 +167,9 @@ uv run python -m evals.runner
 ## Where to read more
 
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — how the system is built (stack, layering, data access, event protocol), in two parts: Part I (MVP1 agent) and Part II (MVP2 full-stack app)
-- [`docs/DATABASE_GUIDE.md`](docs/DATABASE_GUIDE.md) — the five-view CDS Library contract, packet/availability/evidence rules, and safe SQL recipes
-- [`docs/adr/`](docs/adr/) — the 32 architectural decision records (start at `docs/adr/README.md`)
+- [`docs/DATABASE_GUIDE.md`](docs/DATABASE_GUIDE.md) — the six-view `cds_library` facts-store contract, availability rules, and safe SQL recipes
+- [`docs/adr/`](docs/adr/) — the 38 architectural decision records (start at `docs/adr/README.md`)
 - [`docs/DEPLOY.md`](docs/DEPLOY.md) — the deployment guide and its open gotchas (deploy itself is deferred)
-- [`specs/`](specs/) — the permanent PRDs and implementation plans for every MVP/feature ([`specs/README.md`](specs/README.md))
+- [`PARKED.md`](PARKED.md) — the register of everything parked when the CDS extraction system's runtime role was superseded (ADR 0038), with exact paths and revival steps
+- [`specs/`](specs/) — the permanent PRDs and implementation plans for every MVP/feature ([`specs/README.md`](specs/README.md)), including [`specs/school-data-v3/`](specs/school-data-v3/) for this generation
 - [`TODOS.md`](TODOS.md) — deferred work with full context

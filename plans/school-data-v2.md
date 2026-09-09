@@ -1,6 +1,6 @@
 # School data v2 — CollegeData facts store + CDS PDF corpus (RAG) + parked extraction engine
 
-> **2026-09-05 (third round):** the owner dropped the RAG corpus for now. The current plan is `plans/school-data-v3.md` (CollegeData facts store only; CDS system parked whole). This file is kept for the RAG design (§2 parser/chunker/embedding/store/rerank/eval rows and §5), which was measured on our own PDFs and should be reused verbatim when the corpus returns.
+> **2026-09-05 (third round):** the owner dropped the RAG corpus for now. The current plan is `../specs/school-data-v3/plan/school-data-v3.md` (CollegeData facts store only; CDS system parked whole). This file is kept for the RAG design (§2 parser/chunker/embedding/store/rerank/eval rows and §5), which was measured on our own PDFs and should be reused verbatim when the corpus returns.
 
 **Status:** design draft, 2026-09-05. Supersedes the source/tier/lazy-extraction parts of
 `plans/school-data-rearchitecture.md` (keep that file for the source research, the

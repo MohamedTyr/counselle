@@ -12,7 +12,7 @@ selection_default: false
 # Deep Research
 
 Briefly establish the decision being made and the material research axes before
-collecting evidence. Use Counselle's database/CDS evidence first for covered
+collecting evidence. Use Counselle's facts store first for covered
 school facts.
 
 Keep the investigation bounded to the decision. For a two-school comparison,

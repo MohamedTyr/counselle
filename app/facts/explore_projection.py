@@ -1,4 +1,4 @@
-"""`school_explore_rows` projection (plan §3.1/§4.2, Unit E).
+"""`school_explore_rows` projection (plan §3.1/§4.2).
 
 Two input sources, combined into one dict keyed by
 `adapters.facts_store.EXPLORE_COLUMNS`:
@@ -15,12 +15,12 @@ Two input sources, combined into one dict keyed by
   one sanctioned stored derived ratio, computed from two raw-count facts
   rather than mapped 1:1 (see `_leading_count`).
 
-This unit does **not** attempt the SAT/ACT-percentile, admit-rate, or
+This module does **not** attempt the SAT/ACT-percentile, admit-rate, or
 sports-by-gender columns appendix E-iv drafts — those live inside
 `distribution`/`matrix`-kind `NormalizedValue.value` payloads whose bucket
-shape is the mapper's (Unit D's) domain, not derivable from a fact_key ->
+shape is the mapper's domain, not derivable from a fact_key ->
 column table alone. Every such column stays `NULL` — a legitimate "not yet
-projected" state, never invented. See Unit E's final report.
+projected" state, never invented.
 """
 
 from __future__ import annotations

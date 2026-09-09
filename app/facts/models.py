@@ -1,5 +1,5 @@
-"""HTTP response models for the facts admin surface (plan appendix ii,
-Unit E). `api/routes/admin_facts.py` (Unit F) serves these; this unit only
+"""HTTP response models for the facts admin surface (plan appendix ii).
+`api/routes/admin_facts.py` serves these; this module only
 defines the shape and assembles it (`app/facts/service_admin.py`).
 
 Reuses `counselle_db.models.FrozenModel` (`extra="forbid", frozen=True`) —

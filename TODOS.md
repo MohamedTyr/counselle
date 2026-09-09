@@ -12,7 +12,7 @@
   (`ALTER VIEW cds_library.school_explore OWNER TO cds_library_owner`, then re-run the seed).
 - **Why:** likely created once by hand under the admin role during Phase 1's explore work rather
   than through the seed's `SET ROLE cds_library_owner` bootstrap. Fixing ownership is a live-DB
-  schema change beyond Unit A/B's (school-data-v3 Phase 2) assigned surface; flagged rather than
+  schema change beyond school-data-v3 Phase 2's assigned surface; flagged rather than
   applied.
 - **Context:** `deploy/seed/cds_library_schema.sql`'s `school_explore` view + its grant block;
   `scripts/seed_reader_db.py`'s always-run DDL phase.
@@ -269,7 +269,7 @@
 ## Resolved: `COUNSELLE_DB_RESET_NOTICE_DATE` is now wired up (school-data-v3 Phase 2)
 `Settings.db_reset_notice_date`/`db_reset_notice_days` exist, `.env.example` documents both, and
 the unauthenticated `GET /v1/config/public` (`api/routes/config.py`) serves the date — the
-consumer this entry was waiting on. `AuthLayout`'s sign-in notice UI (frontend, §5.6) is Unit E's
+consumer this entry was waiting on. `AuthLayout`'s sign-in notice UI (frontend, §5.6) is a
 follow-up in the same phase; this entry is closed on the backend side.
 
 ## Six functions over CLAUDE.md's 50-line limit, introduced in school-data-v3 Phase 2 (deliberately deferred)
@@ -291,6 +291,48 @@ follow-up in the same phase; this entry is closed on the backend side.
 - **Context (start here):** the six functions above.
 - *(Logged from the school-data-v3 Phase 2 backend implementation, 2026-09-08.)*
 
+## Correction: the "six functions" entry above is stale — later phases grew the crawl/crosswalk surface too
+- **What:** the entry immediately above this one was accurate as of Phase 2, but the crawl and
+  crosswalk work that followed in later phases added its own set of over-50-line functions that
+  were never folded into that count. A fresh AST-based scan of the whole repo (`ast.parse`,
+  measuring `end_lineno - lineno + 1` on every `FunctionDef`/`AsyncFunctionDef`, so decorators and
+  docstrings can't skew the count the way a line-count heuristic would) run 2026-09-09 finds, in
+  just the facts/crosswalk/CollegeData surface this work owns (`app/facts/`, `adapters/facts_*`,
+  `adapters/collegedata/`, `domain/facts/`, `scripts/build_crosswalk.py` and its adjudication
+  scripts):
+  - The original six, re-measured today (two shifted by one line — not a real change, just where
+    the earlier count drew the boundary — the rest are exactly as recorded):
+    - `app/facts/service_explore.py::_build_clauses` — 182 lines (unchanged)
+    - `app/facts/service_explore.py::run_explore` — 167 lines (was 166)
+    - `app/facts/service.py::_build_deadlines` — 68 lines (unchanged)
+    - `adapters/facts_store.py::retire_absent_slugs` — 65 lines (unchanged)
+    - `app/facts/service.py::get_school_facts` — 59 lines (was 58)
+    - `app/facts/service.py::_try_band` — 57 lines (unchanged)
+  - Ten more, not in the original count, all introduced or grown past 50 lines by the crawl-pass
+    and crosswalk-builder work that shipped after Phase 2:
+    - `scripts/build_crosswalk.py::_run_ladder` — 168 lines
+    - `app/facts/crawl.py::_process_school_live` — 168 lines
+    - `app/facts/crawl.py::_run_crawl_pass_locked` — 128 lines
+    - `adapters/facts_store.py::write_school_facts` — 127 lines
+    - `adapters/facts_store.py::record_page_changed` — 81 lines
+    - `app/facts/crawl.py::_process_school_remap` — 58 lines
+    - `scripts/build_crosswalk.py::_merge_command` — 57 lines
+    - `adapters/collegedata/fetch.py::_get` — 55 lines
+    - `adapters/facts_jobs_store.py::close_run` — 54 lines
+    - `scripts/build_crosswalk.py::_fetch_all` — 52 lines
+  - Sixteen functions over the limit today in this surface, not six.
+- **Why not fixed here:** same reasoning as the original entry — this is the crawl/write/dedup
+  path for the CollegeData facts store, honesty-adjacent (it decides what gets written and what
+  gets retired) and recently built or reviewed; splitting sixteen functions is mechanical but
+  real work, better done as its own pass than folded into an unrelated bookkeeping correction.
+- **Context (start here):** the sixteen functions listed above; the scan is repo-wide AST-based
+  (not a regex or line-count heuristic), scoped in this report to the facts/crosswalk/CollegeData
+  files school-data-v3 owns — `evals/runner.py`'s four over-limit functions are tracked separately
+  in the correction entry below this one, and unrelated pre-existing oversized functions elsewhere
+  in the repo (e.g. `app/run_turn.py`, `app/agent_node.py`, `app/viz.py`) are out of scope for this
+  entry and not school-data-v3's debt to record.
+- *(Logged from the school-data-v3 Phase 5 docs/graduation pass, 2026-09-09.)*
+
 ## Two pre-existing oversized files, unrelated to school-data-v3 Phase 2
 - **What:** two files were already over CLAUDE.md's 800-line file limit before Phase 2, and
   remain so, untouched by its function-level work:
@@ -302,3 +344,56 @@ follow-up in the same phase; this entry is closed on the backend side.
 - **Why not fixed here:** pre-existing, out of scope for Phase 2's facts/Explore surface; noted
   so neither file's size is mistaken for something this phase introduced.
 - *(Logged from the school-data-v3 Phase 2 backend implementation, 2026-09-08.)*
+
+## Correction: `evals/runner.py`'s "unrelated to Phase 2" entry above is stale — Phase 3 un-parked and substantially rewrote it
+- **What:** the entry immediately above this one describes `evals/runner.py` as pre-existing,
+  untouched apart from a one-line import fixup, at 1,528 lines. That was true as of Phase 2. It
+  stopped being true in Phase 3: `build_eval_context` and its `_school` helper had been left as
+  `NotImplementedError` stubs, which meant the eval harness could not execute a single case, and
+  `score_composition`'s per-cell tier check would have failed every *correct* answer regardless,
+  since `db`-sourced citations carry `tier: null` by design (decision D3, `specs/school-data-v3/plan/school-data-v3.md`
+  §0). Phase 3 un-parked both — the harness now runs against live `get_facts`/`query_database`
+  output. The file's current size is **1,391 lines** (net *smaller* than the 1,528 recorded
+  above, despite the added implementation — some other dead weight was removed in the same pass).
+  It still has four functions over the 50-line house limit:
+  - `evals/runner.py::score_deterministic` — 165 lines
+  - `evals/runner.py::run_question` — 74 lines
+  - `evals/runner.py::score_narration` — 59 lines
+  - `evals/runner.py::build_eval_context` — 55 lines
+- **Why not fixed here:** the file remains over the 800-line ceiling and these four functions
+  remain over the 50-line ceiling for the same reason as the six Phase 2 functions above — this
+  is the eval-scoring logic that determines whether the school-data-v3 eval suite is trustworthy
+  at all, and it was only just brought back from a non-functional parked state. Splitting it up
+  is mechanical work that should happen once the harness has run cleanly for a while, not in the
+  same phase that resurrected it.
+- **Context (start here):** `evals/runner.py::build_eval_context`/`_school` (the un-parked
+  functions), `evals/runner.py::score_composition` (the `tier: null` interaction with `db`
+  citations), decision D3 in `specs/school-data-v3/plan/school-data-v3.md` §0.
+- *(Logged from the school-data-v3 Phase 5 docs/graduation pass, 2026-09-09 — correcting the
+  Phase 2 entry above rather than editing it in place, since it was an accurate record of Phase 2
+  and the correction belongs to Phase 3's later change.)*
+
+## Two school-data-v3 eval cases cannot be exercised against live data
+- **What:** `evals/questions.yaml`'s `v3-coverage-tab-not-published` and `v3-honesty-stale-facts`
+  cases (school-data-v3 Phase 3) each need a live-data condition that does not currently
+  exist anywhere in the database:
+  - `v3-coverage-tab-not-published` needs a school with at least one facts page in the
+    `not_published` state. The live distribution across all 2,746 schools' page statuses is only
+    `{ok: 13428, http_error: 6}` — no page has ever been marked `not_published`.
+  - `v3-honesty-stale-facts` needs a school whose facts are older than
+    `settings.facts_stale_days` (120 days), so a `stale_facts` caveat would actually attach.
+    Every school in the live database was crawled less than a day before this was last checked.
+  Both cases carry a `live_gate` key (`not_published` / `stale_facts` respectively) that the
+  harness checks before scoring; when the gate condition isn't met in the live data, the case
+  reports as **NOT EXERCISED** with a `skip_reason`, rather than silently scoring green because
+  the assertion happened not to trip on the available rows.
+- **Why not fixed here:** both conditions require either injecting a fabricated page-status row
+  or fast-forwarding a school's `last_checked_at` outside the normal crawl path — either one
+  would mean scoring the eval against data the live system did not actually produce, which is
+  exactly the kind of synthetic-looking-real result this project's honesty stance treats as worse
+  than an honestly-skipped case. Left as a known, explicitly-surfaced gap rather than a fake
+  pass.
+- **Context (start here):** `evals/questions.yaml` lines ~299–338 (the `# --- school-data-v3
+  Phase 3: new v3 honesty cases ---` block and its own note on this exact gap); wherever `live_gate`/
+  `skip_reason` is read in `evals/runner.py`'s scoring loop.
+- *(Logged from the school-data-v3 Phase 5 docs/graduation pass, 2026-09-09.)*

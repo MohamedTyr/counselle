@@ -1,7 +1,7 @@
 -- Counselle role & schema bootstrap for the connected CDS Library database.
 -- Idempotent: safe to rerun. Passwords are read from the environment, never argv.
 -- ADR 0012 (read-only role), ADR 0019 (counselle-owned schema), ADR 0032 (db-rewire),
--- ADR 0037 (school-data-v3: the CollegeData facts store; cds_library_app is
+-- ADR 0038 (school-data-v3: the CollegeData facts store; cds_library_app is
 -- repurposed to drive the facts crawler, mutually exclusive with the parked
 -- CDS extraction pipeline).
 --
@@ -42,7 +42,7 @@ SELECT current_database() AS target_database \gset
 \else
   DO $$ BEGIN RAISE EXCEPTION 'COUNSELLE_APP_PASSWORD is required'; END $$;
 \endif
--- cds_library_app (ADR 0037: the facts crawler, mutually exclusive with the
+-- cds_library_app (ADR 0038: the facts crawler, mutually exclusive with the
 -- parked CDS admin write path) must always exist as a role: the seed
 -- (deploy/seed/cds_library_schema.sql) GRANTs to it by name unconditionally
 -- on every boot (plan §3.3), regardless of whether this deployment
@@ -77,7 +77,7 @@ BEGIN
     CREATE ROLE cds_library_owner NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE
       NOREPLICATION NOBYPASSRLS;
   END IF;
-  -- cds_library_app (ADR 0037): always created, NOLOGIN by default -- see
+  -- cds_library_app (ADR 0038): always created, NOLOGIN by default -- see
   -- the comment above this DO block for why it can never be skipped
   -- entirely under v3.
   IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'cds_library_app') THEN
@@ -138,7 +138,7 @@ ALTER ROLE counselle_ro IN DATABASE :"target_database"
   SET search_path = cds_library, pg_catalog;
 
 \if :pipeline_password_present
--- Write role (ADR 0037): role-level reconciliation and session defaults
+-- Write role (ADR 0038): role-level reconciliation and session defaults
 -- only. Object grants (INSERT/SELECT/UPDATE on every cds_library base
 -- table, DELETE on page_snapshots only -- never DELETE anywhere else)
 -- belong to deploy/seed/cds_library_schema.sql now (plan §3.3).

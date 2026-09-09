@@ -1,5 +1,5 @@
 """Live-DB proof that the school-data-v3 eval fixture builder actually works
-against the real facts store (Phase 3, Unit E's harness unblock).
+against the real facts store (Phase 3 harness unblock).
 
 ``build_eval_context`` only reads ``runtime.deps.catalog``/``.settings``, so
 this test builds those two directly against the live RO pool rather than
@@ -20,8 +20,8 @@ from evals.runner import EvalContext, build_eval_context
 
 pytestmark = pytest.mark.live_db
 
-# Independently confirmed live against the school-data-v3 DB (this unit's own
-# docker query, and the task brief): Yale, Felician University, and the
+# Independently confirmed live against the school-data-v3 DB (a manual
+# docker query, and the plan's own case list): Yale, Felician University, and the
 # University of Alabama System Office (has_collegedata=false).
 _YALE = 130794
 _FELICIAN = 184612
@@ -53,7 +53,7 @@ async def test_build_eval_context_resolves_real_schools_from_the_live_facts_stor
         assert len(context.stat_metric_refs) == 4
         assert len(set(context.stat_metric_refs)) == 4
 
-        # This unit's own live query (docker exec counselle-db-v3) found zero
+        # A manual live query (docker exec counselle-db-v3) found zero
         # `not_found` page statuses and zero facts older than
         # `facts_stale_days` -- both v3 cases gated on these flags must
         # therefore report themselves as not exercisable right now, never as

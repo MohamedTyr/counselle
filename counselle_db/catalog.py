@@ -49,7 +49,7 @@ class SectionGroup:
     The committed ``facts_sections.yaml`` (Phase 1) does not yet carry the
     plan's ``chart:``/group-level ``headline`` layout hints described in §5.2
     — every group here reads its authored ``title:`` as ``label`` and no
-    group carries a ``chart``. See this unit's final report.
+    group carries a ``chart``.
     """
 
     id: str
@@ -164,7 +164,7 @@ class CatalogSnapshot:
     facts_updated_min: datetime | None
     facts_updated_max: datetime | None
     stale_facts_count: int
-    # `fact_keys` -> its `FactCoverageRow` (school-data-v3 Phase 3, Unit B):
+    # `fact_keys` -> its `FactCoverageRow` (school-data-v3 Phase 3):
     # `fact_coverage` filtered to non-`explore.*` rows with
     # `schools_with_value > 0` -- the fact-key universe for `query_database`'s
     # guard, viz cell validation, and the data picture. `sections` was filled

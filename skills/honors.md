@@ -22,7 +22,7 @@ Establish what shapes the recommendations: all honors and awards the student has
 Use `counselor-research` for routing. In one round:
 - The student's own self-reported honors and awards are the primary source. If none are provided, request them before proceeding.
 - Broad web for award descriptions and selectivity context where the award is not widely known.
-- School-specific context from CDS to understand how honors are evaluated in the admissions process.
+- School-specific context from `get_facts` to understand how honors are evaluated in the admissions process.
 - Reddit for applicant-reported patterns of what worked and what didn't in honors descriptions.
 
 ## Fingerprint this student first (unknown until searched)

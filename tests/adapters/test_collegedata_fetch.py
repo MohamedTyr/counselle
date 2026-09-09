@@ -1,6 +1,6 @@
 """Tests for adapters/collegedata/fetch.py — NO network calls (httpx.MockTransport
-throughout). These are the ADR 0037 R0 honesty-and-safety tests named in the
-Unit C brief: the token bucket actually rate-limits, `/api/*` is unreachable,
+throughout). These are the ADR 0038 R0 honesty-and-safety tests: the token
+bucket actually rate-limits, `/api/*` is unreachable,
 the sitemap loader filters/de-duplicates, and rotation is distinguished from
 not-found.
 """
@@ -443,7 +443,7 @@ class TestFetchTabHappyPath:
 class TestFetchConfig:
     """school-data-v3 fix-review Finding 1: the documented `<domain>`
     placeholder must never pass as a usable User-Agent — it resolves to
-    nothing and would silently defeat ADR 0037 R0's identification
+    nothing and would silently defeat ADR 0038 R0's identification
     mitigation for every request a misconfigured deploy sends."""
 
     def test_rejects_a_user_agent_with_no_url(self) -> None:

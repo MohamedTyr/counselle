@@ -480,7 +480,7 @@ class StepMapper:
 
         ``domain_id`` doubles here as the receipt's category token — the
         field name predates ``get_facts`` and is kept as-is (renaming
-        ``StepDetail`` is outside this unit); its value is
+        ``StepDetail`` is out of scope here); its value is
         :meth:`_facts_category_token`, not a real CDS domain id.
         ``value_count`` is the count of facts actually returned with a value
         (``rows``) — never ``unavailable`` (an absence, not a value).

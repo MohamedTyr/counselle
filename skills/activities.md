@@ -22,7 +22,7 @@ Establish what shapes the recommendations: all activities the student has engage
 Use `counselor-research` for routing. In one round:
 - The student's own self-reported activities and resume drafts are the primary source. If none are provided, request them before proceeding.
 - Broad web for activity description best practices, Common App character limits, and current conventions.
-- School-specific context from CDS to understand how activities and involvement are evaluated in the admissions process.
+- School-specific context from `get_facts` to understand how activities and involvement are evaluated in the admissions process.
 - Reddit for applicant-reported patterns of what worked and what didn't in activities descriptions.
 
 ## Fingerprint this student first (unknown until searched)

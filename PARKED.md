@@ -1,12 +1,12 @@
 # Parked systems
 
-This register tracks everything **parked** under decision **D8** (`plans/school-data-v3.md` §0):
+This register tracks everything **parked** under decision **D8** (`specs/school-data-v3/plan/school-data-v3.md` §0):
 the CDS management + extraction system (ADR 0036) is parked, not deleted, when the school-data v3
-re-architecture (ADR 0037) replaces its runtime role with the CollegeData facts store. "Parked"
+re-architecture (ADR 0038) replaces its runtime role with the CollegeData facts store. "Parked"
 means a specific, checkable state — not a synonym for "unused" or "stale" — and this file is the
 place a future reader (or agent) checks before assuming something is dead.
 
-See `plans/school-data-v3.md` §10 for the formal three-way disposition rule this file implements:
+See `specs/school-data-v3/plan/school-data-v3.md` §10 for the formal three-way disposition rule this file implements:
 every file this re-architecture touches is `PARKED` (here), `DEAD` (deleted in the phase that
 orphaned it), or `LIVE` (load-bearing, unchanged). This file is the `PARKED` half of that rule —
 if a file is parked, it is listed here with a revival step; if it is not listed here and it is not
@@ -101,7 +101,7 @@ subsystem's ongoing shape, and had no importers anywhere in the tree.
   `deploy/seed/cds_library_schema.sql` and completed from a live-catalog diff (this file also keeps
   the unapplied `V-01` partial unique index on `cds_documents(school_year_id, pdf_sha256)`, recorded
   separately in `TODOS.md`).
-  **Status: done and verified (Phase 0, Unit F).** `deploy/seed/parked/cds_extraction_schema.sql`
+  **Status: done and verified (Phase 0).** `deploy/seed/parked/cds_extraction_schema.sql`
   exists, applies cleanly against a fresh schema (a bare `cds_library.schools` table copied in,
   standing in for the live v3 seed's own `schools`), and produces the seven CDS base tables, the
   four CDS-specific reader views, `is_sorted_distinct_text_array`, and the three `cds_*_immutable`
@@ -113,7 +113,7 @@ subsystem's ongoing shape, and had no importers anywhere in the tree.
   `cds_manifest_snapshots.csv.gz`) — **moved and verified present** at `deploy/seed/parked/`.
 - **Data-only dump:** `artifacts/school-data-v3/20260906T214018Z-cds-preserve/cds_data.dump` (61 MB)
   — a `pg_dump --format=custom --data-only` of the seven CDS tables, including
-  `cds_documents.pdf_content` (the four shipped PDFs). **Status: restore-verified (Phase 0, Unit F),
+  `cds_documents.pdf_content` (the four shipped PDFs). **Status: restore-verified (Phase 0),
   off-workstation copy still outstanding.** Restored cleanly (`pg_restore --data-only
   --disable-triggers`, 0 errors) into a throwaway scratch database built from
   `deploy/seed/parked/cds_extraction_schema.sql` alone (i.e. verified independently of the full
@@ -181,7 +181,7 @@ subsystem's ongoing shape, and had no importers anywhere in the tree.
 
 ## Import edges into the parked tree (must stay stable; a change here needs a matching update to this file)
 
-Verified live in the current tree (source: `plans/school-data-v3.md` §6a, spot-checked by grep
+Verified live in the current tree (source: `specs/school-data-v3/plan/school-data-v3.md` §6a, spot-checked by grep
 against the files themselves):
 
 1. `adapters/cds_store.py:34-35` → `counselle_db.models.ServiceError`,
@@ -191,13 +191,13 @@ against the files themselves):
 3. `app/cds/service_review.py:48` → `counselle_db.formatting.format_decimal` (parked → live).
 4. `app/cds/service_ingest.py:31` and `app/cds/service_review_approve.py:42` →
    `model_name_from_setting`, imported `from app.agent_node import model_name_from_setting` — the
-   function's real home is `app/model_selection.py` (hoisted in this phase, Unit B), and
+   function's real home is `app/model_selection.py` (hoisted in this phase), and
    `app/agent_node.py` re-exports it (`from app.model_selection import model_name_from_setting as
    model_name_from_setting`) deliberately, because
    `tests/app/test_profile_memory_services.py:637` imports it from `app.agent_node` inside a test
    body. The three other live importers (`app/titles.py`, `app/workspace/document_summary.py`,
    `evals/runner.py`) were repointed to import directly `from app.model_selection import
-   model_name_from_setting` in this same phase (Unit F) — same object either way, so leaving these
+   model_name_from_setting` in this same phase — same object either way, so leaving these
    two parked importers on the `app.agent_node` re-export costs nothing and was left as-is (not
    worth touching parked-tree files for a non-functional import-path preference). Nine current
    importers of `model_name_from_setting` verified by grep: `app/model_selection.py` (definition),
@@ -219,8 +219,9 @@ against the files themselves):
    reaching into the parked tree"). It is removed in Phase 3 when the packet/manifest guard code in
    `counselle_db/service.py` is deleted outright.
 9. **New in this phase:** `counselle_db/packets.py` imports `hex_digest` back from
-   `counselle_db/formatting.py` (done — Unit F closed the loose end Unit B left of a duplicate
-   local `def hex_digest` in `packets.py` alongside the moved one; both bodies were byte-identical,
+   `counselle_db/formatting.py` (done — this closes a loose end left over from the earlier move: a
+   duplicate local `def hex_digest` had been left behind in `packets.py` alongside the moved one;
+   both bodies were byte-identical,
    so `packets.py` now just imports it on the same line as `format_cds_edition`/`format_decimal`).
    `hex_digest` moved out of `packets.py` and into the live `formatting.py` in this phase, because
    `catalog.py` (a live, boot-path module) needs it for `profile_sha256` and must not import the
@@ -239,7 +240,7 @@ against the files themselves):
   — after this phase's hoist to `app/model_selection.py`, the docstring names the pre-hoist location.
   Not corrected, for the same reason.
 - `adapters/cds_store.py`'s docstring reference to `deploy/seed/cds_library_schema.sql` now means
-  `deploy/seed/parked/cds_extraction_schema.sql` (Unit A's move has landed). Not corrected.
+  `deploy/seed/parked/cds_extraction_schema.sql` (that move has landed). Not corrected.
 
 ## Revival steps, in order
 
@@ -248,7 +249,7 @@ against the files themselves):
    the eight-table count belongs to the live v3 seed's own new tables, a different schema). This
    file's `CREATE TABLE cds_school_years` references `cds_library.schools(id)`, so the target
    database must already have `schools` populated (the live v3 seed's table) before this script
-   will apply — confirmed by restore-verification (Phase 0, Unit F): applying it against a schema
+   will apply — confirmed by restore-verification (Phase 0): applying it against a schema
    with no `schools` table fails with `relation "cds_library.schools" does not exist`. This file's
    grant block deliberately does not grant on `schools` or `school_profiles` (neither is this file's
    object to grant on), so applying it cannot widen `cds_library_app`'s privileges beyond the
@@ -279,8 +280,8 @@ with the rest of the `live_db`-marked CDS tests when the live database no longer
 run against — they are not fixed, not newly broken, and not to be assumed closed. When the parked
 system is revived, re-run these two specifically before assuming the parked test suite is clean.
 
-**Confirmed dormant (Phase 0, Unit F — first `live_db` run against the actual v3 database, since
-port 5433 was held by the old container throughout Units A-E):**
+**Confirmed dormant (Phase 0 — first `live_db` run against the actual v3 database, since
+port 5433 was held by the old container throughout the earlier implementation work):**
 `uv run pytest -m live_db` → 203 passed, 3 failed, 1776 deselected. Two of the three failures are
 exactly the two named above (`tests/app/cds/test_service_review.py::
 test_pending_active_update_predicate_resolves_and_closes`,
@@ -310,7 +311,7 @@ and worth a `TODOS.md` entry.
 
 ## The rule that keeps this from rotting
 
-Per `plans/school-data-v3.md` §10: every file this re-architecture touches is in exactly one of
+Per `specs/school-data-v3/plan/school-data-v3.md` §10: every file this re-architecture touches is in exactly one of
 three states — `PARKED` (listed here, with a revival step), `DEAD` (deleted in the phase that
 orphaned it), or `LIVE` (load-bearing, unchanged or actively maintained). A file that is neither
 running, nor listed here with a revival step, nor deleted, is a bug in this file or a bug in the

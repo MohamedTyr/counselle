@@ -1,8 +1,8 @@
-"""Read-side SQL for `GET /v1/admin/facts/unmapped` (plan §5.5, Unit F).
+"""Read-side SQL for `GET /v1/admin/facts/unmapped` (plan §5.5).
 
-Deliberately separate from `adapters/facts_queries.py` (Unit E's file, not
-touched here — see the phase's file-ownership split in
-`plans/school-data-v3.md` §7/PHASES.md): that module's `unmapped_labels`
+Deliberately separate from `adapters/facts_queries.py`, which is not
+touched here — see the plan's file-ownership split in
+`../specs/school-data-v3/plan/school-data-v3.md` §7/PHASES.md: that module's `unmapped_labels`
 is the last pass's already-bounded JSON sample
 (`facts_admin_unmapped_limit`) embedded in `FactsStatusResponse` for the
 collapsed dashboard summary. This module instead reads the *live*,
