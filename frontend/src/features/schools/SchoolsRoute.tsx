@@ -124,7 +124,7 @@ export function SchoolsPage() {
          * button it was the quietest mark in the header, which left the page
          * with no marked next action at all. The `default` variant also carries
          * --elevation-cta and the --brand-edge rim, so it reads as an object on
-         * the canvas rather than a flat wine rectangle — the deliberate
+         * the canvas rather than a flat rectangle of accent — the deliberate
          * difference from the sidebar's flat "New chat", which sits on a flat
          * panel and has no elevation to earn. */}
         <PageHeader

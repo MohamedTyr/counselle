@@ -45,6 +45,12 @@ type ToolWidgetProps = {
   step: StepData;
 };
 
+type ToolStepBeatProps = ToolWidgetProps & {
+  /** Only the mutation receipt uses it: a settled essay write becomes a door
+   *  into the chat's document panel. */
+  onOpenEssay?: (essayId: string) => void;
+};
+
 type ToolWidgetComponent = (props: ToolWidgetProps) => React.ReactElement;
 
 function SourceChips({ step }: { step: StepData }) {
@@ -358,7 +364,11 @@ const TOOL_WIDGETS: Readonly<Record<string, ToolWidgetComponent>> = {
   task_added: TaskAddedWidget,
 };
 
-export function ToolStepBeat({ isLiveSegment = false, step }: ToolWidgetProps) {
+export function ToolStepBeat({
+  isLiveSegment = false,
+  onOpenEssay,
+  step,
+}: ToolStepBeatProps) {
   if (isHistoricalOverflowStep(step)) {
     return null;
   }
@@ -393,7 +403,13 @@ export function ToolStepBeat({ isLiveSegment = false, step }: ToolWidgetProps) {
     // marker-absent terminal steps are pre-feature history and keep the
     // legacy fallback.
     if (step.status !== "start" && step.detail?.mutation_contract === 1) {
-      return <MutationReceiptRenderer isLiveSegment={isLiveSegment} step={step} />;
+      return (
+        <MutationReceiptRenderer
+          isLiveSegment={isLiveSegment}
+          onOpenEssay={onOpenEssay}
+          step={step}
+        />
+      );
     }
     return <WriteToolWidget isLiveSegment={isLiveSegment} step={step} />;
   }

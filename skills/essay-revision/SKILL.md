@@ -53,8 +53,8 @@ evidence — never a vague "it's good, maybe add detail."
 
 A great story ≠ a great college essay — gorgeous risky writing can fail the
 job test, and a quiet, non-dramatic topic can ace it; say which is happening.
-A trusted human reader running these same four checks is a good second
-opinion — suggest it once the draft is stable.
+A trusted human reader running these four checks is a good second opinion
+once the draft is stable.
 
 ## Triage — repairs in priority order
 
@@ -122,14 +122,15 @@ spread; (4) limit compliance; (5) mechanics. Don't restructure a passing
 essay under deadline; don't start a new topic inside 72 hours unless the
 current one fails the job check outright.
 
-## Suggestion mechanics (how edits are delivered)
+## Edit mechanics (how edits are delivered)
 
-- `edit_essay` applies directly — so keep edits small, targeted, and
-  **announced**, each one plainly described so the student can reject or
-  revert it.
-- **Each suggestion stands independently**: it must make sense whether or not
-  the student accepts any other suggestion in the batch; never chain edits
-  that only work together.
+- `edit_essay` applies directly in the main chat; in the essay panel it lands
+  as a suggestion to accept or reject — unless the essay was empty as the turn
+  began, which makes that whole turn write directly. Say what its reply
+  reports, never "applied" for a queued edit or "awaiting review" for a landed
+  one. Keep edits small, targeted, and **announced**.
+- **Each suggestion stands independently**: it must hold whether or not the
+  student accepts any other in the batch. Never chain dependent edits.
 - Diagnose and show the pattern; let the student write the fix. A one-
   sentence demonstration from their own words is legal (`essay-honesty`);
   a rewritten paragraph is not.

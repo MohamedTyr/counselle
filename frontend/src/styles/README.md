@@ -15,7 +15,7 @@ a primitive (bypassing semantic.css) is a bug, not a shortcut.
    | Ramp        | Hue | What it is                                         |
    | ----------- | --- | -------------------------------------------------- |
    | `--gray-*`  | 50  | every surface, every border and every word of text |
-   | `--wine-*`  | 15  | the brand                                          |
+   | `--lime-*`  | 132 | the brand                                          |
    | `--red-*`   | 25  | danger                                             |
    | `--amber-*` | 80  | warning                                            |
    | `--leaf-*`  | 143 | success                                            |
@@ -62,6 +62,13 @@ and the small set of component classes that don't fit the token system
 (sidebar scroll affordances, markdown vertical rhythm, the ProseMirror
 essay typography).
 
+Those component classes live in `index.css` itself until it approaches the
+800-line limit; past that they move out to a file here named for what they
+draw, not for a token family — `essay-suggestions.css` is the first. Such a
+file carries its own `@layer components` wrapper so the layer order
+`index.css` declares still decides when it applies, and `index.css` imports
+it after tier 4.
+
 ## Where a new token goes
 
 - Need a new raw color? It almost certainly doesn't belong here — reach for
@@ -81,7 +88,7 @@ essay typography).
 
 `--{family}-{role}[-{state}]`, e.g. `--workspace-composer-control-hover-border`,
 `--school-filter-chip-active-ink`. Primitives are `--{ramp}-{position}`, e.g.
-`--gray-400`, `--wine-600`. Semantic roles are bare nouns, e.g.
+`--gray-400`, `--lime-500`. Semantic roles are bare nouns, e.g.
 `--canvas`, `--ink-muted`, `--danger-solid`.
 
 ## The three laws

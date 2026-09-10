@@ -32,14 +32,21 @@ function synthesizedUnknown(tool: string | undefined): WorkspaceMutationReceipt 
 
 export function MutationReceiptRenderer({
   isLiveSegment,
+  onOpenEssay,
   step,
 }: {
   isLiveSegment?: boolean;
+  onOpenEssay?: (essayId: string) => void;
   step: StepData;
 }) {
   const parsed = parseMutationReceipt(step.detail?.mutation);
   const receipt = parsed ?? synthesizedUnknown(step.tool);
   return (
-    <MutationReceiptShell isLiveSegment={isLiveSegment} receipt={receipt} step={step} />
+    <MutationReceiptShell
+      isLiveSegment={isLiveSegment}
+      onOpenEssay={onOpenEssay}
+      receipt={receipt}
+      step={step}
+    />
   );
 }

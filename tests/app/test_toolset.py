@@ -15,6 +15,7 @@ from pydantic_ai import Tool
 from app.sources import SourceRegistry
 from app.tool_specs import build_tool_specs, gateable_tool_names
 from app.toolset import (
+    ESSAY_SURFACE_DENIED_DB_TOOLS,
     GATEABLE_TOOLS,
     ToolDeps,
     _allowed_subreddits,
@@ -23,6 +24,7 @@ from app.toolset import (
 )
 from domain.events import StepDetail
 from domain.specs import SourceConfig
+from domain.surface import Surface
 
 TODAY = date(2026, 6, 10)
 MENU = ["ApplyingToCollege", "chanceme", "financialaid", "{school}"]
@@ -252,3 +254,30 @@ class TestGetFactsArgumentContract:
 
         assert payload["error"] == "tool_error"
         assert "not both" in payload["root_cause"]
+
+
+# ---------------------------------------------------------------------------
+# Essay surface DB-tool narrowing (ADR 0037 Part 0 C7 / ADR 0013)
+# ---------------------------------------------------------------------------
+
+
+class TestEssaySurfaceDbToolNarrowing:
+    def test_chat_surface_gets_all_four_db_tools(self) -> None:
+        tools = build_db_tools(catalog=None, surface=Surface.CHAT)
+
+        names = {tool.name for tool in tools}
+        assert names == {
+            "resolve_school",
+            "get_school_profile",
+            "get_facts",
+            "query_database",
+        }
+
+    def test_essay_surface_never_constructs_the_metric_heavy_tools(self) -> None:
+        """Unmounted, not hidden (ADR 0013): the essay surface must not even
+        construct get_facts/query_database, never mind deny them at call time."""
+        tools = build_db_tools(catalog=None, surface=Surface.ESSAY)
+
+        names = {tool.name for tool in tools}
+        assert names == {"resolve_school", "get_school_profile"}
+        assert names.isdisjoint(ESSAY_SURFACE_DENIED_DB_TOOLS)

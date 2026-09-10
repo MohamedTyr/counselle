@@ -82,6 +82,7 @@ from domain.events import (
 )
 from domain.response_mode import ResponseMode
 from domain.specs import ClarifySpec, SourceConfig, parse_render_spec
+from domain.surface import Surface
 
 if TYPE_CHECKING:
     # Deferred to avoid a real-time cycle: app.clarify_lifecycle imports
@@ -615,6 +616,13 @@ async def run_continuation_turn(
         # for reply origin. Never the server-rendered model_input_text.
         "record_user_text": prepared.record_user_text if prepared.project_user else None,
     }
+    if prepared.inherited_surface is not Surface.CHAT:
+        # A2 inherits A1's surface (plans/essay-ai-panel.md Part 1 §1) — same
+        # system prompt, same narrowed tool profile. Written only for a
+        # non-chat surface, so a chat continuation's checkpoint is unchanged.
+        turn_ids["surface"] = prepared.inherited_surface.value
+        turn_ids["essay_id"] = prepared.inherited_essay_id
+        turn_ids["essay_selection"] = prepared.inherited_essay_selection
     yield ev_meta(
         trace_id,
         session_id,
@@ -779,6 +787,9 @@ async def run_turn(
     selected_skills: Sequence[str] = (),
     selected_skills_inherited: bool = False,
     response_mode: ResponseMode = ResponseMode.QUICK,
+    surface: Surface = Surface.CHAT,
+    essay_id: str | None = None,
+    essay_selection: str | None = None,
 ) -> AsyncIterator[Event]:
     """Run one counselor turn on ``thread_id = session_id``, yielding wire events."""
     settings = getattr(deps, "settings", None) or get_settings()
@@ -875,6 +886,14 @@ async def run_turn(
         "response_mode": selection.response_mode.value,
         "model": selection.model_setting,
     }
+    if surface is not Surface.CHAT:
+        # Flat msgpack-plain scalars (plan Part 0 C2) — the nested wire
+        # `essay_context` is unpacked at the route. Written only for a
+        # non-chat surface, so a chat turn's checkpoint is unchanged and
+        # `_surface_from_ids` reads its absence as chat.
+        turn_ids["surface"] = surface.value
+        turn_ids["essay_id"] = essay_id
+        turn_ids["essay_selection"] = essay_selection
     yield ev_meta(
         trace_id,
         session_id,

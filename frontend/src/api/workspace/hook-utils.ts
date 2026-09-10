@@ -108,6 +108,13 @@ export function tempTask(input: TaskCreate): Task {
     created_at: timestamp,
     updated_at: timestamp,
     archived_at: null,
+    when_on: input.when_on ?? null,
+    deadline_on: input.deadline_on ?? null,
+    done_at: null,
+    flagged: input.flagged ?? false,
+    created_by_actor: "student",
+    last_actor: "student",
+    sort_order: null,
   };
 }
 

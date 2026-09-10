@@ -50,6 +50,7 @@ from domain.clarification import (
     render_clarify_model_payload,
     validate_clarify_response,
 )
+from domain.surface import Surface
 
 logger = logging.getLogger(__name__)
 
@@ -130,6 +131,33 @@ class PreparedContinuation:
     response_payload: dict[str, Any]
     editable_root_message_id: str
     messages_offset: int
+    # A1's originating UI surface and, on the essay surface, the essay it was
+    # about (plans/essay-ai-panel.md Part 1 §1). A2 must run the SAME system
+    # prompt and the SAME narrowed tool profile — a continuation that silently
+    # widened back to chat would remount everything the essay surface unmounts
+    # (ADR 0013). Defaulted so the chat path is untouched.
+    inherited_surface: Surface = Surface.CHAT
+    inherited_essay_id: str | None = None
+    inherited_essay_selection: str | None = None
+
+
+def _inherited_surface(values: Mapping[str, Any]) -> tuple[Surface, str | None, str | None]:
+    """A1's surface + essay scope, read from its own durable ``turn_ids``.
+
+    ``turn_ids`` is the checkpoint field the agent node itself reads for the
+    surface (``app/agent_node.py::_surface_from_ids``), so A2 inherits exactly
+    what A1 ran under. Fail-closed the same way: anything absent or malformed
+    is chat, and only ``essay`` ever carries an essay scope.
+    """
+    ids = values.get("turn_ids")
+    if not isinstance(ids, dict) or ids.get("surface") != Surface.ESSAY.value:
+        return Surface.CHAT, None, None
+    essay_id, selection = ids.get("essay_id"), ids.get("essay_selection")
+    return (
+        Surface.ESSAY,
+        str(essay_id) if essay_id else None,
+        str(selection) if selection else None,
+    )
 
 
 async def accept_clarification(
@@ -231,6 +259,7 @@ async def accept_clarification(
     inherited_source_config = (
         dict(inherited_source_config_raw) if isinstance(inherited_source_config_raw, dict) else None
     )
+    inherited_surface, inherited_essay_id, inherited_essay_selection = _inherited_surface(values)
 
     a2_message_id = str(uuid4())
     trigger_request_id = str(uuid4())
@@ -286,6 +315,9 @@ async def accept_clarification(
         response_payload=response.model_dump(mode="json"),
         editable_root_message_id=str(latest.get("user_message_id") or ""),
         messages_offset=len(messages),
+        inherited_surface=inherited_surface,
+        inherited_essay_id=inherited_essay_id,
+        inherited_essay_selection=inherited_essay_selection,
     )
 
 

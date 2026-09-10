@@ -789,10 +789,26 @@ export type StartTurnResult =
       ok: false;
     };
 
+/**
+ * What makes a turn an essay-surface turn.
+ *
+ * `selection` is the selected TEXT, never `{from, to}` positions: positions
+ * mean nothing to the backend and would drift against a document it never
+ * sees, and what the agent actually needs is the words. The backend checks
+ * `essayId` against the session row's own essay, so a stale id fails closed
+ * rather than queueing one essay's suggestions onto another.
+ */
+export type EssayTurnContext = {
+  essayId: string;
+  selection: string | null;
+};
+
 export type SendMessageInput = {
   sessionId: string;
   text: string;
   sourceConfig?: SourceConfig;
+  /** Present only on turns started from the essay panel. */
+  essayContext?: EssayTurnContext | null;
   skills?: string[];
   signal?: AbortSignal;
   replaceMessageId?: string;

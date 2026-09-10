@@ -64,7 +64,13 @@ from app.clarification import ask_student_output_type, build_pending_clarificati
 from app.model_selection import counselor_model_selection
 from app.model_selection import model_name_from_setting as model_name_from_setting
 from app.plan_tool import PlanReminder, PlanState, make_write_plan_tool
-from app.prompt import build_system_prompt, render_source_availability
+from app.prompt import (
+    ESSAY_CONTEXT_UNAVAILABLE,
+    build_essay_system_prompt,
+    build_system_prompt,
+    render_essay_context,
+    render_source_availability,
+)
 from app.pydantic_iter_nodes import CallToolsNode, ModelRequestNode
 from app.records import (
     Emission,
@@ -88,11 +94,15 @@ from app.toolset import GATEABLE_TOOLS, build_db_tools, build_tools, make_tool_d
 from app.turn_persistence import partial_messages, resolve_offset
 from app.viz_placement import StreamingVizMarkerStripper
 from app.workspace.agent_tools import build_workspace_tools
+from app.workspace.agent_tools_shared import WriteMode
+from app.workspace.models import Essay, WorkspaceNotFoundError
+from app.workspace.service_essays import get_essay
 from config.settings import get_settings, load_yaml_asset
 from domain.clarification import ClarifyDraftV2
 from domain.events import UsageData
 from domain.response_mode import ResponseMode
 from domain.specs import ColumnInput, SourceConfig, VizRowInput
+from domain.surface import Surface
 
 if TYPE_CHECKING:
     from app.graph import GraphDeps  # circular at runtime: graph imports run_agent_node
@@ -236,12 +246,16 @@ def _replace_empty_final_response(
 class TurnDeps:
     """The PydanticAI run deps: what tool hooks reach via ``ctx.deps``.
 
-    ``annotate_mcp_result`` (app/toolset.py) reads ``ctx.deps.registry`` to
-    route every counselle-db result through the source registry.
+    ``surface`` records which surface originated this turn (ADR 0037); the
+    essay surface's DB-tool narrowing itself happens earlier, at toolset
+    construction time (``build_db_tools(..., surface=surface)``,
+    app/toolset.py) — an ADR 0013 unmount, never a runtime denial in a tool
+    hook.
     """
 
     registry: SourceRegistry
     tool_overflow: ToolMiddlewareContext | None = None
+    surface: Surface = Surface.CHAT
 
 
 def default_model_factory(settings: Any, model_setting: str) -> Model:
@@ -699,6 +713,97 @@ def _response_mode_from_ids(ids: dict[str, Any]) -> ResponseMode:
         return ResponseMode.QUICK
 
 
+def _surface_from_ids(ids: dict[str, Any]) -> Surface:
+    """The turn's originating surface from ``turn_ids`` — chat for any absent/
+    malformed value (a pre-feature checkpoint or a direct-graph test call)."""
+    raw = ids.get("surface")
+    if raw is None:
+        return Surface.CHAT
+    try:
+        return Surface(raw)
+    except ValueError:
+        logger.warning("unknown surface %r in turn_ids — defaulting to chat", raw)
+        return Surface.CHAT
+
+
+#: The workspace tools an essay-surface turn keeps (plan Part 1 §3.2 + C9):
+#: the one essay's own read/edit/write/status control, every workspace READ
+#: (the student's real material — the anti-fabrication supply), and memory
+#: writes. Every other workspace mutation is never mounted (ADR 0013).
+_ESSAY_SURFACE_WORKSPACE_TOOLS: frozenset[str] = frozenset(
+    {
+        "view_essays",
+        "read_essay",
+        "edit_essay",
+        "write_essay",
+        "update_essay",
+        "view_activities",
+        "view_documents",
+        "read_document",
+        "view_schools",
+        "get_school",
+        "search_schools",
+        "view_tasks",
+        "search_tasks",
+        "remember",
+        "update_memory",
+    }
+)
+
+
+async def _load_turn_essay(deps: GraphDeps, ids: dict[str, Any]) -> Essay | None:
+    """The essay this turn is about, read once at turn start.
+
+    Reuses ``service_essays.get_essay`` — the same ``WHERE user_id = $1`` read
+    ``read_essay``/``edit_essay`` already run, so ownership is enforced by the
+    service, never by anything the model or the client supplied. ``None`` when
+    it is deleted, archived, or not this student's: ``get_essay`` draws no
+    distinction between those, and neither may we.
+    """
+    user_id, essay_id = ids.get("user_id"), ids.get("essay_id")
+    if not (user_id and essay_id and deps.app_pool):
+        return None
+    try:
+        return await get_essay(
+            deps.app_pool, deps.catalog, user_id=UUID(str(user_id)), essay_id=UUID(str(essay_id))
+        )
+    except WorkspaceNotFoundError:
+        return None
+
+
+def _essay_context_block(essay: Essay | None, ids: dict[str, Any], max_chars: int) -> str:
+    """The essay-surface prompt's ``essay_context`` slot for this turn.
+
+    An unreadable essay degrades to the unavailable block — the turn continues
+    and can still answer, instead of dying as a generic error.
+    """
+    if essay is None:
+        return ESSAY_CONTEXT_UNAVAILABLE
+    selection = ids.get("essay_selection")
+    return render_essay_context(
+        essay,
+        selection=str(selection) if selection else None,
+        max_chars=max_chars,
+    )
+
+
+def _write_mode(surface: Surface, essay: Essay | None) -> WriteMode:
+    """How this turn's content writes land (plan Part 1 §5.2).
+
+    The essay panel proposes rather than writes — every change is reviewable —
+    with one exception: an essay that is still empty when the turn starts has
+    nothing to review a first draft against, so that draft is committed
+    directly. The chat surface is unchanged and always writes directly.
+
+    A property of the turn's *starting* state, not of which tool gets called:
+    "a full draft into an empty essay" is a one-time event, and the next turn
+    re-evaluates against the content this one produced.
+    """
+    if surface is not Surface.ESSAY:
+        return "direct"
+    return "direct" if essay is not None and essay.word_count == 0 else "suggest"
+
+
 async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
     """One agent turn: rebuild from state, run the agent, return the delta."""
     settings = getattr(deps, "settings", None) or get_settings()
@@ -739,17 +844,30 @@ async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
     # 0013: unmounted, not hidden — gating after construction is too late).
     # ``ids`` was validated above because it also keys runtime-only parked evidence.
 
+    # The turn's originating surface (plan Part 1 §1): selects the system
+    # prompt and narrows the tool profile. Read before tool assembly — ADR
+    # 0013 gates at construction, never after.
+    surface = _surface_from_ids(ids)
+    # Read the panel's essay once, before tool assembly: it decides both the
+    # write mode the content tools are built with and the prompt's essay block,
+    # and one read keeps those two from disagreeing about the same turn.
+    turn_essay = await _load_turn_essay(deps, ids) if surface is Surface.ESSAY else None
+    write_mode = _write_mode(surface, turn_essay)
+
     # --- assemble the toolset (ADR 0013: disabled sources never constructed) ---
     tool_deps = getattr(deps, "tool_deps", None) or make_tool_deps(settings, deps.catalog)
     plan_state = PlanState()
-    extra_tools: list[Tool[Any]] = [
-        *build_db_tools(deps.catalog, tool_overflow),
-        _make_render_viz_tool(
-            deps.catalog, registry, viz_list, viz_signature_indexes, tool_overflow
-        ),
-        _make_read_tool_result_tool(overflow_store),
-        _make_load_skill_tool(tool_overflow),
-    ]
+    extra_tools: list[Tool[Any]] = [*build_db_tools(deps.catalog, tool_overflow, surface=surface)]
+    if surface is Surface.CHAT:
+        # Data visualization is a chat-surface answer format; the essay panel
+        # never renders one, so the tool is not constructed there (ADR 0013).
+        extra_tools.append(
+            _make_render_viz_tool(
+                deps.catalog, registry, viz_list, viz_signature_indexes, tool_overflow
+            )
+        )
+    extra_tools.append(_make_read_tool_result_tool(overflow_store))
+    extra_tools.append(_make_load_skill_tool(tool_overflow))
     if not _forbid_plan_request(user_text) and (
         requested_narration is None or _explicit_plan_request(user_text)
     ):
@@ -760,15 +878,20 @@ async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
     workspace_events = getattr(deps, "workspace_events", None)
     user_id = ids.get("user_id")
     if user_id and deps.app_pool and workspace_events:
-        extra_tools.extend(
-            build_workspace_tools(
-                deps.app_pool,
-                deps.catalog,
-                workspace_events,
-                UUID(user_id),
-                tool_overflow,
-            )
+        workspace_tools = build_workspace_tools(
+            deps.app_pool,
+            deps.catalog,
+            workspace_events,
+            UUID(user_id),
+            tool_overflow,
+            write_mode=write_mode,
+            turn_message_id=message_id,
         )
+        if surface is Surface.ESSAY:
+            workspace_tools = [
+                tool for tool in workspace_tools if tool.name in _ESSAY_SURFACE_WORKSPACE_TOOLS
+            ]
+        extra_tools.extend(workspace_tools)
     tools = build_tools(
         source_config,
         tool_deps,
@@ -802,11 +925,19 @@ async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
             "include_thoughts": selection.include_thoughts,
         }
     )
-    base_instructions = build_system_prompt(
-        state["temporal"]["context"],
-        state.get("student_context") or STUDENT_CONTEXT_UNAUTHENTICATED,
-        state.get("data_picture", "Live data picture unavailable in this test harness."),
-    )
+    student_context = state.get("student_context") or STUDENT_CONTEXT_UNAUTHENTICATED
+    if surface is Surface.ESSAY:
+        base_instructions = build_essay_system_prompt(
+            state["temporal"]["context"],
+            student_context,
+            _essay_context_block(turn_essay, ids, settings.essay_context_max_chars),
+        )
+    else:
+        base_instructions = build_system_prompt(
+            state["temporal"]["context"],
+            student_context,
+            state.get("data_picture", "Live data picture unavailable in this test harness."),
+        )
     # R2: render_source_availability must describe what was actually mounted,
     # not merely what was requested — build_tools additionally gates .edu on
     # a nonempty catalog (empty-catalog demo deployments), and if the prompt
@@ -892,7 +1023,7 @@ async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
             agent.iter(
                 user_text,
                 message_history=history or None,
-                deps=TurnDeps(registry=registry, tool_overflow=tool_overflow),
+                deps=TurnDeps(registry=registry, tool_overflow=tool_overflow, surface=surface),
                 usage_limits=limits,
             ) as run,
         ):

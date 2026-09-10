@@ -122,9 +122,9 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_prefix=_ENV_PREFIX, extra="ignore")
 
     def __init__(self, **values: Any) -> None:
-        # The DB-only MCP subprocess is started in the repository root.  Without
-        # this explicit opt-out pydantic-settings would reload the repository
-        # .env and defeat the transport's credential allowlist.
+        # Tests that build Settings from explicit env vars need to opt out of
+        # pydantic-settings' default .env reload, or the repository .env would
+        # silently override the values the test just set.
         if os.environ.get("COUNSELLE_SETTINGS_NO_ENV_FILE") == "1":
             values.setdefault("_env_file", None)
         super().__init__(**values)
@@ -448,7 +448,6 @@ class Settings(BaseSettings):
     # Watchdog: a turn exceeding this terminates with `error` (G5 — never
     # done(cancelled): the student didn't press stop), partial persisted.
     agent_turn_timeout_s: int = 3600
-    agent_mcp_read_timeout_s: float = 60.0
     agent_tool_result_max_chars: int = 8_000
     # GET /v1/sessions/{id}/stream reattach endpoint (off → always 204).
     reattach_enabled: bool = True
@@ -478,6 +477,11 @@ class Settings(BaseSettings):
     # decompress to gigabytes or pathologically stall the shared thread pool
     # (decompression-bomb DoS). Bounded the same way as the summary model call.
     document_extraction_timeout_s: float = 8.0
+    # Ceiling on the essay markdown inlined into the essay-surface system prompt
+    # (Surface.ESSAY). ~1,300 words — generous headroom over any real essay
+    # limit, so it only bites on a pasted-in outlier; past it the prompt says
+    # the text is truncated and points the model at read_essay.
+    essay_context_max_chars: int = Field(default=8_000, gt=0)
 
     # --- CDS admin pipeline (parked, ADR 0036/0038 — D8) ---
     # In-process asyncio poller kill switch — all queue state lives in

@@ -20,9 +20,11 @@ from pydantic_ai import Tool
 from app.tool_middleware import process_tool_result
 from app.workspace import essay_markdown
 from app.workspace.agent_tools_essays import words_display
+from app.workspace.agent_tools_essays_suggestions import suggest_edits
 from app.workspace.agent_tools_shared import (
     ToolCtx,
     error,
+    essay_edit_error,
     stale_essay_error,
     stale_version_error,
     today,
@@ -46,6 +48,11 @@ _EDIT_BATCH_MAX = 20
 class EditItem(BaseModel):
     old_text: str
     new_text: str
+    #: One short line on why, shown beside the change when the student reviews
+    #: it. Never essay prose — the same "no essay text on the receipt"
+    #: discipline the mutation receipts follow. Ignored when the edit is
+    #: applied directly, since there is nothing to review.
+    rationale: str = ""
 
 
 def _parse_version(
@@ -128,9 +135,18 @@ def make_edit_essay_tool(ctx: ToolCtx) -> Tool[Any]:
         Each edit's old_text must match the essay's current text exactly and
         uniquely — the same mechanic as a precise find-and-replace. If it doesn't
         match anywhere, or matches more than once, the whole batch fails with
-        nothing applied; add more surrounding context to old_text and retry. Edits
-        in a batch apply in order, each against the result of the previous one.
-        Setting new_text to "" deletes the matched text.
+        nothing applied; add more surrounding context to old_text and retry. Where
+        edits apply directly, a batch applies in order, each against the result of
+        the previous one. Setting new_text to "" deletes the matched text.
+
+        In the essay workspace, write every edit so it stands alone: old_text must
+        be findable in the essay as it reads right now, never only after a sibling
+        edit in the same batch lands — the student accepts suggestions one at a
+        time, in any order. One exception, fixed for the whole turn: if the essay
+        was empty when the turn began, everything you write that turn applies
+        straight to the document instead of queueing. This tool's reply tells you
+        which happened; report that, and never send the student to review a change
+        that already landed.
 
         Never invent personal facts, activities, hardship, or emotional meaning —
         if material is missing, ask the student for it first. Don't hide a meaning
@@ -139,7 +155,11 @@ def make_edit_essay_tool(ctx: ToolCtx) -> Tool[Any]:
         Args:
             essay_id: The essay's id, from view_essays or read_essay.
             expected_version: The version from your most recent read_essay call.
-            edits: 1-20 {old_text, new_text} pairs to apply in order.
+            edits: 1-20 {old_text, new_text, rationale} items to apply in order.
+                rationale is one short line on why, shown to the student beside
+                the change in the essay workspace (only there — outside it the
+                rationale goes unused, so say it in your reply instead) — never
+                a paragraph, and never essay text.
         """
         payload = await _edit_essay_impl(ctx, essay_id, expected_version, edits)
         return process_tool_result(payload, ctx.tool_overflow, tool_name="edit_essay")  # type: ignore[no-any-return]
@@ -169,21 +189,20 @@ async def _edit_essay_impl(
     if essay.updated_at.isoformat() != expected_version:
         return stale_version_error()
 
+    parsed_edits = [
+        essay_markdown.Edit(old_text=e.old_text, new_text=e.new_text) for e in edits
+    ]
+    if ctx.write_mode == "suggest":
+        return await suggest_edits(
+            ctx, essay, parsed_edits, rationales=[e.rationale for e in edits]
+        )
+
     try:
-        result = essay_markdown.apply_edits(
-            essay.content,
-            [essay_markdown.Edit(old_text=e.old_text, new_text=e.new_text) for e in edits],
-        )
+        # Direct mode stays cumulative: the batch commits as one document, so
+        # a later edit may deliberately build on an earlier one.
+        result = essay_markdown.apply_edits(essay.content, parsed_edits)
     except essay_markdown.EssayEditError as exc:
-        if exc.reason == "not_found":
-            recovery = "Re-check old_text against the essay's current markdown and retry."
-        else:
-            recovery = "Add more surrounding text to old_text to make it unique and retry."
-        return error(
-            f"edits[{exc.index}]: {exc.detail}",
-            retryable=True,
-            recovery=recovery,
-        )
+        return essay_edit_error(exc.index, exc.reason, exc.detail)
 
     def _build_edit_mutation(post_write: Essay) -> WorkspaceMutationReceipt:
         # Authoritative word deltas come from the exact substituted text of
@@ -260,9 +279,28 @@ async def _write_essay_impl(
         before = await get_essay(ctx.app_pool, ctx.catalog, user_id=ctx.user_id, essay_id=parsed_id)
     except WorkspaceNotFoundError:
         return stale_essay_error(essay_id)
+    if ctx.write_mode == "suggest":
+        return await _suggest_full_redraft(ctx, before, expected_version, content_markdown)
+
+    new_content = essay_markdown.to_tiptap(content_markdown)
+    payload = await _apply_content_write(
+        ctx, essay_id, expected_version, new_content, build_mutation=_write_mutation(before)
+    )
+    if payload.get("status") == "ok":
+        payload["summary"] = "Replaced the essay's content."
+    return payload
+
+
+def _write_mutation(before: Essay) -> Callable[[Essay], WorkspaceMutationReceipt]:
+    """The receipt builder for a direct full write, closed over the pre-write essay.
+
+    Shared by both direct paths — the ordinary one and the empty-essay carve-out
+    inside ``_suggest_full_redraft`` — so a committed draft always leaves the
+    same receipt behind, whichever route committed it.
+    """
     mode: Literal["drafted", "replaced"] = "drafted" if before.word_count == 0 else "replaced"
 
-    def _build_write_mutation(post_write: Essay) -> WorkspaceMutationReceipt:
+    def build(post_write: Essay) -> WorkspaceMutationReceipt:
         return essay_write_receipt(
             essay_subject=subject(post_write.title, post_write.id),
             mode=mode,
@@ -271,10 +309,42 @@ async def _write_essay_impl(
             word_limit=post_write.word_limit,
         )
 
-    new_content = essay_markdown.to_tiptap(content_markdown)
-    payload = await _apply_content_write(
-        ctx, essay_id, expected_version, new_content, build_mutation=_build_write_mutation
+    return build
+
+
+async def _suggest_full_redraft(
+    ctx: ToolCtx, before: Essay, expected_version: str, content_markdown: str
+) -> dict[str, Any]:
+    """A full redraft as one suggestion spanning the whole current draft.
+
+    An essay with nothing in it yet is written directly even here: there is no
+    prior text to review the redraft against, and a suggestion whose
+    ``old_text`` is empty has no anchor at all (plan Part 0 C3 — ``old_text``
+    is never empty). That branch says so in its own summary: a reply that came
+    back silent about applied-vs-proposed, inside a turn the prompt has told
+    the model normally proposes, is how "I've proposed a full draft for your
+    review" gets said over an empty suggestion queue.
+    """
+    current_markdown = essay_markdown.to_markdown(before.content)
+    if not current_markdown.strip():
+        payload = await _apply_content_write(
+            ctx,
+            str(before.id),
+            expected_version,
+            essay_markdown.to_tiptap(content_markdown),
+            build_mutation=_write_mutation(before),
+        )
+        if payload.get("status") == "ok":
+            payload["summary"] = (
+                "Drafted the essay directly — it was empty, so there was nothing to "
+                "review against."
+            )
+        return payload
+    if before.updated_at.isoformat() != expected_version:
+        return stale_version_error()
+    return await suggest_edits(
+        ctx,
+        before,
+        [essay_markdown.Edit(old_text=current_markdown, new_text=content_markdown)],
+        rationales=["Full redraft of the essay."],
     )
-    if payload.get("status") == "ok":
-        payload["summary"] = "Replaced the essay's content."
-    return payload

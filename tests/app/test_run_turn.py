@@ -46,11 +46,12 @@ import app.agent_node
 import app.graph
 import app.skills
 import app.viz
+from app.clarify_lifecycle import PreparedContinuation
 from app.deps import AppDeps
 from app.graph import build_graph
 from app.records import build_turn_record, prose_of
 from app.run_handle import RunHandleStore
-from app.run_turn import run_turn
+from app.run_turn import run_continuation_turn, run_turn
 from app.state import TemporalContext
 from app.steps import EmissionRouter
 from app.toolset import ToolDeps
@@ -61,6 +62,7 @@ from domain.events import Event
 from domain.response_mode import ResponseMode
 from domain.season import Season
 from domain.specs import AvailableResolvedCell, RenderSpec, SchoolRef, SourceConfig, VizRow
+from domain.surface import Surface
 
 # ---------------------------------------------------------------------------
 # Fakes
@@ -95,8 +97,8 @@ class FakeSettings:
     max_consumers_per_turn: int = 8
     # float-typed so tests can drop it to 0.1 to fire the watchdog fast.
     agent_turn_timeout_s: float = 3600
-    agent_mcp_read_timeout_s: float = 60.0
     agent_tool_result_max_chars: int = 8_000
+    essay_context_max_chars: int = 8_000
     # Phase-1 fields (BC-01 / BC-08) — also read directly after CFG-02 removes
     # their getattr fallbacks; the stub MUST carry them or __init__ /
     # _persist_partial_guarded raise AttributeError.
@@ -254,6 +256,8 @@ class Rig:
         source_config: SourceConfig | None = None,
         *,
         user_id: str | None = None,
+        surface: Surface = Surface.CHAT,
+        essay_id: str | None = None,
     ) -> list[Event]:
         return [
             event
@@ -264,6 +268,8 @@ class Rig:
                 deps=self.deps,
                 graph=self.graph,
                 user_id=user_id,
+                surface=surface,
+                essay_id=essay_id,
             )
         ]
 
@@ -886,6 +892,176 @@ async def test_workspace_tools_stay_unmounted_without_user_id() -> None:
     await rig.turn(str(uuid4()), "hi", _ALL_OFF)  # no user_id: eval/CLI shape
 
     assert not (_WORKSPACE_TOOL_NAMES & _record_tools.seen)  # type: ignore[attr-defined]
+
+
+#: The complete function-tool profile an essay-surface turn may mount, with
+#: every external source enabled (plan Part 1 §3.2 + Part 0 C9). Asserted as an
+#: EQUALITY, not a subset: ADR 0013's guarantee is that a tool the essay panel
+#: must not have is never constructed, and only an exact set proves the
+#: exclusions — every workspace mutation outside this essay, `render_viz`, and
+#: `forget` have to be absent, not merely discouraged in the prompt.
+_ESSAY_SURFACE_TOOL_PROFILE = {
+    # essay-panel workspace scope
+    "view_essays",
+    "read_essay",
+    "edit_essay",
+    "write_essay",
+    "update_essay",
+    "view_activities",
+    "view_documents",
+    "read_document",
+    "view_schools",
+    "get_school",
+    "search_schools",
+    "view_tasks",
+    "search_tasks",
+    "remember",
+    "update_memory",
+    # DB reader tools kept on the essay surface: school identity only. Unlike
+    # the retired counselle-db MCP toolset, ``build_db_tools`` returns real
+    # ``Tool`` objects (school-data-v3), so these do show up in
+    # ``info.function_tools`` -- get_facts/query_database do not (ADR 0013:
+    # unmounted, not hidden, per ``ESSAY_SURFACE_DENIED_DB_TOOLS``).
+    "resolve_school",
+    "get_school_profile",
+    # source-gated research (unchanged by surface)
+    "search_web",
+    "search_school_site",
+    "search_reddit",
+    # surface-agnostic plumbing
+    "write_plan",
+    "read_tool_result",
+    "load_skill",
+}
+
+
+async def test_essay_surface_mounts_exactly_its_tool_profile(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.workspace.changes import WorkspaceEventBus
+
+    def fake_essay_context(essay: Any, ids: dict[str, Any], max_chars: int) -> str:
+        return "## The essay you're working on\n\nStub essay."
+
+    # The only stub: the essay row read. Everything else — the real
+    # essay_partner.md asset, the real tool assembly — runs for real.
+    monkeypatch.setattr(app.agent_node, "_essay_context_block", fake_essay_context)
+    rig = Rig(_fn_model(_record_tools))
+    rig.deps.workspace_events = WorkspaceEventBus()
+
+    await rig.turn(
+        str(uuid4()),
+        "hi",
+        SourceConfig(web=True, edu=True, reddit=True),
+        user_id=str(uuid4()),
+        surface=Surface.ESSAY,
+        essay_id=str(uuid4()),
+    )
+
+    assert _record_tools.seen == _ESSAY_SURFACE_TOOL_PROFILE  # type: ignore[attr-defined]
+
+
+async def test_chat_surface_tool_profile_is_unchanged_by_the_surface_branch() -> None:
+    """The essay branch is a strict no-op for chat: the tools the essay panel
+    drops are exactly the ones a chat turn still has."""
+    from app.workspace.changes import WorkspaceEventBus
+
+    rig = Rig(_fn_model(_record_tools))
+    rig.deps.workspace_events = WorkspaceEventBus()
+
+    await rig.turn(str(uuid4()), "hi", _ALL_OFF, user_id=str(uuid4()))
+
+    seen = _record_tools.seen  # type: ignore[attr-defined]
+    assert {"render_viz", "create_essays", "create_tasks", "forget"} <= seen
+
+
+def _prepared_continuation(*, surface: Surface, essay_id: str | None) -> PreparedContinuation:
+    """A minimal A2 hand-off — only the surface fields matter to this test."""
+    return PreparedContinuation(
+        root_message_id=str(uuid4()),
+        continuation_message_id=str(uuid4()),
+        trigger_request_id=str(uuid4()),
+        origin="reply",
+        completed_message_history=[],
+        model_input_text="keep going",
+        project_user=True,
+        record_user_text="keep going",
+        user_message_id=str(uuid4()),
+        inherited_skills=(),
+        inherited_source_config=None,
+        inherited_response_mode="quick",
+        response_payload={"mode": "reply", "text": "keep going", "user_message_id": str(uuid4())},
+        editable_root_message_id=str(uuid4()),
+        messages_offset=0,
+        inherited_surface=surface,
+        inherited_essay_id=essay_id,
+    )
+
+
+async def test_essay_surface_survives_a_clarify_continuation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A2 must inherit A1's surface. Without it an essay turn that asked a
+    clarifying question would resume under the chat prompt and the FULL tool
+    set — remounting every tool the essay surface deliberately unmounts (ADR
+    0013), inside what the student sees as the essay panel."""
+    from app.workspace.changes import WorkspaceEventBus
+
+    context_calls: list[dict[str, Any]] = []
+
+    def fake_essay_context(essay: Any, ids: dict[str, Any], max_chars: int) -> str:
+        context_calls.append(ids)
+        return "## The essay you're working on\n\nStub essay."
+
+    monkeypatch.setattr(app.agent_node, "_essay_context_block", fake_essay_context)
+    rig = Rig(_fn_model(_record_tools))
+    rig.deps.workspace_events = WorkspaceEventBus()
+    essay_id = str(uuid4())
+
+    await _run_continuation(
+        rig,
+        _prepared_continuation(surface=Surface.ESSAY, essay_id=essay_id),
+        user_id=str(uuid4()),
+    )
+
+    # The essay system prompt ran (only that branch builds the context block),
+    # scoped to A1's own essay — and the tool profile is exactly the narrow one.
+    assert [ids.get("essay_id") for ids in context_calls] == [essay_id]
+    assert _record_tools.seen == _ESSAY_SURFACE_TOOL_PROFILE  # type: ignore[attr-defined]
+
+
+async def test_chat_clarify_continuation_stays_on_the_chat_profile() -> None:
+    """The continuation surface branch is a no-op for chat: A2 keeps the tools
+    the essay profile drops."""
+    from app.workspace.changes import WorkspaceEventBus
+
+    rig = Rig(_fn_model(_record_tools))
+    rig.deps.workspace_events = WorkspaceEventBus()
+
+    await _run_continuation(
+        rig,
+        _prepared_continuation(surface=Surface.CHAT, essay_id=None),
+        user_id=str(uuid4()),
+    )
+
+    seen = _record_tools.seen  # type: ignore[attr-defined]
+    assert {"render_viz", "create_essays", "create_tasks", "forget"} <= seen
+
+
+async def _run_continuation(
+    rig: Rig, prepared: PreparedContinuation, *, user_id: str
+) -> list[Event]:
+    return [
+        event
+        async for event in run_continuation_turn(
+            str(uuid4()),
+            prepared,
+            SourceConfig(web=True, edu=True, reddit=True),
+            deps=rig.deps,
+            graph=rig.graph,
+            user_id=user_id,
+        )
+    ]
 
 
 async def test_workspace_tools_stay_unmounted_without_event_bus() -> None:

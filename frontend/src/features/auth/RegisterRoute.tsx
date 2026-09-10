@@ -56,6 +56,12 @@ export function RegisterRoute() {
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    /* `Button`'s busy state is `aria-disabled`, not the native attribute, so
+     * it no longer suppresses implicit submission — Enter in a field can still
+     * reach here while the first request is in flight. */
+    if (registerMutation.isPending) {
+      return;
+    }
     setSubmitted(true);
     setFormError(undefined);
     if (hasErrors(errors)) {

@@ -1,5 +1,7 @@
-import { BookOpenIcon } from "lucide-react";
+import { BookOpenIcon, GlobeIcon, SchoolIcon } from "lucide-react";
+import { useState } from "react";
 
+import { isLegacySourceEntry } from "@/api/chat/legacy-replay";
 import type {
   MessageSourcesPayload,
   ReplaySourceEntry,
@@ -8,7 +10,12 @@ import type {
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-import { sourceDisplayName, sourcesPayloadFor } from "../citations";
+import {
+  faviconUrlForCitation,
+  faviconUrlForDomain,
+  sourceDisplayName,
+  sourcesPayloadFor,
+} from "../citations";
 import type { AssistantChatMessage } from "../model";
 
 export type { MessageSourcesPayload } from "@/api/chat/types";
@@ -24,23 +31,71 @@ export type MessageSourcesProps = {
 
 const MAX_BADGES = 3;
 
+/** The badge's real favicon, when the entry resolves to one: a school
+ * citation via its viz-supplied domain (`schoolDomains`), anything else via
+ * its own URL host. Undefined means the entry has no domain of its own — the
+ * badge falls back to the same icon vocabulary the sources rail uses, never
+ * to a guessed domain. */
+function badgeFaviconUrl(
+  entry: ReplaySourceEntry,
+  schoolDomains: Map<number, string>,
+): string | undefined {
+  if (isLegacySourceEntry(entry)) return undefined;
+  const citation = entry.citation;
+  const domain =
+    citation.school_unitid != null
+      ? schoolDomains.get(citation.school_unitid)
+      : undefined;
+  return domain === undefined
+    ? faviconUrlForCitation(citation)
+    : faviconUrlForDomain(domain);
+}
+
+/** Same fallback vocabulary as the sources rail: a school mark for a
+ * school-owned citation with no known domain, a globe for everything else. */
+function FallbackIcon({ entry }: { entry: ReplaySourceEntry }) {
+  const school =
+    !isLegacySourceEntry(entry) &&
+    (entry.citation.source === "cds" || entry.citation.source === "profile");
+  return school ? (
+    <SchoolIcon aria-hidden="true" className="size-3" />
+  ) : (
+    <GlobeIcon aria-hidden="true" className="size-3" />
+  );
+}
+
 function SourceBadge({
   entry,
+  schoolDomains,
   stacked,
 }: {
   entry: ReplaySourceEntry;
+  schoolDomains: Map<number, string>;
   stacked: boolean;
 }) {
+  const [failed, setFailed] = useState(false);
+  const name = sourceDisplayName(entry);
+  const favicon = badgeFaviconUrl(entry, schoolDomains);
+
   return (
     <span
       aria-hidden="true"
       className={cn(
-        "grid size-[26px] shrink-0 place-items-center rounded-full border bg-muted text-[10px] font-medium text-muted-foreground ring-2 ring-background",
-        stacked && "-ml-2.5",
+        "grid size-[22px] shrink-0 place-items-center overflow-hidden rounded-full border bg-muted text-[10px] font-medium text-muted-foreground ring-2 ring-background",
+        stacked && "-ml-2",
       )}
-      title={sourceDisplayName(entry)}
+      title={name}
     >
-      {sourceDisplayName(entry).slice(0, 1).toUpperCase()}
+      {favicon === undefined || failed ? (
+        <FallbackIcon entry={entry} />
+      ) : (
+        <img
+          alt=""
+          className="size-full object-cover"
+          onError={() => setFailed(true)}
+          src={favicon}
+        />
+      )}
     </span>
   );
 }
@@ -62,7 +117,7 @@ export function MessageSources({
     <Button
       aria-label={`View ${countLabel} for this answer`}
       className={cn(
-        "not-prose group/strip -mx-2 w-fit max-w-full gap-2 rounded-full px-2",
+        "not-prose group/strip h-8 w-fit max-w-full gap-1.5 rounded-full px-2",
       )}
       onClick={() => onOpen?.(payload)}
       size="sm"
@@ -72,7 +127,12 @@ export function MessageSources({
       <span className="flex shrink-0 items-center">
         {badges.length > 0 ? (
           badges.map((entry, index) => (
-            <SourceBadge entry={entry} key={entry.index} stacked={index > 0} />
+            <SourceBadge
+              entry={entry}
+              key={entry.index}
+              schoolDomains={payload.schoolDomains}
+              stacked={index > 0}
+            />
           ))
         ) : (
           <BookOpenIcon

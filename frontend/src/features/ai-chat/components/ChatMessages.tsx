@@ -14,9 +14,17 @@ export type ChatMessagesProps = {
   sessionId: string;
   messages: ChatMessageModel[];
   isSubmitting: boolean;
+  /**
+   * Replaces the generic "No messages yet" block. The essay panel supplies its
+   * own, because "ask a question to start this conversation" tells a student
+   * sitting next to a half-written personal statement nothing at all.
+   */
+  emptyState?: React.ReactNode;
   onRegenerate?: (message: ChatMessageModel) => void;
   onFeedback?: (message: ChatMessageModel, rating: FeedbackRating) => void;
   onOpenSources?: (payload: MessageSourcesPayload) => void;
+  /** A settled essay mutation receipt becomes a door into the document panel. */
+  onOpenEssay?: (essayId: string) => void;
   onClarifyAnswer?: (answer: ClarifyWidgetAnswer) => void;
   clarifyDraft?: ClarifyDraftController;
   skillLabelForName?: (name: string) => string | undefined;
@@ -34,9 +42,11 @@ export function ChatMessages({
   sessionId,
   messages,
   isSubmitting,
+  emptyState,
   onRegenerate,
   onFeedback,
   onOpenSources,
+  onOpenEssay,
   onClarifyAnswer,
   clarifyDraft,
   skillLabelForName,
@@ -58,6 +68,9 @@ export function ChatMessages({
   const latestMessageIndex = messages.length - 1;
 
   if (messages.length === 0) {
+    if (emptyState !== undefined) {
+      return <>{emptyState}</>;
+    }
     return (
       <div className="flex size-full flex-col items-center justify-center gap-3 p-8 text-center text-muted-foreground">
         <MessageCircleIcon aria-hidden="true" className="size-8" />
@@ -104,6 +117,7 @@ export function ChatMessages({
                   : undefined
               }
               onOpenSources={onOpenSources}
+              onOpenEssay={onOpenEssay}
               onOpenCitation={
                 message.kind === "assistant" && onOpenSources !== undefined
                   ? (focus: SourceFocus) => {

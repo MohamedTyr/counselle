@@ -26,7 +26,18 @@ from config.settings import get_settings
 from domain.cds.claims import Finding
 from domain.cds.packet_build import build_packet
 
-pytestmark = pytest.mark.live_db
+pytestmark = [
+    pytest.mark.live_db,
+    pytest.mark.skip(
+        reason=(
+            "Dormant under D8 (PARKED.md, ADR 0038): cds_library.active_cds_domain_packets "
+            "was dropped when the CDS extraction system's live tables were removed. Revive "
+            "per PARKED.md's revival steps (apply deploy/seed/parked/cds_extraction_schema.sql "
+            "+ restore the preserved data) before un-skipping. Pre-existing failure before "
+            "this drop too (untriaged, see TODOS.md) — do not assume green on revival."
+        )
+    ),
+]
 
 _GOLDEN_QUERY = """
     SELECT * FROM cds_library.active_cds_domain_packets

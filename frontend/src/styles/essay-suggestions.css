@@ -1,0 +1,148 @@
+/*
+ * Tracked-changes decorations — extracted verbatim from index.css, which
+ * crossed the 800-line limit. Component classes, not tokens: the
+ * --essay-suggestion-* custom properties these resolve stay in essay.css
+ * (tier 3) where the rest of the essay family lives.
+ *
+ * Wrapped in @layer components, the same layer it was written in. index.css
+ * declares the layer order on line 1, so this file's position among the
+ * imports does not change when these rules are evaluated relative to
+ * @layer base or @layer utilities. Within the components layer these
+ * selectors are (0,3,0) or higher and share no property with the (0,2,1)
+ * essay-typography rules they used to sit after, so the intra-layer order
+ * is not load-bearing either.
+ */
+@layer components {
+  /* Tracked changes. ProseMirror renders these itself — a <del> wrapped around
+     real document text, an <ins> widget carrying text that is not in the
+     document yet — so they are plain selectors rather than components, the
+     same carve-out the essay typography above already lives in.
+
+     At rest each change is ink plus one line and nothing else: this is the
+     student's own paragraph, and a permanent coloured block through it would
+     be harder to read than the prose it is annotating. The wash arrives on
+     hover, which is also when the accept/reject affordance appears. */
+  .essay-editor-shell .ProseMirror .essay-suggestion-delete,
+  .essay-editor-shell .ProseMirror .essay-suggestion-insert,
+  .essay-editor-shell .ProseMirror .essay-suggestion-stale {
+    border-radius: 2px;
+    text-decoration-thickness: 2px;
+    /* Colour only, on the Fast tier — the state this marks is "the pointer is
+       here", and anything slower reads as lag on a hover. */
+    transition: background-color 150ms ease-out;
+  }
+
+  /* THE STRUCK WORDS ARE THE STUDENT'S OWN, SO THE LINE IS RED AND THE TEXT IS
+     NOT. This is the rule the stale block below already states, applied to the
+     live deletion it was always equally true of: the text under a proposed
+     deletion is still the student's paragraph, still in their document, and
+     nothing has happened to it yet.
+
+     Recolouring it measured as the loudest thing on the page. The essay's own
+     prose is --document-foreground at chroma 0.01; --danger-fg is chroma 0.16,
+     so a struck sentence carried sixteen times the chroma of the sentences
+     around it and won every fixation. On a 580-word draft with five changes
+     that is three full lines of the student's opening paragraph rendered as
+     damage — a merge conflict, not an annotation.
+
+     The line alone still carries the claim. --essay-suggestion-delete-ink
+     measures 9.84:1 against the paper as text-decoration-color (verified in
+     the browser, not computed from the token), far above the 3:1 that WCAG
+     1.4.11 asks of a graphical state indicator, and the 2px thickness below is
+     now load-bearing rather than decorative — it is the whole signal. Against
+     the stale line it differs in two channels at once, solid vs dotted and red
+     vs grey, so the two states never collapse into each other. */
+  .essay-editor-shell .ProseMirror .essay-suggestion-delete {
+    cursor: pointer;
+    text-decoration-color: var(--essay-suggestion-delete-ink);
+    text-decoration-line: line-through;
+  }
+
+  .essay-editor-shell .ProseMirror .essay-suggestion-insert {
+    color: var(--essay-suggestion-insert-ink);
+    cursor: pointer;
+    text-decoration-line: underline;
+    /* Clear of the descenders; a serif underline jammed against a 'g' reads as
+       a rendering fault rather than as a mark. */
+    text-underline-offset: 0.18em;
+    /* The proposed text routinely opens or closes on a space (an added clause
+       after an existing sentence). HTML would collapse it and the insertion
+       would render welded to the word before it. */
+    white-space: pre-wrap;
+  }
+
+  /* Two decoration fragments rendered back to back must never weld into one
+     mark. A replacement's struck word and its proposed one collide as
+     "goodnorth" — one nonsense word for as long as it takes to parse the two
+     colours apart — and two separately-decidable deletions divided only by an
+     unstruck full stop run together as a single red bar across three lines,
+     which hides how many decisions the student is being asked to make.
+
+     WHICH FRAGMENTS ABUT IS DECIDED IN THE DECORATION BUILDER, from the
+     document positions, and arrives here as a class. A sibling selector cannot
+     decide it, which is why the two attempts that lived here did not. Both
+     matched `[data-suggestion-id] + [data-suggestion-id]` across a varying
+     number of `bracket()`'s id-less screen-reader markers: a replacement is one
+     hop (<del>, close marker, <ins>) and two abutting deletions are two
+     (<del>, next change's open marker, this one's close marker, <del>), so the
+     rule with no hop separated nothing at all and the rule with one hop
+     separated replacements only — two abutting deletions still measured 0.00px
+     apart in the browser, one unbroken red bar over two decisions. `+` also
+     skips text nodes, so whichever arm did fire separated pairs with whole
+     words of prose between them: a deletion, six characters of the student's
+     own sentence, then an insertion picked up 3.2px on top of a real word
+     space. Positions have neither failure — see `ABUTS_CLASS` in
+     `suggestionExtension.ts`. jsdom does not lay out, so only a browser can
+     measure any of this. */
+  .essay-editor-shell .ProseMirror .essay-suggestion-abuts {
+    margin-inline-start: 0.2em;
+  }
+
+  /* `data-suggestion-hovered` is set on every fragment sharing an id, so a
+     change spanning three paragraphs lights up as one thing. */
+  .essay-editor-shell .ProseMirror .essay-suggestion-delete:hover,
+  .essay-editor-shell
+    .ProseMirror
+    .essay-suggestion-delete[data-suggestion-hovered] {
+    background-color: var(--essay-suggestion-delete-surface);
+  }
+
+  .essay-editor-shell .ProseMirror .essay-suggestion-insert:hover,
+  .essay-editor-shell
+    .ProseMirror
+    .essay-suggestion-insert[data-suggestion-hovered] {
+    background-color: var(--essay-suggestion-insert-surface);
+  }
+
+  /* Stale: the student edited the text this was written against, so it can no
+     longer be applied. It stays on the page — vanishing would be the dishonest
+     option — but goes inert, and the dotted grey line says "not a live change"
+     without relying on colour alone.
+
+     Only the LINE dims. The words underneath a stale change are the student's
+     own essay, still live and still theirs, and dropping them to the disabled
+     ink would make a paragraph of their writing hard to read in order to
+     annotate a proposal that no longer applies. Because the line is then the
+     only visual channel left, it has to clear 1.4.11's 3:1 floor for a
+     graphical state indicator — which is why the ink is --ink-faint and not
+     --ink-disabled, whose WCAG exemption covers disabled CONTROLS, not this.
+
+     No `pointer-events: none`: it bought nothing (caret placement, typing and
+     drag-select all work through it inside a contenteditable) and cost the
+     title tooltip, which never fired. Inert is carried by having no
+     accept/reject affordance at all, not by swallowing the pointer. */
+  .essay-editor-shell .ProseMirror .essay-suggestion-stale {
+    cursor: default;
+    text-decoration-color: var(--essay-suggestion-stale-ink);
+    text-decoration-line: line-through;
+    text-decoration-style: dotted;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .essay-editor-shell .ProseMirror .essay-suggestion-delete,
+    .essay-editor-shell .ProseMirror .essay-suggestion-insert,
+    .essay-editor-shell .ProseMirror .essay-suggestion-stale {
+      transition: none;
+    }
+  }
+}

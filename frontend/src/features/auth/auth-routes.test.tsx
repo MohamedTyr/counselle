@@ -37,6 +37,8 @@ describe("auth routes", () => {
         name: "Could not check your session",
       }),
     ).toBeInTheDocument();
+    // No redirect here: the session check failed, so the tasks route (and
+    // its index redirect to /today) never renders.
     expect(window.location.pathname).toBe("/app/tasks");
   });
 
@@ -240,7 +242,7 @@ describe("auth routes", () => {
     );
     await user.click(await screen.findByRole("menuitem", { name: /Log out/ }));
 
-    await waitFor(() => expect(window.location.pathname).toBe("/app/tasks"));
+    await waitFor(() => expect(window.location.pathname).toBe("/app/tasks/today"));
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "Could not log out. Please try again.",
     );

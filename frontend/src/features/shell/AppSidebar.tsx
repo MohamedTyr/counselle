@@ -202,7 +202,7 @@ export function AppSidebar() {
                 type="button"
               >
                 {/* 1a draws the avatar chip a shade deeper than the selected
-                 * nav pill (wine-100 vs wine-50) with its own half-chroma
+                 * nav pill (lime-100 vs lime-50) with its own reduced-chroma
                  * ink, so the two brand tints never look like the same
                  * component at two sizes. */}
                 <Avatar className="size-[30px] shrink-0 rounded-[10px]">

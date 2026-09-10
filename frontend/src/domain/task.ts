@@ -27,6 +27,13 @@ export type Task = {
   application_id?: string;
   essay_id?: string;
   requirement_kind?: string;
+  when_on?: string;
+  deadline_on?: string;
+  done_at?: string;
+  flagged: boolean;
+  created_by_actor: "student" | "counselle";
+  last_actor: "student" | "counselle";
+  sort_order?: number;
 };
 
 function undefinedIfNull<T>(value: T | null | undefined): T | undefined {
@@ -52,6 +59,13 @@ export function taskFromApi(task: ApiTask): Task {
     application_id: undefinedIfNull(task.application_id),
     essay_id: undefinedIfNull(task.essay_id),
     requirement_kind: undefinedIfNull(task.requirement_kind),
+    when_on: undefinedIfNull(task.when_on),
+    deadline_on: undefinedIfNull(task.deadline_on),
+    done_at: undefinedIfNull(task.done_at),
+    flagged: task.flagged,
+    created_by_actor: task.created_by_actor,
+    last_actor: task.last_actor,
+    sort_order: undefinedIfNull(task.sort_order),
   };
 }
 
@@ -60,15 +74,15 @@ const patchableTaskFields = [
   "notes",
   "due_at",
   "planned_for",
-  "status",
   "category",
-  "assignee",
-  "needs_input",
-  "reminder_at",
   "priority",
   "application_id",
   "essay_id",
   "requirement_kind",
+  "when_on",
+  "deadline_on",
+  "done_at",
+  "flagged",
 ] as const satisfies readonly (keyof Task)[];
 
 /**
@@ -85,11 +99,6 @@ export function taskPatchToApi(patch: Partial<Task>): ApiTaskPatch {
       const value = patch[field];
       apiPatch[field] = value === undefined ? null : value;
     }
-  }
-
-  if ("application_id" in patch) {
-    if (!("essay_id" in patch)) apiPatch.essay_id = null;
-    if (!("requirement_kind" in patch)) apiPatch.requirement_kind = null;
   }
 
   return apiPatch as ApiTaskPatch;

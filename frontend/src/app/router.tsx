@@ -19,6 +19,10 @@ import { ProfilePage } from "@/pages/profile-page";
 import { SchoolsPage } from "@/pages/schools-page";
 import { SchoolDetailPage } from "@/pages/school-detail-page";
 import { TasksPage } from "@/pages/tasks-page";
+import { AnytimeView } from "@/features/tasks/AnytimeView";
+import { LogbookView } from "@/features/tasks/LogbookView";
+import { TodayView } from "@/features/tasks/TodayView";
+import { UpcomingView } from "@/features/tasks/UpcomingView";
 
 export function createAppRouter() {
   const devRoutes = import.meta.env.DEV
@@ -87,6 +91,13 @@ export function createAppRouter() {
                 {
                   path: "tasks",
                   element: <TasksPage />,
+                  children: [
+                    { index: true, element: <Navigate replace to="today" /> },
+                    { path: "today", element: <TodayView /> },
+                    { path: "upcoming", element: <UpcomingView /> },
+                    { path: "anytime", element: <AnytimeView /> },
+                    { path: "logbook", element: <LogbookView /> },
+                  ],
                 },
                 {
                   path: "profile",

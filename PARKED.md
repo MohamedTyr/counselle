@@ -296,6 +296,14 @@ this re-architecture** — a hardcoded skill list in that test does not include 
 this branch's fork point, `4eb52f6`); it is a pre-existing bug outside D8's scope, not fixed here,
 and worth a `TODOS.md` entry.
 
+**Marked `pytest.mark.skip` (post-Phase-0 merge cleanup):** the two tests named above now carry an
+explicit `pytest.mark.skip(reason=...)` (alongside their existing `pytest.mark.live_db` mark)
+naming this file and D8, so `uv run pytest -m live_db` reports them `skipped`, not `failed` — a
+reader sees "parked, revive with the DDL in `deploy/seed/parked/`", not a mystery failure. This is
+a test-runner-honesty fix only: it does not touch, retire, or resolve the pre-existing untriaged
+logic/fixture-drift bugs recorded in `TODOS.md` — revival must re-run both before assuming the
+parked suite is clean, exactly as this section already said.
+
 ## What must not be deleted
 
 - Any file listed under "What is parked" above.

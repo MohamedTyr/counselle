@@ -1,1 +1,1 @@
-export { TasksPage } from "@/features/tasks/TasksRoute";
+export { TasksLayout as TasksPage } from "@/features/tasks/TasksLayout";

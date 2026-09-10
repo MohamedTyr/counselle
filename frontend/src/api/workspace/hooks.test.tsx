@@ -117,9 +117,13 @@ describe("workspace mutation hooks", () => {
     });
   });
 
-  it("optimistically sets completed_at when a single task update marks it done", async () => {
+  it("optimistically sets status and completed_at when done_at marks a task done", async () => {
     const queryClient = createTestQueryClient();
-    const openTask: Task = { ...workspaceTaskFixture, completed_at: null };
+    const openTask: Task = {
+      ...workspaceTaskFixture,
+      completed_at: null,
+      done_at: null,
+    };
     queryClient.setQueryData(workspaceKeys.tasks.list(), [openTask]);
     const deferred = deferredResponse();
     vi.stubGlobal(
@@ -132,7 +136,10 @@ describe("workspace mutation hooks", () => {
     });
 
     act(() => {
-      result.current.mutate({ id: openTask.id, patch: { status: "done" } });
+      result.current.mutate({
+        id: openTask.id,
+        patch: { done_at: "2026-02-02T00:00:00.000Z" },
+      });
     });
 
     await waitFor(() => {
@@ -146,12 +153,13 @@ describe("workspace mutation hooks", () => {
     deferred.resolve(jsonResponse({ ...openTask, status: "done" }));
   });
 
-  it("optimistically clears completed_at when a task is moved out of done", async () => {
+  it("optimistically clears status and completed_at when done_at is cleared", async () => {
     const queryClient = createTestQueryClient();
     const doneTask: Task = {
       ...workspaceTaskFixture,
       status: "done",
       completed_at: "2026-01-01T00:00:00.000Z",
+      done_at: "2026-01-01T00:00:00.000Z",
     };
     queryClient.setQueryData(workspaceKeys.tasks.list(), [doneTask]);
     const deferred = deferredResponse();
@@ -165,7 +173,7 @@ describe("workspace mutation hooks", () => {
     });
 
     act(() => {
-      result.current.mutate({ id: doneTask.id, patch: { status: "todo" } });
+      result.current.mutate({ id: doneTask.id, patch: { done_at: null } });
     });
 
     await waitFor(() => {

@@ -7,6 +7,7 @@ import {
   within,
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { MemoryRouter } from "react-router";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 import { BUILT_IN_SOURCE_CONFIG } from "@/api/chat/source-config";
@@ -246,10 +247,18 @@ function renderPage(
   props: Partial<Omit<AiChatPageProps, "sessionId" | "transport">> = {},
 ) {
   const queryClient = createTestQueryClient();
+  // Router context, because the page is only ever mounted inside one: the
+  // document panel's "Open in editor" navigates to the essay's own route.
   return render(
-    <QueryClientProvider client={queryClient}>
-      <AiChatPage sessionId={sessionId} transport={fakeTransport} {...props} />
-    </QueryClientProvider>,
+    <MemoryRouter>
+      <QueryClientProvider client={queryClient}>
+        <AiChatPage
+          sessionId={sessionId}
+          transport={fakeTransport}
+          {...props}
+        />
+      </QueryClientProvider>
+    </MemoryRouter>,
   );
 }
 
@@ -925,6 +934,115 @@ describe("AiChatPage", () => {
       await screen.findByRole("heading", { name: "1 source" }),
     ).toBeInTheDocument();
     expect(document.getElementById("source-row-1")).toBeInTheDocument();
+  });
+
+  test("the right rail shows sources or a document, never both", async () => {
+    fakeTransport.getSession.mockResolvedValue(
+      session({
+        transcript: [
+          { role: "user", message_id: "user-1", text: "Tighten it", ts: null },
+          {
+            role: "assistant",
+            message_id: "assistant-1",
+            text: "Done [1]",
+            parts: [{ type: "text", text: "Done [1]" }],
+            segments: [
+              {
+                kind: "step",
+                data: {
+                  step_id: "step-1",
+                  status: "end",
+                  kind: "workspace",
+                  label: "Editing an essay",
+                  tier: null,
+                  tool: "edit_essay",
+                  detail: {
+                    mutation_contract: 1,
+                    mutation: {
+                      v: 1,
+                      family: "essay_content",
+                      action: "edit",
+                      outcome: "success",
+                      body: {
+                        kind: "essay_edit",
+                        subject: {
+                          title: {
+                            text: "Why Stanford?",
+                            truncated: false,
+                            original_graphemes: null,
+                          },
+                          resource_ref: "essay-1",
+                        },
+                        operations: [],
+                        final_word_count: 240,
+                      },
+                      notices: [],
+                      omissions: {
+                        subjects: 0,
+                        changes: 0,
+                        item_details: 0,
+                        notices: 0,
+                        edit_operations: 0,
+                      },
+                    },
+                  },
+                },
+              },
+              { kind: "delta", text: "Done [1]" },
+            ],
+            status: "complete",
+            sources: [
+              {
+                v: 2,
+                index: 1,
+                citation: {
+                  v: 2,
+                  source: "web",
+                  tier: "official",
+                  vintage: "2026",
+                  url: "https://example.com/source",
+                },
+                label: "Example",
+                evidence: [],
+                evidence_omitted_count: 0,
+              },
+            ],
+            ts: null,
+          },
+        ],
+      }),
+    );
+
+    renderPage();
+
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: "View 1 source for this answer",
+      }),
+    );
+    expect(
+      await screen.findByRole("heading", { name: "1 source" }),
+    ).toBeInTheDocument();
+
+    // Opening the document closes the rail.
+    fireEvent.click(screen.getByRole("button", { name: /^Open Why Stanford\?/ }));
+    expect(
+      await screen.findByRole("complementary", { name: "Essay panel" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: "1 source" }),
+    ).not.toBeInTheDocument();
+
+    // And re-opening the rail closes the document.
+    fireEvent.click(
+      screen.getByRole("button", { name: "View 1 source for this answer" }),
+    );
+    expect(
+      await screen.findByRole("heading", { name: "1 source" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("complementary", { name: "Essay panel" }),
+    ).not.toBeInTheDocument();
   });
 
   test("regenerate rewrites from the parent user message id", async () => {

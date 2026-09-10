@@ -957,9 +957,12 @@ describe("ChatMessage", () => {
       text.indexOf("I need to compare prestige separately from campus fit."),
     ).toBeLessThan(text.indexOf("Both are strong for different reasons"));
     expect(text.indexOf("Both are strong for different reasons")).toBeLessThan(
+      text.indexOf("Copy"),
+    );
+    expect(text.indexOf("Copy")).toBeLessThan(text.indexOf("Good response"));
+    // The sources chip closes the action row, to the right of the actions.
+    expect(text.indexOf("Good response")).toBeLessThan(
       text.indexOf("1 source"),
     );
-    expect(text.indexOf("1 source")).toBeLessThan(text.indexOf("Copy"));
-    expect(text.indexOf("Copy")).toBeLessThan(text.indexOf("Good response"));
   });
 });

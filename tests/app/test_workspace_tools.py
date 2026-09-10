@@ -8,7 +8,7 @@ there is no shared conftest for these in this codebase).
 from __future__ import annotations
 
 from collections.abc import AsyncIterator, Awaitable, Callable
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from typing import Any
 from uuid import UUID, uuid4
 
@@ -114,45 +114,45 @@ def test_application_create_rejects_null_cycle_year() -> None:
 # --------------------------------------------------------------------------
 
 
-async def test_view_tasks_default_sort_urgency_then_priority(
+async def test_view_tasks_default_sort_flagged_then_when_then_deadline(
     app_pool: asyncpg.Pool, catalog: Catalog, make_user: Callable[[], Awaitable[UUID]]
 ) -> None:
     user_id = await make_user()
-    now = datetime.now(UTC)
-    soon = await create_task(
+    today_ = date.today()
+    flagged = await create_task(
         app_pool,
         WorkspaceEventBus(),
         user_id=user_id,
         actor="student",
-        data=TaskCreate(title="Due soon", priority="low", due_at=now + timedelta(days=1)),
+        data=TaskCreate(title="Flagged, no dates", flagged=True),
     )
-    later = await create_task(
+    when_soon = await create_task(
         app_pool,
         WorkspaceEventBus(),
         user_id=user_id,
         actor="student",
-        data=TaskCreate(title="Due later", priority="high", due_at=now + timedelta(days=5)),
+        data=TaskCreate(title="When soon", when_on=today_ + timedelta(days=1)),
     )
-    high_no_due = await create_task(
+    deadline_only = await create_task(
         app_pool,
         WorkspaceEventBus(),
         user_id=user_id,
         actor="student",
-        data=TaskCreate(title="No due high", priority="high"),
+        data=TaskCreate(title="Deadline only", deadline_on=today_ + timedelta(days=5)),
     )
-    low_no_due = await create_task(
+    no_dates = await create_task(
         app_pool,
         WorkspaceEventBus(),
         user_id=user_id,
         actor="student",
-        data=TaskCreate(title="No due low", priority="low"),
+        data=TaskCreate(title="No dates"),
     )
 
     tools = _tools(app_pool, catalog, user_id)
     result = await tools["view_tasks"].function()
 
     ids = [row["id"] for row in result["tasks"]]
-    assert ids == [str(soon.id), str(later.id), str(high_no_due.id), str(low_no_due.id)]
+    assert ids == [str(flagged.id), str(when_soon.id), str(deadline_only.id), str(no_dates.id)]
     assert result["status"] == "ok"
     assert "today" in result
 
@@ -173,7 +173,7 @@ async def test_view_tasks_status_all_includes_done(
         WorkspaceEventBus(),
         user_id=user_id,
         actor="student",
-        data=TaskCreate(title="Done one", status="done"),
+        data=TaskCreate(title="Done one", done_at=datetime.now(UTC)),
     )
 
     tools = _tools(app_pool, catalog, user_id)
@@ -182,7 +182,7 @@ async def test_view_tasks_status_all_includes_done(
     ids = {row["id"] for row in result["tasks"]}
     assert ids == {str(active.id), str(done.id)}
     done_row = next(row for row in result["tasks"] if row["id"] == str(done.id))
-    assert "completed" in done_row
+    assert done_row["done"] is True
 
 
 async def test_view_tasks_status_done_footer_has_no_tail(
@@ -194,7 +194,7 @@ async def test_view_tasks_status_done_footer_has_no_tail(
         WorkspaceEventBus(),
         user_id=user_id,
         actor="student",
-        data=TaskCreate(title="Finished", status="done"),
+        data=TaskCreate(title="Finished", done_at=datetime.now(UTC)),
     )
 
     tools = _tools(app_pool, catalog, user_id)
@@ -511,11 +511,11 @@ async def test_create_tasks_unparseable_date(
     tools = _tools(app_pool, catalog, user_id)
 
     result = await tools["create_tasks"].function(
-        tasks=[TaskDraft(title="Bad date", due="July 15")]
+        tasks=[TaskDraft(title="Bad date", deadline="July 15")]
     )
 
     assert result["status"] == "error"
-    assert result["error"] == 'tasks[0]: due "July 15" is not a valid date.'
+    assert result["error"] == 'tasks[0]: deadline "July 15" is not a valid date.'
     assert result["retryable"] is True
 
 
@@ -556,32 +556,32 @@ async def test_update_task_partial_patch_and_summary(
         WorkspaceEventBus(),
         user_id=user_id,
         actor="student",
-        data=TaskCreate(title="Original title", priority="low"),
+        data=TaskCreate(title="Original title", category="form"),
     )
 
     tools = _tools(app_pool, catalog, user_id)
     result = await tools["update_task"].function(
-        task_id=str(task.id), status="doing", due="2026-07-15"
+        task_id=str(task.id), flagged=True, when="2026-07-15"
     )
 
     assert result["status"] == "ok"
-    assert result["task"]["status"] == "doing"
-    assert result["task"]["due"] == "2026-07-15"
+    assert result["task"]["flagged"] is True
+    assert result["task"]["when"] == "2026-07-15"
     assert result["task"]["title"] == "Original title"
-    assert result["task"]["priority"] == "low"
+    assert result["task"]["category"] == "form"
     assert 'Updated "Original title"' in result["summary"]
-    assert "status → doing" in result["summary"]
-    assert "due → 2026-07-15" in result["summary"]
+    assert "flagged → true" in result["summary"]
+    assert "when → 2026-07-15" in result["summary"]
     mutation = result["public_receipt"]["mutation"]
     assert mutation["family"] == "task"
     assert mutation["action"] == "update"
     assert mutation["outcome"] == "success"
     assert mutation["body"]["subject"]["title"]["text"] == "Original title"
     changed_fields = {c["field_key"] for c in mutation["body"]["changes"]}
-    assert changed_fields == {"status", "due_at"}
-    status_change = next(c for c in mutation["body"]["changes"] if c["field_key"] == "status")
-    assert status_change["before"]["enum"] == "todo"
-    assert status_change["after"]["enum"] == "doing"
+    assert changed_fields == {"flagged", "when_on"}
+    flagged_change = next(c for c in mutation["body"]["changes"] if c["field_key"] == "flagged")
+    assert flagged_change["before"]["boolean"] is False
+    assert flagged_change["after"]["boolean"] is True
 
 
 async def test_update_task_clear_sentinel_on_every_clearable_field(
@@ -606,7 +606,7 @@ async def test_update_task_clear_sentinel_on_every_clearable_field(
         actor="student",
         data=EssayCreate(title="Why us?", essay_type="Supplement"),
     )
-    now = datetime.now(UTC)
+    today_ = date.today()
     task = await create_task(
         app_pool,
         WorkspaceEventBus(),
@@ -615,9 +615,8 @@ async def test_update_task_clear_sentinel_on_every_clearable_field(
         data=TaskCreate(
             title="Fully linked task",
             notes="Some notes",
-            due_at=now,
-            planned_for=now,
-            reminder_at=now,
+            when_on=today_,
+            deadline_on=today_,
             application_id=result_a.application.id,
             essay_id=essay.id,
         ),
@@ -627,18 +626,17 @@ async def test_update_task_clear_sentinel_on_every_clearable_field(
     result = await tools["update_task"].function(
         task_id=str(task.id),
         notes="clear",
-        due="clear",
-        planned_for="clear",
-        reminder="clear",
+        when="clear",
+        deadline="clear",
         application_id="clear",
         essay_id="clear",
     )
 
     assert result["status"] == "ok"
     row = result["task"]
-    for key in ("notes", "due", "planned", "reminder", "app", "essay"):
+    for key in ("notes", "when", "deadline", "app", "essay"):
         assert key not in row
-    for phrase in ("notes → cleared", "due → cleared", "planned → cleared", "reminder → cleared"):
+    for phrase in ("notes → cleared", "when → cleared", "deadline → cleared"):
         assert phrase in result["summary"]
 
 
@@ -649,7 +647,7 @@ async def test_update_task_stale_task_id_matches_a7_error(
     tools = _tools(app_pool, catalog, user_id)
     bogus_id = str(uuid4())
 
-    result = await tools["update_task"].function(task_id=bogus_id, status="doing")
+    result = await tools["update_task"].function(task_id=bogus_id, flagged=True)
 
     assert result["status"] == "error"
     assert result["retryable"] is False
@@ -667,7 +665,7 @@ async def test_update_task_invalid_uuid_string_hits_curated_error_not_crash(
     user_id = await make_user()
     tools = _tools(app_pool, catalog, user_id)
 
-    result = await tools["update_task"].function(task_id="not-a-uuid", status="doing")
+    result = await tools["update_task"].function(task_id="not-a-uuid", flagged=True)
 
     assert result["status"] == "error"
     assert 'No active task with id "not-a-uuid"' in result["error"]
@@ -689,7 +687,7 @@ async def test_update_task_archived_task_hits_stale_error(
     )
 
     tools = _tools(app_pool, catalog, user_id)
-    result = await tools["update_task"].function(task_id=str(task.id), status="doing")
+    result = await tools["update_task"].function(task_id=str(task.id), flagged=True)
 
     assert result["status"] == "error"
     assert f'No active task with id "{task.id}"' in result["error"]
@@ -709,7 +707,7 @@ async def test_update_task_foreign_task_id_never_reveals_existence(
     )
 
     tools = _tools(app_pool, catalog, stranger_id)
-    result = await tools["update_task"].function(task_id=str(task.id), status="doing")
+    result = await tools["update_task"].function(task_id=str(task.id), flagged=True)
 
     assert result["status"] == "error"
     assert f'No active task with id "{task.id}"' in result["error"]
@@ -749,10 +747,10 @@ async def test_update_task_unparseable_date(
     )
 
     tools = _tools(app_pool, catalog, user_id)
-    result = await tools["update_task"].function(task_id=str(task.id), due="not-a-date")
+    result = await tools["update_task"].function(task_id=str(task.id), when="not-a-date")
 
     assert result["status"] == "error"
-    assert result["error"] == 'due "not-a-date" is not a valid date.'
+    assert result["error"] == 'when "not-a-date" is not a valid date.'
 
 
 # --------------------------------------------------------------------------
@@ -885,7 +883,7 @@ async def test_restore_task_success(
     assert result["status"] == "ok"
     assert result["summary"] == 'Restored "Bring me back" to the active board.'
     assert result["task"]["id"] == str(task.id)
-    assert result["task"]["status"] == "todo"
+    assert "done" not in result["task"]
     mutation = result["public_receipt"]["mutation"]
     assert mutation["action"] == "restore"
     assert mutation["outcome"] == "success"

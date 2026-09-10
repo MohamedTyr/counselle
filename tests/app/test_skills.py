@@ -74,7 +74,7 @@ _BODY_LINE_LIMIT_EXCEPTIONS = {
     "essay-types": 220,
     "essay-revision": 195,
     "essay-depth": 165,
-    "essay-honesty": 155,
+    "essay-honesty": 180,
     "essay-advanced": 140,
     "essay-craft": 140,
     "essay-drafting": 135,

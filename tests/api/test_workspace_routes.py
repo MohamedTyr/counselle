@@ -240,18 +240,6 @@ def test_unknown_workspace_item_maps_to_404() -> None:
             None,
         ),
         (
-            "api.routes.tasks.bulk_update_status",
-            "post",
-            "/v1/tasks/bulk-status",
-            {"ids": [_UNKNOWN_UUID], "status": "done"},
-        ),
-        (
-            "api.routes.tasks.bulk_archive",
-            "post",
-            "/v1/tasks/bulk-archive",
-            {"ids": [_UNKNOWN_UUID]},
-        ),
-        (
             "api.routes.essays.get_essay",
             "get",
             f"/v1/essays/{_UNKNOWN_UUID}",

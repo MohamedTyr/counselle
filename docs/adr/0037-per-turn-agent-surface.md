@@ -117,6 +117,17 @@ The exception is scoped exactly to "an indivisible vendor toolset". Any tool we
 construct ourselves — every workspace tool, `render_viz` — is still unmounted,
 never denied. ADR 0013 carries a pointer to this record.
 
+**Superseded (ADR 0038).** ADR 0038 (school-data-v3) deleted the
+`counselle-db` MCP child process and the `MCPToolset` it required. The four DB
+tools are now individual in-process `Tool` objects built by `build_db_tools()`,
+so the premise of this section — an indivisible vendor toolset that cannot be
+partially mounted — no longer exists, and the exception it justified is
+retired with it. `ESSAY_SURFACE_DENIED_MCP_TOOLS` and `annotate_mcp_result` are
+gone; `build_db_tools(..., surface=...)` now simply does not construct
+`get_facts` (renamed from `get_domain`) or `query_database` for
+`Surface.ESSAY`. The essay surface is narrowed by construction like every
+other tool on this surface — ADR 0013's rule holds with no exception.
+
 ### Honesty on this surface: prompt hardening plus provenance display, and no validator
 
 The essay panel's failure mode is not a wrong number, it is a wrong claim: the

@@ -183,7 +183,6 @@ class TestDefaults:
         assert settings.sse_keepalive_s == 15
         assert settings.agent_stream_buffer_size == 100_000
         assert settings.agent_turn_timeout_s == 3600
-        assert settings.agent_mcp_read_timeout_s == 60.0
         assert settings.agent_tool_result_max_chars == 8_000
         assert settings.protocol_version == 1
         assert settings.workspace_event_queue_size == 256

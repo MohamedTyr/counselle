@@ -29,7 +29,18 @@ from adapters.cds_store import HUMAN_REVIEW_EXTRACTOR_VERSION
 from app.cds.engine import EXTRACTOR_VERSION as MODEL_EXTRACTOR_VERSION
 from config.settings import get_settings
 
-pytestmark = pytest.mark.live_db
+pytestmark = [
+    pytest.mark.live_db,
+    pytest.mark.skip(
+        reason=(
+            "Dormant under D8 (PARKED.md, ADR 0038): cds_library.cds_manifests/cds_extractions "
+            "were dropped when the CDS extraction system's live tables were removed. Revive per "
+            "PARKED.md's revival steps (apply deploy/seed/parked/cds_extraction_schema.sql + "
+            "restore the preserved data) before un-skipping. Pre-existing failure before this "
+            "drop too (untriaged, see TODOS.md) — do not assume green on revival."
+        )
+    ),
+]
 
 # Documents 1, 2, 4 are part of the live corpus (SHIP-PLAN §0.2/§4.1) and are
 # already active -- exactly the case `_require_reviewable` broadens for. Each

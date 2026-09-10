@@ -71,6 +71,7 @@ async def list_tasks(
     application_id: UUID | None = None,
     essay_id: UUID | None = None,
     completed_after: datetime | None = None,
+    done: bool | None = None,
     limit: int | None = None,
 ) -> list[Task]:
     """Filtered fetch of the user's non-archived tasks (REST + future agent tools).
@@ -82,12 +83,18 @@ async def list_tasks(
     stays a generic filtered-fetch primitive; urgency sort (due asc
     nulls-last, then priority — plans/agent-task-tools.md Part A.1) is the
     Phase 3 `view_tasks` tool's presentation concern, not this fetch's.
+
+    `done` filters on the new `done_at` column (tasks-redesign spec §2): True
+    → `done_at IS NOT NULL`, False → `done_at IS NULL`, None → no filter. The
+    legacy `statuses` parameter keeps working for the one-release bridge.
     """
     conditions = ["user_id = $1", "archived_at IS NULL"]
     params: list[object] = [user_id]
     if statuses is not None:
         params.append(statuses)
         conditions.append(f"status = ANY(${len(params)}::text[])")
+    if done is not None:
+        conditions.append("done_at IS NOT NULL" if done else "done_at IS NULL")
     if application_id is not None:
         params.append(application_id)
         conditions.append(f"application_id = ${len(params)}")
@@ -202,9 +209,17 @@ async def create_task(
             INSERT INTO counselle.tasks
               (user_id, application_id, essay_id, requirement_kind, title, notes, status, category,
                priority, assignee, needs_input, due_at, planned_for, reminder_at,
-               completed_at)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14,
-                    CASE WHEN $7 = 'done' THEN now() ELSE NULL END)
+               completed_at, when_on, deadline_on, flagged, created_by_actor, last_actor,
+               done_at)
+            VALUES ($1, $2, $3, $4, $5, $6,
+                    CASE WHEN $19::timestamptz IS NOT NULL THEN 'done' ELSE $7 END,
+                    $8, $9, $10, $11, $12, $13, $14,
+                    CASE
+                      WHEN $19::timestamptz IS NOT NULL THEN $19::timestamptz
+                      WHEN $7 = 'done' THEN now()
+                      ELSE NULL
+                    END,
+                    $15, $16, $17, $18, $18, $19::timestamptz)
             RETURNING *
             """,
             user_id,
@@ -221,6 +236,11 @@ async def create_task(
             data.due_at,
             data.planned_for,
             data.reminder_at,
+            data.when_on,
+            data.deadline_on,
+            data.flagged,
+            actor,
+            data.done_at,
         )
         task = Task.model_validate(dict(row))
         events.append(
@@ -262,9 +282,17 @@ async def create_tasks_batch(
                 INSERT INTO counselle.tasks
                   (user_id, application_id, essay_id, requirement_kind, title, notes, status,
                    category, priority, assignee, needs_input, due_at, planned_for, reminder_at,
-                   completed_at)
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14,
-                        CASE WHEN $7 = 'done' THEN now() ELSE NULL END)
+                   completed_at, when_on, deadline_on, flagged, created_by_actor, last_actor,
+                   done_at)
+                VALUES ($1, $2, $3, $4, $5, $6,
+                        CASE WHEN $19::timestamptz IS NOT NULL THEN 'done' ELSE $7 END,
+                        $8, $9, $10, $11, $12, $13, $14,
+                        CASE
+                          WHEN $19::timestamptz IS NOT NULL THEN $19::timestamptz
+                          WHEN $7 = 'done' THEN now()
+                          ELSE NULL
+                        END,
+                        $15, $16, $17, $18, $18, $19::timestamptz)
                 RETURNING *
                 """,
                 user_id,
@@ -281,6 +309,11 @@ async def create_tasks_batch(
                 item.due_at,
                 item.planned_for,
                 item.reminder_at,
+                item.when_on,
+                item.deadline_on,
+                item.flagged,
+                actor,
+                item.done_at,
             )
             task = Task.model_validate(dict(row))
             tasks.append(task)
@@ -316,7 +349,7 @@ async def update_task(
             )
         before = Task.model_validate(dict(current))
         if values:
-            row = await _update_task_row(conn, user_id, task_id, values)
+            row = await _update_task_row(conn, user_id, task_id, values, actor=actor)
         else:
             row = current
         task = Task.model_validate(dict(row))
@@ -370,39 +403,69 @@ async def restore_task(
     return task
 
 
-async def bulk_update_status(
+#: Advisory-lock namespace tag for the tasks-reorder lock below. Distinct
+#: from ``_ACTIVITY_LOCK_SQL``'s ``0`` and ``_HONOR_LOCK_SQL``'s ``1``
+#: (app/workspace/service_activities.py) — a future fourth advisory-lock
+#: caller should pick a different constant.
+_TASK_REORDER_LOCK_SQL = """
+    SELECT pg_advisory_xact_lock(hashtextextended($1::text, 2))
+"""
+
+
+async def reorder_tasks(
     app_pool: asyncpg.Pool,
     event_bus: WorkspaceEventBus,
     *,
     user_id: UUID,
     actor: Actor,
     ids: list[UUID],
-    status: TaskStatus,
 ) -> list[Task]:
-    if not ids:
-        return []
+    """Set ``sort_order`` by index for the given tasks (tasks-redesign spec
+    §6.1, plan decision D4 — Today's manual order).
+
+    Unlike ``reorder_activities``/``reorder_honors``, which always reorder
+    the caller's *entire* active set and reject a partial id list, ``ids``
+    here is deliberately allowed to be a subset: Today is one filtered view
+    over the same ``tasks`` table Upcoming/Anytime/Logbook also read, so
+    "all active tasks" is never "all of Today." Each id is still verified to
+    be an active task owned by ``user_id`` before it is touched. Returns the
+    user's full active task list (mirroring ``list_tasks``'s shape) so the
+    single ``workspaceKeys.tasks.list()`` cache entry the frontend keeps
+    stays authoritative once this settles, rather than being clobbered down
+    to just the reordered subset.
+    """
+    if len(set(ids)) != len(ids):
+        raise WorkspaceValidationError("ordered ids must be unique")
     events: list[ChangeEvent] = []
     async with app_pool.acquire() as conn, conn.transaction():
+        await conn.execute(_TASK_REORDER_LOCK_SQL, str(user_id))
+        for index, task_id in enumerate(ids):
+            row = await conn.fetchrow(
+                """
+                UPDATE counselle.tasks
+                SET sort_order = $3, updated_at = now()
+                WHERE id = $1 AND user_id = $2 AND archived_at IS NULL
+                RETURNING *
+                """,
+                task_id,
+                user_id,
+                index,
+            )
+            if row is None:
+                raise WorkspaceNotFoundError()
+            task = Task.model_validate(dict(row))
+            events.append(await _record_task_change(conn, user_id, actor, task, "updated"))
         rows = await conn.fetch(
             """
-            UPDATE counselle.tasks
-            SET status = $3,
-                completed_at = CASE WHEN $3 = 'done' THEN now() ELSE NULL END,
-                updated_at = now()
-            WHERE user_id = $1 AND id = ANY($2::uuid[]) AND archived_at IS NULL
-            RETURNING *
+            SELECT *
+            FROM counselle.tasks
+            WHERE user_id = $1 AND archived_at IS NULL
+            ORDER BY created_at
             """,
             user_id,
-            ids,
-            status,
         )
-        tasks = [Task.model_validate(dict(row)) for row in rows]
-        for task in tasks:
-            events.append(
-                await _record_task_change(conn, user_id, actor, task, "updated")
-            )
     publish_events(event_bus, user_id, events)
-    return tasks
+    return [Task.model_validate(dict(row)) for row in rows]
 
 
 async def bulk_archive(
@@ -585,8 +648,21 @@ async def _require_restorable_task(
 
 
 async def _update_task_row(
-    conn: asyncpg.Connection, user_id: UUID, task_id: UUID, values: dict[str, object]
+    conn: asyncpg.Connection,
+    user_id: UUID,
+    task_id: UUID,
+    values: dict[str, object],
+    *,
+    actor: Actor,
 ) -> asyncpg.Record:
+    """Apply a partial patch. `$29`-`$37` are the tasks-redesign additions
+
+    (when_on/deadline_on/flagged/done_at pairs plus the unconditional
+    last_actor); `$1`-`$28` are the pre-existing legacy-field pairs, untouched.
+    `done_at` (in `$35`/`$36`) wins over a legacy `status`-only patch for the
+    `status`/`completed_at` bridge columns, since those are read by
+    `service_applications.py`'s progress rollup.
+    """
     row = await conn.fetchrow(
         """
         UPDATE counselle.tasks
@@ -595,7 +671,10 @@ async def _update_task_row(
             essay_id = CASE WHEN $7 THEN $8 ELSE essay_id END,
             requirement_kind = CASE WHEN $9 THEN $10 ELSE requirement_kind END,
             notes = CASE WHEN $11 THEN $12 ELSE notes END,
-            status = CASE WHEN $13 THEN $14 ELSE status END,
+            status = CASE
+              WHEN $35 THEN CASE WHEN $36::timestamptz IS NOT NULL THEN 'done' ELSE 'todo' END
+              ELSE CASE WHEN $13 THEN $14 ELSE status END
+            END,
             category = CASE WHEN $15 THEN $16 ELSE category END,
             priority = CASE WHEN $17 THEN $18 ELSE priority END,
             assignee = CASE WHEN $19 THEN $20 ELSE assignee END,
@@ -603,10 +682,18 @@ async def _update_task_row(
             due_at = CASE WHEN $23 THEN $24 ELSE due_at END,
             planned_for = CASE WHEN $25 THEN $26 ELSE planned_for END,
             reminder_at = CASE WHEN $27 THEN $28 ELSE reminder_at END,
+            when_on = CASE WHEN $29 THEN $30 ELSE when_on END,
+            deadline_on = CASE WHEN $31 THEN $32 ELSE deadline_on END,
+            flagged = CASE WHEN $33 THEN $34 ELSE flagged END,
+            done_at = CASE WHEN $35 THEN $36 ELSE done_at END,
             completed_at = CASE
-              WHEN $13 THEN CASE WHEN $14 = 'done' THEN now() ELSE NULL END
-              ELSE completed_at
+              WHEN $35 THEN $36
+              ELSE CASE
+                WHEN $13 THEN CASE WHEN $14 = 'done' THEN now() ELSE NULL END
+                ELSE completed_at
+              END
             END,
+            last_actor = $37,
             updated_at = now()
         WHERE id = $1 AND user_id = $2 AND archived_at IS NULL
         RETURNING *
@@ -639,6 +726,15 @@ async def _update_task_row(
         values.get("planned_for"),
         "reminder_at" in values,
         values.get("reminder_at"),
+        "when_on" in values,
+        values.get("when_on"),
+        "deadline_on" in values,
+        values.get("deadline_on"),
+        "flagged" in values,
+        values.get("flagged"),
+        "done_at" in values,
+        values.get("done_at"),
+        actor,
     )
     if row is None:
         raise WorkspaceNotFoundError()

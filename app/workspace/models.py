@@ -284,14 +284,27 @@ class Task(_Model):
     created_at: datetime
     updated_at: datetime
     archived_at: datetime | None = None
+    when_on: Date | None = None
+    deadline_on: Date | None = None
+    done_at: datetime | None = None
+    flagged: bool = False
+    created_by_actor: Actor = "student"
+    last_actor: Actor = "student"
+    #: Today's manual order (tasks-redesign spec §6.1, plan decision D4).
+    #: NULL means "never explicitly reordered" — see migrations/
+    #: 0020_task_sort_order.sql for why this is nullable unlike Activity/
+    #: Honor's NOT NULL sort_order.
+    sort_order: int | None = None
 
 
 class TaskCreate(_Model):
-    title: str
+    title: str = Field(min_length=1)
     application_id: UUID | None = None
     essay_id: UUID | None = None
     requirement_kind: str | None = Field(default=None, pattern=r"^[a-z][a-z0-9_]{1,63}$")
     notes: str | None = None
+    # Bridge fields (spec §13, decision D6): kept accepted-but-defaulted for one
+    # release. The frontend simply stops sending them.
     status: TaskStatus = "todo"
     category: TaskCategory = "other"
     priority: TaskPriority = "med"
@@ -300,6 +313,12 @@ class TaskCreate(_Model):
     due_at: datetime | None = None
     planned_for: datetime | None = None
     reminder_at: datetime | None = None
+    when_on: Date | None = None
+    deadline_on: Date | None = None
+    flagged: bool = False
+    # Creating an already-done task (plan P1.3): the insert keeps status and
+    # completed_at coherent with it, so the bridge columns never disagree.
+    done_at: datetime | None = None
 
 
 class TaskPatch(_Model):
@@ -316,9 +335,14 @@ class TaskPatch(_Model):
     due_at: datetime | None = None
     planned_for: datetime | None = None
     reminder_at: datetime | None = None
+    when_on: Date | None = None
+    deadline_on: Date | None = None
+    done_at: datetime | None = None
+    flagged: bool | None = None
 
     @field_validator(
-        "title", "status", "category", "priority", "assignee", "needs_input", mode="before"
+        "title", "status", "category", "priority", "assignee", "needs_input", "flagged",
+        mode="before",
     )
     @classmethod
     def reject_null_required_fields(cls, value: object) -> object:

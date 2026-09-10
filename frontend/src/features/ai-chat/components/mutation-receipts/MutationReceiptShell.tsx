@@ -23,6 +23,7 @@ import { cn } from "@/lib/utils";
 import { ToolBeatIcon, ToolBeatLabel } from "../ToolBeat";
 import { toolBeatEnter } from "../tool-beat-style";
 import { ActivityMutationBody } from "./ActivityMutationWidget";
+import { essayResourceRefOf, essaySubjectTitleOf } from "./essay-door";
 import { EssayContentMutationBody } from "./EssayContentMutationWidget";
 import { EssayMutationBody } from "./EssayMutationWidget";
 import { HonorMutationBody } from "./HonorMutationWidget";
@@ -45,6 +46,9 @@ type Props = Readonly<{
   isLiveSegment?: boolean;
   step: StepData;
   receipt: WorkspaceMutationReceipt;
+  /** Opens the essay this receipt is about in the chat's document panel.
+   *  Omit and the receipt stays a plain, non-operable row. */
+  onOpenEssay?: (essayId: string) => void;
 }>;
 
 function FamilyIcon({
@@ -152,6 +156,7 @@ export function MutationReceiptShell({
   isLiveSegment = false,
   step,
   receipt,
+  onOpenEssay,
 }: Props) {
   const [open, setOpen] = useState(false);
   const running = isLiveSegment && step.status === "start";
@@ -159,6 +164,16 @@ export function MutationReceiptShell({
   const glance = mutationGlanceText(receipt);
   const issue = immediateIssueText(receipt);
   const expandable = !running && isExpandable(receipt);
+  /*
+   * Only a settled receipt is a door. Mid-stream the essay is not in a state
+   * worth opening, and on a failure a click that says "see your edit" would
+   * promise a document that was never written — the same reasoning that keeps
+   * the disclosure trigger off a running row.
+   */
+  const essayId = essayResourceRefOf(receipt);
+  const doorEssayId =
+    !running && !failed && onOpenEssay !== undefined ? essayId : null;
+  const essayTitle = essaySubjectTitleOf(receipt);
 
   return (
     <Collapsible
@@ -181,7 +196,40 @@ export function MutationReceiptShell({
 
       <div className="min-w-0">
         <ToolBeatLabel state={running ? "running" : failed ? "error" : "settled"}>
-          {running ? step.label : glance}
+          {running ? (
+            step.label
+          ) : doorEssayId === null ? (
+            glance
+          ) : (
+            /*
+             * The glance line itself becomes operable — no second element bolted
+             * beside it. Its ink is byte-identical to the non-door glance lines
+             * above it, so the resting underline is the ENTIRE static cue that
+             * this line opens something: it is what WCAG 1.4.11 measures, and it
+             * has to clear 3:1 on its own. `--ink-faint` (5.28:1) is an ink
+             * token, which is what a text decoration should be drawn in, and one
+             * step quieter than the label it underlines. `--edge-strong` (2.06:1)
+             * was both too faint and, per `semantic.css`, a HOVER value. Hover
+             * pulls ink and rule to full strength over the 150ms control tier,
+             * so the affordance is never carried by motion alone.
+             *
+             * `min-h-6` is WCAG 2.2 SC 2.5.8's 24px floor on a line that
+             * measures 20px, and is a touch target below the dock breakpoint.
+             * Not the `min-h-11` of the disclosure trigger below it: 44px on the
+             * receipt's primary glance line is more than double its own leading
+             * and pulls the label off the 16px icon beside it.
+             */
+            <button
+              aria-label={
+                essayTitle === null ? glance : `Open ${essayTitle} — ${glance}`
+              }
+              className="inline-flex min-h-6 cursor-pointer items-center rounded-xs text-left underline decoration-[var(--ink-faint)] underline-offset-4 transition-colors duration-150 ease-out hover:text-foreground hover:decoration-current focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              onClick={() => onOpenEssay?.(doorEssayId)}
+              type="button"
+            >
+              {glance}
+            </button>
+          )}
         </ToolBeatLabel>
 
         {!running && issue !== null && (

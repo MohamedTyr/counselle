@@ -68,12 +68,32 @@
   computation, and `merit_aid_pct`, which shares the same regex-divide pattern from free text).
 - *(Logged from the school-data-v3 Phase 2 audit, 2026-09-08.)*
 
-## School-page-slim: `school_requirements` migration is written but not applied
+## Tasks redesign: drop the retired columns and export `reminder_at` first
+- **What:** a follow-up migration to drop `counselle.tasks.status`, `priority`, `category`, `assignee`, `needs_input`, `due_at`, `planned_for`, and `reminder_at` — all kept for one release by migration `0019_tasks_redesign.sql` alongside the new `when_on`/`deadline_on`/`done_at`/`flagged`/`created_by_actor`/`last_actor` columns. Before dropping `reminder_at` specifically, export its values first — spec §10 promises the export and no code path writes or reads `reminder_at` anymore (D6, `plans/tasks-redesign-plan.md` §1), so the column is currently pure historical data with no application consumer.
+- **Why:** the redesigned Tasks page (`when`/`deadline`/`flagged`/`done` vocabulary, both in the UI and in the agent tools) has fully replaced the old status/priority/category/assignee model; `status`/`completed_at` are only still written because `app/workspace/service_applications.py`'s progress rollup reads `status = 'done'` — that rollup needs to move to `done_at` before the column can go. Keeping eight dead columns around past one release is exactly the config/schema debt this project avoids.
+- **Context (start here):** `migrations/0019_tasks_redesign.sql` (the header comment lists every survivor and why); `app/workspace/service_tasks.py` (the `done_at` ↔ `status` sync); `app/workspace/service_applications.py` (the progress rollup that still reads `status`); `plans/tasks-redesign-plan.md` §1 row D6 and P1.1.
+- *(Logged from the tasks redesign, P8.4, 2026-09-04.)*
+
+## School-page-slim: `school_requirements` migration was meant to stay unapplied, and did not
 - **What:** `migrations/0019_drop_school_requirements.sql` (+ `.rollback.sql`) drops
   `counselle.school_requirements`, its two indexes, and the
-  `protect_published_requirement_facts` trigger/function. It is written and reviewed
-  but **deliberately not run against any database.**
-- **Why:** per `CLAUDE.md` Status, the CDS extraction pipeline cutover (ADR 0036) is
+  `protect_published_requirement_facts` trigger/function. It was written and reviewed to be
+  **deliberately not run against any database** — and it has since been run against the local
+  Postgres on `localhost:5433` anyway. `_yoyo_migration` records `0019_drop_school_requirements`
+  applied at `2026-09-04 20:07:49 UTC`, and `to_regclass('counselle.school_requirements')`
+  returns nothing: the table, its indexes and its trigger are gone from that database.
+- **How it happened, and what is already fixed:** `migrations/0020_essay_sessions.sql` was
+  authored later that day declaring `-- depends: 0019_drop_school_requirements`, so applying the
+  essay-panel feature also applied this drop; commit `1adfd30` records that it did, and
+  re-points `0020` at `0018_drop_essay_prompt_drafts` so the two are independent siblings and
+  no feature migration can force this one again. That closes the mechanism, not the state.
+- **What is still open:** the drop this entry exists to hold back has already happened on the
+  only database there is, so the owner is being asked to sign off on something already done
+  rather than something pending. `0019_drop_school_requirements.rollback.sql` restores the DDL
+  if the state should be put back before that decision; the table was empty in every real
+  environment and nothing in the app reads or writes it, so nothing was lost, but "not applied
+  anywhere" is no longer a true description of it and should not be repeated.
+- **Why it was to be held in the first place:** per `CLAUDE.md` Status, the CDS extraction pipeline cutover (ADR 0036) is
   still awaiting owner acceptance, and the live `counselle`/`cds_library` databases are
   already drifted from source control pending that sign-off (see the sha256-index TODO
   below for the precedent this follows). Applying a second un-signed-off schema change
@@ -81,11 +101,22 @@
   refactor. The table costs nothing to leave: it is empty in every real environment (the
   only `INSERT INTO counselle.school_requirements` in the repo is raw SQL inside a test
   fixture) and, as of this refactor, nothing in the app reads or writes it anymore.
+- **Note on the duplicate prefixes:** two pairs of migrations share a numeric prefix —
+  `0019_tasks_redesign` + `0019_drop_school_requirements`, and `0020_task_sort_order` +
+  `0020_essay_sessions` — because the branches were developed in parallel and were applied
+  before they met. They are **not** renumbered: yoyo keys on the full filename stem, every
+  stem is unique and already recorded as applied, and renaming any of them would make yoyo
+  re-run it against a schema that already has the change. Each pair touches disjoint tables,
+  so relative order within a prefix is irrelevant.
 - **Context (start here):** `plans/school-page-slim.md` Phase 3 and risk R2;
   `migrations/0019_drop_school_requirements.sql` for the drop and its ordering rationale;
   `migrations/0011_school_workspace.sql` lines ~100-224 for the original DDL the
-  rollback restores.
-- *(Logged from the school-page-slim refactor, Phase 3, 2026-09-04.)*
+  rollback restores. For the applied state, query `_yoyo_migration` and
+  `to_regclass('counselle.school_requirements')` on `localhost:5433` rather than trusting
+  either this file or the commit that added the migration.
+- *(Logged from the school-page-slim refactor, Phase 3, 2026-09-04; corrected from the essay AI
+  panel branch, 2026-09-07, on finding the migration applied; duplicate-prefix note extended
+  to the `0020` pair during the essay-panel merge, 2026-09-08.)*
 
 ## School-page-slim: optional follow-up column removals
 - **What:** `tasks.requirement_kind`, `applications.checklist`, `applications.platform`,
@@ -148,7 +179,8 @@
 - **Cons:** touches the checkpointer's internal tables (small coupling to library internals — re-verify table names on library upgrades).
 - **Context (start here):** wire it into the API lifespan (`api/main.py`); the deletion is two statements inside one transaction; add a `cleanup: {last_run, deleted}` line to `/v1/health`.
 - **Depends on / blocked by:** Phase 4 checkpointer landed (tables exist in `counselle.*` per eng-review D3).
-- *(Logged from /plan-eng-review, 2026-06-10. Note: CI pipeline was proposed and explicitly declined by the user the same day.)*
+- **New constraint since the essay AI panel (2026-09-07): a naive TTL sweep would silently delete essay panel threads.** `counselle.sessions` now has a nullable `essay_id` (migration `0020_essay_sessions`), and a row with it set is the essay's *own* durable conversation — reached from the editor, never from the chat list, and expected to still be there when the student comes back to a draft they left for a month. It is exactly the kind of row a recency-based sweep deletes first, because it is not touched between drafting sessions and has no title to make its loss obvious. Whatever this job ends up doing, it has to make a deliberate decision about `essay_id IS NOT NULL` rows — exclude them, give them their own TTL keyed to the essay's own activity, or delete them only with the essay — rather than treating every session row alike. See `docs/DATABASE_GUIDE.md` §10 and `docs/ARCHITECTURE.md` §39.4.
+- *(Logged from /plan-eng-review, 2026-06-10. Note: CI pipeline was proposed and explicitly declined by the user the same day. Essay-thread constraint appended 2026-09-07.)*
 
 ## B2: parked-then-non-resume ghost (turn lifecycle)
 - A parked thread whose next action is NOT a resume (e.g. a cancel racing in) can leave the parked record ghosted — B2's turn registry single-flight lock owns concurrent-turn lifecycle; do not guard piecemeal. *(Logged from B1b review fixes, 2026-06-13; see the `# B2:` comment in `app/run_turn.py`.)*
@@ -397,3 +429,351 @@ follow-up in the same phase; this entry is closed on the backend side.
   Phase 3: new v3 honesty cases ---` block and its own note on this exact gap); wherever `live_gate`/
   `skip_reason` is read in `evals/runner.py`'s scoring loop.
 - *(Logged from the school-data-v3 Phase 5 docs/graduation pass, 2026-09-09.)*
+## `TasksLayout.test.tsx`'s two detail-panel tests are flaky (pre-existing)
+
+- **What:** `opens the detail panel when a row title is clicked` and `opens the detail panel
+  for the task named in the ?task= query param` fail on roughly a third to a half of runs with
+  `Unable to find role="textbox" and name "Task title"`. The panel's title field simply never
+  appears; the rest of the page renders. Both fail the same way, and the second one never
+  clicks anything — it renders straight onto `?task=<id>` — so this is the panel's *mount*
+  being racy in jsdom, not the click path.
+- **Why it matters:** it makes `npm test` non-deterministic, which trains people to re-run
+  until green. It is also the likeliest explanation for the "detail panel never opens" report
+  from an earlier in-browser pass that could not be reproduced by hand.
+- **Not caused by the tasks UI/UX pass (2026-09-05):** confirmed by stashing that work and
+  running the file five times on the pre-change tree — it failed three of five, on exactly
+  these two tests. Raising `asyncUtilTimeout` does *not* fix it (the query still never
+  resolves, it just times out later), so it is a real state race and not a slow machine.
+- **Where to start:** `useDelayedUnmount` in `frontend/src/features/tasks/TaskDetailPanel.tsx`
+  (`mounted` is adjusted during render, `entered` from a `requestAnimationFrame`), and
+  `useIsDesktop` in the same file, which decides between the desktop `<aside>` and the mobile
+  Base UI `Sheet` from `window.innerWidth` while the test setup's `matchMedia` mock always
+  reports `matches: false`. Reproduce with
+  `cd frontend && npm test -- --run TasksLayout` a few times in a row.
+
+## Essay panel: the "Open in editor" morph is only partial
+- **What:** opening the docked essay document panel into the full editor route is supposed to
+  read as one continuous element growing into the page. It mostly does not. Measured across
+  repeated runs, roughly **88% cross in a single frame** — the shared element jumps from panel
+  width to page width with no intermediate frames — because the main thread stalls while TipTap
+  mounts in the destination route, and the stall swallows the animation. A `layoutDependency`
+  change (`EssayDocumentSurface.tsx`) improved the good case to **9 intermediate widths**, which
+  is a real morph; it did not move the bad case, because the bad case is not an animation
+  problem.
+- **Why:** the fix is not in the motion config — it is in what happens on the destination side.
+  Candidates, none tried: mount the editor lazily so the first frame after navigation has no
+  TipTap work in it; hand the destination the already-parsed document instead of re-parsing;
+  or accept the jump honestly and drop the shared-element treatment rather than shipping a
+  transition that works one time in eight. Left as-is because a partial morph is not *wrong*,
+  just inconsistent, and diagnosing a main-thread stall properly needs a profiler and a real
+  browser, which this work never had.
+- **Context (start here):** `frontend/src/features/essays/EssayDocumentSurface.tsx`
+  (`layoutDependency`), `frontend/src/features/ai-chat/components/EssayDocumentPanel.tsx` (the
+  panel and its "open in editor" affordance), `frontend/src/features/essays/useEssayEditor.ts`
+  (the TipTap mount that stalls). Reproduce by opening an essay document panel from a mutation
+  receipt in the main chat and clicking through to the editor, repeatedly.
+- *(Logged from the essay AI panel branch, 2026-09-07.)*
+
+## Essay panel: the dock threshold is viewport-keyed, not container-keyed
+- **What:** `useIsPanelDocked` in `frontend/src/features/essays/EssayEditorRoute.tsx` decides
+  whether the editor's chat panel docks beside the document or covers it, and it keys off
+  `window.innerWidth` against a `PANEL_DOCK_BREAKPOINT_PX` of 1280. The workspace sidebar is
+  not part of that measurement, so the same viewport width means two different amounts of
+  actual room depending on whether the sidebar is expanded (340px) or collapsed (48px).
+- **Why it is a TODO and not a bug:** it never clips the essay —
+  `document.documentElement.scrollWidth === window.innerWidth` at every width measured, before
+  and after the fix below. What it costs is one avoidable overlay: at **1141px with the sidebar
+  collapsed the content row is 1093px**, wide enough to dock a 380px panel beside a 690px
+  measure, and the panel still takes the whole width. That much is still true and still open.
+- **What this entry used to claim, and got wrong (corrected 2026-09-08):** it concluded "a
+  layout-quality miss, not a correctness one" off eight cells checked on the essay-AI-panel
+  branch — a branch with **no task rail on the essay page**. Merging it into a `main` that had
+  the tasks redesign put a 288px `EssayTasksSection` rail on the same row, keyed to Tailwind's
+  viewport `xl` (also 1280px), so the two thresholds fired together and neither could see the
+  other. At a 1280px viewport with the sidebar expanded the row is 968px, the rail took 288 and
+  the panel 380, and the essay was left **130px of paper — eighteen characters a line** beside a
+  rail holding nothing but "Tasks" and an empty quick-add. (1440/expanded was the second bad
+  cell, at 274px/43ch.) Nothing clipped, nothing overflowed, every test and typecheck passed,
+  which is exactly why it survived the merge — and **no test in CI can ever hold this**, because
+  jsdom does not evaluate container queries at all. The threshold is only checkable in a browser.
+- **Fixed for the rail (2026-09-08):** the `aside` is keyed to the measured
+  `@container/essay-canvas` column instead of the viewport, at `@4xl` (896px). The container
+  excludes the docked panel because the panel is an in-flow flex sibling (verified: the
+  container's content box goes 1288 → 908 when the panel opens at 1600/expanded, in a headless
+  Chromium that paints no scrollbar; 1278 → 898 where one is painted). Same container ladder
+  `essay-paper-inset.ts` already steps on, so no second threshold was introduced. Re-measured in
+  Chromium across {1280,1440,1600,1920} × {sidebar expanded, collapsed} × {panel open, closed}:
+  the worst measure went from 130px/18ch to 392px/61ch, every panel-closed cell is unchanged to
+  the pixel, and no cell overflows. The rail now yields before the paper does.
+- **What the container key also changes, deliberately:** it makes the rail *appear* at widths
+  where `xl:block` hid it unconditionally. Swept 700→1300 in 25px steps: the rail now arrives at
+  a **~944px viewport with the sidebar collapsed and ~1208px expanded**, so a 1024px tablet on
+  the sidebar rail gets a task rail on the essay page for the first time. Kept, because the grid
+  says it is the better half: where the rail shows, the paper measures 61–74ch; where it does
+  not, the paper sits on its `max-w-[820px]` cap at 108–115ch. The rail arriving earlier is what
+  holds the measure inside DESIGN.md rule 17, not what costs it.
+- **Known consequence, recorded not fixed:** at 1280/sidebar-collapsed/panel-open the measure
+  went 61ch → 108ch, because that is the one cell where the rail used to be accidentally holding
+  it legal. The root cause is older than this change — `max-w-[820px]` yields ~108ch on its own,
+  so most panel-closed cells already violate rule 17. Capping the paper by measure rather than by
+  pixels is the real fix and is out of scope here.
+- **Known thin margin:** at 1600/expanded/panel-open the column measures 898px against the 896px
+  threshold — 2px. It does not flip at runtime, but 3px on `--sidebar-width`, `--scrollbar-size`
+  or the row's `lg:px-7` moves the paper ~330px with no code change. Left on the ladder on
+  purpose; the arithmetic and the alternatives are written out at the `aside` itself.
+- **Also fixed (2026-09-08), a defect the container key introduced:** the panel toggle crosses
+  the rail's threshold, so a binary `hidden`/`block` put a 320px step inside the panel's 200ms
+  reflow. rAF-sampled and resampled onto a 16.7ms frame at 1280/expanded, closing grew the paper
+  to 722px and then took **321px back in a single frame** ~148ms in; opening handed 272px back
+  the same way. The `aside` now transitions its own width (and `visibility`, so a 0-width rail is
+  not still tabbable) over 200ms `ease-in-out` — the accordion carve-out of DESIGN.md §12.1 rule
+  2. The rail's own worst frame is now 59px at 1280/expanded and 0–27px elsewhere, under the
+  **67–71px the panel's own ease-out already moves the paper** in the same interaction. A control
+  cell where the rail never toggles (1600/expanded) measures 64–71px closing and −267…−288px
+  opening — the opening figure is main-thread jank from mounting the chat panel, is pre-existing,
+  and is why a flat "no frame moves more than 40px" bar is not reachable here without changing
+  the panel's own curve.
+- **Still open — the dock threshold itself.** `useIsPanelDocked` is unchanged and still keys on
+  `window.innerWidth`. The fix, if it is ever worth doing: key on the measured width of the row,
+  the way the main chat's document panel already does — `EssayDocumentPanel.tsx` uses a
+  `ResizeObserver` against a `MIN_DOCK_ROW_PX` floor precisely because a viewport breakpoint put
+  the same 1280px viewport on opposite sides of the threshold. The two surfaces still disagree
+  about how to answer the same question.
+- **Context (start here):** `EssayEditorRoute.tsx` (`useIsPanelDocked`,
+  `PANEL_DOCK_BREAKPOINT_PX`) vs. `frontend/src/features/ai-chat/components/EssayDocumentPanel.tsx`
+  (`PANEL_WIDTH_PX` / `MIN_CHAT_COLUMN_PX` / `MIN_DOCK_ROW_PX` and the observer).
+- *(Logged from the essay AI panel branch, 2026-09-07.)*
+
+## `essay_context_max_chars` bounds two different things
+- **What:** the setting caps *both* the essay markdown inlined into the essay-surface system
+  prompt (`app/agent_node.py`, passed to `app.prompt.render_essay_context`) *and* the length of
+  the student's text selection accepted on the wire (`api/routes/sessions.py`'s
+  `_parse_surface_request`, called from `post_message` with
+  `max_selection_chars=settings.essay_context_max_chars`). One knob, two limits, and they are
+  not the same limit: one is "how much of a draft may ride the prompt before we truncate and
+  say so", the other is "how much selected text will we accept from a client at all".
+- **Why:** it is a real coupling, not a naming quibble — tuning either one silently moves the
+  other. At the shipped default (8,000) both are generously sized and nothing bites, which is
+  why it shipped this way; the two only need separating when someone has a reason to change one
+  of them.
+- **Context (start here):** `config/settings.py` (`essay_context_max_chars` and its comment,
+  which describes only the prompt-block role); the two call sites above. Splitting it is a
+  second Settings field plus a wire-validation test — small, just not yet load-bearing.
+  Recorded as a consequence in ADR 0037.
+- *(Logged from the essay AI panel branch, 2026-09-07.)*
+
+## Migration `0020` is a duplicated number across two branches
+- **What:** `migrations/0020_essay_sessions.sql` (this branch) and
+  `migrations/0020_task_sort_order.sql` (`feat/tasks-redesign`) both claim the `0020` prefix.
+  They were authored in parallel off the same `main`, and neither knew about the other.
+- **Why it is not broken:** yoyo keys migrations on the **full id**, not on the numeric prefix,
+  so both apply cleanly and both are recorded distinctly. What is lost is only the property that
+  the directory listing reads as a linear order — after both land, sorting the filenames no
+  longer tells you the apply order, and a future reader has to read the `-- depends:` lines
+  instead of the numbers. That is exactly what those lines are for.
+- **What to do:** decide at merge time, once, rather than twice. Either renumber whichever
+  branch merges second (a pure rename plus its `depends:` reference, safe as long as neither id
+  has been applied to a real database yet — see the "written but not applied" entries above) or
+  accept the duplicate and stop treating the prefix as ordering. Do **not** renumber a
+  migration that has already been applied somewhere: yoyo would then see the new id as unapplied
+  and try to run it again.
+- **Context (start here):** `migrations/0020_essay_sessions.sql`,
+  `git show feat/tasks-redesign:migrations/0020_task_sort_order.sql`, and the `-- depends:` line
+  at the bottom of each header comment.
+- *(Logged from the essay AI panel branch, 2026-09-07.)*
+
+## Essay panel: `PendingChangesReadout`'s live-region pattern is unconfirmed on a real screen reader
+- **What:** `frontend/src/features/essays/PendingChangesReadout.tsx` announces a change in the
+  pending-change counts by remounting a **keyed `<span>` inside** a container that carries
+  `role="status"` (the key is `${waiting}:${outdated}`, so a new reading is a new node rather
+  than mutated text). It is structurally sound and it passes in jsdom, but *remount-inside-a-live-region*
+  is specifically one of the patterns whose behavior varies across screen-reader × browser
+  combinations — some announce the new node, some announce nothing because the subtree was
+  replaced rather than changed, some announce twice.
+- **Why it matters more than the usual a11y TODO:** this band exists to be the thing that
+  contradicts a false claim by the agent. A student using a screen reader is exactly the student
+  who cannot glance at it, so if the announcement is the part that silently does not work, the
+  honesty guarantee is missing for the person who most depends on it.
+- **What to check:** with a real AT pairing (NVDA/Firefox, VoiceOver/Safari, JAWS/Chrome), have
+  the agent propose a suggestion and confirm the count change is announced exactly once. If a
+  remount is not announced, the fix is to keep a stable node and update its text content instead,
+  and move the entry animation to a sibling. Note the deliberate design around it: `announce` is
+  **off by default** and opted into only in the editor's covering chat panel, because everywhere
+  else `SuggestionsBar` already announces the same fact and two live regions said it twice.
+- **Context (start here):** `PendingChangesReadout.tsx` (the `announce` prop's docstring records
+  the reasoning), `PendingChangesReadout.test.tsx` (jsdom-level coverage),
+  `frontend/src/features/essays/EssayChatPanel.tsx` and
+  `frontend/src/features/ai-chat/components/EssayDocumentPanel.tsx` (the two mount sites).
+- *(Logged from the essay AI panel branch, 2026-09-07.)*
+
+## Essay panel: the tracked-change markers are proven present, not proven well-spoken
+- **What:** the decorations used to carry `aria-label="Delete: …"` / `"Insert: …"` / the stale
+  sentence. That never reached any screen reader — `deletion`, `insertion` and `generic` all
+  prohibit an accessible name, so the browser discards the attribute (confirmed in Chrome's
+  accessibility tree: a labelled `<del>` exposes its text and no name). It is fixed: each change
+  is now bracketed by visually-hidden marker text, which **is** in the accessibility tree, verified
+  there for all three kinds.
+- **What is still unverified:** how each screen reader actually *reads* the result in continuous
+  mode — whether "Suggested deletion: good. End of suggested deletion. Suggested insertion: …"
+  lands as a clear boundary or as clutter a student learns to tune out, and whether the same
+  bracketing is too verbose on an essay carrying eight changes. Being in the tree is necessary,
+  not sufficient; only a real AT pairing answers the verbosity question. Check it in the same
+  session as the readout entry above.
+- **If it reads as too much:** the cheap knob is dropping the closing marker for a *replacement*
+  (the insertion's own opening marker already supplies the boundary) and keeping it only for a
+  pure deletion, which has nothing after it. That is a `SR_MARKERS` edit, not a redesign.
+- **Context (start here):** the `SR_MARKERS` comment in
+  `frontend/src/features/essays/suggestions/suggestionExtension.ts`, and the two bracketing tests
+  in `suggestionExtension.test.ts`.
+- *(Logged from the essay AI panel branch, 2026-09-07.)*
+
+## Two `aria-label`s sit on elements whose role prohibits a name (works in Chrome, off-spec)
+- **What:** axe 4.10.2 reports `aria-prohibited-attr` (incomplete, serious) on exactly two nodes
+  across the essay surfaces: the ProseMirror root (`.tiptap`, `aria-label="Essay body"`) and
+  `PageHeader`'s title row (a `<div aria-label="{essay title}">`). Neither declares a role, so both
+  resolve to name-prohibited roles on paper — but unlike the `<del>`/`<ins>` case above, Chrome
+  *does* expose both names in its accessibility tree (checked: `generic "Essay body"`), so no
+  student loses information today.
+- **Why it is left alone:** neither is this branch's code, `PageHeader` is shared by every route,
+  and the correct fix differs per case — the editor root wants `role="textbox"` (it is
+  `contenteditable`, and Chrome already treats it as one), while the header's label is simply
+  redundant beside the `<h1>` inside it and should probably just be deleted. Both are
+  `PageHeader`/editor-shell changes, not tracked-change changes, and doing them here would be an
+  unrelated refactor smuggled into an a11y fix.
+- **Context (start here):** `frontend/src/features/essays/useEssayEditor.ts` (where the editor root
+  gets its attributes) and `frontend/src/components/workspace/PageHeader.tsx`.
+- *(Logged from the essay AI panel branch, 2026-09-07.)*
+
+## The page-hide keepalive essay save is last-write-wins, and now has two writers
+- **What:** the debounced autosave path sends `expected_updated_at` and is properly guarded
+  (ADR 0030). The **page-hide keepalive** save deliberately does not: it calls
+  `updateEssayKeepalive(essayId, { content })` with no version, and
+  `service_essays._check_not_stale` is a **no-op when `expected_updated_at` is absent**, so that
+  write always wins.
+- **Why it was deliberate, and why it is now worth revisiting:** the keepalive fires as the page
+  is going away, so a rejected save can never be retried and the student never sees the failure —
+  guarded, the older in-flight save lands first, bumps the version, and the *newest* text is the
+  one thrown away. That reasoning still holds. What changed on this branch is the exposure: an
+  essay now has **two editable surfaces** — the full editor route and the document panel docked
+  in the main chat — both mounting `useEssayAutosave` against the same essay. Two tabs, or one
+  tab with the panel open beside a conversation, is no longer an exotic setup, and the unguarded
+  write is the one that resolves the conflict by discarding the other side.
+- **What would close it:** the honest options are a merge (three-way on the markdown projection,
+  expensive), a last-write-wins that at least *tells* the student on next load that a divergence
+  happened (the accept path already has a `DIVERGED_TOAST_MS` toast for its own version race — the
+  vocabulary exists), or preventing the second surface from being editable at all when the first
+  one is mounted. Pick deliberately; do not just add `expected_updated_at` to the keepalive path,
+  which reintroduces exactly the silent-data-loss bug the comment there warns about.
+- **Context (start here):** `frontend/src/features/essays/useEssayAutosave.ts` — the
+  "Deliberately UNGUARDED" comment block on the keepalive send, and `flush()` above it;
+  `app/workspace/service_essays.py::_check_not_stale`;
+  `frontend/src/features/ai-chat/components/EssayDocumentPanel.tsx` (the second mount site this
+  branch added).
+- *(Logged from the essay AI panel branch, 2026-09-07.)*
+
+## Essay panel: three writers of one essay cache key, and a race held by a test rather than a reproduction
+- **What:** `workspaceKeys.essays.detail(id)` is written or invalidated from three places, and
+  two of them have an ordering requirement between them that nothing enforces:
+  1. `useEssaySuggestions.resolve` — adopts the server's post-resolve essay into the cache, then
+     re-invalidates the same key synchronously, on purpose.
+  2. `EssayEditorRoute.refetchEssay` — invalidates it whenever an agent turn settles in the
+     docked chat panel.
+  3. `api/workspace/events.ts` — invalidates it on **every** workspace SSE change event whose
+     object is an essay, including the resolve's own.
+  The bug that made this visible is fixed: a read issued by (2) or (3) *before* a resolve
+  committed would land after the resolve's cache write, overwrite it, and put the resolved
+  change back on screen as pending with the honesty readout counting it. The re-invalidation in
+  (1) closes it, resting on React Query's `refetchQueries` default `cancelRefetch: true` to
+  cancel the in-flight stale read and re-issue it.
+- **Why it is still recorded:** the fix rests on a **deterministic test, not on a
+  reproduction**. The interleaving was never observed in a real browser — (3) fires for the
+  resolve's own change event moments later and re-reads the same key, so the wrong state is
+  real but too short to catch by hand. A negative control is not evidence of absence, so what
+  actually carries this is the ordering argument, and the argument has to be re-read rather
+  than assumed if the resolve flow is ever restructured. The shape is also the durable part:
+  three writers of one key, one of which must run after another, with no type and no lint
+  saying so. Anything new that reads this essay must either not race a resolve or invalidate
+  after it.
+- **Context (start here):** `frontend/src/features/essays/suggestions/useEssaySuggestions.ts` —
+  the five-rule header comment and the invalidation inside `resolve`, both of which record the
+  reasoning at the call site;
+  `frontend/src/features/essays/suggestions/useEssaySuggestions.test.tsx` ("a background read
+  still in flight cannot re-show the accepted change");
+  `frontend/src/api/workspace/events.ts` (the `essay` case);
+  `frontend/src/features/essays/EssayEditorRoute.tsx` (`refetchEssay`).
+- *(Logged from the essay AI panel branch, 2026-09-07.)*
+
+## Essay panel: the three plan requirements are built (closed 2026-09-07)
+- **What:** the word-count projection (Part 2 §4), the selection-scoped quick-action chips
+  (Part 2 §6), and focus advance on resolve (Part 2 §3.4) all shipped, verified in a real
+  browser. Nothing is outstanding here; the entry is kept because two of the three landed in a
+  different shape from the plan and the next person should not "restore" the drafted version:
+  1. **The projection does not use the plan's `pendingWordDelta` formula**, which is wrong twice
+     over (accepting is cumulative, so an overlapping change is skipped rather than summed; and
+     `countWords` counts runs of non-whitespace, so a change can merge or split words at its own
+     edges while counting none of its own). `word-projection.ts` rebuilds the projected text and
+     counts it, and returns nothing where that text is not knowable.
+  2. **`components/ai-elements/suggestion.tsx` was deleted rather than adopted** — it wraps
+     shadcn's Radix `ScrollArea`, and this repo's is a Base UI rewrite with a different contract.
+     Do not re-add it.
+  3. **Focus advance fires on the resolved row leaving the list, not on the resolving lock
+     clearing.** Those arrive in separate renders and keying on the lock drops focus to `<body>`.
+- **Context:** `frontend/src/features/essays/suggestions/word-projection.ts` (+ its tests),
+  `frontend/src/features/essays/essay-quick-actions.ts`,
+  `frontend/src/features/ai-chat/components/ChatComposer.tsx`,
+  `frontend/src/features/essays/suggestions/SuggestionsBar.tsx`.
+  `specs/essay-ai-panel/README.md` records the same three, with the measurements.
+- *(Closed on the essay AI panel branch, 2026-09-07.)*
+
+## The three public essay skills are within ~30 characters of their combined body cap
+- **What:** `essay-brainstorm` + `essay-drafting` + `essay-revision` must stay co-selectable,
+  so their bodies together must fit `MAX_SELECTED_SKILL_BODY_CHARS` (24,000). They currently
+  measure **23,973 characters — 27 to spare**, held by
+  `tests/app/test_skills.py::test_public_essay_trio_fits_selected_skill_body_budget`.
+  `essay-revision` is separately at 194 body lines against its 195-line ceiling in
+  `_BODY_LINE_LIMIT_EXCEPTIONS`. Adding a sentence to any of the three now costs a sentence
+  somewhere else in the same trio.
+- **Why it is not just "raise the cap":** the cap defends a real per-turn context limit — three
+  skill bodies plus the system prompt, the essay, and the student context all ride the same
+  turn. Growing it is a context-budget decision, not a formality.
+- **What would actually fix it:** the trio has real duplication to reclaim — the "one trusted
+  human reader" guidance appears twice in `essay-revision` alone (the essay-test section and
+  the feedback-conduct section), and the ownership/honesty lines restate `essay-honesty`, which
+  every essay skill already loads first. A dedup pass across the three would buy back room
+  without cutting anything a student's answer depends on.
+- **Context (start here):** `tests/app/test_skills.py` (the budget test and the per-skill line
+  ceilings); `app/skills.py` for `MAX_SELECTED_SKILL_BODY_CHARS`; `skills/essay-revision/`,
+  `skills/essay-drafting/`, `skills/essay-brainstorm/`.
+- **The number has only ever gone down.** 39 characters of headroom were found while
+  correcting the edits-become-suggestions wording; that correction spent 8 of them (39 → 31),
+  and the follow-up that added the turn-wide scope to `essay-revision`'s edit-mechanics bullet
+  spent 4 more (31 → 27), having already paid for most of itself by dropping "each rejectable
+  on its own" (the next bullet says it) and tightening the essay-test section's trusted-reader
+  line. Two prose fixes cost 12 characters. That is the rate to plan against.
+- *(Logged 2026-09-08; re-measured after the honesty-wording follow-up the same day.)*
+
+## The essay panel's "only this essay" promise is prompt-only, not enforced
+- **What:** `config/assets/prompts/essay_partner.md` tells the model "you cannot see or touch
+  essays other than the one loaded into this panel." The code does not make that true.
+  `_ESSAY_SURFACE_WORKSPACE_TOOLS` (`app/agent_node.py`) mounts `view_essays`, `read_essay`,
+  `edit_essay`, `write_essay`, and `update_essay` unscoped — each takes an arbitrary
+  `essay_id` and is bounded only by `WHERE user_id = $1`, so any of the student's own essays
+  is reachable from the panel. `ToolCtx.write_mode` compounds it: it is one value for the
+  whole turn, derived from the *panel's* essay (`_write_mode`, turn-start `word_count == 0`),
+  and it then governs writes to every essay that turn. A turn opened on an empty essay is in
+  `direct` mode, and a write it aims at a different, non-empty essay commits straight in.
+- **Why it is recorded and not fixed:** it is not a security hole — the user scoping is real,
+  and nothing crosses between students. It is an honesty gap of the kind this area keeps
+  producing: a sentence the model is told to believe that the server does not hold it to.
+  Scoping the tools to the panel's `essay_id` (and making `write_mode` per-essay) is a
+  contained change, but it is a behavior change to a shipped surface, not a wording fix.
+- **Why it is worth doing eventually:** the residual per-essay ambiguity in *all* of this
+  prose — `essay_partner.md`, `skills/essay-honesty`, `skills/essay-revision`, and both
+  content-tool docstrings, every one of which says "the essay" and means the panel's —
+  collapses to nothing the moment the scoping is real. It gets worse the other way: if
+  anyone ever weakens the prompt line above to match the code, the panel loses its only
+  statement of which essay it works on.
+- **Context (start here):** `app/agent_node.py` (`_ESSAY_SURFACE_WORKSPACE_TOOLS`,
+  `_write_mode`, `_load_turn_essay`), `app/workspace/agent_tools_shared.py` (`ToolCtx`),
+  `config/assets/prompts/essay_partner.md` § "You only work on this essay".
+- *(Logged 2026-09-08, found while correcting the applied-vs-proposed prose.)*

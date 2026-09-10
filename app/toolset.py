@@ -45,6 +45,7 @@ from domain.events import StepDetail
 from domain.facts.models import PageStatus
 from domain.facts.state import fact_state
 from domain.specs import SourceConfig
+from domain.surface import Surface
 
 # ---------------------------------------------------------------------------
 # Deps
@@ -94,6 +95,16 @@ def make_tool_deps(settings: Any, catalog: Any) -> ToolDeps:
 # the house rule for "one place, not a literal repeated across files" is
 # already satisfied — this is the only reader of it.
 _GET_FACTS_MAX_ROWS = 60
+
+#: The two metric-heavy DB tools the essay surface does not get (ADR 0037
+#: Part 0 C7): the essay panel keeps school identity (``resolve_school``,
+#: ``get_school_profile``) but not Common Data Set metrics. Unlike the old
+#: counselle-db MCP child -- one object covering all four server-side tools,
+#: which needed a ``process_tool_call`` hook to refuse two of them at
+#: runtime -- these are in-process ``Tool`` objects (school-data-v3), so the
+#: denial is a proper ADR 0013 unmount: the tools are simply never
+#: constructed for ``Surface.ESSAY``, never a runtime error envelope.
+ESSAY_SURFACE_DENIED_DB_TOOLS: frozenset[str] = frozenset({"get_facts", "query_database"})
 
 
 def _make_resolve_school_tool(
@@ -354,19 +365,29 @@ def _make_query_database_tool(
 
 
 def build_db_tools(
-    catalog: Any, middleware: ToolMiddlewareContext | None = None
+    catalog: Any,
+    middleware: ToolMiddlewareContext | None = None,
+    *,
+    surface: Surface = Surface.CHAT,
 ) -> list[Tool[Any]]:
-    """The four always-on CDS Library reader tools, in-process over ``catalog``.
+    """The always-on CDS Library reader tools, in-process over ``catalog``.
 
-    Unconditional — the DB is never optional (ADR 0032); unlike
-    ``build_tools``' source-gated tools, these mount on every request.
+    Unconditional on the chat surface — the DB is never optional (ADR 0032);
+    unlike ``build_tools``' source-gated tools, these mount on every request.
+
+    On :attr:`~domain.surface.Surface.ESSAY` the tools named in
+    ``ESSAY_SURFACE_DENIED_DB_TOOLS`` are not constructed at all (ADR 0013:
+    unmounted, not hidden) — the essay panel keeps school identity but not
+    Common Data Set metrics (ADR 0037 Part 0 C7).
     """
-    return [
+    tools = [
         _make_resolve_school_tool(catalog, middleware),
         _make_get_school_profile_tool(catalog, middleware),
-        _make_get_facts_tool(catalog, middleware),
-        _make_query_database_tool(catalog, middleware),
     ]
+    if surface is not Surface.ESSAY:
+        tools.append(_make_get_facts_tool(catalog, middleware))
+        tools.append(_make_query_database_tool(catalog, middleware))
+    return tools
 
 
 # ---------------------------------------------------------------------------

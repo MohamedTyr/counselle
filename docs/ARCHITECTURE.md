@@ -51,7 +51,8 @@
 36. [Student profile, documents & agent memory](#36-student-profile-documents--agent-memory)
 37. [Onboarding](#37-onboarding)
 38. [The CDS extraction pipeline & admin surface (parked)](#38-the-cds-extraction-pipeline--admin-surface-parked)
-39. [The CollegeData facts crawl pipeline & admin surface](#39-the-collegedata-facts-crawl-pipeline--admin-surface)
+39. [The essay surface & the suggestion lifecycle](#39-the-essay-surface--the-suggestion-lifecycle)
+40. [The CollegeData facts crawl pipeline & admin surface](#40-the-collegedata-facts-crawl-pipeline--admin-surface)
 
 ---
 
@@ -138,8 +139,8 @@ Chosen by surveying the frontier and picking proven pieces (never reinvent the w
 | Layer | Package | Contains | May import |
 |---|---|---|---|
 | **Domain core** | `domain/` | Typed fact/value/state models (`domain/facts/`), citation/caveat models, render/clarify/source/event specs, and `admission_season(today)`. Pure functions and Pydantic models. **No I/O, no LLM calls, no LangGraph/FastAPI imports.** The parked `domain/cds/` (manifest compile, packet build, claims, page math — §38) stays whitelisted in the same purity gate. | stdlib, pydantic |
-| **Application** | `app/` | LangGraph/PydanticAI orchestration, source-config tool mounting, skills, live data-picture injection, evidence/source registry, verified viz assembly, and the facts-store read/crawl services (`app/facts/`, §39). | `domain/`, the stack |
-| **Adapters** | `adapters/` | Tavily search, email, checkpointer/provider integrations, the CollegeData fetcher/parser (`adapters/collegedata/`, §39), and asyncpg access to the six reader views (`counselle_db/`). No standalone MCP server on this path — every DB call is in-process. | `domain/`, vendor SDKs |
+| **Application** | `app/` | LangGraph/PydanticAI orchestration, source-config tool mounting, skills, live data-picture injection, evidence/source registry, verified viz assembly, and the facts-store read/crawl services (`app/facts/`, §40). | `domain/`, the stack |
+| **Adapters** | `adapters/` | Tavily search, email, checkpointer/provider integrations, the CollegeData fetcher/parser (`adapters/collegedata/`, §40), and asyncpg access to the six reader views (`counselle_db/`). No standalone MCP server on this path — every DB call is in-process. | `domain/`, vendor SDKs |
 | **API edge** | `api/` | FastAPI routes, SSE encoding, request context (trace ID + optional principal), translation of graph output → protocol events. | `app/`, `domain/` |
 
 Rules of thumb (the seam discipline):
@@ -148,7 +149,7 @@ Rules of thumb (the seam discipline):
 - **One adapter = hypothetical seam; two = real.** We do not write interfaces for things with one implementation and no honesty stake. The model seam is real (Vertex/Anthropic — via PydanticAI, not ours). The search seam is the three thin tools (Tavily today; the tool signatures are the seam). The session seam is LangGraph's checkpointer protocol (theirs, not ours).
 - **No pass-through wrappers.** If a module's interface is as complex as what it hides, delete it. This is exactly why the standalone `counselle-db` MCP server was deleted (not parked) in ADR 0038: once every remaining caller of `counselle_db/service.py` was in-process anyway, the stdio child, its supervisor, and its restart backoff were a whole subsystem serving one caller — a shallow wrapper by this same rule.
 - **Accepted deviation (ADR 0017, now the norm rather than an exception since ADR 0038):** `app/` and the LLM tool loop both import `counselle_db/service.py` directly in-process; there is no separate MCP transport and no field reconciler for the facts-store read path.
-- **The CDS admin write path (ADR 0036, §38, now parked) followed the same four layers as a self-contained subsystem** — `domain/cds/`, `adapters/cds_*.py`, `app/cds/`, `api/routes/cds_admin.py` — additive to this table, not an exception to it. Its code stays in-tree and importable (PARKED.md) but is unmounted; it is called out separately only because, while live, it was the one place in the repo that wrote `cds_library` at all. **The CollegeData facts crawler (§39) is its live successor as the same kind of write path** — `adapters/collegedata/`, `app/facts/`, `api/routes/admin_facts.py` — over the same third DSN/role, repurposed rather than reprovisioned.
+- **The CDS admin write path (ADR 0036, §38, now parked) followed the same four layers as a self-contained subsystem** — `domain/cds/`, `adapters/cds_*.py`, `app/cds/`, `api/routes/cds_admin.py` — additive to this table, not an exception to it. Its code stays in-tree and importable (PARKED.md) but is unmounted; it is called out separately only because, while live, it was the one place in the repo that wrote `cds_library` at all. **The CollegeData facts crawler (§40) is its live successor as the same kind of write path** — `adapters/collegedata/`, `app/facts/`, `api/routes/admin_facts.py` — over the same third DSN/role, repurposed rather than reprovisioned.
 
 ---
 
@@ -172,25 +173,25 @@ counselle/
 │       ├── data_picture.md       # live facts-coverage prompt template
 │       └── facts_sections.yaml / facts_keys.yaml  # the facts catalog layout (§10)
 ├── domain/                       # the pure honesty core (§4)
-│   ├── facts/                    # fact-state, normalized-value, and tab/page-status types (§9, §39)
+│   ├── facts/                    # fact-state, normalized-value, and tab/page-status types (§9, §40)
 │   └── cds/                      # PARKED (ADR 0038, PARKED.md) — manifest compile, packet build, claims, page math (§38)
 ├── app/                          # orchestration: graph, agent node, steps/turns/records/transcript, skills
-│   ├── facts/                    # facts-page reads, Explore/Majors, the crawl pass, the crosswalk, the crawl-worker poller (§39)
+│   ├── facts/                    # facts-page reads, Explore/Majors, the crawl pass, the crosswalk, the crawl-worker poller (§40)
 │   └── cds/                      # PARKED (ADR 0038, PARKED.md) — extraction engine, job poller, ingest/review services (§38)
 ├── adapters/                     # tavily tools, email adapter, embedding client (§4)
-│   ├── collegedata/               # the CollegeData fetcher (httpx+tenacity, robots-checked) + page parser (§39)
-│   ├── facts_store.py / facts_jobs_store.py / admin_facts_queries.py   # the only writer of the facts-store base tables (§39)
+│   ├── collegedata/               # the CollegeData fetcher (httpx+tenacity, robots-checked) + page parser (§40)
+│   ├── facts_store.py / facts_jobs_store.py / admin_facts_queries.py   # the only writer of the facts-store base tables (§40)
 │   ├── cds_gemini.py             # PARKED (§38) — Vertex extraction calls
 │   ├── cds_pdf.py                # PARKED (§38) — PyMuPDF page ops
 │   └── cds_store.py / cds_admin_queries.py   # PARKED (§38) — the CDS write path's own writer
 ├── api/                          # FastAPI edge: routes, SSE, auth, request context
-│   ├── routes/schools_facts.py   # facts page, Explore, Majors (§39)
-│   ├── routes/admin_facts.py     # /v1/admin/facts/*, current_superuser-gated (§39)
+│   ├── routes/schools_facts.py   # facts page, Explore, Majors (§40)
+│   ├── routes/admin_facts.py     # /v1/admin/facts/*, current_superuser-gated (§40)
 │   └── routes/cds_admin.py       # PARKED (§38) — in-tree, unmounted; not routed by api/main.py
 ├── counselle_db/                 # in-process facts-store service (no MCP transport) — read path only; imports domain/ for normalization
 ├── config/cds/                   # PARKED (§38) — the ported, versioned CDS manifest/prompt/domain YAMLs, kept importable
 ├── skills/                       # SKILL.md files (§15)
-├── migrations/                   # Counselle-owned migrations for the counselle.* schema ONLY
+├── migrations/                   # Counselle-owned yoyo migrations for the counselle.* schema ONLY
 ├── evals/                        # the eval question set + runner (§21)
 ├── frontend/                     # the React SPA (§31) — the sole protocol client
 ├── scripts/                      # one-off utilities (setup_db.sql, chat_cli.py, smoke scripts, the parked cds_* scripts)
@@ -246,17 +247,18 @@ counselle/
 
 - **Every conversation is a session with a durable `session_id` from day one.** In-session working memory (PRD) *is* the LangGraph state for that session — one mechanism, not two.
 - **State persists in Postgres via LangGraph's own Postgres checkpointer**, in Counselle's `counselle.*` schema. Sessions survive restarts; pending clarification records and continuation intent survive too. No bespoke session store — the checkpointer protocol is the seam, and swapping it (memory in unit tests, Postgres in prod) is configuration.
-- **A thin `counselle.sessions` row** (session_id, created_at, `user_id`, title, default source-config) fronts the checkpoint data. `user_id` is populated and FK-enforced for new rows (migration 0004 added `counselle.users` + the FK; §28) — chat history, profiles, and per-user memory attach to rows that already exist. No migration of meaning, only addition.
+- **A thin `counselle.sessions` row** (session_id, created_at, `user_id`, title, default source-config, and a nullable `essay_id`) fronts the checkpoint data. `user_id` is populated and FK-enforced for new rows (migration 0004 added `counselle.users` + the FK; §28) — chat history, profiles, and per-user memory attach to rows that already exist. No migration of meaning, only addition.
 - **Counselle owns its schema and migration chain** (`migrations/`, over `counselle.*` only — never `public.*`/`raw.*`, which belong to the pipeline and are read-only to us; ADR 0012).
+- **A session may belong to a workspace object.** `sessions.essay_id` (nullable, with a partial unique index — `docs/DATABASE_GUIDE.md` §10) gives each essay exactly one durable panel thread. Such a session is an ordinary session that knows which essay it fronts: same checkpointer, same turn registry, same transcript read. It is excluded from the chat list, which filters `essay_id IS NULL`, and it is the authority for which essay an essay-surface turn may be about (§39).
 - **Long-term memory & personalization are deferred** (PRD) — but they will live behind the same session/user rows, which is why those rows exist now.
-- **Retention:** sessions are cheap rows; a configurable TTL/cleanup job knob (§18) defaults to "keep everything" until there's a reason not to.
+- **Retention:** sessions are cheap rows; a configurable TTL/cleanup job knob (§18) defaults to "keep everything" until there's a reason not to. A TTL sweep must reckon with object-owned threads: an essay's panel conversation is durable state a student expects to find again, not a disposable chat.
 
 ---
 
 ## 8. The data-access layer: in-process facts-store tools
 
 *This section describes the agent's read path only. A separate, superuser-gated
-write path (§39) produces the rows this section reads — on its own DSN and
+write path (§40) produces the rows this section reads — on its own DSN and
 Postgres role, never touched by the agent runtime. A second, parked write
 path (§38) shares the same database but is unmounted.*
 
@@ -391,6 +393,8 @@ was bound as a parameter, never a raw unqualified count.
 
 The **counselor** agent is the primary agent. The **researcher** and **verifier** agents are designed (§13) but not yet wired — they are part of the deep-research follow-up (`specs/deep-research/plan.md`). Parallel research subgraphs attach when that subsystem is activated.
 
+**One node, more than one persona.** A turn carries a **surface** (`domain/surface.py`: `chat` | `essay`, ADR 0037) that selects the system-prompt asset, the tool profile, and the essay write mode at the single point where the PydanticAI `Agent` is constructed (`app/agent_node.py`). It is not a second agent and not a second graph: the emission router, marker strippers, clarify lifecycle, tool-overflow middleware, usage accounting, turn record, steering, and replay safety are all surface-agnostic and are shared verbatim. The value rides `turn_ids` — the same checkpointed bag as `response_mode` and `model` — is written only for a non-chat surface, and reads back as `chat` when absent or unrecognized, so every older checkpoint and every direct-graph call keeps its exact behavior. Clarify continuations (§27.7 G4) inherit it from A1's own `turn_ids`, so a resumed turn cannot silently widen back to the counselor's prompt and tool set. §39 describes the essay surface.
+
 ### 12.1 Clarifying questions
 
 (ADR 0035.) A clarifying question is the interactive sibling of a visualization:
@@ -454,7 +458,7 @@ Embedded as a research subagent inside the LangGraph orchestrator — not adopte
 
 ## 14. External search & source control
 
-(ADR 0015.) All three external searches are **one backend — Tavily — scoped by domain**, as three thin tools. Nothing is scraped by us on this path — the facts crawler's own scraping (§39) is a separate, offline, LLM-free ingestion process, not a search tool the agent calls. The DB is the fourth, always-on source; search fires when a requested fact resolves to an unavailable state (§9) or when deadlines/current-cycle facts exceed what the facts store carries.
+(ADR 0015.) All three external searches are **one backend — Tavily — scoped by domain**, as three thin tools. Nothing is scraped by us on this path — the facts crawler's own scraping (§40) is a separate, offline, LLM-free ingestion process, not a search tool the agent calls. The DB is the fourth, always-on source; search fires when a requested fact resolves to an unavailable state (§9) or when deadlines/current-cycle facts exceed what the facts store carries.
 
 | Tool | Scope | Tier |
 |---|---|---|
@@ -466,11 +470,13 @@ Embedded as a research subagent inside the LangGraph orchestrator — not adopte
 
 **Source control (per-request, enforced in code — ADR 0013):** a **source-config object** travels with each request (web on/off; Reddit on/off + per-subreddit allowlist; .edu on/off; DB always on). The orchestrator **builds the toolset from the config**: a disabled source's tool isn't mounted. When the deep-research subagent is activated (§13), its retriever list is gated by the same config. A disabled source can't be reached and never appears in citations. Three named tools (not one generic) so the dropdown maps 1:1 and the citation tier is unambiguous per tool.
 
+Unmounted-not-hidden holds without exception: the essay surface (§39) is just another instance of it. `build_db_tools(..., surface=...)` never constructs `get_facts` or `query_database` — the two facts-store reads that return school facts and run guarded SQL over the reader views — when the surface is `Surface.ESSAY`; the essay panel keeps school identity (`resolve_school`, `get_school_profile`) but not school facts. Every DB tool is its own in-process `Tool` object, so withholding two of the four costs nothing beyond the `if` in `build_db_tools` — the same construction-time gate that governs the source-config tools above. ADRs 0013 and 0037 carry the trade.
+
 ---
 
 ## 15. Skills (SKILL.md)
 
-Skills are SKILL.md files (open standard: YAML frontmatter + Markdown body), living in `skills/`. Current skills include public response-mode workflows (`focused-answer`, `deep-research`, `guided-counselor`), public task workflows (`application-rounds`, `chancing`, `costs-and-aid`, `essay-fit`, `major-and-fit`, `school-comparison`, `school-deep-dive`, `school-list`, `testing-strategy`), and internal support workflows (`citation-and-recency`, `counselor-research`, `db-recipes`). Metadata loads at startup and bodies load through progressive disclosure. The non-advertised `dossier-assembly` alias canonicalizes to `school-deep-dive` only for parked-turn compatibility; it is not a public skill.
+Skills are SKILL.md files (open standard: YAML frontmatter + Markdown body), living in `skills/`. Current skills include public response-mode workflows (`focused-answer`, `deep-research`, `guided-counselor`), public task workflows (`application-rounds`, `chancing`, `costs-and-aid`, `essay-brainstorm`, `essay-drafting`, `essay-fit`, `essay-revision`, `major-and-fit`, `school-comparison`, `school-deep-dive`, `school-list`, `testing-strategy`), and internal support workflows (`citation-and-recency`, `counselor-research`, `db-recipes`, `essay-advanced`, `essay-craft`, `essay-depth`, `essay-exercises`, `essay-honesty`, `essay-structure`, `essay-types`, `essay-values`). Metadata loads at startup and bodies load through progressive disclosure. The non-advertised `dossier-assembly` alias canonicalizes to `school-deep-dive` only for parked-turn compatibility; it is not a public skill.
 
 Students can explicitly invoke only skills that opt into the public SKILL.md metadata (`user_invokable`, with student-facing display copy). The API exposes ordinary task skills through config and validates submitted canonical names, visibility, uniqueness, count, group conflicts, and trusted body-size/path bounds before a turn is claimed. Valid selections are preloaded as a server-owned, one-turn instruction block; they cannot override authz, read-only constraints, mounted-tool availability, or honesty rules. The selected canonical names persist in the turn record and original user transcript entry, so reload, retry, and regeneration preserve the exact invocation without adding control syntax to the student's text. Internal skills remain available to the agent's normal progressive-disclosure tool path but are never exposed as student actions.
 
@@ -548,8 +554,8 @@ Cheap on day one, brutal to retrofit:
 **Nothing may block containerized deployment** — deployability is a property, not a phase. The full-stack app deployment delta (same-origin SPA serving, the amended statelessness clause, entrypoint migrations) is §33. The points below describe the as-designed deployability.
 
 - **12-factor:** all config comes from the environment; durable state lives in Postgres (`counselle.*`), so the service can restart or move safely.
-- **One container** (a `Containerfile` from day one) running the API service. There is no second process to supervise any more: the facts-store read path is fully in-process, and the CollegeData facts crawl-pass worker (§39) runs as an `asyncio` task inside the same FastAPI lifespan (ADR 0023's one-deployable constraint) — the parked CDS extraction worker's own lifespan start/stop call was removed when it was parked (§38), so it does not run alongside it.
-- **Migrations** (`migrations/`, over `counselle.*` only). Migration-on-boot via the container entrypoint is planned per §33; until then, `uv run yoyo apply` is run manually before first launch. The `cds_library` schema (identity profile + facts store, plus the parked CDS tables' preserved DDL) is provisioned separately from `deploy/seed/`, not through this migration chain.
+- **One container** (a `Containerfile` from day one) running the API service. There is no second process to supervise any more: the facts-store read path is fully in-process, and the CollegeData facts crawl-pass worker (§40) runs as an `asyncio` task inside the same FastAPI lifespan (ADR 0023's one-deployable constraint) — the parked CDS extraction worker's own lifespan start/stop call was removed when it was parked (§38), so it does not run alongside it.
+- **Migrations** (`migrations/`, a yoyo chain over `counselle.*` only). Migration-on-boot via the container entrypoint is planned per §33; until then, `uv run yoyo apply` is run manually before first launch. The `cds_library` schema (identity profile + facts store, plus the parked CDS tables' preserved DDL) is provisioned separately from `deploy/seed/`, not through this migration chain.
 - **Secrets** in `.env`/secret manager only; shared with the facts-store database **credentials only** (the read-only DSN + Vertex/GCP keys) — no shared code, config, or runtime dependency. The DB is the contract.
 - **Read-only boundary** — the reader LOGIN can select exactly the six `cds_library` views; the separate application DSN owns only `counselle.*`. (ADRs 0012, 0032, 0038.)
 
@@ -795,8 +801,11 @@ The transcript read (`GET /v1/sessions/{id}`) returns user/assistant text pairs 
 | `POST /v1/auth/*` | fastapi-users routers (register, login, logout, forgot/reset, Google OAuth) — §28 |
 | `GET/PATCH/DELETE /v1/me` | Account read/update/delete; `DELETE /v1/me/chats` for delete-all — §28 |
 | `GET /v1/config` | Runtime client config: starter chips, greeting, default source-config, response-mode capability list — §32 |
+| `POST /v1/essays/{id}/session` | Get-or-create the essay's own durable panel thread — §39 |
+| `POST /v1/essays/{id}/suggestions/{suggestion_id}/accept` \| `/reject` | Resolve one pending suggestion — §39 |
+| `POST /v1/essays/{id}/suggestions/accept-all` \| `/reject-all` | Resolve the whole queue — §39 |
 
-All existing v1 endpoints keep their exact semantics; `POST /v1/sessions` and `POST .../messages` now require auth and stamp `user_id`.
+All existing v1 endpoints keep their exact semantics; `POST /v1/sessions` and `POST .../messages` now require auth and stamp `user_id`. `POST .../messages` additionally accepts an optional `surface` and, for the essay surface, a nested `essay_context` (§39) — additive within v1, defaulting to the chat surface when omitted.
 
 ### 27.7 Turn identity, the turn record & lifecycle semantics
 
@@ -918,6 +927,34 @@ Activities and honors enforce the Common App-shaped workspace limits in both the
 API model and UI. Public Common App resources confirm the activities count and
 activity field caps; the UI wording stays generic where live first-year form
 access is required to verify exact active-cycle wording.
+
+A task carries two independent dates rather than one: **when** the student plans
+to work on it, and **deadline**, the external date something is actually due (an
+application deadline the task inherits, an essay's submission date). The two are
+never conflated — a task can have either, both, or neither, and a deadline it
+inherits from its application is surfaced as distinct from a deadline set on the
+task itself, so an inherited date is never reported as the task's own. A task's
+lifecycle collapses to open/done rather than a multi-value status. Every task also
+records, in two columns, whether Counselle or the student created it and which of
+the two last touched it — the same "did the agent touch this" question the actor
+columns answer on tasks, workspace-wide, applies without a join against
+`counselle.workspace_changes`. The agent's task tools speak the same vocabulary as
+the API and UI: the same two date fields, the same open/done state, and the same
+flag concept a student can set on a task to mark it out for themselves.
+
+An essay is the one workspace object a student works *inside*, so it has two
+hosts rather than one, and both are the same component. `EssayDocumentSurface`
+(`frontend/src/features/essays/`) is the shared paper — the Tiptap editor, its
+inset scale, and the tracked-change decorations — rendered by the full editor
+route and by a right-hand document panel in the main chat. Beside the editor
+sits `EssayChatPanel`, which is the existing `AiChatPage` in a narrow variant
+(same composer, same streaming, same activity timeline) rather than a second
+chat implementation, sending every turn with the essay's id and the student's
+current selection. In the main chat, a settled essay mutation receipt's glance
+line is a door: `EssayDocumentPanel` opens the same surface beside the
+conversation, and the right rail is one discriminated union (`sources` |
+`document`) so "both open" is not a reachable state. §39 covers the suggestion
+lifecycle both hosts render.
 
 ### 31.0 Historical MVP2 frontend
 
@@ -1283,7 +1320,7 @@ DSN — a bug in this subsystem could not let the agent's own connections
 write, because the agent's pool was never given the write role's
 credentials. **That role isolation is why parking it was safe**: dropping
 its tables and unmounting its router touches no code path the agent or the
-facts crawler (§39) depends on.
+facts crawler (§40) depends on.
 
 **Three DSNs, three roles, one database — while this subsystem was live.**
 The agent path (§8) connects as `cds_library_reader` over `COUNSELLE_DB_RO_DSN`
@@ -1294,7 +1331,7 @@ subsystem added a third: `cds_library_app` over `COUNSELLE_DB_PIPELINE_DSN` —
 `INSERT, SELECT, UPDATE` (never `DELETE`) on the seven CDS-specific
 `cds_library` base tables. **That third role and DSN are not idle** — ADR
 0038 repurposes them, unchanged in shape, to drive the CollegeData facts
-crawler instead (§39); the two writers are mutually exclusive at runtime
+crawler instead (§40); the two writers are mutually exclusive at runtime
 (`COUNSELLE_CDS_WORKER_ENABLED=false` while `COUNSELLE_FACTS_WORKER_ENABLED`
 gates the crawler), never both live against the same DSN at once. Every
 route in this (now-unmounted) subsystem sat behind the pre-existing
@@ -1430,7 +1467,7 @@ these paths 404s. Three screens in `frontend/src/features/cds-admin/`
 (coverage, upload, review) still exist too, nested inside the authenticated
 workspace shell (§31), but their `router.tsx` entries are removed, so they
 are unreachable from the UI; the sidebar entry that used to link to them
-now points at the facts admin screen instead (§39).
+now points at the facts admin screen instead (§40).
 
 **What this subsystem is not, and was not.** It was never a second agent, a
 second model seam, or reachable from any student-facing request path. Its
@@ -1445,7 +1482,192 @@ record, and `PARKED.md` is the authority on its current disposition.
 
 ---
 
-## 39. The CollegeData facts crawl pipeline & admin surface
+## 39. The essay surface & the suggestion lifecycle
+
+(ADR 0037, amending ADR 0030.) The essay editor hosts an AI panel that works on
+one essay. Architecturally it is not a second agent, a second graph, or a second
+chat client — it is the same turn, run under a different **surface** (§12), with
+its edits routed to a review queue instead of straight into the document.
+
+### 39.1 What the surface selects
+
+A turn from the panel carries `surface: "essay"` plus a nested
+`essay_context: {essay_id, selection}` on `POST /v1/sessions/{id}/messages`.
+The route validates the pair — `essay_context` is required for `essay` and
+refused for `chat`, and the **session row's own `essay_id` is authoritative**:
+an essay turn naming a different essay than its thread is rejected, so a stale
+client-held session id can never queue one essay's suggestions onto another.
+Below the route the value flattens to plain scalars on `turn_ids` (§12).
+
+Inside the node, the surface selects exactly four things:
+
+| Selection | `chat` | `essay` |
+|---|---|---|
+| System prompt asset | `counselor.md` | `essay_partner.md`, with a code-built `{essay_context}` block |
+| Workspace tools | all of them | an explicit allowlist: the essay tools minus create/duplicate/archive/restore (`view_essays`, `read_essay`, `edit_essay`, `write_essay`, `update_essay`), every workspace **read** (activities, documents, schools, tasks — the student's real material, which is the anti-fabrication supply), and the two memory-note writes (`remember`, `update_memory`). Every other workspace mutation is dropped from the list before the `Agent` is built, so it is never handed to the model |
+| `render_viz` | constructed | never constructed (a data-visualization card is a chat-surface answer format) |
+| Essay write mode | `direct` | `suggest` |
+
+The two metric-heavy DB tools (`get_facts`, `query_database`) are unmounted for
+this surface like everything else in the toolset — `build_db_tools` simply
+never constructs them when `surface is Surface.ESSAY` (§14). External search is
+deliberately **not** narrowed: research grounds "why this school" material,
+and the request's source config still governs it.
+
+**The essay block is built in code, not by the model.** `render_essay_context`
+(`app/prompt.py`) reads the essay once at turn start through the same
+`user_id`-scoped service read the tools use, and renders title, prompt, school,
+status, word count/limit, the markdown body, and the student's current
+selection. It is bounded by `essay_context_max_chars` and, when it truncates,
+*says so* and points the model at `read_essay` — the model must never mistake an
+excerpt for the whole draft. An essay that cannot be loaded (deleted mid-session,
+or an unauthenticated harness run) renders an explicit unavailable block rather
+than nothing, so the turn degrades to an honest answer instead of a silent guess.
+The write-guard version token is deliberately absent from this block:
+`read_essay` is its single source, because a token inside a prose block the model
+is told to echo is how one reached a student's answer.
+
+### 39.2 The suggestion lifecycle, end to end
+
+**1 — An agent edit becomes a proposal, not a write.** `edit_essay` and
+`write_essay` keep their exact model-facing vocabulary; only the sink changes,
+per the turn's `write_mode` fixed at tool-construction time. In `suggest` mode
+`app/workspace/agent_tools_essays_suggestions.py` validates each
+`{old_text, new_text}` edit **independently against the original document** —
+because the student will accept them one at a time, in any order — and refuses
+the whole batch if one edit only matches after a sibling lands. `write_essay`
+becomes one suggestion spanning the whole current draft. There are two carve-outs
+for an essay with nothing in it, and they are separate mechanisms: an essay
+**empty when the turn starts** puts the whole turn in `direct` mode (`_write_mode`,
+`app/agent_node.py`), because a first draft has no prior text to review against;
+and `_suggest_full_redraft` re-checks emptiness at *call* time, committing a
+redraft of a still-blank essay rather than proposing it, because a suggestion
+whose `old_text` is empty has no anchor at all. Both say which happened in the
+tool's own reply — the second one has to, because a turn that began in `suggest`
+mode has already told the model to expect a proposal.
+
+**2 — Persistence.** `service_essays.append_suggestions` appends to
+`counselle.essays.suggestions` under the essay's row lock, leaving `content`
+untouched, and writes the same actor-attributed change row and publishes the
+same post-commit workspace event every other workspace mutation does (§31, ADR
+0027) — a proposal is an ordinary workspace change, not a parallel write path
+with its own audit story. The element shape, and the four rules that govern the
+array, are specified in `docs/DATABASE_GUIDE.md` §10.
+
+**3 — Rendering as a tracked change.** The client paints suggestions as
+ProseMirror decorations inside the live document — insertions underlined,
+deletions struck through, each fragment of one change highlighting with its
+siblings on hover. Four properties are load-bearing:
+
+- **Anchoring searches the document; it never trusts a stored position.** The
+  document round-trips through the server as Tiptap JSON, so an absolute offset
+  would drift. The search runs against `old_text_plain` in ProseMirror's own
+  `textContent` string space, because the live editor carries formatting as
+  marks and a markdown anchor would never match.
+- **Hover state lives in plugin state, rendered through the decoration
+  pipeline** — never as a DOM attribute written onto the rendered spans.
+  Mutating attributes inside ProseMirror's managed DOM is treated as external
+  interference and triggers an unbounded redraw loop.
+- **A transaction that replaces the whole document re-anchors; it never maps.**
+  Both the accept flow and the editor's content resync hand the editor a fresh
+  copy of the server's document, and every position inside a replaced range maps
+  onto that range's boundary — mapping would collapse each anchor to a zero-width
+  span that paints nothing and reads as outdated, while the server still holds a
+  row that anchors perfectly. Both therefore carry the suggestions meta on the
+  same transaction, which is what tells the plugin to recompute. Mapping is for
+  an ordinary edit, which carries no meta.
+- **The resync's "this is already the document on screen" guard compares
+  canonically.** The content it compares against round-trips through a `jsonb`
+  column, which normalises object key order, so a byte-exact comparison never
+  matches a document containing text — the guard would skip nothing and every
+  settled autosave would replace the document with a copy of itself, taking the
+  caret with it.
+
+`useSuggestionReview` is the one place that answers "where is this suggestion"
+and "can it still be applied" for every review surface, reading both from the
+plugin rather than recomputing them.
+
+**4 — Accept and reject.** Four routes (§27.6) resolve one suggestion or the
+whole queue. Accept applies the suggestion's markdown edit to `content` and
+drops it from the array; reject only drops it; both recompute `word_count`,
+write a change row, and publish an event. Both take the essay's row lock for the
+whole read-then-write, so two simultaneous resolves serialize and a double
+accept is a `404` rather than a second application — **a resolved suggestion is
+removed, never tombstoned**. Accept-all differs from an `edit_essay` batch on
+purpose: these are independently authored proposals, so an item that no longer
+applies is left pending and reported in `skipped` instead of sinking the rest.
+
+On the client, resolution is **serialized panel-wide** and **never optimistic**.
+Applying the accepted text locally would fire the editor's update handler, queue
+an autosave of the markdown-stripped plain text, and let that save land on top of
+the server's correctly formatted result. The server's returned content is the
+only content the editor is ever set from, and content and the remaining
+suggestion list land in one transaction.
+
+A resolve is also **not the only writer of the essay's cache entry** — an agent
+turn settling in the docked panel invalidates the same key, and so does every
+workspace change event the client receives. A read those issued *before* the resolve committed
+carries a document that still contains the change, and landing after the
+resolve's own cache write it would overwrite it: the resolved change back on
+screen as pending, counted by the readout, with the server right the whole time.
+The resolve therefore re-invalidates that key **synchronously with its own write,
+never separated from it by an await**. React Query's refetch cancels the in-flight
+read before its response can reach the cache and re-issues it rather than dropping
+it, so an essay the agent rewrote from the main chat still reaches the editor, and
+the replacement read is answered after the commit and can only carry that state or
+newer.
+
+**5 — Going stale.** A suggestion is stale when its anchor no longer matches the
+essay uniquely — zero matches, or more than one. There is no stored context to
+disambiguate with, and guessing between two identical sentences is exactly the
+quiet mistake that would apply an edit to the wrong words. The server discovers
+it at accept time (the essay is left untouched; the caller gets `422`); the
+client discovers it while anchoring and paints the change **visibly inert and
+still on the page**, so a student sees what was proposed instead of watching it
+disappear.
+
+### 39.3 Where the honesty guarantees live
+
+The failure mode on this surface is a wrong *claim*, not a wrong number: the
+agent can say it proposed an edit on a turn where it made no tool call. Three
+things stand against it, and all three are outside the model's prose:
+
+- **The tool is the only thing that can create a suggestion.** Nothing else
+  writes the array; a description of an edit is not an edit.
+- **Prompt hardening pins the order** — call the tool, read what came back,
+  report only that, never the count you meant to propose — in both
+  `essay_partner.md` and `counselor.md`, with an explicit script for the
+  not-yet-edited case so "want me to draft that as a suggestion?" is a complete
+  turn rather than something to paper over.
+- **Provenance display contradicts a false claim on screen.**
+  `PendingChangesReadout` is a code-owned band mounted on both surfaces that host
+  an essay conversation, sourced from the server's essay record rather than the
+  message stream, and **honest at zero as loudly as at N** — "None" is the
+  reading that refutes the claim, and the zero state is precisely the one the
+  pending-changes bar has no surface for. `countPendingChanges` is the single
+  source of truth for the waiting/outdated split, so the band and the bar can
+  never print two different numbers for one fact.
+
+**There is no output validator, and adding one is out of bounds.** Nothing here
+scans, classifies, blocks, rewrites, or retries the model's text; the
+programmatic answer-validation layers this system removed on purpose stay
+removed. Honesty on this surface is code-owned display of what is true, stated
+next to whatever was said — not inspection of what was said. ADR 0037 records
+the constraint.
+
+### 39.4 Per-essay conversations
+
+Each essay has exactly one durable chat thread: a `counselle.sessions` row with
+`essay_id` set, created get-or-create by `POST /v1/essays/{id}/session` and made
+unique by a partial index rather than by client-side storage, so the conversation
+follows the essay across browsers and devices (§7,
+`docs/DATABASE_GUIDE.md` §10). It is an ordinary session in every other respect —
+same checkpointer, same turn registry, same transcript read — and is excluded
+from the main chat list, which filters `essay_id IS NULL`.
+
+---
+
+## 40. The CollegeData facts crawl pipeline & admin surface
 
 (ADR 0038.) The live successor to §38's write path: a free, LLM-free, daily
 scrape of CollegeData.com's own structured per-school data, over the same
@@ -1531,4 +1753,4 @@ do not eliminate (ADR 0038, Risk R0) — not a resolved question.
 
 ---
 
-*Companions: `specs/mvp1/PRD.md` (agent service product spec), `specs/mvp2/PRD.md` (full-stack app product spec), `specs/user-onboarding/plan/` (onboarding plan and phase record), `specs/school-data-v3/` (the graduated facts-store plan and its divergence record), `docs/DATABASE_GUIDE.md` (the facts-store data contract — the six reader views, fact states, and honesty rules), `PARKED.md` (the parked CDS system's file list, import edges, and revival steps), `docs/DEPLOY.md` (the deploy runbook), `docs/adr/` (decisions — Part I added ADRs 0016–0019; Part II added ADRs 0020–0031; hardening added ADR 0025; workspace/service and run/message parity added ADRs 0026–0030; profile/document/memory added ADR 0031; db-rewire to the CDS Library added ADR 0032; onboarding's reserved-settings-namespace and locked merge added ADR 0033; counselor response modes added ADR 0034; the in-app CDS extraction pipeline and admin write path added ADR 0036; the CollegeData facts store, in-process DB tools, and CDS-parking decision added ADR 0038), `docs/research/` (stack survey). Keep this current as decisions change.*
+*Companions: `specs/mvp1/PRD.md` (agent service product spec), `specs/mvp2/PRD.md` (full-stack app product spec), `specs/user-onboarding/plan/` (onboarding plan and phase record), `specs/school-data-v3/` (the graduated facts-store plan and its divergence record), `specs/essay-ai-panel/` (the essay AI panel's graduated plan and divergence record), `docs/DATABASE_GUIDE.md` (the facts-store data contract — the six reader views, fact states, and honesty rules), `PARKED.md` (the parked CDS system's file list, import edges, and revival steps), `docs/DEPLOY.md` (the deploy runbook), `docs/adr/` (decisions — Part I added ADRs 0016–0019; Part II added ADRs 0020–0031; hardening added ADR 0025; workspace/service and run/message parity added ADRs 0026–0030; profile/document/memory added ADR 0031; db-rewire to the CDS Library added ADR 0032; onboarding's reserved-settings-namespace and locked merge added ADR 0033; counselor response modes added ADR 0034; the in-app CDS extraction pipeline and admin write path added ADR 0036; the per-turn agent surface and the essay suggestion layer added ADR 0037, amending ADRs 0013 and 0030; the CollegeData facts store, in-process DB tools, and CDS-parking decision added ADR 0038), `docs/research/` (stack survey). Keep this current as decisions change.*

@@ -191,6 +191,13 @@ export const workspaceTaskFixture: Task = {
   created_at: "2026-07-01T12:00:00Z",
   updated_at: "2026-07-01T12:00:00Z",
   archived_at: null,
+  when_on: null,
+  deadline_on: null,
+  done_at: null,
+  flagged: false,
+  created_by_actor: "student",
+  last_actor: "student",
+  sort_order: null,
 };
 
 export const workspaceEssayFixture: EssaySummary = {
@@ -398,41 +405,6 @@ export function createWorkspaceFetchPreset(
         },
       });
     }
-    if (url.endsWith("/v1/tasks/bulk-status")) {
-      const body = JSON.parse(String(init?.body ?? "{}")) as {
-        ids: string[];
-        status: Task["status"];
-      };
-      const movingIds = new Set(body.ids);
-      const timestamp = new Date().toISOString();
-      tasks = tasks.map((task) =>
-        movingIds.has(task.id)
-          ? {
-              ...task,
-              status: body.status,
-              completed_at:
-                body.status === "done"
-                  ? (task.completed_at ?? timestamp)
-                  : null,
-            }
-          : task,
-      );
-      return jsonResponse(tasks.filter((task) => movingIds.has(task.id)));
-    }
-    if (url.endsWith("/v1/tasks/bulk-archive")) {
-      const body = JSON.parse(String(init?.body ?? "{}")) as { ids: string[] };
-      const removingIds = new Set(body.ids);
-      const timestamp = new Date().toISOString();
-      const archived = tasks
-        .filter((task) => removingIds.has(task.id))
-        .map((task) => ({ ...task, archived_at: timestamp }));
-      archivedTasks = [
-        ...archived,
-        ...archivedTasks.filter((task) => !removingIds.has(task.id)),
-      ];
-      tasks = tasks.filter((task) => !removingIds.has(task.id));
-      return jsonResponse(archived);
-    }
     if (url.endsWith("/v1/tasks")) {
       if (init?.method === "POST") {
         const body = JSON.parse(String(init.body ?? "{}"));
@@ -454,11 +426,26 @@ export function createWorkspaceFetchPreset(
           reminder_at: body.reminder_at ?? null,
           completed_at: null,
           archived_via_application: null,
+          when_on: body.when_on ?? null,
+          deadline_on: body.deadline_on ?? null,
+          done_at: body.done_at ?? null,
+          flagged: body.flagged ?? false,
+          sort_order: null,
         };
         tasks = [task, ...tasks];
         return jsonResponse(task);
       }
 
+      return jsonResponse(tasks);
+    }
+    if (url.endsWith("/v1/tasks/order") && init?.method === "PUT") {
+      const body = JSON.parse(String(init.body ?? "{}")) as { ids: string[] };
+      const order = new Map(body.ids.map((id, index) => [id, index]));
+      tasks = tasks.map((task) =>
+        order.has(task.id)
+          ? { ...task, sort_order: order.get(task.id) ?? task.sort_order }
+          : task,
+      );
       return jsonResponse(tasks);
     }
     if (url.includes("/v1/tasks/")) {
@@ -486,8 +473,17 @@ export function createWorkspaceFetchPreset(
       }
       if (init?.method === "PATCH") {
         const patch = JSON.parse(String(init.body ?? "{}"));
+        // Mirror the server's done_at -> status/completed_at bridge
+        // (app/workspace/service_tasks.py) so tests see realistic rows.
+        const bridged =
+          patch.done_at !== undefined
+            ? {
+                status: patch.done_at ? "done" : "todo",
+                completed_at: patch.done_at,
+              }
+            : {};
         tasks = tasks.map((task) =>
-          task.id === taskId ? { ...task, ...patch } : task,
+          task.id === taskId ? { ...task, ...patch, ...bridged } : task,
         );
         return jsonResponse(
           tasks.find((task) => task.id === taskId) ?? tasks[0],
