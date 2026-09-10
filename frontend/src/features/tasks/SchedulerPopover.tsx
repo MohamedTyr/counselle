@@ -162,9 +162,18 @@ export function SchedulerPopover({
     return option.resolveDate(referenceDate) === value;
   }
 
+  // Most callers pass a real `<button>` as the trigger, but the deadline
+  // picker's anchor (TaskRow) is a zero-size `<span>` with no tab stop by
+  // design — telling Base UI it isn't a native button avoids the "expected a
+  // native <button>" warning without changing that anchor's semantics.
+  const isNativeButtonChild = (children as ReactElement).type === "button";
+
   return (
     <Popover onOpenChange={handleOpenChange} open={open}>
-      <PopoverTrigger render={children as ReactElement} />
+      <PopoverTrigger
+        nativeButton={isNativeButtonChild}
+        render={children as ReactElement}
+      />
       <PopoverPopup
         align="start"
         className={cn(
