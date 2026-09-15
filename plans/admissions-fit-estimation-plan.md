@@ -1031,11 +1031,12 @@ no plan file has been moved to `specs/`.
 
 ### Phase 7 evidence tooling and consistency pass — 2026-09-15 (historical; superseded)
 
-**Commit:** none. This implementation is deliberately uncommitted while the feature's
-other phases and their review gates are still in the shared dirty worktree.
+**Commit:** `dd61daf11115e26cfb8ea8bcb2ea629375a23f35` — `feat: harden admissions fit rollout`.
+Phase 7 is committed; the feature's other phases and their review gates remain
+documented in the shared worktree.
 
-The feature implementation itself is present in these shipped commits (the Phase 7
-record remains uncommitted):
+The feature implementation itself is present in these shipped commits, including
+the committed Phase 7 record:
 
 - `7a483c1e` — freeze admissions-fit data contracts
 - `156bfbbd` — add the admissions-fit calculator
@@ -1044,6 +1045,7 @@ record remains uncommitted):
 - `b776c7e3` — serve Profile-based admissions fit
 - `74db050f` — consume Profile-based fit in Explore
 - `179e74cd` — explain admissions-fit estimates
+- `dd61daf11115e26cfb8ea8bcb2ea629375a23f35` — feat: harden admissions fit rollout
 
 **Implemented:**
 
@@ -1216,8 +1218,9 @@ record. The plan remains ungraduated in `plans/`.
 
 This is the authoritative Phase 7 record. The earlier 06:21:58Z artifact and any
 intermediate 12:10:00Z record are historical and superseded; they are retained only
-for audit history. The Phase 7 record remains uncommitted and the plan remains in
-`plans/` pending owner acceptance.
+for audit history. Phase 7 is committed in
+`dd61daf11115e26cfb8ea8bcb2ea629375a23f35` (`feat: harden admissions fit rollout`),
+and the plan remains in `plans/` pending owner acceptance.
 
 Final backend hardening:
 
