@@ -13,9 +13,13 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from decimal import Decimal
-from typing import Any
+from typing import Any, cast
 
 from adapters.facts_store import EXPLORE_COLUMNS
+from app.facts.admissions_fit_inputs import (
+    school_fit_inputs_from_facts,
+    student_fit_inputs_from_profile,
+)
 from app.facts.explore_models import (
     Control,
     Exclusion,
@@ -25,14 +29,23 @@ from app.facts.explore_models import (
     ExploreSchoolCard,
     FilterOption,
     FilterOptions,
+    FitAssessment,
+    FitEstimate,
+    FitProfileSummary,
+    FitSignal,
     MajorOption,
     MajorsResponse,
     Narrowest,
     NullTail,
+    SuggestedProfileField,
+    UnavailableFactor,
 )
+from app.workspace.models import Profile
 from config.settings import Settings
 from counselle_db import service as db_service
 from counselle_db.catalog import Catalog
+from domain.admissions_fit import FitEstimate as DomainFitEstimate
+from domain.admissions_fit import StudentFitInputs, estimate_admissions_fit
 from domain.facts.state import BAND_CAPTION, ENTRANCE_DIFFICULTY_NOTE, MAJORS_MATCH_NOTE
 
 __all__ = [
@@ -483,7 +496,88 @@ def _wire_value(value: object) -> object:
     return float(value) if isinstance(value, Decimal) else value
 
 
-async def run_explore(catalog: Catalog, query: ExploreQuery, settings: Settings) -> ExploreResponse:
+def _fit_wire_result(estimate: DomainFitEstimate) -> FitEstimate:
+    """Translate closed domain enums into the public Explore wire shape."""
+    return FitEstimate(
+        category=estimate.category.value,
+        baseline_category=estimate.baseline_category.value,
+        baseline_admit_rate=(
+            float(estimate.baseline_admit_rate)
+            if estimate.baseline_admit_rate is not None
+            else None
+        ),
+        basis=estimate.basis.value,
+        evidence_level=estimate.evidence_level.value,
+        signals=tuple(
+            FitSignal(
+                factor=signal.factor.value,
+                source=signal.source.value,
+                assessment=cast(FitAssessment, signal.assessment.value),
+            )
+            for signal in estimate.signals
+        ),
+        unavailable=tuple(
+            UnavailableFactor(factor=item.factor.value, reason=item.reason.value)
+            for item in estimate.unavailable
+        ),
+        caveats=tuple(caveat.value for caveat in estimate.caveats),
+        algorithm_version=estimate.algorithm_version,
+    )
+
+
+def _positive_whole(value: Decimal | None) -> bool:
+    return (
+        value is not None
+        and value.is_finite()
+        and value >= 1
+        and value == value.to_integral_value()
+    )
+
+
+def _fit_profile_summary(student: StudentFitInputs) -> FitProfileSummary:
+    """Return capability metadata, not raw profile values or card outcomes."""
+    has_gpa = (
+        student.gpa_unweighted is not None
+        and student.gpa_scale == Decimal("4")
+        and student.gpa_unweighted.is_finite()
+        and Decimal("0") <= student.gpa_unweighted <= Decimal("4")
+    )
+    has_rank = (
+        student.school_ranks is not False
+        and _positive_whole(student.class_rank)
+        and _positive_whole(student.class_size)
+        and student.class_rank is not None
+        and student.class_size is not None
+        and student.class_rank <= student.class_size
+    )
+    has_test = (
+        student.sat_math is not None
+        and student.sat_ebrw is not None
+        or student.act_composite is not None
+    )
+    suggested: list[SuggestedProfileField] = []
+    if not has_gpa:
+        suggested.append("gpa")
+    if not has_rank:
+        suggested.append("class_rank")
+    if not has_test:
+        suggested.append("test_scores")
+    return FitProfileSummary(
+        has_academic_candidate=has_gpa or has_rank,
+        has_complete_test_candidate=has_test,
+        suggested_profile_fields=tuple(suggested),
+    )
+
+
+async def run_explore(
+    catalog: Catalog,
+    query: ExploreQuery,
+    settings: Settings,
+    profile: Profile,
+) -> ExploreResponse:
+    # Every card in this response sees one staleness boundary, even if the
+    # page's ancillary accounting takes long enough to cross a day boundary.
+    request_now = datetime.now(UTC)
     clauses = _build_clauses(query)
     where, params = _combine(clauses)
     sort_key, direction = _resolve_sort(query.sort)
@@ -531,8 +625,7 @@ async def run_explore(catalog: Catalog, query: ExploreQuery, settings: Settings)
         _count_statement(*_combine(clauses, skip=c.key, null_check_for=c.key))
         for c in exclusion_eligible
     ]
-    statements: list[tuple[str, list[Any]]] = [
-        (main_sql, params),
+    ancillary_statements: list[tuple[str, list[Any]]] = [
         (browsable_sql, []),
         (catalog_sql, []),
         (control_sql, control_params),
@@ -541,22 +634,27 @@ async def run_explore(catalog: Catalog, query: ExploreQuery, settings: Settings)
         (religious_options_sql, []),
         *exclusion_statements,
     ]
-    results = await db_service.explore(catalog, statements)
+    main_rows, facts_by_school = await db_service.explore_with_admissions_fit_facts(
+        catalog,
+        (main_sql, params),
+        max_page_size=page_size,
+    )
+    results = await db_service.explore(catalog, ancillary_statements)
     (
-        main_rows,
         browsable_rows,
         catalog_rows,
         control_rows,
         region_rows,
         campus_rows,
         religious_rows,
-    ) = results[:7]
-    exclusion_rows = results[7:]
+    ) = results[:6]
+    exclusion_rows = results[6:]
 
     total = main_rows[0]["total_count"] if main_rows else 0
     total_is_capped = total > settings.facts_explore_max_count
     total = min(total, settings.facts_explore_max_count)
 
+    student_inputs = student_fit_inputs_from_profile(profile)
     schools = tuple(
         ExploreSchoolCard(
             unitid=row["school_id"],
@@ -565,6 +663,19 @@ async def run_explore(catalog: Catalog, query: ExploreQuery, settings: Settings)
             state=row["state"],
             website_url=row["official_website"],
             fields={col: _wire_value(row[col]) for col in EXPLORE_COLUMNS},
+            fit=_fit_wire_result(
+                estimate_admissions_fit(
+                    school_fit_inputs_from_facts(
+                        admit_rate=row["admit_rate"],
+                        facts=facts_by_school.get(row["school_id"], ()),
+                        now=request_now,
+                        stale_after_days=settings.facts_stale_days,
+                    ),
+                    student_inputs,
+                    now=request_now,
+                    stale_after_days=settings.facts_stale_days,
+                )
+            ),
         )
         for row in main_rows
     )
@@ -649,6 +760,7 @@ async def run_explore(catalog: Catalog, query: ExploreQuery, settings: Settings)
         entrance_difficulty_note=ENTRANCE_DIFFICULTY_NOTE,
         majors_match_note=MAJORS_MATCH_NOTE,
         religious_affiliation_note=RELIGIOUS_AFFILIATION_NOTE,
+        fit_profile_summary=_fit_profile_summary(student_inputs),
     )
 
 

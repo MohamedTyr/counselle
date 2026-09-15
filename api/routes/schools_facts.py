@@ -21,6 +21,7 @@ from app.facts.explore_models import ExploreQuery, ExploreResponse, MajorsRespon
 from app.facts.response_models import SchoolFactsResponse
 from app.facts.service import get_school_facts
 from app.facts.service_explore import run_explore, run_majors
+from app.workspace.service_profile import read_profile_or_empty
 from counselle_db.models import ServiceError
 
 router = APIRouter(tags=["schools-facts"])
@@ -93,8 +94,9 @@ async def explore_route(
 ) -> ExploreResponse:
     catalog = request.app.state.runtime.deps.catalog
     settings = request.app.state.settings
-    response.headers["Cache-Control"] = "private, max-age=60"
-    return await run_explore(catalog, query, settings)
+    profile = await read_profile_or_empty(request.app.state.runtime.app_pool, user_id=user.id)
+    response.headers["Cache-Control"] = "private, no-cache"
+    return await run_explore(catalog, query, settings, profile)
 
 
 @router.get("/schools/majors")

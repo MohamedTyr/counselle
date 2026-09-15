@@ -7,10 +7,24 @@ from typing import Any
 from uuid import UUID
 
 import asyncpg
+from pydantic import ValidationError
 
 from app.workspace.changes import WorkspaceEventBus, make_change_event, record_change
 from app.workspace.models import Actor, Profile, ProfilePatch
 from app.workspace.service_utils import publish_events
+
+
+class PersistedProfileReadError(RuntimeError):
+    """A fixed, safe failure for malformed Profile JSON already in storage.
+
+    A Pydantic ``ValidationError`` includes the invalid persisted input in its
+    representation.  Explore is a read-only surface whose normal unhandled
+    error path logs an exception representation and traceback, so it must not
+    let that original error escape this service boundary.
+    """
+
+    def __init__(self) -> None:
+        super().__init__("Stored profile cannot be read.")
 
 
 async def get_profile(app_pool: asyncpg.Pool, *, user_id: UUID) -> Profile:
@@ -18,6 +32,34 @@ async def get_profile(app_pool: asyncpg.Pool, *, user_id: UUID) -> Profile:
     async with app_pool.acquire() as conn, conn.transaction():
         row = await _ensure_profile(conn, user_id)
     return Profile.model_validate(row["data"])
+
+
+async def read_profile_or_empty(app_pool: asyncpg.Pool, *, user_id: UUID) -> Profile:
+    """Read one owner's Profile without creating or locking a workspace row.
+
+    Personalized read-only surfaces such as Explore must not inherit
+    ``get_profile``'s lazy-creation behavior: a GET is not a workspace
+    mutation.  Database failures deliberately propagate to the normal route
+    error handler rather than being disguised as a missing Profile.
+    """
+    async with app_pool.acquire() as conn:
+        row = await conn.fetchrow(
+            """
+            SELECT data
+            FROM counselle.profiles
+            WHERE user_id = $1
+            """,
+            user_id,
+        )
+    if row is None:
+        return Profile()
+    try:
+        return Profile.model_validate(row["data"])
+    except ValidationError:
+        # Do not retain the Pydantic failure as a rendered cause/context: it
+        # can contain the corrupted Profile JSON, and the global 500 handler
+        # legitimately logs tracebacks for operational diagnosis.
+        raise PersistedProfileReadError() from None
 
 
 async def update_profile(
