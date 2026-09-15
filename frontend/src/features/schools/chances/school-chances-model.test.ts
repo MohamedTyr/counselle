@@ -468,7 +468,89 @@ describe("school chances pure model", () => {
       expect.objectContaining({ label: "Score of 900 - 950", pct: 100 }),
     ]);
     expect(lane?.band).toMatchObject({ p25: 690, p75: 760 });
+    expect(lane?.bandState).toEqual({
+      state: "school_value",
+      usable: true,
+      display: "690-760",
+      reportedPeriod: "2025-26",
+    });
     expect(lane?.profile.comparison.state).toBe("within_band");
+  });
+
+  test("keeps every band absence state separate from a usable score distribution", () => {
+    const absence = (
+      state: Exclude<Fact["state"], "value">,
+      display: string,
+      reportedPeriod: string | null,
+    ): Fact => ({
+      key: "class_profile.sat_math",
+      label: "SAT Math middle 50%",
+      tab: "admission",
+      state,
+      kind: "band",
+      display,
+      unit: null,
+      value: null,
+      observed_at: null,
+      reported_period: reportedPeriod,
+      caveat_ids: [],
+    });
+    for (const [state, display, reportedPeriod] of [
+      ["not_reported", "The school did not report a band.", "2022-23"],
+      ["not_fetched", "The band was not checked.", null],
+      ["not_published", "The band is not on file.", "2023-24"],
+      ["not_collected", "The band was not collected.", "2024-25"],
+    ] as const) {
+      const lane = buildSchoolChancesModel(
+        factsWith([
+          distribution("class_profile.sat_math_distribution", "sat_math", [
+            { label: "700 - 800", pct: 100 },
+          ]),
+          absence(state, display, reportedPeriod),
+        ]),
+        profile,
+        "sat",
+      ).sat?.lanes[0];
+      expect(lane?.distributionState).toMatchObject({
+        state: "school_value",
+        usable: true,
+      });
+      expect(lane?.bandState).toEqual({
+        state,
+        usable: false,
+        display,
+        reportedPeriod,
+      });
+    }
+
+    const malformed = buildSchoolChancesModel(
+      factsWith([
+        distribution("class_profile.sat_math_distribution", "sat_math", [
+          { label: "700 - 800", pct: 100 },
+        ]),
+        {
+          key: "class_profile.sat_math",
+          label: "SAT Math middle 50%",
+          tab: "admission",
+          state: "value",
+          kind: "band",
+          display: "The reported band has invalid bounds.",
+          unit: null,
+          value: { p25: 800, p75: 700, min: 200, max: 800 },
+          observed_at: "2026-01-01T00:00:00Z",
+          reported_period: "2020-21",
+          caveat_ids: [],
+        },
+      ]),
+      profile,
+      "sat",
+    ).sat?.lanes[0];
+    expect(malformed?.bandState).toEqual({
+      state: "malformed",
+      usable: false,
+      display: "The reported band has invalid bounds.",
+      reportedPeriod: "2020-21",
+    });
   });
 
   test("exports distribution state and usability for every score lane without changing aggregate availability", () => {

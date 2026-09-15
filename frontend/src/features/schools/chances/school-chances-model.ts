@@ -38,6 +38,14 @@ export type DistributionStateModel = {
   display: string | null;
   reportedPeriod: string | null;
 };
+/** The middle-50% verdict, independent from any usable distribution. */
+export type BandStateModel = {
+  state: SchoolValueState;
+  usable: boolean;
+  /** Exact fact wording, including the server's absence grammar. */
+  display: string | null;
+  reportedPeriod: string | null;
+};
 export type ProfileValueState =
   "value" | "missing_profile_value" | "incompatible_profile_value";
 export type GpaComparisonState =
@@ -138,6 +146,7 @@ export type ScoreLaneModel = {
   distribution: DistributionModel | null;
   distributionState: DistributionStateModel;
   band: BandModel | null;
+  bandState: BandStateModel;
   average: ScalarModel;
   profile: ScoreProfileModel;
   scenario: ScoreScenarioModel;
@@ -358,6 +367,7 @@ function scoreLane(
     distribution: distributionResult.model,
     distributionState: distributionState(distributionResult),
     band: bandResult.model,
+    bandState: bandState(bandResult),
     average: scoreAverage(averageFact, domain),
     profile,
     scenario: scoreScenario(scenarioValue, domain, bandResult.model),
@@ -671,6 +681,15 @@ function band(
     state: "school_value",
     display: fact.display,
     reportedPeriod: fact.reported_period,
+  };
+}
+
+function bandState(result: BandResult): BandStateModel {
+  return {
+    state: result.state,
+    usable: result.model !== null,
+    display: result.display,
+    reportedPeriod: result.reportedPeriod,
   };
 }
 

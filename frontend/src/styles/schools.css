@@ -32,6 +32,17 @@
  * layer describing a mapping that no longer exists.
  */
 :root {
+  /* ---- academic comparison visual grammar ----
+   * Institutional distributions and bands stay neutral. Brand colour has one
+   * meaning here: the student's profile or local scenario position. */
+  --school-chances-panel-surface: var(--school-facts-panel-surface);
+  --school-chances-mark: var(--ink-secondary);
+  --school-chances-track: var(--school-chart-track);
+  --school-chances-band: var(--ink-faint);
+  --school-chances-divider: var(--hairline);
+  --school-chances-profile-outline: var(--brand-subtle-ink);
+  --school-chances-scenario: var(--brand);
+
   /* ---- result card ---- */
   --school-card-surface: var(--surface-raised);
   --school-card-border: var(--edge);
@@ -160,4 +171,32 @@
    * --school-chart-axis went with it: it mirrored AXIS_WIDTH "for the few
    * places CSS needs it", and there were none.
    */
+}
+
+/* Plot widths use an explicit container query rather than runtime DOM
+ * measurement. At extreme zoom the callouts join their persistent value row. */
+[data-slot="academic-comparison-plot"] {
+  container-type: inline-size;
+}
+
+[data-slot="gpa-comparison-markers"] [data-placement="below-edge"] {
+  margin-right: auto;
+}
+
+[data-slot="gpa-comparison-markers"] [data-placement="above-edge"] {
+  margin-left: auto;
+}
+
+@container (width < 160px) {
+  [data-slot="academic-comparison-callout-rail"] {
+    display: none;
+  }
+
+  [data-slot="academic-comparison-markers"][data-callout-layout] {
+    display: block !important;
+  }
+
+  [data-slot="academic-comparison-markers"][data-value]::before {
+    content: attr(data-value);
+  }
 }
