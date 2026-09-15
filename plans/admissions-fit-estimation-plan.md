@@ -956,9 +956,11 @@ The feature is complete only when all are true:
 - [ ] Server and frontend share one typed fit contract; the browser does not recalculate.
 - [ ] URL-local pseudo-profile values no longer override saved Profile data.
 - [ ] `Application.list_type` remains outside the estimator and is never derived from it.
-- [ ] Backend/frontend automated suites pass with at least 80% project coverage.
-  Backend coverage meets the 80% threshold; the frontend gate is blocked by the
-  unrelated, documented `TasksLayout.test.tsx` detail-panel flake recorded below.
+- [x] Backend/frontend automated suites pass with at least 80% project coverage.
+  Automated evidence now passes: backend 2,367 passed/270 deselected, frontend
+  1,280 passed across 127 files, and coverage is 80.0763%. The former
+  suite-order `TasksLayout.test.tsx` browser-state issue was resolved test-only by
+  `6093885`; no product behavior changed.
 - [ ] Current-data sensitivity gates pass and the report is retained with implementation evidence.
 - [ ] Real-browser mobile, keyboard, and screen-reader-visible states are verified.
 - [ ] ADR, architecture, database guide, and chancing skill agree with shipped behavior.
@@ -1168,9 +1170,9 @@ uv run pytest -m "not live_llm and not live_search and not live_db" -q
 # Final logging fix: test-only capture/rebind/state restoration; production logging
 # unchanged.
 cd frontend && npm test -- --run
-# exit 1: 1 failed / 1,276 passed across 126 files
-# pre-existing TasksLayout.test.tsx > opens the detail panel when a row title is
-# clicked: unable to find the Task title textbox
+# exit 0: 1,280 passed across 127 files (126.04s)
+# Suite-order TasksLayout browser-state isolation was resolved test-only by
+# 6093885; no product behavior changed.
 cd frontend && npx vitest run src/features/tasks/TasksLayout.test.tsx --run
 # 5 passed
 uv run ruff check . && uv run mypy .
@@ -1207,18 +1209,16 @@ evidence scripts, tests, documentation, and record. Its initial direct-reader,
 precedence-hidden validation-count, self-reported benchmark-count, one-connection-pool,
 and static-check findings were resolved before the current artifact was generated.
 
-**Still required before completion:** the project-wide 80% coverage DoD item is
-met by the post-hardening measurement recorded above, but the frontend automated
-suite gate remains blocked by the unrelated `TasksLayout.test.tsx` failure noted
-above. The actual VoiceOver/Safari
+**Still required before completion:** the project-wide 80% coverage DoD item and
+the frontend automated-suite gate are met by the evidence recorded above. The
+former suite-order `TasksLayout.test.tsx` browser-state issue was resolved
+test-only by `6093885`; no product behavior changed. The actual VoiceOver/Safari
 or NVDA/Firefox reading-order check remains pending despite the completed
 automated/mock browser matrix. Owner review of every
 `middle-v1` changed-category row, the deterministic low/high boundary samples, and
 the visible changed-row/copy wording is still required before enabling personalized
-cards. The pre-existing flaky `TasksLayout.test.tsx` detail-panel tests noted in the
-project status are unrelated and have not been reclassified or resolved here. No
-owner acceptance or off-workstation copy/backup acceptance is claimed by this
-record. The plan remains ungraduated in `plans/`.
+cards. No owner acceptance or off-workstation copy/backup acceptance is claimed by
+this record. The plan remains ungraduated in `plans/`.
 
 ### Phase 7 final backend hardening and evidence record — 2026-09-15
 
@@ -1302,8 +1302,10 @@ GPA/SAT/ACT/multifactor paths, unknown/stale/partial states, URL score or cost
 behavior, or the live responsive browser matrix; no browser screenshot or trace
 is claimed beyond what the reports contain.
 
-**Open gates:** the repo-wide 80% coverage gate is met at **80.0763%**; the
-frontend suite remains blocked by the unrelated documented `TasksLayout.test.tsx`
-failure. No VoiceOver/NVDA check has run. Owner review of all `middle-v1` changed rows,
-low/high boundary samples, and visible changed-row/copy wording remains required,
-as does owner acceptance. The plan stays ungraduated in `plans/`.
+**Open gates:** the repo-wide 80% coverage gate and frontend automated-suite gate
+are met at **80.0763%** and 1,280 passing tests across 127 files, respectively.
+The former suite-order `TasksLayout.test.tsx` browser-state issue was resolved
+test-only by `6093885`; no product behavior changed. No VoiceOver/NVDA check has
+run. Owner review of all `middle-v1` changed rows, low/high boundary samples, and
+visible changed-row/copy wording remains required, as does owner acceptance. The
+plan stays ungraduated in `plans/`.
