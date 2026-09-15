@@ -16,15 +16,29 @@ in-process tools `app/toolset.py` mounts use the same safe-error contract.
 from __future__ import annotations
 
 import math
-from collections.abc import Mapping, Sequence
+import re
+from collections.abc import AsyncIterator, Mapping, Sequence
+from contextlib import asynccontextmanager
 from functools import wraps
 from types import MappingProxyType
 from typing import Any
 
 import asyncpg
 import structlog
-from pydantic import ValidationError
 
+import counselle_db.admissions_fit_evidence as _admissions_fit_evidence
+from counselle_db.admissions_fit_evidence import (
+    AdmissionsFitBenchmarkRequest,
+    AdmissionsFitBenchmarkSnapshot,
+    AdmissionsFitEvidenceSchool,
+    AdmissionsFitEvidenceSnapshot,
+    _AdmissionsFitSnapshotLease,
+    _ObservedBenchmarkConnection,
+    admissions_fit_elapsed_ms,
+    admissions_fit_monotonic_seconds,
+    record_admissions_fit_batch_read_receipt,
+    reset_admissions_fit_batch_read_receipt,
+)
 from counselle_db.catalog import Catalog
 from counselle_db.formatting import format_decimal
 from counselle_db.models import (
@@ -47,14 +61,22 @@ logger = structlog.get_logger(__name__)
 
 __all__ = [
     "ADMISSIONS_FIT_FACT_KEYS",
+    "ADMISSIONS_FIT_EVIDENCE_CHUNK_SIZE",
+    "AdmissionsFitBenchmarkRequest",
+    "AdmissionsFitBenchmarkSnapshot",
+    "AdmissionsFitEvidenceSchool",
+    "AdmissionsFitEvidenceSnapshot",
     "MAX_ADMISSIONS_FIT_PAGE_SCHOOLS",
     "ServiceError",
+    "export_admissions_fit_evidence_snapshot",
+    "exported_admissions_fit_benchmark_snapshot",
     "explore",
     "explore_with_admissions_fit_facts",
     "get_facts",
     "get_school_profile",
     "majors",
     "query_database",
+    "read_admissions_fit_benchmark_request",
     "resolve_school",
     "search_school_names",
     "tool_errors",
@@ -88,8 +110,7 @@ def _error(message: str) -> dict[str, Any]:
         )
     )
     selected_document_rejection = (
-        "cross-school packet rankings require canonical selected-document semantics"
-        in lowered
+        "cross-school packet rankings require canonical selected-document semantics" in lowered
     )
     return {
         "error": "tool_error",
@@ -164,11 +185,20 @@ ADMISSIONS_FIT_FACT_KEYS: tuple[str, ...] = (
 # this service never creates a second, conflicting limit when deployments
 # choose a different ``facts_explore_max_page_size``.
 MAX_ADMISSIONS_FIT_PAGE_SCHOOLS = 100
+# The sensitivity export reads the whole school universe.  It chunks only
+# that full-store detail request: regular Explore and benchmark requests stay
+# one page SELECT plus one fixed-key batch, regardless of page size.
+ADMISSIONS_FIT_EVIDENCE_CHUNK_SIZE = 500
 _ADMISSIONS_FIT_FACTS_SQL = """SELECT school_id,fact_key,tab,section,label,value,display,unit,
  value_type,value_num,value_text,value_bool,value_date,reported_period,reported_period_year,observed_at
  FROM cds_library.current_school_facts
  WHERE school_id=ANY($1::integer[]) AND fact_key=ANY($2::text[])
  ORDER BY school_id ASC,fact_key ASC"""
+_ADMISSIONS_FIT_EVIDENCE_SCHOOLS_SQL = """SELECT school_id,admit_rate
+ FROM cds_library.school_explore ORDER BY school_id ASC"""
+_ADMISSIONS_FIT_BENCHMARK_PAGE_SQL = """SELECT school_id,admit_rate
+ FROM cds_library.school_explore ORDER BY school_id ASC LIMIT $1"""
+_EXPORTED_SNAPSHOT_ID = re.compile(r"^[A-Za-z0-9_-]+$")
 _MAJORS_SQL = """SELECT m,count(*) AS n FROM cds_library.school_explore, unnest(majors) m
  WHERE m ILIKE $1 || '%' GROUP BY m ORDER BY 2 DESC LIMIT 50"""
 
@@ -321,10 +351,7 @@ def _section_keys(catalog: Catalog, sections: list[str]) -> list[str]:
             f"Unknown section {unknown[0]!r}. Valid sections: {', '.join(sorted(known))}"
         )
     return [
-        fact.key
-        for section in sections
-        for group in known[section].groups
-        for fact in group.facts
+        fact.key for section in sections for group in known[section].groups for fact in group.facts
     ]
 
 
@@ -403,11 +430,7 @@ def _validated_admissions_fit_page_cap(max_page_size: object) -> int:
     a direct caller fail before its page statement can create an unbounded
     dependent ``ANY`` query.
     """
-    if (
-        isinstance(max_page_size, bool)
-        or not isinstance(max_page_size, int)
-        or max_page_size <= 0
-    ):
+    if isinstance(max_page_size, bool) or not isinstance(max_page_size, int) or max_page_size <= 0:
         raise ServiceError("Explore max_page_size must be a positive integer.")
     return max_page_size
 
@@ -440,126 +463,216 @@ def _admissions_fit_page_school_ids(
     return identifiers
 
 
-class _FrozenJsonList(Sequence[Any]):
-    """An immutable JSON array with the narrow ``list`` compatibility the
-    Phase-2 facts adapter needs while it decodes distribution buckets.
+def _admissions_fit_evidence_schools(
+    records: Sequence[Any], *, max_page_size: int | None = None
+) -> tuple[AdmissionsFitEvidenceSchool, ...]:
+    """Validate and deterministically order canonical Explore baseline rows.
 
-    It is intentionally *not* a ``list`` subclass: inherited C-level list
-    methods could otherwise mutate it by calling ``list.append(instance, …)``.
-    ``isinstance(value, list)`` consults this compatibility property, which
-    lets the already-published adapter retain its JSON-array guard while all
-    mutation routes remain unavailable.
+    A malformed school identity is not optional detail and therefore fails
+    closed.  ``admit_rate`` remains untouched: the app-layer adapter already
+    owns finite/range validation and must see exactly the same source value in
+    a live request, sensitivity export, and benchmark request.
     """
-
-    __slots__ = ("_items",)
-
-    def __init__(self, values: Sequence[Any]) -> None:
-        # Bypass our deliberately rejecting ``__setattr__`` only while the
-        # object is being built.  From the caller's point of view this is a
-        # genuinely immutable sequence, including its otherwise reachable
-        # backing attribute.
-        object.__setattr__(self, "_items", tuple(_freeze_json(value) for value in values))
-
-    def __setattr__(self, name: str, value: Any) -> None:
-        raise AttributeError(f"{type(self).__name__} is immutable")
-
-    def __delattr__(self, name: str) -> None:
-        raise AttributeError(f"{type(self).__name__} is immutable")
-
-    def __getattribute__(self, name: str) -> Any:
-        # ``isinstance`` reads ``__class__`` for Python objects.  Expose the
-        # JSON-array compatibility type there without inheriting mutable list
-        # storage or overriding ``object.__class__`` with an incompatible
-        # read-only property.
-        if name == "__class__":
-            return list
-        return super().__getattribute__(name)
-
-    def __getitem__(self, index: int | slice) -> Any:
-        return self._items[index]
-
-    def __len__(self) -> int:
-        return len(self._items)
-
-    def __eq__(self, other: object) -> bool:
-        if isinstance(other, Sequence) and not isinstance(other, (str, bytes, bytearray)):
-            return bool(self._items == tuple(other))
-        return False
-
-    def __repr__(self) -> str:
-        return repr(list(self._items))
+    if max_page_size is not None and len(records) > max_page_size:
+        raise ServiceError("Explore results exceed the admissions-fit page cap.")
+    schools: list[AdmissionsFitEvidenceSchool] = []
+    seen: set[int] = set()
+    for record in records:
+        try:
+            values = dict(record)
+        except (TypeError, ValueError) as exc:
+            raise ServiceError("Explore page rows must be mappings.") from exc
+        school_id = values.get("school_id")
+        if isinstance(school_id, bool) or not isinstance(school_id, int) or school_id <= 0:
+            raise ServiceError("Explore page school_id must be a positive integer.")
+        if school_id in seen:
+            raise ServiceError("Explore page school_ids must be unique.")
+        if "admit_rate" not in values:
+            raise ServiceError("Explore page rows must include an admit_rate.")
+        seen.add(school_id)
+        schools.append(AdmissionsFitEvidenceSchool(school_id, values["admit_rate"]))
+    return tuple(sorted(schools, key=lambda school: school.school_id))
 
 
-def _freeze_json(value: Any) -> Any:
-    """Copy and freeze every JSON container supplied by the facts reader.
-
-    ``FactValueRow`` itself is frozen, but its ``Any`` JSON payload would
-    otherwise preserve an asyncpg row's mutable dictionaries and arrays by
-    identity.  Explore is the only consumer returning these rows across the
-    fit boundary, so freeze them here rather than widening the raw facts-page
-    contract.  JSON has only objects, arrays, and scalar leaves; tuples are
-    copied too for defensive fixture/caller behavior.
-    """
-    if isinstance(value, Mapping):
-        return MappingProxyType({key: _freeze_json(item) for key, item in value.items()})
-    if isinstance(value, list):
-        return _FrozenJsonList(value)
-    if isinstance(value, tuple):
-        return tuple(_freeze_json(item) for item in value)
-    return value
+def _empty_admissions_fit_facts(
+    schools: Sequence[AdmissionsFitEvidenceSchool],
+) -> Mapping[int, tuple[FactValueRow, ...]]:
+    return MappingProxyType({school.school_id: () for school in schools})
 
 
-def _admissions_fit_fact_value_row(
-    record: Any,
+async def _read_admissions_fit_facts(
+    connection: Any,
+    schools: Sequence[AdmissionsFitEvidenceSchool],
     *,
-    allowed_school_ids: frozenset[int],
-    allowed_fact_keys: frozenset[str],
-) -> tuple[int, FactValueRow] | None:
-    """Validate one optional fixed-key detail row without weakening page SQL.
+    batch_size: int,
+) -> tuple[Mapping[int, tuple[FactValueRow, ...]], int]:
+    """Read the one closed fact contract in bounded, never-per-school batches."""
+    if not schools:
+        return MappingProxyType({}), 0
+    if batch_size <= 0:
+        raise ServiceError("Admissions-fit fact batch_size must be a positive integer.")
+    school_ids = [school.school_id for school in schools]
+    grouped: dict[int, list[FactValueRow]] = {school_id: [] for school_id in school_ids}
+    allowed_school_ids = frozenset(school_ids)
+    allowed_fact_keys = frozenset(ADMISSIONS_FIT_FACT_KEYS)
+    source_fact_row_count = 0
+    for start in range(0, len(school_ids), batch_size):
+        school_batch = school_ids[start : start + batch_size]
+        records = await connection.fetch(
+            _ADMISSIONS_FIT_FACTS_SQL,
+            school_batch,
+            list(ADMISSIONS_FIT_FACT_KEYS),
+        )
+        source_fact_row_count += len(records)
+        for record in records:
+            parsed = _admissions_fit_evidence.admissions_fit_fact_value_row(
+                record,
+                allowed_school_ids=allowed_school_ids,
+                allowed_fact_keys=allowed_fact_keys,
+            )
+            if parsed is None:
+                continue
+            school_id, row = parsed
+            grouped[school_id].append(row)
+    return (
+        MappingProxyType({school_id: tuple(grouped[school_id]) for school_id in school_ids}),
+        source_fact_row_count,
+    )
 
-    A page row remains a required result and is validated before the batch.
-    In contrast, every row here is optional enrichment: its absence means the
-    fit calculator falls back to the admit-rate baseline.  A nullable
-    ``observed_at`` is possible in the reader view when its source page was
-    never fetched, so an invalid detail row must not turn into a page-level
-    Explore failure.
+
+def _admissions_fit_evidence_snapshot(
+    schools: Sequence[AdmissionsFitEvidenceSchool],
+    facts_by_school: Mapping[int, tuple[FactValueRow, ...]],
+    *,
+    source_fact_row_count: int,
+) -> AdmissionsFitEvidenceSnapshot:
+    """Build the one immutable evidence DTO shared by export and benchmark."""
+    return AdmissionsFitEvidenceSnapshot(
+        schools=tuple(schools),
+        facts_by_school=facts_by_school,
+        source_fact_row_count=source_fact_row_count,
+    )
+
+
+async def export_admissions_fit_evidence_snapshot(
+    pool: Any,
+) -> AdmissionsFitEvidenceSnapshot:
+    """Export all fixed school-side inputs in one read-only database snapshot.
+
+    This is deliberately a *full-universe* release-evidence operation, not an
+    HTTP surface.  It has no caller-selected SQL, fact keys, school IDs, or
+    Profile data.  The rate query and every chunk of its bounded fixed-key
+    detail read share one explicit ``REPEATABLE READ, READ ONLY`` transaction.
     """
-    try:
-        values = dict(record)
-    except (TypeError, ValueError):
-        logger.warning("admissions_fit_fact_row_dropped", reason="not_mapping")
-        return None
-
-    school_id = values.pop("school_id", None)
-    fact_key = values.get("fact_key")
-    if (
-        isinstance(school_id, bool)
-        or not isinstance(school_id, int)
-        or school_id not in allowed_school_ids
-        or not isinstance(fact_key, str)
-        or fact_key not in allowed_fact_keys
+    async with (
+        pool.acquire() as connection,
+        connection.transaction(isolation="repeatable_read", readonly=True),
     ):
-        return None
-    if "value" not in values:
-        logger.warning(
-            "admissions_fit_fact_row_dropped",
-            school_id=school_id,
-            fact_key=fact_key,
-            reason="missing_value",
+        school_records = tuple(await connection.fetch(_ADMISSIONS_FIT_EVIDENCE_SCHOOLS_SQL))
+        schools = _admissions_fit_evidence_schools(school_records)
+        facts_by_school, source_fact_row_count = await _read_admissions_fit_facts(
+            connection,
+            schools,
+            batch_size=ADMISSIONS_FIT_EVIDENCE_CHUNK_SIZE,
         )
-        return None
+    return _admissions_fit_evidence_snapshot(
+        schools,
+        facts_by_school,
+        source_fact_row_count=source_fact_row_count,
+    )
 
-    try:
-        row = FactValueRow(**{**values, "value": _freeze_json(values["value"])})
-    except (TypeError, ValueError, ValidationError):
-        logger.warning(
-            "admissions_fit_fact_row_dropped",
-            school_id=school_id,
-            fact_key=fact_key,
-            reason="invalid_detail_row",
-        )
-        return None
-    return school_id, row
+
+def _snapshot_import_sql(snapshot_id: str) -> str:
+    """Return the one dynamic SQL statement only for a DB-issued token."""
+    if _EXPORTED_SNAPSHOT_ID.fullmatch(snapshot_id) is None:
+        raise ServiceError("Database returned an invalid exported snapshot id.")
+    return f"SET TRANSACTION SNAPSHOT '{snapshot_id}'"  # nosec B608 -- DB-issued, regex-bound
+
+
+@asynccontextmanager
+async def exported_admissions_fit_benchmark_snapshot(
+    pool: Any,
+) -> AsyncIterator[AdmissionsFitBenchmarkSnapshot]:
+    """Keep a PostgreSQL snapshot export live for benchmark child requests.
+
+    The yielded handle intentionally contains no public token accessor.  It
+    is accepted only by :func:`read_admissions_fit_benchmark_request`, which
+    opens a second ``REPEATABLE READ, READ ONLY`` transaction and imports it.
+    That prevents evidence scripts from turning the seam into arbitrary SQL
+    or a raw-facts reader.
+    """
+    lease = _AdmissionsFitSnapshotLease()
+    async with (
+        pool.acquire() as connection,
+        connection.transaction(isolation="repeatable_read", readonly=True),
+    ):
+        snapshot_id = await connection.fetchval("SELECT pg_export_snapshot()")
+        if not isinstance(snapshot_id, str) or _EXPORTED_SNAPSHOT_ID.fullmatch(snapshot_id) is None:
+            raise ServiceError("Database returned an invalid exported snapshot id.")
+        snapshot = AdmissionsFitBenchmarkSnapshot(snapshot_id, lease)
+        try:
+            yield snapshot
+        finally:
+            lease.active = False
+
+
+async def read_admissions_fit_benchmark_request(
+    pool: Any,
+    snapshot: AdmissionsFitBenchmarkSnapshot,
+    *,
+    page_size: int,
+    include_facts: bool,
+    max_page_size: int = MAX_ADMISSIONS_FIT_PAGE_SCHOOLS,
+) -> AdmissionsFitBenchmarkRequest:
+    """Read one fixed request shape under an active exported snapshot.
+
+    The only variability is the validated page length and whether the one
+    production-equivalent fixed-key batch runs.  It never accepts caller SQL,
+    arbitrary school IDs, fact keys, or a write-capable transaction.
+    """
+    page_cap = _validated_admissions_fit_page_cap(max_page_size)
+    if (
+        isinstance(page_size, bool)
+        or not isinstance(page_size, int)
+        or page_size <= 0
+        or page_size > page_cap
+    ):
+        raise ServiceError("Benchmark page_size must be a positive integer within its page cap.")
+    if not isinstance(include_facts, bool):
+        raise ServiceError("Benchmark include_facts must be a boolean.")
+    if not isinstance(snapshot, AdmissionsFitBenchmarkSnapshot) or not snapshot._lease.active:
+        raise ServiceError("Admissions-fit benchmark snapshot is not active.")
+
+    async with pool.acquire() as raw_connection:
+        connection = _ObservedBenchmarkConnection(raw_connection)
+        async with connection.transaction(isolation="repeatable_read", readonly=True):
+            await connection.execute(_snapshot_import_sql(snapshot._snapshot_id))
+            school_records = tuple(
+                await connection.fetch(_ADMISSIONS_FIT_BENCHMARK_PAGE_SQL, page_size)
+            )
+            schools = _admissions_fit_evidence_schools(
+                school_records,
+                max_page_size=page_cap,
+            )
+            if include_facts:
+                facts_by_school, source_fact_row_count = await _read_admissions_fit_facts(
+                    connection,
+                    schools,
+                    batch_size=page_cap,
+                )
+            else:
+                facts_by_school = _empty_admissions_fit_facts(schools)
+                source_fact_row_count = 0
+            evidence_snapshot = _admissions_fit_evidence_snapshot(
+                schools,
+                facts_by_school,
+                source_fact_row_count=source_fact_row_count,
+            )
+    return AdmissionsFitBenchmarkRequest(
+        snapshot=evidence_snapshot,
+        select_count=connection.select_count,
+        transaction_count=connection.transaction_count,
+    )
 
 
 async def explore_with_admissions_fit_facts(
@@ -580,6 +693,7 @@ async def explore_with_admissions_fit_facts(
     adapter supplies its own already-validated configured maximum.
     """
     page_cap = _validated_admissions_fit_page_cap(max_page_size)
+    reset_admissions_fit_batch_read_receipt()
     main_sql, main_params = main_statement
     async with (
         catalog.pool.acquire() as conn,
@@ -591,25 +705,42 @@ async def explore_with_admissions_fit_facts(
         school_ids = _admissions_fit_page_school_ids(page_rows, max_page_size=page_cap)
         if not school_ids:
             return page_rows, MappingProxyType({})
-        fact_records = await conn.fetch(
-            _ADMISSIONS_FIT_FACTS_SQL,
-            school_ids,
-            list(ADMISSIONS_FIT_FACT_KEYS),
-        )
+        batch_started_at = admissions_fit_monotonic_seconds()
+        try:
+            fact_records = await conn.fetch(
+                _ADMISSIONS_FIT_FACTS_SQL,
+                school_ids,
+                list(ADMISSIONS_FIT_FACT_KEYS),
+            )
+        except Exception:
+            record_admissions_fit_batch_read_receipt(
+                batch_query_latency_ms=admissions_fit_elapsed_ms(batch_started_at),
+                fact_row_drop_counts={},
+            )
+            raise
+        batch_query_latency_ms = admissions_fit_elapsed_ms(batch_started_at)
 
     grouped: dict[int, list[FactValueRow]] = {school_id: [] for school_id in school_ids}
     allowed_school_ids = frozenset(school_ids)
     allowed_fact_keys = frozenset(ADMISSIONS_FIT_FACT_KEYS)
-    for record in fact_records:
-        parsed = _admissions_fit_fact_value_row(
-            record,
-            allowed_school_ids=allowed_school_ids,
-            allowed_fact_keys=allowed_fact_keys,
+    fact_row_drop_counts: dict[str, int] = {}
+    try:
+        for record in fact_records:
+            parsed = _admissions_fit_evidence.admissions_fit_fact_value_row(
+                record,
+                allowed_school_ids=allowed_school_ids,
+                allowed_fact_keys=allowed_fact_keys,
+                fact_row_drop_counts=fact_row_drop_counts,
+            )
+            if parsed is None:
+                continue
+            school_id, row = parsed
+            grouped[school_id].append(row)
+    finally:
+        record_admissions_fit_batch_read_receipt(
+            batch_query_latency_ms=batch_query_latency_ms,
+            fact_row_drop_counts=fact_row_drop_counts,
         )
-        if parsed is None:
-            continue
-        school_id, row = parsed
-        grouped[school_id].append(row)
     return page_rows, MappingProxyType(
         {school_id: tuple(grouped[school_id]) for school_id in school_ids}
     )

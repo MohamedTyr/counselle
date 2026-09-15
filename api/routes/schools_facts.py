@@ -12,6 +12,7 @@ from __future__ import annotations
 from collections.abc import Awaitable, Callable
 from typing import Annotated
 
+import structlog
 from fastapi import APIRouter, Depends, Query, Request, Response
 
 from api.auth import current_active_user
@@ -22,9 +23,11 @@ from app.facts.response_models import SchoolFactsResponse
 from app.facts.service import get_school_facts
 from app.facts.service_explore import run_explore, run_majors
 from app.workspace.service_profile import read_profile_or_empty
+from counselle_db.admissions_fit_evidence import observe_admissions_fit_explore
 from counselle_db.models import ServiceError
 
 router = APIRouter(tags=["schools-facts"])
+logger = structlog.get_logger(__name__)
 
 
 async def map_facts_errors[T](call: Callable[[], Awaitable[T]]) -> T:
@@ -68,6 +71,7 @@ async def get_facts_route(
 
 
 @router.get("/schools/explore")
+@observe_admissions_fit_explore(logger)
 async def explore_route(
     request: Request,
     response: Response,

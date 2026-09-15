@@ -1,6 +1,6 @@
 # Counselle — System Architecture
 
-> The complete architecture for Counselle, in two parts. **Part I (§1–25)** is the **agent service** — the honesty-first agent behind a versioned API. **Part II (§26–37)** is the **full-stack app** built on top of it — auth, chat management, the work-visibility protocol extensions, the React frontend, the student profile/document/memory stores, and first-run onboarding. Companion docs: `specs/` (PRDs & plans), `docs/DATABASE_GUIDE.md` (the data contract), `docs/adr/` (one decision each), `docs/research/` (the stack survey).
+> The complete architecture for Counselle, in two parts. **Part I (§1–25)** is the **agent service** — the honesty-first agent behind a versioned API. **Part II (§26–41)** is the **full-stack app** built on top of it — auth, chat management, the work-visibility protocol extensions, the React frontend, the student profile/document/memory stores, first-run onboarding, the facts store and crawl, and the Explore admissions-fit estimate. Companion docs: `specs/` (PRDs & plans), `docs/DATABASE_GUIDE.md` (the data contract), `docs/adr/` (one decision each), `docs/research/` (the stack survey).
 >
 > **This document describes the target architecture — how Counselle is designed and built, not what has shipped to date.** A few subsystems below are designed but not yet wired (e.g. the deep-research subagent, §13). For the current build status — what's implemented vs. pending, and the deployment state — see `CLAUDE.md`; it is the single source of progress truth.
 
@@ -53,6 +53,7 @@
 38. [The CDS extraction pipeline & admin surface (parked)](#38-the-cds-extraction-pipeline--admin-surface-parked)
 39. [The essay surface & the suggestion lifecycle](#39-the-essay-surface--the-suggestion-lifecycle)
 40. [The CollegeData facts crawl pipeline & admin surface](#40-the-collegedata-facts-crawl-pipeline--admin-surface)
+41. [Admissions-fit Explore estimate](#41-admissions-fit-explore-estimate)
 
 ---
 
@@ -330,10 +331,12 @@ internally (`page_snapshots.body`, retained only for "why did this change"
 debugging) and never rendered verbatim or exposed through any API. External
 sources (`web` / `edu` / `reddit`) keep their own tier and provenance, unchanged.
 
-**No composite score is ever synthesized.** Distributions (GPA/SAT/ACT bands,
-selection factors, class sizes, ethnicity) are stored structured for a future
-chancing engine, but nothing in this path computes or presents a derived
-"chance" or ranking number from them.
+**No admission probability or composite score is synthesized.** Distributions
+(GPA/SAT/ACT bands, selection factors, class sizes, ethnicity) are stored
+structured for future analysis. The Explore admissions-fit card (§41) is the
+explicit bounded exception: it computes only the versioned Reach/Target/Safety/
+Unknown planning category described there, never a probability, ranking number,
+or exposed internal score.
 
 **There is no RAG anywhere in this path.** Facts are read straight through
 the six typed views above — never embedded, chunked, or retrieved by
@@ -546,6 +549,18 @@ Cheap on day one, brutal to retrofit:
 - **Per-request usage accounting** — every model call's tokens (PydanticAI exposes usage) and Tavily/research calls roll up into the turn's `usage` event and a log line: per-session and per-turn cost visibility from the first day, which is also how the research cost caps get verified in practice.
 - **Health** — `GET /v1/health` checks process/database reachability and the checkpointer. There is no MCP child supervisor to report on any more — the DB path is fully in-process (ADR 0038). Turn-registry and limiter counters remain best-effort process state.
 - Metrics/dashboards are a platform-phase concern; the structured logs are designed so that adding them is aggregation, not re-instrumentation.
+
+The admissions-fit Explore path (§41) adds one aggregate, non-identifying
+structured event per request, `admissions_fit_explore_observed`, on both success
+and failure. Its fields are exactly `outcome`, `basis_counts`,
+`category_counts`, `applied_signal_counts`, `unavailable_reason_counts`,
+`validation_failure_counts`, `fact_row_drop_counts`,
+`batch_query_latency_ms`, and `total_explore_latency_ms`. Source-validation
+diagnostics are recorded before estimate assembly and remain visible in this
+aggregate even when a valid fallback (for example rank replacing an invalid GPA
+distribution) supplies the applied academic signal. No school-row identifiers,
+user identifiers, GPA, rank, class size, SAT/ACT student scores, Profile JSON,
+or per-row fit trace is emitted.
 
 ---
 
@@ -1753,4 +1768,41 @@ do not eliminate (ADR 0038, Risk R0) — not a resolved question.
 
 ---
 
-*Companions: `specs/mvp1/PRD.md` (agent service product spec), `specs/mvp2/PRD.md` (full-stack app product spec), `specs/user-onboarding/plan/` (onboarding plan and phase record), `specs/school-data-v3/` (the graduated facts-store plan and its divergence record), `specs/essay-ai-panel/` (the essay AI panel's graduated plan and divergence record), `docs/DATABASE_GUIDE.md` (the facts-store data contract — the six reader views, fact states, and honesty rules), `PARKED.md` (the parked CDS system's file list, import edges, and revival steps), `docs/DEPLOY.md` (the deploy runbook), `docs/adr/` (decisions — Part I added ADRs 0016–0019; Part II added ADRs 0020–0031; hardening added ADR 0025; workspace/service and run/message parity added ADRs 0026–0030; profile/document/memory added ADR 0031; db-rewire to the CDS Library added ADR 0032; onboarding's reserved-settings-namespace and locked merge added ADR 0033; counselor response modes added ADR 0034; the in-app CDS extraction pipeline and admin write path added ADR 0036; the per-turn agent surface and the essay suggestion layer added ADR 0037, amending ADRs 0013 and 0030; the CollegeData facts store, in-process DB tools, and CDS-parking decision added ADR 0038), `docs/research/` (stack survey). Keep this current as decisions change.*
+## 41. Admissions-fit Explore estimate
+
+Explore cards use the server-owned, pure `domain/admissions_fit` calculator. It is a
+versioned, conservative planning heuristic—not an individualized admission probability
+and not a score derived from an outcome corpus. The canonical `school_explore.admit_rate`
+is sovereign: `<20%` is Reach, `<50%` is Target, and `≥50%` is Safety; no usable rate
+is Unknown. Academic and required-test comparisons can make only a bounded local
+adjustment, and the sub-20% Reach floor cannot be upgraded. The internal adjusted index
+never leaves the domain layer or reaches the browser.
+
+The route makes two separate read-only database reads with intentionally different
+responsibilities. It first uses the `counselle` application pool for a select-only,
+authenticated saved-Profile read—never creating, locking, or logging a Profile. It then
+uses the `cds_library_reader` pool to read the Explore page and one page-wide fixed-key
+facts batch in an explicit `REPEATABLE READ, READ ONLY` transaction. `app/facts` adapts
+only the eleven allowlisted facts and comparable saved-Profile fields into immutable
+domain DTOs; the calculator knows neither HTTP, asyncpg, React nor workspace models.
+Missing, malformed, incompatible, future, or stale optional evidence has exactly zero
+influence. GPA requires an unweighted 4.0-scale complete distribution (rank is a
+fallback), testing never synthesizes SAT totals, and testing changes require a current
+normalized `required` policy.
+
+The typed `fit` response is personalized only to the authenticated saved Profile. It is
+private and revalidating; local Profile changes and external `profile.updated` events
+invalidate active Explore data, and the UI suppresses stale personalized detail while a
+matching response is loading. The category never writes, infers, or replaces the
+student's separate `Application.list_type` organization field. Runtime observability is
+one aggregate, non-identifying `admissions_fit_explore_observed` event per Explore
+request—`outcome`, `basis_counts`, `category_counts`, `applied_signal_counts`,
+`unavailable_reason_counts`, `validation_failure_counts`, `fact_row_drop_counts`,
+`batch_query_latency_ms`, and `total_explore_latency_ms`. Source-validation
+diagnostics survive safe fallbacks and are included in the aggregate. No school-row
+identifiers, user identifiers, GPA, ranks, class size, SAT/ACT student scores, full
+Profiles, or per-user fit traces are logged.
+
+---
+
+*Companions: `specs/mvp1/PRD.md` (agent service product spec), `specs/mvp2/PRD.md` (full-stack app product spec), `specs/user-onboarding/plan/` (onboarding plan and phase record), `specs/school-data-v3/` (the graduated facts-store plan and its divergence record), `specs/essay-ai-panel/` (the essay AI panel's graduated plan and divergence record), `docs/DATABASE_GUIDE.md` (the facts-store data contract — the six reader views, fact states, and honesty rules), `PARKED.md` (the parked CDS system's file list, import edges, and revival steps), `docs/DEPLOY.md` (the deploy runbook), `docs/adr/` (decisions — Part I added ADRs 0016–0019; Part II added ADRs 0020–0031; hardening added ADR 0025; workspace/service and run/message parity added ADRs 0026–0030; profile/document/memory added ADR 0031; db-rewire to the CDS Library added ADR 0032; onboarding's reserved-settings-namespace and locked merge added ADR 0033; counselor response modes added ADR 0034; the in-app CDS extraction pipeline and admin write path added ADR 0036; the per-turn agent surface and the essay suggestion layer added ADR 0037, amending ADRs 0013 and 0030; the CollegeData facts store, in-process DB tools, and CDS-parking decision added ADR 0038; the admissions-fit Explore estimate added ADR 0039), `docs/research/` (stack survey). Keep this current as decisions change.*

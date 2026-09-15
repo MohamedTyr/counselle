@@ -32,7 +32,7 @@ schema-qualified, parameterized SQL. The reader can select exactly these views:
 | View | Contract |
 |---|---|
 | `cds_library.school_profiles` | One row per school: typed identity columns, `basic_profile`, per-field `profile_provenance`, and profile version/snapshot/hash. |
-| `cds_library.current_school_facts` | One row per school × reported fact, including the raw `value` jsonb — the one relation `get_facts` reads; never reachable through `query_database`. |
+| `cds_library.current_school_facts` | One row per school × reported fact, including the raw `value` jsonb — read only through the typed DB service (`get_facts` and the code-owned Explore fit batch), never reachable through `query_database`. |
 | `cds_library.school_facts_sql` | The same current fact rows, jsonb-free: typed `value_num`/`value_text`/`value_bool`/`value_date`, `display`, `unit`, `observed_at` — the one facts relation `query_database` may touch. |
 | `cds_library.school_explore` | One row per school: ~100 typed, nullable filter/metric columns (admit rate, cost, test bands, majors, and more) for cross-school filtering and joins that don't need a `fact_key`. |
 | `cds_library.school_data_status` | One row per school, including a school with no crawl yet at all: `has_collegedata`, `facts_updated_at`, `fact_count`, and per-tab fetch status. |
@@ -54,6 +54,78 @@ Counselle's own application state in the `counselle` schema (users, sessions, ch
 workspace, feedback, and checkpointer); it has zero grants on `cds_library` and must
 never be used to bridge to it. Never substitute one DSN for another, or import
 facts-store adapter code to bridge them.
+
+### Admissions-fit Explore batch
+
+Explore's `admissions-fit-v1` card is a code-owned planning heuristic, not an
+individual admission probability. Its sole displayed and baseline rate is
+`cds_library.school_explore.admit_rate`: `<20` is Reach, `<50` is Target, and every
+other valid rate is Safety. A missing or invalid rate is Unknown. The baseline is not
+replaced by a raw fact-row rate.
+
+For one Explore result page, `counselle_db.service.explore_with_admissions_fit_facts`
+opens one `REPEATABLE READ, READ ONLY` transaction. It first reads the code-owned page
+statement from `school_explore`, then makes one bound batch read from
+`current_school_facts` for exactly these eleven keys—not one query per card:
+
+```text
+admissions.test_policy_sat_or_act
+class_profile.gpa_distribution
+class_profile.class_rank_top_tenth
+class_profile.class_rank_top_quarter
+class_profile.class_rank_top_half
+class_profile.sat_math_p25
+class_profile.sat_math_p75
+class_profile.sat_ebrw_p25
+class_profile.sat_ebrw_p75
+class_profile.act_composite_p25
+class_profile.act_composite_p75
+```
+
+The production facts-service boundary owns the raw-row query and freezes typed rows
+before the app adapter consumes them. The release-only sensitivity tool calls that same
+closed service-owned evidence export, then writes a sanitized domain-input artifact; it
+never carries raw-facts SQL and is not part of a student-facing request. The adapter
+permits optional evidence only when both sides are
+comparable: an unweighted 4.0 GPA against a complete non-overlapping GPA distribution,
+otherwise a valid monotonic rank set; complete separate SAT section bands or an ACT
+composite band; and a current policy explicitly normalized to `required` for any
+testing movement. It never synthesizes a SAT composite or treats a missing distribution
+bucket, fact row, score, or policy as zero. A missing, malformed, future, or stale
+optional fact has zero influence; it cannot manufacture a category or penalize a
+student. The age threshold is `facts_stale_days`, evaluated against one request-start
+UTC instant.
+
+The saved student Profile is read select-only from the separate `counselle` application
+database before this facts-store transaction. No Profile contents are sent by the
+browser as estimator inputs, no estimate is persisted, and an estimate never reads or
+writes `Application.list_type`.
+
+The release evidence seams are code-owned and remain read-only: `export_admissions_fit_evidence_snapshot`
+exports the fixed school-side inputs, `exported_admissions_fit_benchmark_snapshot`
+holds one exported PostgreSQL snapshot for benchmark requests, and
+`read_admissions_fit_benchmark_request` accepts only that opaque snapshot plus a
+validated page size and the before/after switch. None accepts caller SQL, arbitrary
+school IDs, arbitrary fact keys, Profile data, student scores, or PII. The exported
+snapshot may contain the schools' existing SAT/ACT p25/p75 bands because those are
+school facts in the fixed input set; it contains no real student Profile or score.
+
+The adapter's exact optional-source gates are part of this reader contract. A GPA
+distribution is usable only when its existing row declares
+`value_type="distribution"` and its payload declares `kind="distribution"` and
+`scale="gpa"`, has at least one bucket, has an empty `omitted_buckets` list, and has
+non-overlapping ordered inclusive ranges with one terminal open-ended bucket; both
+the parsed and declared (`sums_to`) percentage totals must be in `[99.5, 100.5]`.
+There is no raw `complete` flag in this payload: completeness is established by
+these checks. The calculator does not interpolate inside a bucket. An unweighted GPA
+on an explicit 4.0
+scale uses that distribution first; a valid complete monotonic top-10/top-25/top-half
+rank set is the academic fallback, never an additional stacked signal. SAT requires
+both current section bands; ACT uses its composite band; if both are usable they must
+agree. A current normalized `required` policy is the only policy that permits test
+movement. Missing, malformed, incompatible, future, or stale optional rows have zero
+influence. Staleness is evaluated for every card against one request-start UTC instant
+and the existing `facts_stale_days` setting (default 120); no second age rule exists.
 
 ### The write path — the facts crawler, walled off by role and DSN
 

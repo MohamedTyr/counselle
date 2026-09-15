@@ -91,17 +91,24 @@ def estimate_admissions_fit(
     """Return the stable v1 planning category for immutable normalized inputs."""
     baseline_rate = _valid_rate(school.admit_rate)
     if baseline_rate is None:
-        return _unknown_estimate()
+        return _unknown_estimate(stale_optional_facts=school.stale_optional_facts)
     academic = _academic_signal(school, student, now, stale_after_days)
     testing = _testing_signal(school, student, now, stale_after_days)
     signals = _applied_signals(academic, testing)
     category = _category_for(_fit_index(baseline_rate, academic.assessment, testing.assessment))
     if baseline_rate < _TWENTY:
         category = FitCategory.REACH
-    return _complete_estimate(baseline_rate, category, academic, testing, signals)
+    return _complete_estimate(
+        baseline_rate,
+        category,
+        academic,
+        testing,
+        signals,
+        stale_optional_facts=school.stale_optional_facts,
+    )
 
 
-def _unknown_estimate() -> FitEstimate:
+def _unknown_estimate(*, stale_optional_facts: bool) -> FitEstimate:
     return FitEstimate(
         category=FitCategory.UNKNOWN,
         baseline_category=FitCategory.UNKNOWN,
@@ -110,7 +117,7 @@ def _unknown_estimate() -> FitEstimate:
         evidence_level=EvidenceLevel.BASELINE_ONLY,
         signals=(),
         unavailable=(),
-        caveats=(),
+        caveats=(CaveatCode.STALE_OPTIONAL_FACTS,) if stale_optional_facts else (),
         algorithm_version=ALGORITHM_VERSION,
     )
 
@@ -121,10 +128,15 @@ def _complete_estimate(
     academic: _SignalResult,
     testing: _SignalResult,
     signals: tuple[FitSignal, ...],
+    *,
+    stale_optional_facts: bool,
 ) -> FitEstimate:
     personalized = bool(signals)
     unavailable = _unavailable_factors(academic, testing)
-    caveats = _caveats(personalized, academic.stale_seen or testing.stale_seen)
+    caveats = _caveats(
+        personalized,
+        stale_optional_facts or academic.stale_seen or testing.stale_seen,
+    )
     return FitEstimate(
         category=category,
         baseline_category=_category_for(baseline_rate),
@@ -557,6 +569,11 @@ def _observation_state(observed_at: datetime | None, now: datetime, stale_after_
     if not isinstance(stale_after_days, int):
         return "invalid"
     try:
+        # A future observation is impossible provenance at calculation time, not
+        # a merely old fact.  Treat it as malformed so it cannot personalize an
+        # estimate or produce the caveat reserved for genuinely stale evidence.
+        if observed_at > now:
+            return "invalid"
         return "stale" if now - observed_at > timedelta(days=max(stale_after_days, 0)) else "fresh"
     except (TypeError, OverflowError):
         return "invalid"

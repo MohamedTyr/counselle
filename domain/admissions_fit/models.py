@@ -64,6 +64,22 @@ class TestPolicy(StrEnum):
     NOT_REQUIRED_OR_UNKNOWN = "not_required_or_unknown"
 
 
+class SchoolFactValidationFailure(StrEnum):
+    """Closed structural-failure codes for optional school-side fit evidence.
+
+    These codes are deliberately separate from ``UnavailableReason``: a
+    valid fallback may make a factor usable while the adapter still needs to
+    report that one of its other optional source rows was malformed.  They
+    are aggregate telemetry vocabulary only and never part of the fit wire
+    response.
+    """
+
+    GPA_DISTRIBUTION_INVALID = "gpa_distribution_invalid"
+    RANK_DISTRIBUTION_INVALID = "rank_distribution_invalid"
+    TEST_BAND_INVALID = "test_band_invalid"
+    TEST_POLICY_INVALID = "test_policy_invalid"
+
+
 class UnavailableReason(StrEnum):
     """Bounded, UI-copy-independent explanations for a skipped factor."""
 
@@ -148,6 +164,10 @@ class SchoolFitInputs:
     """Only allowlisted school fields admitted to the v1 calculator."""
 
     admit_rate: Decimal | None
+    # Provenance is intentionally a closed adapter-to-domain fact, rather
+    # than a UI-layer annotation.  It remains true when an old optional row
+    # was malformed or another fresh source won the fallback decision.
+    stale_optional_facts: bool = False
     gpa_distribution: GpaDistribution | None = None
     rank_distribution: RankDistribution | None = None
     sat: SchoolSatBands | None = None
@@ -215,6 +235,7 @@ __all__ = [
     "SchoolFitInputs",
     "SchoolSatBands",
     "ScoreBand",
+    "SchoolFactValidationFailure",
     "StudentFitInputs",
     "TestPolicy",
     "UnavailableFactor",

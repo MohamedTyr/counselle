@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import replace
+from datetime import timedelta
 from decimal import Decimal
 
 from hypothesis import given
@@ -10,6 +11,7 @@ from hypothesis import strategies as st
 
 from domain.admissions_fit import (
     Assessment,
+    CaveatCode,
     EvidenceLevel,
     FitBasis,
     FitCategory,
@@ -19,9 +21,11 @@ from domain.admissions_fit import (
     FitSignalSource,
     GpaBucket,
     GpaDistribution,
+    ObservedDecimal,
     RankDistribution,
     SchoolFitInputs,
     SchoolSatBands,
+    ScoreBand,
     StudentFitInputs,
     estimate_admissions_fit,
 )
@@ -178,6 +182,68 @@ def test_absent_or_explicitly_not_reported_optional_evidence_is_exact_rate_decis
 
     assert decision(result) == decision(baseline)
     assert result.basis is FitBasis.SCHOOL_RATE
+
+
+@given(
+    rate=st.integers(min_value=0, max_value=100),
+    source=st.sampled_from(("gpa", "rank", "sat", "act")),
+    future_microseconds=st.integers(min_value=1, max_value=1_000_000),
+)
+def test_future_observed_optional_evidence_cannot_personalize_or_change_the_rate_decision(
+    rate: int,
+    source: str,
+    future_microseconds: int,
+) -> None:
+    """Every optional source with future provenance is equivalent to no source."""
+    future = NOW + timedelta(microseconds=future_microseconds)
+    profile = StudentFitInputs(
+        gpa_unweighted=decimal(4),
+        gpa_scale=decimal(4),
+        class_rank=decimal(1),
+        class_size=decimal(100),
+        sat_math=decimal(800),
+        sat_ebrw=decimal(800),
+        act_composite=decimal(36),
+    )
+    future_band = ScoreBand(
+        ObservedDecimal(decimal(600), future),
+        ObservedDecimal(decimal(700), future),
+    )
+    future_school = {
+        "gpa": SchoolFitInputs(
+            admit_rate=decimal(rate),
+            gpa_distribution=replace(complete_gpa_distribution(), observed_at=future),
+        ),
+        "rank": SchoolFitInputs(
+            admit_rate=decimal(rate),
+            rank_distribution=RankDistribution(
+                ObservedDecimal(decimal(20), future),
+                ObservedDecimal(decimal(50), future),
+                ObservedDecimal(decimal(85), future),
+            ),
+        ),
+        "sat": SchoolFitInputs(
+            admit_rate=decimal(rate),
+            sat=SchoolSatBands(math=future_band, ebrw=future_band),
+            test_policy=AdmissionsTestPolicy.REQUIRED,
+        ),
+        "act": SchoolFitInputs(
+            admit_rate=decimal(rate),
+            act=ScoreBand(
+                ObservedDecimal(decimal(24), future),
+                ObservedDecimal(decimal(30), future),
+            ),
+            test_policy=AdmissionsTestPolicy.REQUIRED,
+        ),
+    }[source]
+    baseline = calculate(SchoolFitInputs(admit_rate=decimal(rate)), profile)
+
+    result = calculate(future_school, profile)
+
+    assert decision(result) == decision(baseline)
+    assert result.basis is FitBasis.SCHOOL_RATE
+    assert result.signals == ()
+    assert CaveatCode.STALE_OPTIONAL_FACTS not in result.caveats
 
 
 @given(

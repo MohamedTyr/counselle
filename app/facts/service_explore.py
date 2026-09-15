@@ -9,6 +9,7 @@ executor, plan §6a). `run_explore`/`run_majors` are the two orchestrators
 
 from __future__ import annotations
 
+from collections import Counter
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -17,7 +18,7 @@ from typing import Any, cast
 
 from adapters.facts_store import EXPLORE_COLUMNS
 from app.facts.admissions_fit_inputs import (
-    school_fit_inputs_from_facts,
+    school_fit_input_adaptation_from_facts,
     student_fit_inputs_from_profile,
 )
 from app.facts.explore_models import (
@@ -43,9 +44,16 @@ from app.facts.explore_models import (
 from app.workspace.models import Profile
 from config.settings import Settings
 from counselle_db import service as db_service
+from counselle_db.admissions_fit_evidence import (
+    record_admissions_fit_validation_failure_counts,
+)
 from counselle_db.catalog import Catalog
 from domain.admissions_fit import FitEstimate as DomainFitEstimate
-from domain.admissions_fit import StudentFitInputs, estimate_admissions_fit
+from domain.admissions_fit import (
+    SchoolFactValidationFailure,
+    StudentFitInputs,
+    estimate_admissions_fit,
+)
 from domain.facts.state import BAND_CAPTION, ENTRANCE_DIFFICULTY_NOTE, MAJORS_MATCH_NOTE
 
 __all__ = [
@@ -534,6 +542,16 @@ def _positive_whole(value: Decimal | None) -> bool:
     )
 
 
+def _valid_score(value: Decimal | None, minimum: Decimal, maximum: Decimal) -> bool:
+    """Mirror the calculator's persisted-score gate for the safe UI summary."""
+    return (
+        value is not None
+        and value.is_finite()
+        and minimum <= value <= maximum
+        and value == value.to_integral_value()
+    )
+
+
 def _fit_profile_summary(student: StudentFitInputs) -> FitProfileSummary:
     """Return capability metadata, not raw profile values or card outcomes."""
     has_gpa = (
@@ -550,11 +568,12 @@ def _fit_profile_summary(student: StudentFitInputs) -> FitProfileSummary:
         and student.class_size is not None
         and student.class_rank <= student.class_size
     )
-    has_test = (
-        student.sat_math is not None
-        and student.sat_ebrw is not None
-        or student.act_composite is not None
+    has_complete_sat = (
+        _valid_score(student.sat_math, Decimal("200"), Decimal("800"))
+        and _valid_score(student.sat_ebrw, Decimal("200"), Decimal("800"))
     )
+    has_valid_act = _valid_score(student.act_composite, Decimal("1"), Decimal("36"))
+    has_test = has_complete_sat or has_valid_act
     suggested: list[SuggestedProfileField] = []
     if not has_gpa:
         suggested.append("gpa")
@@ -655,6 +674,25 @@ async def run_explore(
     total = min(total, settings.facts_explore_max_count)
 
     student_inputs = student_fit_inputs_from_profile(profile)
+    adapted_inputs = tuple(
+        (
+            row,
+            school_fit_input_adaptation_from_facts(
+                admit_rate=row["admit_rate"],
+                facts=facts_by_school.get(row["school_id"], ()),
+                now=request_now,
+                stale_after_days=settings.facts_stale_days,
+            ),
+        )
+        for row in main_rows
+    )
+    validation_failure_counts: Counter[SchoolFactValidationFailure] = Counter()
+    for _, adaptation in adapted_inputs:
+        validation_failure_counts.update(adaptation.validation_failure_counts)
+    # This is the only request-level handoff to telemetry.  The response
+    # still contains only the existing fit wire model, never diagnostics.
+    record_admissions_fit_validation_failure_counts(validation_failure_counts)
+
     schools = tuple(
         ExploreSchoolCard(
             unitid=row["school_id"],
@@ -665,19 +703,14 @@ async def run_explore(
             fields={col: _wire_value(row[col]) for col in EXPLORE_COLUMNS},
             fit=_fit_wire_result(
                 estimate_admissions_fit(
-                    school_fit_inputs_from_facts(
-                        admit_rate=row["admit_rate"],
-                        facts=facts_by_school.get(row["school_id"], ()),
-                        now=request_now,
-                        stale_after_days=settings.facts_stale_days,
-                    ),
+                    adaptation.inputs,
                     student_inputs,
                     now=request_now,
                     stale_after_days=settings.facts_stale_days,
                 )
             ),
         )
-        for row in main_rows
+        for row, adaptation in adapted_inputs
     )
     observed_dates = [
         row["facts_updated_at"] for row in main_rows if row["facts_updated_at"] is not None

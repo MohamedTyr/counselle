@@ -13,6 +13,7 @@ from types import SimpleNamespace
 from typing import Any, cast
 
 import pytest
+from structlog.testing import capture_logs
 
 from adapters.facts_store import EXPLORE_COLUMNS
 from app.facts.explore_models import (
@@ -26,13 +27,21 @@ from app.facts.service_explore import (
     METRIC_LABELS,
     _build_clauses,
     _combine,
+    _fit_profile_summary,
     _resolve_sort,
     _split_region_label,
     run_explore,
 )
-from app.workspace.models import Academics, Profile
+from app.workspace.models import Academics, Profile, SatScore
+from app.workspace.models import Testing as ProfileTesting
 from counselle_db import service as _db_service
+from counselle_db.admissions_fit_evidence import (
+    admissions_fit_batch_read_receipt,
+    record_admissions_fit_batch_read_receipt,
+    reset_admissions_fit_batch_read_receipt,
+)
 from counselle_db.models import FactValueRow
+from domain.admissions_fit import StudentFitInputs
 
 
 def test_metric_labels_are_noun_phrases_of_at_most_four_words_no_trailing_period() -> None:
@@ -237,6 +246,24 @@ def test_fit_wire_models_serialize_every_closed_enum_value() -> None:
         "algorithm_version": "admissions-fit-v1",
     }
     assert json.loads(summary.model_dump_json())["suggested_profile_fields"] == ["test_scores"]
+
+
+@pytest.mark.parametrize(
+    "student",
+    (
+        StudentFitInputs(sat_math=Decimal("801"), sat_ebrw=Decimal("700")),
+        StudentFitInputs(sat_math=Decimal("700"), sat_ebrw=Decimal("199")),
+        StudentFitInputs(act_composite=Decimal("37")),
+        StudentFitInputs(act_composite=Decimal("1.5")),
+    ),
+)
+def test_fit_profile_summary_does_not_hide_invalid_persisted_test_scores(
+    student: StudentFitInputs,
+) -> None:
+    summary = _fit_profile_summary(student)
+
+    assert summary.has_complete_test_candidate is False
+    assert "test_scores" in summary.suggested_profile_fields
 
 
 def test_fit_wire_contract_exposes_each_closed_enum_and_no_internal_index() -> None:
@@ -503,3 +530,162 @@ async def test_explore_calculates_different_fit_from_each_saved_profile(
     assert lower.schools[0].fit.category == "Target"
     assert higher.schools[0].fit.category == "Safety"
     assert lower.schools[0].fit.basis == higher.schools[0].fit.basis == "personalized"
+
+
+async def test_direct_explore_service_does_not_emit_request_observation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """One request produces bounded aggregate counters, never applicant or school traces."""
+    page = (
+        _fit_main_row(school_id=1, admit_rate=Decimal("45")),
+        _fit_main_row(school_id=2, admit_rate=None),
+    )
+    clock_values = iter((100.0, 102.5))
+
+    async def fake_fit_executor(
+        catalog: Any, statement: tuple[str, list[Any]], *, max_page_size: int
+    ) -> tuple[tuple[dict[str, Any], ...], dict[int, tuple[FactValueRow, ...]]]:
+        del catalog, statement, max_page_size
+        record_admissions_fit_batch_read_receipt(
+            batch_query_latency_ms=7,
+            fact_row_drop_counts={"invalid_detail_row": 2},
+        )
+        return page, {1: (_complete_gpa_distribution_fact(),), 2: ()}
+
+    async def fake_explore(
+        catalog: Any, statements: list[Any]
+    ) -> tuple[tuple[dict[str, Any], ...], ...]:
+        del catalog
+        assert len(statements) == 6
+        return (({"n": 2},), ({"n": 2},), (), (), (), ())
+
+    monkeypatch.setattr(_db_service, "explore_with_admissions_fit_facts", fake_fit_executor)
+    monkeypatch.setattr(_db_service, "explore", fake_explore)
+    monkeypatch.setattr(
+        "counselle_db.admissions_fit_evidence._monotonic_clock", lambda: next(clock_values)
+    )
+    profile = Profile(
+        academics=Academics(
+            gpa_unweighted=Decimal("4.0"),
+            gpa_scale=Decimal("4.0"),
+            class_rank=19,
+            class_size=137,
+        ),
+        testing=ProfileTesting(sat=SatScore(math=731, ebrw=727)),
+    )
+
+    with capture_logs() as logs:
+        response = await run_explore(
+            cast(Any, _FakeCatalog()), ExploreQuery(), _fake_settings(), profile
+        )
+
+    # Request telemetry belongs to the authenticated route because it must
+    # cover the Profile SELECT as well as this pure assembly service.
+    assert logs == []
+    assert "admissions_fit_explore_observed" not in response.model_dump()
+
+
+async def test_explore_telemetry_aggregates_adapter_validation_even_when_rank_fallback_wins(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A source-validation counter is independent of the card's final fallback."""
+
+    def rank_row(fact_key: str, value_num: int) -> FactValueRow:
+        return FactValueRow(
+            fact_key=fact_key,
+            tab="admission",
+            section="getting-in",
+            label="High School Class Rank",
+            value={"kind": "percent", "value": None},
+            display=f"{value_num}%",
+            unit="percent",
+            value_type="percent",
+            value_num=value_num,
+            value_text=None,
+            value_bool=None,
+            value_date=None,
+            reported_period=None,
+            reported_period_year=None,
+            observed_at=datetime(2026, 9, 15, tzinfo=UTC),
+        )
+
+    async def fake_fit_executor(
+        catalog: Any, statement: tuple[str, list[Any]], *, max_page_size: int
+    ) -> tuple[tuple[dict[str, Any], ...], dict[int, tuple[FactValueRow, ...]]]:
+        del catalog, statement, max_page_size
+        return (
+            (
+                _fit_main_row(school_id=1, admit_rate=Decimal("45")),
+                _fit_main_row(school_id=2, admit_rate=Decimal("45")),
+            ),
+            {
+                1: (
+                    _malformed_gpa_fact(),
+                    rank_row("class_profile.class_rank_top_tenth", 25),
+                    rank_row("class_profile.class_rank_top_quarter", 55),
+                    rank_row("class_profile.class_rank_top_half", 80),
+                ),
+                2: (
+                    _complete_gpa_distribution_fact(),
+                    rank_row("class_profile.class_rank_top_tenth", 95),
+                    rank_row("class_profile.class_rank_top_quarter", 50),
+                    rank_row("class_profile.class_rank_top_half", 80),
+                ),
+            },
+        )
+
+    async def fake_explore(
+        catalog: Any, statements: list[Any]
+    ) -> tuple[tuple[dict[str, Any], ...], ...]:
+        del catalog
+        assert len(statements) == 6
+        return (({"n": 2},), ({"n": 2},), (), (), (), ())
+
+    monkeypatch.setattr(_db_service, "explore_with_admissions_fit_facts", fake_fit_executor)
+    monkeypatch.setattr(_db_service, "explore", fake_explore)
+    profile = Profile(
+        academics=Academics(
+            gpa_unweighted=Decimal("4.0"),
+            gpa_scale=Decimal("4"),
+            class_rank=1,
+            class_size=100,
+            school_ranks=True,
+        )
+    )
+
+    reset_admissions_fit_batch_read_receipt()
+    with capture_logs() as logs:
+        response = await run_explore(
+            cast(Any, _FakeCatalog()), ExploreQuery(), _fake_settings(), profile
+        )
+
+    assert response.schools[0].fit.signals[0].source == "class_rank"
+    assert response.schools[1].fit.signals[0].source == "gpa_distribution"
+    assert logs == []
+    assert dict(admissions_fit_batch_read_receipt().validation_failure_counts) == {
+        "gpa_distribution_invalid": 1,
+        "rank_distribution_invalid": 1,
+    }
+
+
+async def test_direct_explore_service_rethrows_without_request_observation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A failed Explore emits one bounded failure metric and then re-raises."""
+    clock_values = iter((50.0, 51.0))
+
+    async def failing_fit_executor(
+        catalog: Any, statement: tuple[str, list[Any]], *, max_page_size: int
+    ) -> tuple[tuple[dict[str, Any], ...], dict[int, tuple[FactValueRow, ...]]]:
+        del catalog, statement, max_page_size
+        raise RuntimeError("school_id=90210 GPA=3.91")
+
+    monkeypatch.setattr(_db_service, "explore_with_admissions_fit_facts", failing_fit_executor)
+    monkeypatch.setattr(
+        "counselle_db.admissions_fit_evidence._monotonic_clock", lambda: next(clock_values)
+    )
+
+    with capture_logs() as logs, pytest.raises(RuntimeError, match="school_id=90210"):
+        await run_explore(cast(Any, _FakeCatalog()), ExploreQuery(), _fake_settings(), Profile())
+
+    assert logs == []

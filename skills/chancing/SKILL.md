@@ -10,6 +10,27 @@ user_description: Classify reach, target, and likely odds without fake predictio
 
 Source: `plans/research-counselor-judgment.md` (triage instinct; chances playbook).
 
+## Explore card estimate
+
+The Explore card's code-owned `admissions-fit-v1` estimate is not this skill's
+individualized chancing judgment and is never an admission probability. It is a
+conservative planning category anchored to the school's overall observed admit rate:
+
+- below 20%: `Reach`;
+- 20% to below 50%: `Target`; and
+- 50% or above: `Safety`.
+
+It returns `Unknown` without a usable overall admit rate. When a saved Profile and
+current, comparable school facts exist, the card can make a small bounded adjustment;
+missing, stale, malformed, optional, or incomparable evidence changes nothing. Its
+GPA/rank/test comparisons describe enrolled entering-class benchmarks, not applicant
+cutoffs. Do not call its internal reasoning a percentage chance, a guarantee, or a
+full read of the student's application, and do not treat its category as an instruction
+to edit `Application.list_type`.
+
+The conversational `sub-25%` rule below is deliberately broader advice for a full
+chancing discussion. It does not override the Explore card's exact `<20%` Reach guard.
+
 ## The hidden decision
 
 "What are my chances at X?" is never a statistics request. It is one of:

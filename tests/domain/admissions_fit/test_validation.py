@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import FrozenInstanceError
+from datetime import timedelta
 from decimal import Decimal
 from typing import cast
 
@@ -14,11 +15,13 @@ from domain.admissions_fit import (
     FitBasis,
     FitEstimate,
     FitFactor,
+    FitSignal,
     FitSignalSource,
     GpaBucket,
     GpaDistribution,
     ObservedDecimal,
     RankDistribution,
+    SchoolFitInputs,
     SchoolSatBands,
     ScoreBand,
     StudentFitInputs,
@@ -329,6 +332,187 @@ def test_stale_evidence_not_used_when_a_fresh_rank_is_available_still_discloses_
 
     assert CaveatCode.STALE_OPTIONAL_FACTS in result.caveats
     assert any(signal.source is FitSignalSource.CLASS_RANK for signal in result.signals)
+
+
+def test_future_gpa_distribution_is_invalid_not_stale_and_falls_back_to_fresh_rank() -> None:
+    """A fact cannot be observed after the estimate is calculated."""
+    future_gpa = GpaDistribution(
+        value_type="distribution",
+        scale="gpa",
+        complete=True,
+        observed_at=NOW + timedelta(microseconds=1),
+        buckets=complete_gpa_distribution().buckets,
+    )
+    profile = student(
+        gpa=decimal(4),
+        gpa_scale=decimal(4),
+        rank=decimal(1),
+        class_size=decimal(100),
+    )
+    rank_only = school(rank=RankDistribution(observed(20), observed(50), observed(85)))
+
+    result = estimate(
+        school(gpa=future_gpa, rank=rank_only.rank_distribution),
+        profile,
+    )
+
+    assert result == estimate(rank_only, profile)
+    assert CaveatCode.STALE_OPTIONAL_FACTS not in result.caveats
+
+
+def test_future_rank_observations_are_invalid_not_stale_and_have_zero_effect() -> None:
+    future = NOW + timedelta(microseconds=1)
+    distribution = RankDistribution(
+        ObservedDecimal(decimal(20), future),
+        ObservedDecimal(decimal(50), future),
+        ObservedDecimal(decimal(85), future),
+    )
+    profile = student(rank=decimal(1), class_size=decimal(100))
+    baseline = estimate(school(), profile)
+
+    result = estimate(school(rank=distribution), profile)
+
+    assert result.category is baseline.category
+    assert result.basis is FitBasis.SCHOOL_RATE
+    assert result.signals == ()
+    assert (
+        unavailable(result, FitFactor.ACADEMIC).reason
+        is UnavailableReason.RANK_DISTRIBUTION_INVALID
+    )
+    assert CaveatCode.STALE_OPTIONAL_FACTS not in result.caveats
+
+
+@pytest.mark.parametrize(
+    ("future_source", "expected_source"),
+    [
+        ("sat", FitSignalSource.ACT),
+        ("act", FitSignalSource.SAT),
+    ],
+)
+def test_future_test_band_is_invalid_not_stale_and_falls_back_to_fresh_test_type(
+    future_source: str,
+    expected_source: FitSignalSource,
+) -> None:
+    future = NOW + timedelta(microseconds=1)
+    future_sat_band = ScoreBand(
+        ObservedDecimal(decimal(600), future),
+        ObservedDecimal(decimal(700), future),
+    )
+    future_act_band = ScoreBand(
+        ObservedDecimal(decimal(24), future),
+        ObservedDecimal(decimal(30), future),
+    )
+    fresh_sat = SchoolSatBands(
+        math=ScoreBand(observed(600), observed(700)),
+        ebrw=ScoreBand(observed(600), observed(700)),
+    )
+    fresh_act = ScoreBand(observed(24), observed(30))
+    profile = student(sat_math=decimal(800), sat_ebrw=decimal(800), act=decimal(36))
+    school_input = school(
+        sat=SchoolSatBands(math=future_sat_band, ebrw=future_sat_band)
+        if future_source == "sat"
+        else fresh_sat,
+        act=future_act_band if future_source == "act" else fresh_act,
+        test_policy=AdmissionsTestPolicy.REQUIRED,
+    )
+
+    result = estimate(school_input, profile)
+
+    assert result.basis is FitBasis.PERSONALIZED
+    assert result.signals == (FitSignal(FitFactor.TESTING, expected_source, Assessment.STRONG),)
+    assert CaveatCode.STALE_OPTIONAL_FACTS not in result.caveats
+
+
+def test_future_sat_alone_is_invalid_not_stale() -> None:
+    future = NOW + timedelta(microseconds=1)
+    future_sat_band = ScoreBand(
+        ObservedDecimal(decimal(600), future),
+        ObservedDecimal(decimal(700), future),
+    )
+    result = estimate(
+        school(
+            sat=SchoolSatBands(math=future_sat_band, ebrw=future_sat_band),
+            test_policy=AdmissionsTestPolicy.REQUIRED,
+        ),
+        student(sat_math=decimal(800), sat_ebrw=decimal(800)),
+    )
+
+    assert result.basis is FitBasis.SCHOOL_RATE
+    assert unavailable(result, FitFactor.TESTING).reason is UnavailableReason.TEST_BAND_INVALID
+    assert CaveatCode.STALE_OPTIONAL_FACTS not in result.caveats
+
+
+def test_future_act_alone_is_invalid_not_stale() -> None:
+    future = NOW + timedelta(microseconds=1)
+    future_act_band = ScoreBand(
+        ObservedDecimal(decimal(24), future),
+        ObservedDecimal(decimal(30), future),
+    )
+    result = estimate(
+        school(act=future_act_band, test_policy=AdmissionsTestPolicy.REQUIRED),
+        student(act=decimal(36)),
+    )
+
+    assert result.basis is FitBasis.SCHOOL_RATE
+    assert unavailable(result, FitFactor.TESTING).reason is UnavailableReason.TEST_BAND_INVALID
+    assert CaveatCode.STALE_OPTIONAL_FACTS not in result.caveats
+
+
+@pytest.mark.parametrize(
+    ("school_input", "profile", "expected_source"),
+    [
+        (
+            school(gpa=complete_gpa_distribution(age_days=0)),
+            student(gpa=decimal(4), gpa_scale=decimal(4)),
+            FitSignalSource.GPA_DISTRIBUTION,
+        ),
+        (
+            school(
+                rank=RankDistribution(
+                    observed(20, age_days=0),
+                    observed(50, age_days=0),
+                    observed(85, age_days=0),
+                )
+            ),
+            student(rank=decimal(1), class_size=decimal(100)),
+            FitSignalSource.CLASS_RANK,
+        ),
+        (
+            school(
+                sat=SchoolSatBands(
+                    math=ScoreBand(observed(600, age_days=0), observed(700, age_days=0)),
+                    ebrw=ScoreBand(observed(600, age_days=0), observed(700, age_days=0)),
+                ),
+                test_policy=AdmissionsTestPolicy.REQUIRED,
+            ),
+            student(sat_math=decimal(800), sat_ebrw=decimal(800)),
+            FitSignalSource.SAT,
+        ),
+        (
+            school(
+                act=ScoreBand(observed(24, age_days=0), observed(30, age_days=0)),
+                test_policy=AdmissionsTestPolicy.REQUIRED,
+            ),
+            student(act=decimal(36)),
+            FitSignalSource.ACT,
+        ),
+    ],
+)
+def test_optional_evidence_observed_exactly_now_is_fresh(
+    school_input: SchoolFitInputs,
+    profile: StudentFitInputs,
+    expected_source: FitSignalSource,
+) -> None:
+    result = estimate(school_input, profile)
+
+    assert result.basis is FitBasis.PERSONALIZED
+    factor = (
+        FitFactor.ACADEMIC
+        if expected_source in {FitSignalSource.GPA_DISTRIBUTION, FitSignalSource.CLASS_RANK}
+        else FitFactor.TESTING
+    )
+    assert result.signals == (FitSignal(factor, expected_source, Assessment.STRONG),)
+    assert CaveatCode.STALE_OPTIONAL_FACTS not in result.caveats
 
 
 def test_frozen_dtos_cannot_be_mutated() -> None:

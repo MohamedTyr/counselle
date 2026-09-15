@@ -17,15 +17,20 @@ import pytest
 
 from app.facts.admissions_fit_inputs import (
     ADMISSIONS_FIT_FACT_KEYS,
+    SchoolFitInputAdaptation,
+    school_fit_input_adaptation_from_facts,
     school_fit_inputs_from_facts,
     student_fit_inputs_from_profile,
 )
-from app.workspace.models import Profile
+from app.workspace.models import Academics, ActScore, Profile, SatScore
+from app.workspace.models import Testing as ProfileTesting
 from counselle_db.models import FactValueRow
 from domain.admissions_fit import (
+    CaveatCode,
     FitBasis,
     FitEstimate,
     FitFactor,
+    FitSignalSource,
     ObservedDecimal,
     SchoolFitInputs,
     estimate_admissions_fit,
@@ -95,6 +100,22 @@ def _school(
     stale_after_days: int = STALE_DAYS,
 ) -> SchoolFitInputs:
     return school_fit_inputs_from_facts(
+        admit_rate=admit_rate,
+        facts=rows,
+        now=now,
+        stale_after_days=stale_after_days,
+    )
+
+
+def _adapt(
+    rows: Iterable[FactValueRow] = (),
+    *,
+    admit_rate: object = "35",
+    now: datetime = NOW,
+    stale_after_days: int = STALE_DAYS,
+) -> SchoolFitInputAdaptation:
+    """Exercise the public adapter diagnostic seam without exposing raw rows."""
+    return school_fit_input_adaptation_from_facts(
         admit_rate=admit_rate,
         facts=rows,
         now=now,
@@ -365,7 +386,7 @@ def test_gpa_label_aliases_from_the_normalized_store_are_strictly_parsed_without
                 ],
                 "omitted_buckets": [],
                 "sums_to": "100.0",
-            }
+            },
         },
     )
     malformed_label = row.model_copy(
@@ -458,6 +479,145 @@ def test_missing_or_malformed_band_endpoint_does_not_break_a_valid_other_test_ty
     assert school.act.p25 is not None and school.act.p25.value == Decimal("24")
 
 
+def test_adapter_diagnostics_count_invalid_gpa_even_when_rank_fallback_applies() -> None:
+    """The validation counter describes sources, not only the chosen signal."""
+    source = _fixture_rows("complete_required_school.json")
+    malformed = tuple(
+        row.model_copy(update={"value_type": "text"})
+        if row.fact_key == "class_profile.gpa_distribution"
+        else row.model_copy(update={"value_num": 25})
+        if row.fact_key == "class_profile.class_rank_top_tenth"
+        else row
+        for row in source
+    )
+    adaptation = _adapt(malformed)
+    profile = Profile(
+        academics=Academics(
+            gpa_unweighted=Decimal("3.9"),
+            gpa_scale=Decimal("4"),
+            class_rank=5,
+            class_size=100,
+            school_ranks=True,
+        )
+    )
+
+    assert adaptation.validation_failure_counts == {"gpa_distribution_invalid": 1}
+    estimate = _estimate(adaptation.inputs, profile)
+    assert estimate.signals[0].source is FitSignalSource.CLASS_RANK
+
+
+def test_adapter_diagnostics_count_invalid_rank_even_when_gpa_fallback_applies() -> None:
+    source = _fixture_rows("complete_required_school.json")
+    malformed = tuple(
+        row.model_copy(update={"value_num": 95})
+        if row.fact_key == "class_profile.class_rank_top_tenth"
+        else row.model_copy(update={"value_num": 50})
+        if row.fact_key == "class_profile.class_rank_top_quarter"
+        else row
+        for row in source
+    )
+    adaptation = _adapt(malformed)
+    profile = Profile(
+        academics=Academics(
+            gpa_unweighted=Decimal("4.0"),
+            gpa_scale=Decimal("4"),
+            class_rank=5,
+            class_size=100,
+            school_ranks=True,
+        )
+    )
+
+    assert adaptation.validation_failure_counts == {"rank_distribution_invalid": 1}
+    estimate = _estimate(adaptation.inputs, profile)
+    assert estimate.signals[0].source is FitSignalSource.GPA_DISTRIBUTION
+
+
+def test_adapter_diagnostics_count_invalid_sat_or_act_band_despite_valid_other_test() -> None:
+    source = _fixture_rows("complete_required_school.json")
+    invalid_sat = tuple(
+        row.model_copy(update={"value_num": 800})
+        if row.fact_key == "class_profile.sat_math_p25"
+        else row
+        for row in source
+    )
+    invalid_act = tuple(
+        row.model_copy(update={"value_num": 32})
+        if row.fact_key == "class_profile.act_composite_p25"
+        else row
+        for row in source
+    )
+    profile = Profile(
+        testing=ProfileTesting(sat=SatScore(math=750, ebrw=750), act=ActScore(composite=34))
+    )
+
+    sat_adaptation = _adapt(invalid_sat)
+    act_adaptation = _adapt(invalid_act)
+
+    assert sat_adaptation.validation_failure_counts == {"test_band_invalid": 1}
+    assert act_adaptation.validation_failure_counts == {"test_band_invalid": 1}
+    assert _estimate(sat_adaptation.inputs, profile).signals[0].source is FitSignalSource.ACT
+    assert _estimate(act_adaptation.inputs, profile).signals[0].source is FitSignalSource.SAT
+
+
+def test_adapter_diagnostics_count_malformed_or_unknown_policy_but_not_absence_or_staleness() -> (
+    None
+):
+    malformed = _row("admissions.test_policy_sat_or_act", value_type="text", value_text="required")
+    unknown = _row(
+        "admissions.test_policy_sat_or_act", value_type="enum", value_text="unrecognized"
+    )
+    known_not_reported = _row(
+        "admissions.test_policy_sat_or_act", value_type="enum", value_text="not_reported"
+    )
+    stale = _row(
+        "admissions.test_policy_sat_or_act",
+        value_type="enum",
+        value_text="required",
+        observed_at=NOW - timedelta(days=STALE_DAYS + 1),
+    )
+
+    assert _adapt((malformed,)).validation_failure_counts == {"test_policy_invalid": 1}
+    assert _adapt((unknown,)).validation_failure_counts == {"test_policy_invalid": 1}
+    assert _adapt((known_not_reported,)).validation_failure_counts == {}
+    assert _adapt((stale,)).validation_failure_counts == {}
+    assert _adapt(()).validation_failure_counts == {}
+    assert _adapt(_fixture_rows("not_reported_gpa.json")).validation_failure_counts == {}
+
+
+def test_adapter_diagnostics_do_not_count_stale_malformed_school_sources() -> None:
+    """Freshness wins for telemetry just as it does for adjustment eligibility."""
+    stale = NOW - timedelta(days=STALE_DAYS + 1)
+    stale_gpa = _row(
+        "class_profile.gpa_distribution",
+        value_type="text",
+        value={"kind": "distribution", "value": {"scale": "gpa"}},
+        observed_at=stale,
+    )
+    stale_rank = (
+        _row(
+            "class_profile.class_rank_top_tenth",
+            value_type="text",
+            value_num=95,
+            observed_at=stale,
+        ),
+        _row("class_profile.class_rank_top_quarter", value_num=50, observed_at=stale),
+        _row("class_profile.class_rank_top_half", value_num=80, observed_at=stale),
+    )
+    stale_act = (
+        _row(
+            "class_profile.act_composite_p25",
+            value_type="text",
+            value_num=32,
+            observed_at=stale,
+        ),
+        _row("class_profile.act_composite_p75", value_num=31, observed_at=stale),
+    )
+
+    assert _adapt((stale_gpa,)).validation_failure_counts == {}
+    assert _adapt(stale_rank).validation_failure_counts == {}
+    assert _adapt(stale_act).validation_failure_counts == {}
+
+
 @pytest.mark.parametrize(
     "value_text",
     (
@@ -536,6 +696,136 @@ def test_stale_boundary_and_future_observations_use_closed_reason_codes() -> Non
     )
     assert stale_academic.reason.value == "gpa_distribution_stale"
     assert future_academic.reason.value == "gpa_distribution_invalid"
+    assert CaveatCode.STALE_OPTIONAL_FACTS in stale_result.caveats
+    assert CaveatCode.STALE_OPTIONAL_FACTS not in future_result.caveats
+
+
+def test_stale_malformed_gpa_is_caveated_even_when_current_rank_fallback_wins() -> None:
+    """Provenance survives a malformed source and does not depend on the winner."""
+    source = _fixture_rows("complete_required_school.json")
+    stale_malformed_gpa = next(
+        row
+        for row in source
+        if row.fact_key == "class_profile.gpa_distribution"
+    ).model_copy(
+        update={
+            "value_type": "text",
+            "observed_at": NOW - timedelta(days=STALE_DAYS + 1),
+        }
+    )
+    rank_rows = tuple(
+        row.model_copy(
+            update={
+                "value_num": 10
+                if row.fact_key.endswith("top_tenth")
+                else 50
+                if row.fact_key.endswith("top_quarter")
+                else 80,
+                "observed_at": NOW,
+            }
+        )
+        for row in source
+        if row.fact_key.startswith("class_profile.class_rank_")
+    )
+    profile = Profile.model_validate(
+        {
+            "academics": {
+                "gpa_unweighted": "4",
+                "gpa_scale": "4",
+                "class_rank": 1,
+                "class_size": 100,
+            }
+        }
+    )
+
+    result = _estimate(_school((stale_malformed_gpa, *rank_rows), admit_rate=45), profile)
+
+    assert result.signals[0].source is FitSignalSource.CLASS_RANK
+    assert CaveatCode.STALE_OPTIONAL_FACTS in result.caveats
+
+
+def test_stale_invalid_rank_is_caveated_even_when_current_gpa_wins() -> None:
+    source = _fixture_rows("complete_required_school.json")
+    gpa = next(
+        row.model_copy(update={"observed_at": NOW})
+        for row in source
+        if row.fact_key == "class_profile.gpa_distribution"
+    )
+    stale_invalid_rank = tuple(
+        row.model_copy(
+            update={
+                "value_num": 95 if row.fact_key.endswith("top_tenth") else 50,
+                "observed_at": NOW - timedelta(days=STALE_DAYS + 1),
+            }
+        )
+        for row in source
+        if row.fact_key.startswith("class_profile.class_rank_")
+    )
+    profile = Profile.model_validate(
+        {
+            "academics": {
+                "gpa_unweighted": "4",
+                "gpa_scale": "4",
+                "class_rank": 1,
+                "class_size": 100,
+            }
+        }
+    )
+
+    result = _estimate(_school((gpa, *stale_invalid_rank), admit_rate=45), profile)
+
+    assert result.signals[0].source is FitSignalSource.GPA_DISTRIBUTION
+    assert CaveatCode.STALE_OPTIONAL_FACTS in result.caveats
+
+
+def test_stale_malformed_sat_band_is_caveated_even_when_current_act_wins() -> None:
+    source = _fixture_rows("complete_required_school.json")
+    stale_malformed_sat = tuple(
+        row.model_copy(
+            update={
+                "value_type": "text" if row.fact_key.endswith("p25") else row.value_type,
+                "observed_at": NOW - timedelta(days=STALE_DAYS + 1),
+            }
+        )
+        for row in source
+        if row.fact_key.startswith("class_profile.sat_")
+    )
+    act_rows = tuple(
+        row.model_copy(update={"observed_at": NOW})
+        for row in source
+        if row.fact_key.startswith("class_profile.act_")
+    )
+    policy = next(
+        row.model_copy(update={"observed_at": NOW})
+        for row in source
+        if row.fact_key == "admissions.test_policy_sat_or_act"
+    )
+    profile = Profile.model_validate(
+        {"testing": {"sat": {"math": 800, "ebrw": 800}, "act": {"composite": 36}}}
+    )
+
+    result = _estimate(_school((*stale_malformed_sat, *act_rows, policy), admit_rate=45), profile)
+
+    assert result.signals[0].source is FitSignalSource.ACT
+    assert CaveatCode.STALE_OPTIONAL_FACTS in result.caveats
+
+
+def test_fresh_complete_optional_facts_do_not_claim_stale_provenance() -> None:
+    profile = Profile.model_validate({"academics": {"gpa_unweighted": "4", "gpa_scale": "4"}})
+
+    result = _estimate(
+        _school(
+            tuple(
+                row.model_copy(update={"observed_at": NOW})
+                for row in _fixture_rows("complete_required_school.json")
+            ),
+            admit_rate=45,
+        ),
+        profile,
+    )
+
+    assert result.signals[0].source is FitSignalSource.GPA_DISTRIBUTION
+    assert CaveatCode.STALE_OPTIONAL_FACTS not in result.caveats
 
 
 def test_bad_optional_gpa_fact_cannot_throw_or_discard_valid_rank_and_test_inputs() -> None:

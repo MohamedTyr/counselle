@@ -29,17 +29,20 @@ from unittest.mock import AsyncMock
 from uuid import uuid4
 
 import pytest
+import structlog
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from structlog.testing import capture_logs
 
 from adapters.facts_store import EXPLORE_COLUMNS
+from api import context as api_context
 from api.auth import current_active_user
 from api.context import ERROR_MESSAGE, install_middleware
 from api.routes import schools_facts as schools_facts_routes
 from app.facts.explore_models import ExploreResponse, FilterOptions, FitProfileSummary
 from app.workspace.models import Academics, Profile
-from config.logging import setup_logging
 from counselle_db import service as db_service
+from counselle_db.admissions_fit_evidence import record_admissions_fit_batch_read_receipt
 from counselle_db.models import FactValueRow
 from tests.api.conftest import _test_user
 
@@ -242,6 +245,91 @@ def test_explore_route_does_not_replace_a_profile_read_failure_with_empty_profil
     mock.assert_not_awaited()
 
 
+def test_explore_route_observes_one_aggregate_after_profile_read_and_service_success(
+    monkeypatch: Any,
+) -> None:
+    """The request boundary includes the select-only saved-Profile read."""
+    clock_values = iter((10.0, 13.25))
+    async def mock(*_: object) -> ExploreResponse:
+        record_admissions_fit_batch_read_receipt(
+            batch_query_latency_ms=7,
+            fact_row_drop_counts={"invalid_detail_row": 2},
+        )
+        return _empty_explore_response()
+    read_profile = AsyncMock(return_value=Profile())
+    monkeypatch.setattr(schools_facts_routes, "run_explore", mock)
+    monkeypatch.setattr(schools_facts_routes, "read_profile_or_empty", read_profile)
+    monkeypatch.setattr(
+        "counselle_db.admissions_fit_evidence._monotonic_clock", lambda: next(clock_values)
+    )
+    app = FastAPI()
+    app.include_router(schools_facts_routes.router, prefix="/v1")
+    app.dependency_overrides[current_active_user] = _test_user
+    app.state.runtime = SimpleNamespace(deps=SimpleNamespace(catalog=object()), app_pool=object())
+    app.state.settings = object()
+
+    with capture_logs() as logs:
+        response = TestClient(app).get("/v1/schools/explore")
+
+    assert response.status_code == 200
+    assert logs == [
+        {
+            "event": "admissions_fit_explore_observed",
+            "outcome": "succeeded",
+            "basis_counts": {},
+            "category_counts": {},
+            "applied_signal_counts": {},
+            "unavailable_reason_counts": {},
+            "validation_failure_counts": {},
+            "fact_row_drop_counts": {"invalid_detail_row": 2},
+            "batch_query_latency_ms": 7,
+            "total_explore_latency_ms": 3250,
+            "log_level": "info",
+        }
+    ]
+
+
+def test_explore_route_profile_failure_emits_one_safe_failure_observation(
+    monkeypatch: Any,
+) -> None:
+    clock_values = iter((50.0, 51.0))
+    marker = "PROFILE-READ-SECRET"
+    mock = AsyncMock(return_value=_empty_explore_response())
+    read_profile = AsyncMock(side_effect=RuntimeError(marker))
+    monkeypatch.setattr(schools_facts_routes, "run_explore", mock)
+    monkeypatch.setattr(schools_facts_routes, "read_profile_or_empty", read_profile)
+    monkeypatch.setattr(
+        "counselle_db.admissions_fit_evidence._monotonic_clock", lambda: next(clock_values)
+    )
+    app = FastAPI()
+    app.include_router(schools_facts_routes.router, prefix="/v1")
+    app.dependency_overrides[current_active_user] = _test_user
+    app.state.runtime = SimpleNamespace(deps=SimpleNamespace(catalog=object()), app_pool=object())
+    app.state.settings = object()
+
+    with capture_logs() as logs:
+        response = TestClient(app, raise_server_exceptions=False).get("/v1/schools/explore")
+
+    assert response.status_code == 500
+    mock.assert_not_awaited()
+    assert len(logs) == 1
+    event = logs[0]
+    assert event == {
+        "event": "admissions_fit_explore_observed",
+        "outcome": "failed",
+        "basis_counts": {},
+        "category_counts": {},
+        "applied_signal_counts": {},
+        "unavailable_reason_counts": {},
+        "validation_failure_counts": {},
+        "fact_row_drop_counts": {},
+        "batch_query_latency_ms": None,
+        "total_explore_latency_ms": 1000,
+        "log_level": "info",
+    }
+    assert marker not in repr(event)
+
+
 def test_explore_route_keeps_identical_queries_isolated_by_authenticated_owner(
     monkeypatch: Any,
 ) -> None:
@@ -276,9 +364,9 @@ def test_explore_route_keeps_identical_queries_isolated_by_authenticated_owner(
 
 
 def test_explore_route_hides_corrupt_persisted_profile_from_error_envelope_and_logs(
-    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """The normal 500 path must not log or return persisted Profile contents."""
+    """The normal 500 path logs its event without persisted Profile contents."""
     marker = "SENSITIVE-PROFILE-MARKER"
     user = _test_user()
     pool = _ProfileReadPool(
@@ -286,14 +374,78 @@ def test_explore_route_hides_corrupt_persisted_profile_from_error_envelope_and_l
     )
     app = _route_app(app_pool=pool)
     app.dependency_overrides[current_active_user] = lambda: user
-    setup_logging("ERROR", force=True)
 
-    response = TestClient(app, raise_server_exceptions=False).get("/v1/schools/explore")
+    # `capture_logs()` swaps structlog's global processor list in place, but a
+    # module-level lazy proxy may already have resolved and cached a bound
+    # logger from another test.  Rebinding this handler's logger *inside* the
+    # capture gives the assertion a logger that is guaranteed to use the test
+    # processor.  The scoped monkeypatch and capture context restore both
+    # globals before this test returns.
+    original_logger = api_context.logger
+    configured_before = structlog.is_configured()
+    config_before = structlog.get_config()
+    processors_before = tuple(config_before["processors"])
 
-    assert response.status_code == 500
-    assert response.json()["error"]["message"] == ERROR_MESSAGE
-    assert marker not in response.text
-    assert marker not in capsys.readouterr().err
+    def restore_structlog_config() -> None:
+        if configured_before:
+            structlog.configure(
+                processors=config_before["processors"],
+                context_class=config_before["context_class"],
+                wrapper_class=config_before["wrapper_class"],
+                logger_factory=config_before["logger_factory"],
+                cache_logger_on_first_use=config_before["cache_logger_on_first_use"],
+            )
+        else:
+            structlog.reset_defaults()
+
+    try:
+        with monkeypatch.context() as scoped_monkeypatch, capture_logs() as logs:
+            # A caller may have cached a CRITICAL filtering wrapper before this
+            # test runs.  The route's error must still reach the capture sink;
+            # this test owns the sink, not the application's log threshold.
+            structlog.configure(wrapper_class=structlog.BoundLogger)
+            scoped_monkeypatch.setattr(
+                api_context, "logger", structlog.get_logger("api.context")
+            )
+            response = TestClient(app, raise_server_exceptions=False).get(
+                "/v1/schools/explore"
+            )
+
+        # capture_logs() necessarily calls structlog.configure(). Restore an
+        # initially-unconfigured process before checking the complete config,
+        # and repeat that reset in the finally block below if any assertion or
+        # request unexpectedly raises.
+        restore_structlog_config()
+        assert structlog.is_configured() is configured_before
+
+        assert response.status_code == 500
+        assert response.json()["error"]["message"] == ERROR_MESSAGE
+        assert marker not in response.text
+        observed = [event for event in logs if event["event"] == "admissions_fit_explore_observed"]
+        unhandled = [event for event in logs if event["event"] == "unhandled_exception"]
+        assert len(observed) == 1
+        assert len(unhandled) == 1
+        assert all(marker not in repr(event) for event in logs)
+        event = unhandled[0]
+        assert event["event"] == "unhandled_exception"
+        assert event["log_level"] == "error"
+        assert marker not in event["error"]
+        assert marker not in event["traceback"]
+        assert marker not in str(event)
+
+        assert api_context.logger is original_logger
+        config_after = structlog.get_config()
+        assert config_after == config_before
+        if configured_before:
+            assert config_after["processors"] is config_before["processors"]
+        assert tuple(config_after["processors"]) == processors_before
+        assert (
+            config_after["cache_logger_on_first_use"]
+            is config_before["cache_logger_on_first_use"]
+        )
+    finally:
+        restore_structlog_config()
+        assert structlog.is_configured() is configured_before
 
 
 def test_explore_route_uses_each_owners_saved_scores_not_opposing_url_scores(

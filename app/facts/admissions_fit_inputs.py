@@ -9,9 +9,12 @@ domain shape; an unexpected row must never make a whole Explore card fail.
 from __future__ import annotations
 
 import re
+from collections import Counter
 from collections.abc import Iterable, Mapping
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 from decimal import Decimal, InvalidOperation
+from types import MappingProxyType
 from typing import Any
 
 from app.workspace.models import Profile
@@ -21,6 +24,7 @@ from domain.admissions_fit import (
     GpaDistribution,
     ObservedDecimal,
     RankDistribution,
+    SchoolFactValidationFailure,
     SchoolFitInputs,
     SchoolSatBands,
     ScoreBand,
@@ -65,6 +69,38 @@ _GPA_SUM_MAX = Decimal("100.5")
 _GPA_RANGE_LABEL = re.compile(r"^\s*(?P<lower>\d+(?:\.\d+)?)\s*[-–]\s*(?P<upper>\d+(?:\.\d+)?)\s*$")
 _GPA_OPEN_LABEL = re.compile(r"^\s*(?P<lower>\d+(?:\.\d+)?)\s+(?:and|&)\s+above\s*$", re.IGNORECASE)
 
+_RECOGNIZED_NON_REQUIRED_POLICY_CODES = frozenset(
+    {
+        "considered_if_submitted",
+        "not_used_if_submitted",
+        "recommended",
+        "required_for_some",
+        "not_reported",
+    }
+)
+
+
+@dataclass(frozen=True, slots=True)
+class SchoolFitInputAdaptation:
+    """One normalized school input plus bounded optional-source diagnostics.
+
+    ``inputs`` remains entirely inside the app calculation path.  The only
+    diagnostic payload eligible for request telemetry is
+    ``validation_failure_counts``: closed source-validation reason codes and
+    positive counts, with no fact rows, school identity, or student values.
+    """
+
+    inputs: SchoolFitInputs
+    validation_failure_counts: Mapping[SchoolFactValidationFailure, int]
+
+
+@dataclass(frozen=True, slots=True)
+class _SourceAdaptation[SourceValue]:
+    """A parser decision shared by calculator input assembly and telemetry."""
+
+    value: SourceValue
+    validation_failure: SchoolFactValidationFailure | None = None
+
 
 def student_fit_inputs_from_profile(profile: Profile | None) -> StudentFitInputs:
     """Select the exact saved-Profile fields comparable in admissions-fit-v1."""
@@ -95,30 +131,116 @@ def school_fit_inputs_from_facts(
 ) -> SchoolFitInputs:
     """Build one immutable school input without trusting optional fact rows.
 
+    This compatibility helper intentionally discards diagnostics.  Explore
+    uses :func:`school_fit_input_adaptation_from_facts` so request telemetry
+    can retain the same parser decisions without changing this public input
+    API or any evidence-tool caller.
+    """
+    return school_fit_input_adaptation_from_facts(
+        admit_rate=admit_rate,
+        facts=facts,
+        now=now,
+        stale_after_days=stale_after_days,
+    ).inputs
+
+
+def school_fit_input_adaptation_from_facts(
+    *,
+    admit_rate: object,
+    facts: Iterable[FactValueRow],
+    now: datetime,
+    stale_after_days: int,
+) -> SchoolFitInputAdaptation:
+    """Build one immutable school input without trusting optional fact rows.
+
     ``now`` is request-owned and explicit.  We retain a valid old observation
     for the domain calculator to report as stale, but never let future or
     malformed observation timestamps masquerade as fresh evidence.  Policy is
     intentionally more conservative: its DTO has no timestamp, so an old
     ``required`` row becomes ``not_required_or_unknown``.
     """
-    rows = _unique_allowed_rows(facts)
-    return SchoolFitInputs(
-        admit_rate=_decimal(admit_rate),
-        gpa_distribution=_gpa_distribution(rows.get(_GPA_DISTRIBUTION_KEY), now),
-        rank_distribution=_rank_distribution(rows, now, stale_after_days),
-        sat=SchoolSatBands(
-            math=_score_band(
-                rows, _SAT_MATH_KEYS, _SAT_MIN, _SAT_MAX, now, stale_after_days
-            ),
-            ebrw=_score_band(
-                rows, _SAT_EBRW_KEYS, _SAT_MIN, _SAT_MAX, now, stale_after_days
-            ),
-        )
-        if _has_any(rows, (*_SAT_MATH_KEYS, *_SAT_EBRW_KEYS))
-        else None,
-        act=_score_band(rows, _ACT_KEYS, _ACT_MIN, _ACT_MAX, now, stale_after_days),
-        test_policy=_test_policy(rows.get(_POLICY_KEY), now, stale_after_days),
+    # Materialize the small, fixed-key batch once.  Provenance must be carried
+    # independently of parser success: a stale malformed row is still stale
+    # evidence and cannot disappear merely because a fresh fallback wins.
+    fact_rows = _allowed_fact_rows(facts)
+    rows = _unique_allowed_rows(fact_rows)
+    stale_optional_facts = any(
+        _is_genuinely_stale_optional_row(row, now, stale_after_days) for row in fact_rows
     )
+    gpa = _gpa_distribution_adaptation(rows.get(_GPA_DISTRIBUTION_KEY), now)
+    gpa = _suppress_noncurrent_validation_failure(
+        gpa, (rows.get(_GPA_DISTRIBUTION_KEY),), now, stale_after_days
+    )
+    rank = _rank_distribution_adaptation(rows, now, stale_after_days)
+    rank = _suppress_noncurrent_validation_failure(
+        rank, (rows.get(key) for key in _RANK_KEYS), now, stale_after_days
+    )
+    sat_math = _score_band_adaptation(
+        rows, _SAT_MATH_KEYS, _SAT_MIN, _SAT_MAX, now, stale_after_days
+    )
+    sat_math = _suppress_noncurrent_validation_failure(
+        sat_math, (rows.get(key) for key in _SAT_MATH_KEYS), now, stale_after_days
+    )
+    sat_ebrw = _score_band_adaptation(
+        rows, _SAT_EBRW_KEYS, _SAT_MIN, _SAT_MAX, now, stale_after_days
+    )
+    sat_ebrw = _suppress_noncurrent_validation_failure(
+        sat_ebrw, (rows.get(key) for key in _SAT_EBRW_KEYS), now, stale_after_days
+    )
+    act = _score_band_adaptation(rows, _ACT_KEYS, _ACT_MIN, _ACT_MAX, now, stale_after_days)
+    act = _suppress_noncurrent_validation_failure(
+        act, (rows.get(key) for key in _ACT_KEYS), now, stale_after_days
+    )
+    policy = _test_policy_adaptation(rows.get(_POLICY_KEY), now, stale_after_days)
+    adaptations = (gpa, rank, sat_math, sat_ebrw, act, policy)
+    failures: Counter[SchoolFactValidationFailure] = Counter(
+        source.validation_failure for source in adaptations if source.validation_failure is not None
+    )
+    return SchoolFitInputAdaptation(
+        inputs=SchoolFitInputs(
+            admit_rate=_decimal(admit_rate),
+            stale_optional_facts=stale_optional_facts,
+            gpa_distribution=gpa.value,
+            rank_distribution=rank.value,
+            sat=SchoolSatBands(
+                math=sat_math.value,
+                ebrw=sat_ebrw.value,
+            )
+            if _has_any(rows, (*_SAT_MATH_KEYS, *_SAT_EBRW_KEYS))
+            else None,
+            act=act.value,
+            test_policy=policy.value,
+        ),
+        validation_failure_counts=MappingProxyType(
+            dict(sorted(failures.items(), key=lambda item: item[0].value))
+        ),
+    )
+
+
+def _suppress_noncurrent_validation_failure[SourceValue](
+    adaptation: _SourceAdaptation[SourceValue],
+    rows: Iterable[FactValueRow | None],
+    now: datetime,
+    stale_after_days: int,
+) -> _SourceAdaptation[SourceValue]:
+    """Keep stale/future sources unavailable without calling them malformed.
+
+    The parser still creates the exact domain sentinel it always did.  This
+    helper only removes its aggregate telemetry code if at least one source
+    row is not current, using the same freshness rule as the policy parser
+    and calculator.  A missing row already has no validation failure.
+    """
+    typed_rows = tuple(row for row in rows if isinstance(row, FactValueRow))
+    if (
+        adaptation.validation_failure is None
+        or not typed_rows
+        or all(
+            _is_current_observation(_observation(row, now), now, stale_after_days)
+            for row in typed_rows
+        )
+    ):
+        return adaptation
+    return _SourceAdaptation(adaptation.value)
 
 
 _SAT_MIN = Decimal("200")
@@ -164,13 +286,57 @@ def _unique_allowed_rows(facts: Iterable[FactValueRow]) -> dict[str, FactValueRo
     return {key: rows[0] for key, rows in grouped.items() if len(rows) == 1}
 
 
+def _allowed_fact_rows(facts: Iterable[FactValueRow]) -> tuple[FactValueRow, ...]:
+    """Retain only closed-contract rows without trusting the iterable shape."""
+    try:
+        iterator = iter(facts)
+    except TypeError:
+        return ()
+    return tuple(
+        row
+        for row in iterator
+        if isinstance(row, FactValueRow) and row.fact_key in ADMISSIONS_FIT_FACT_KEYS
+    )
+
+
+def _is_genuinely_stale_optional_row(
+    row: FactValueRow,
+    now: datetime,
+    stale_after_days: int,
+) -> bool:
+    """Return whether a usable-age optional fact was observed too long ago.
+
+    Explicit ``not_reported`` is an absence, not stale evidence.  Future and
+    malformed timestamps are invalid provenance and must not borrow the stale
+    caveat.  This intentionally runs before per-source shape validation.
+    """
+    if _row_is_explicitly_not_reported(row) or row.value_text == "not_reported":
+        return False
+    observed_at = row.observed_at
+    if (
+        not _valid_now(now)
+        or not isinstance(observed_at, datetime)
+        or observed_at.tzinfo is None
+        or not isinstance(stale_after_days, int)
+    ):
+        return False
+    try:
+        if observed_at > now:
+            return False
+        return now - observed_at > timedelta(days=max(stale_after_days, 0))
+    except (OverflowError, TypeError):
+        return False
+
+
 def _has_any(rows: Mapping[str, FactValueRow], keys: tuple[str, ...]) -> bool:
     return any(key in rows for key in keys)
 
 
-def _gpa_distribution(row: FactValueRow | None, now: datetime) -> GpaDistribution | None:
+def _gpa_distribution_adaptation(
+    row: FactValueRow | None, now: datetime
+) -> _SourceAdaptation[GpaDistribution | None]:
     if row is None:
-        return None
+        return _SourceAdaptation(None)
     observed_at = _observation(row, now)
     payload = _wrapped_value(row)
     if (
@@ -179,7 +345,7 @@ def _gpa_distribution(row: FactValueRow | None, now: datetime) -> GpaDistributio
         or row.value.get("kind") != "distribution"
         or payload is None
     ):
-        return _invalid_gpa_distribution(observed_at)
+        return _invalid_gpa_adaptation(observed_at)
     scale = payload.get("scale")
     buckets = payload.get("buckets")
     omitted = payload.get("omitted_buckets")
@@ -193,10 +359,18 @@ def _gpa_distribution(row: FactValueRow | None, now: datetime) -> GpaDistributio
         or declared_total is None
         or not _between(declared_total, _GPA_SUM_MIN, _GPA_SUM_MAX)
     ):
-        return _invalid_gpa_distribution(observed_at)
+        return _invalid_gpa_adaptation(
+            observed_at,
+            not_reported=_gpa_payload_has_not_reported_bucket(payload)
+            or isinstance(omitted, list)
+            and bool(omitted),
+        )
     parsed = tuple(_gpa_bucket(item) for item in buckets)
     if any(bucket is None for bucket in parsed):
-        return _invalid_gpa_distribution(observed_at)
+        return _invalid_gpa_adaptation(
+            observed_at,
+            not_reported=_gpa_payload_has_not_reported_bucket(payload),
+        )
     typed = tuple(
         sorted(
             (bucket for bucket in parsed if isinstance(bucket, GpaBucket)),
@@ -204,13 +378,25 @@ def _gpa_distribution(row: FactValueRow | None, now: datetime) -> GpaDistributio
         )
     )
     if not _valid_gpa_buckets(typed, declared_total):
-        return _invalid_gpa_distribution(observed_at)
-    return GpaDistribution(
-        value_type="distribution",
-        scale="gpa",
-        complete=True,
-        observed_at=observed_at,
-        buckets=typed,
+        return _invalid_gpa_adaptation(observed_at)
+    return _SourceAdaptation(
+        GpaDistribution(
+            value_type="distribution",
+            scale="gpa",
+            complete=True,
+            observed_at=observed_at,
+            buckets=typed,
+        )
+    )
+
+
+def _invalid_gpa_adaptation(
+    observed_at: datetime | None, *, not_reported: bool = False
+) -> _SourceAdaptation[GpaDistribution]:
+    """Treat explicit absence/incompleteness differently from malformed data."""
+    return _SourceAdaptation(
+        _invalid_gpa_distribution(observed_at),
+        None if not_reported else SchoolFactValidationFailure.GPA_DISTRIBUTION_INVALID,
     )
 
 
@@ -230,6 +416,14 @@ def _wrapped_value(row: FactValueRow) -> Mapping[str, Any] | None:
         return None
     payload = row.value.get("value")
     return payload if isinstance(payload, Mapping) else None
+
+
+def _gpa_payload_has_not_reported_bucket(payload: Mapping[str, Any]) -> bool:
+    buckets = payload.get("buckets")
+    return isinstance(buckets, list) and any(
+        isinstance(bucket, Mapping) and bucket.get("absence") == "not_reported"
+        for bucket in buckets
+    )
 
 
 def _gpa_bucket(value: object) -> GpaBucket | None:
@@ -286,24 +480,28 @@ def _valid_gpa_buckets(buckets: tuple[GpaBucket, ...], declared_total: Decimal) 
             return False
         previous_upper = bucket.upper
         total += bucket.percentage
-    return (
-        _between(total, _GPA_SUM_MIN, _GPA_SUM_MAX)
-        and _between(declared_total, _GPA_SUM_MIN, _GPA_SUM_MAX)
+    return _between(total, _GPA_SUM_MIN, _GPA_SUM_MAX) and _between(
+        declared_total, _GPA_SUM_MIN, _GPA_SUM_MAX
     )
 
 
-def _rank_distribution(
+def _rank_distribution_adaptation(
     rows: Mapping[str, FactValueRow], now: datetime, stale_after_days: int
-) -> RankDistribution | None:
+) -> _SourceAdaptation[RankDistribution | None]:
     rank_rows = tuple(rows.get(key) for key in _RANK_KEYS)
     if any(row is None for row in rank_rows):
-        return None
+        return _SourceAdaptation(None)
     typed_rows = tuple(row for row in rank_rows if isinstance(row, FactValueRow))
+    if any(_row_is_explicitly_not_reported(row) for row in typed_rows):
+        return _SourceAdaptation(_invalid_rank_distribution(()))
     if any(row.value_type != "percent" for row in typed_rows):
-        return _invalid_rank_distribution(())
+        return _invalid_rank_adaptation(())
     observations = tuple(_observed_numeric(row, now) for row in typed_rows)
     if not _all_observations_valid(observations):
-        return _invalid_rank_distribution(observations)
+        return _invalid_rank_adaptation(
+            observations,
+            structurally_invalid=not _all_numeric_values_present(typed_rows),
+        )
     values = tuple(item.value for item in observations)
     assert all(value is not None for value in values)
     typed_values = tuple(value for value in values if value is not None)
@@ -312,9 +510,20 @@ def _rank_distribution(
         or typed_values[0] > typed_values[1]
         or typed_values[1] > typed_values[2]
     ):
-        return _invalid_rank_distribution(observations)
-    return RankDistribution(
-        top_tenth=observations[0], top_quarter=observations[1], top_half=observations[2]
+        return _invalid_rank_adaptation(observations)
+    return _SourceAdaptation(
+        RankDistribution(
+            top_tenth=observations[0], top_quarter=observations[1], top_half=observations[2]
+        )
+    )
+
+
+def _invalid_rank_adaptation(
+    observations: tuple[ObservedDecimal, ...], *, structurally_invalid: bool = True
+) -> _SourceAdaptation[RankDistribution]:
+    return _SourceAdaptation(
+        _invalid_rank_distribution(observations),
+        SchoolFactValidationFailure.RANK_DISTRIBUTION_INVALID if structurally_invalid else None,
     )
 
 
@@ -327,19 +536,28 @@ def _invalid_rank_distribution(observations: tuple[ObservedDecimal, ...]) -> Ran
     )
 
 
-def _score_band(
+def _score_band_adaptation(
     rows: Mapping[str, FactValueRow],
     keys: tuple[str, str],
     minimum: Decimal,
     maximum: Decimal,
     now: datetime,
     stale_after_days: int,
-) -> ScoreBand | None:
+) -> _SourceAdaptation[ScoreBand | None]:
     low, high = (rows.get(key) for key in keys)
     if low is None or high is None:
-        return None
+        return _SourceAdaptation(None)
+    if _row_is_explicitly_not_reported(low) or _row_is_explicitly_not_reported(high):
+        return _SourceAdaptation(
+            _invalid_score_band(
+                (
+                    ObservedDecimal(None, _observation(low, now)),
+                    ObservedDecimal(None, _observation(high, now)),
+                )
+            )
+        )
     if low.value_type != "count" or high.value_type != "count":
-        return _invalid_score_band(
+        return _invalid_score_band_adaptation(
             (
                 ObservedDecimal(None, _observation(low, now)),
                 ObservedDecimal(None, _observation(high, now)),
@@ -347,7 +565,10 @@ def _score_band(
         )
     observations = (_observed_numeric(low, now), _observed_numeric(high, now))
     if not _all_observations_valid(observations):
-        return _invalid_score_band(observations)
+        return _invalid_score_band_adaptation(
+            observations,
+            structurally_invalid=not _all_numeric_values_present((low, high)),
+        )
     low_value, high_value = (item.value for item in observations)
     assert low_value is not None and high_value is not None
     if not _any_stale(observations, now, stale_after_days) and (
@@ -355,8 +576,17 @@ def _score_band(
         or not _between(high_value, minimum, maximum)
         or low_value >= high_value
     ):
-        return _invalid_score_band(observations)
-    return ScoreBand(p25=observations[0], p75=observations[1])
+        return _invalid_score_band_adaptation(observations)
+    return _SourceAdaptation(ScoreBand(p25=observations[0], p75=observations[1]))
+
+
+def _invalid_score_band_adaptation(
+    observations: tuple[ObservedDecimal, ObservedDecimal], *, structurally_invalid: bool = True
+) -> _SourceAdaptation[ScoreBand]:
+    return _SourceAdaptation(
+        _invalid_score_band(observations),
+        SchoolFactValidationFailure.TEST_BAND_INVALID if structurally_invalid else None,
+    )
 
 
 def _invalid_score_band(observations: tuple[ObservedDecimal, ObservedDecimal]) -> ScoreBand:
@@ -368,6 +598,25 @@ def _invalid_score_band(observations: tuple[ObservedDecimal, ObservedDecimal]) -
 
 def _observed_numeric(row: FactValueRow, now: datetime) -> ObservedDecimal:
     return ObservedDecimal(_decimal(row.value_num), _observation(row, now))
+
+
+def _all_numeric_values_present(rows: Iterable[FactValueRow]) -> bool:
+    return all(_decimal(row.value_num) is not None for row in rows)
+
+
+def _row_is_explicitly_not_reported(row: FactValueRow) -> bool:
+    """Recognize a persisted absence without interpreting display prose."""
+    return _contains_not_reported_marker(row.value)
+
+
+def _contains_not_reported_marker(value: object) -> bool:
+    if isinstance(value, Mapping):
+        if value.get("absence") == "not_reported":
+            return True
+        return any(_contains_not_reported_marker(item) for item in value.values())
+    if isinstance(value, list):
+        return any(_contains_not_reported_marker(item) for item in value)
+    return False
 
 
 def _all_observations_valid(observations: tuple[ObservedDecimal, ...]) -> bool:
@@ -385,15 +634,28 @@ def _any_stale(
     )
 
 
-def _test_policy(row: FactValueRow | None, now: datetime, stale_after_days: int) -> TestPolicy:
-    if (
-        row is not None
-        and row.value_type == "enum"
-        and row.value_text == "required"
-        and _is_current_observation(_observation(row, now), now, stale_after_days)
-    ):
-        return TestPolicy.REQUIRED
-    return TestPolicy.NOT_REQUIRED_OR_UNKNOWN
+def _test_policy_adaptation(
+    row: FactValueRow | None, now: datetime, stale_after_days: int
+) -> _SourceAdaptation[TestPolicy]:
+    if row is None or _row_is_explicitly_not_reported(row) or row.value_text == "not_reported":
+        return _SourceAdaptation(TestPolicy.NOT_REQUIRED_OR_UNKNOWN)
+    if not _is_current_observation(_observation(row, now), now, stale_after_days):
+        # Stale/future rows are unavailable evidence, not malformed payloads.
+        return _SourceAdaptation(TestPolicy.NOT_REQUIRED_OR_UNKNOWN)
+    if row.value_type != "enum":
+        return _invalid_policy_adaptation()
+    if row.value_text == "required":
+        return _SourceAdaptation(TestPolicy.REQUIRED)
+    if row.value_text in _RECOGNIZED_NON_REQUIRED_POLICY_CODES:
+        return _SourceAdaptation(TestPolicy.NOT_REQUIRED_OR_UNKNOWN)
+    return _invalid_policy_adaptation()
+
+
+def _invalid_policy_adaptation() -> _SourceAdaptation[TestPolicy]:
+    return _SourceAdaptation(
+        TestPolicy.NOT_REQUIRED_OR_UNKNOWN,
+        SchoolFactValidationFailure.TEST_POLICY_INVALID,
+    )
 
 
 def _observation(row: FactValueRow, now: datetime) -> datetime | None:
@@ -427,6 +689,8 @@ def _between(value: Decimal, minimum: Decimal, maximum: Decimal) -> bool:
 
 __all__ = [
     "ADMISSIONS_FIT_FACT_KEYS",
+    "SchoolFitInputAdaptation",
+    "school_fit_input_adaptation_from_facts",
     "school_fit_inputs_from_facts",
     "student_fit_inputs_from_profile",
 ]

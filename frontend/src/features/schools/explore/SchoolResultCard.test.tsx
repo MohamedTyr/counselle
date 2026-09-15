@@ -308,6 +308,33 @@ describe("SchoolResultCard", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("keeps the estimate disclosure above the stretched school link", () => {
+    render(
+      <MemoryRouter>
+        <SchoolResultCard
+          bandCaptionId={null}
+          href="/schools/1"
+          onAdd={() => {}}
+          assumptions={assumptions}
+          school={school()}
+        />
+      </MemoryRouter>,
+    );
+
+    const disclosure = screen.getByRole("button", {
+      name: "How this estimate was made",
+    });
+    const fitRegion = disclosure.closest('[role="group"]');
+
+    expect(screen.getByRole("link", { name: "Test University" })).toHaveClass(
+      "after:absolute",
+      "after:inset-0",
+    );
+    expect(fitRegion).toHaveClass("relative", "z-10");
+    expect(disclosure).toHaveClass("min-h-6", "min-w-6");
+    expect(disclosure).toHaveClass("pointer-coarse:min-h-11");
+  });
+
   it("explains an unchanged personalized estimate and its entering-class caveat after expansion", async () => {
     const user = userEvent.setup();
     renderCard(
