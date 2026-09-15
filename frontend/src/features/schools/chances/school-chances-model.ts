@@ -109,6 +109,8 @@ export type GpaAverageModel = {
 export type GpaProfileModel = {
   state: ProfileValueState;
   display: string | null;
+  /** The saved source scale is display-only unless it is exactly four. */
+  scale: string | null;
   value: number | null;
   comparison: { state: GpaComparisonState; label: string | null } | null;
 };
@@ -499,6 +501,7 @@ function gpaProfile(
     return {
       state: "missing_profile_value",
       display: null,
+      scale: null,
       value: null,
       comparison: null,
     };
@@ -516,6 +519,7 @@ function gpaProfile(
     return {
       state: "incompatible_profile_value",
       display,
+      scale: typeof scale === "string" && scale.length > 0 ? scale : null,
       value: null,
       comparison: null,
     };
@@ -523,6 +527,7 @@ function gpaProfile(
   return {
     state: "value",
     display,
+    scale: typeof scale === "string" ? scale : null,
     value,
     comparison: gpaComparison(value, result, schoolState),
   };
@@ -896,7 +901,14 @@ function distributionResult(
     state,
     model,
     geometricallyValid: state === "school_value",
-    display: fact?.display ?? null,
+    /* A value-shaped distribution with no numeric buckets is unavailable,
+     * never an `N of N` chart. Prefer the source-owned bucket absence words
+     * to a generic value-display such as "2 buckets reported". */
+    display:
+      state === "not_reported"
+        ? (model?.buckets.find((bucket) => bucket.absenceDisplay)
+            ?.absenceDisplay ?? "Not reported")
+        : (fact?.display ?? null),
     reportedPeriod: fact?.reported_period ?? null,
   };
 }

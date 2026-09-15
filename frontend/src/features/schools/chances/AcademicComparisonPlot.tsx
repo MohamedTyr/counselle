@@ -6,7 +6,6 @@ import { cn } from "@/lib/utils";
 
 import {
   calloutLayout,
-  endpointLabelLayout,
   scoreDomain,
   scorePosition,
   useMeasuredPlotWidth,
@@ -16,6 +15,13 @@ import {
   ScorePlotMarks,
   type ScorePlotMarker,
 } from "./academic-comparison-marks";
+import { ScoreBreakdown } from "./ScoreBreakdown";
+import { BandUnavailable, ScoreBandEndpoints } from "./ScoreBandDetails";
+import {
+  partialDistributionCaveat,
+  profilePlacementMessage,
+  schoolFactDisplay,
+} from "./score-plot-copy";
 import type { ScalarModel, ScoreLaneModel } from "./school-chances-model";
 
 type AcademicComparisonPlotProps = {
@@ -48,49 +54,59 @@ export function AcademicComparisonPlot({
     return <UnavailableScorePlot lane={lane} summary={summary} title={title} />;
 
   return (
-    <ChartFigure summary={summary}>
-      <div
-        className={cn("flex flex-col gap-2")}
-        data-slot="academic-comparison-plot"
-        ref={plotRef}
+    <section
+      aria-labelledby={`score-lane-${lane.key}`}
+      data-slot="academic-comparison-lane"
+    >
+      <h3
+        className={cn("font-medium text-foreground")}
+        id={`score-lane-${lane.key}`}
       >
+        {title}
+      </h3>
+      <ChartFigure summary={summary}>
         <div
-          className={cn("flex items-baseline justify-between gap-3")}
-          data-slot="academic-comparison-heading"
+          className={cn("flex flex-col gap-2")}
+          data-slot="academic-comparison-plot"
+          ref={plotRef}
         >
-          <h3 className={cn("font-medium text-foreground")}>{title}</h3>
-          <span
-            className={cn(
-              "text-xs text-[var(--school-fact-caveat)] tabular-nums",
-            )}
+          <div
+            className={cn("flex items-baseline justify-end gap-3")}
+            data-slot="academic-comparison-heading"
           >
-            {scoreDomain(lane).min}–{scoreDomain(lane).max} scale
-          </span>
+            <span
+              className={cn(
+                "text-xs text-[var(--school-fact-caveat)] tabular-nums",
+              )}
+            >
+              {scoreDomain(lane).min}–{scoreDomain(lane).max} scale
+            </span>
+          </div>
+          <ScoreCalloutRail lane={lane} layout={layout} markers={markers} />
+          <ChartContainer
+            className={cn("h-32 min-h-32 w-full sm:h-28 sm:min-h-28")}
+            config={CHART_CONFIG}
+            data-slot="academic-comparison-chart"
+          >
+            <ComposedChart
+              data={POINT}
+              margin={{ top: 8, right: 0, bottom: 8, left: 0 }}
+            >
+              <XAxis dataKey="position" domain={[0, 1]} hide type="number" />
+              <YAxis domain={[0, 100]} hide type="number" />
+              <ScorePlotMarks lane={lane} markers={markers} />
+            </ComposedChart>
+          </ChartContainer>
+          <ScoreValueRow
+            lane={lane}
+            layout={layout}
+            markers={markers}
+            plotWidth={measuredWidth}
+          />
+          <ScoreBreakdown lane={lane} />
         </div>
-        <ScoreCalloutRail lane={lane} layout={layout} markers={markers} />
-        <ChartContainer
-          className={cn("h-32 min-h-32 w-full sm:h-28 sm:min-h-28")}
-          config={CHART_CONFIG}
-          data-slot="academic-comparison-chart"
-        >
-          <ComposedChart
-            data={POINT}
-            margin={{ top: 8, right: 0, bottom: 8, left: 0 }}
-          >
-            <XAxis dataKey="position" domain={[0, 1]} hide type="number" />
-            <YAxis domain={[0, 100]} hide type="number" />
-            <ScorePlotMarks lane={lane} markers={markers} />
-          </ComposedChart>
-        </ChartContainer>
-        <ScoreValueRow
-          lane={lane}
-          layout={layout}
-          markers={markers}
-          plotWidth={measuredWidth}
-        />
-        <ScoreBreakdown lane={lane} />
-      </div>
-    </ChartFigure>
+      </ChartFigure>
+    </section>
   );
 }
 
@@ -235,105 +251,6 @@ function ScoreValueRow({
   );
 }
 
-function BandUnavailable({
-  lane,
-}: {
-  lane: ScoreLaneModel;
-}): React.ReactElement {
-  return (
-    <span data-band-state={lane.bandState.state}>
-      {lane.bandState.display ?? "Middle 50% unavailable"}
-    </span>
-  );
-}
-
-function ScoreBandEndpoints({
-  lane,
-  plotWidth,
-}: {
-  lane: ScoreLaneModel;
-  plotWidth: number;
-}): React.ReactElement {
-  const band = lane.band!;
-  const p25Position = scorePosition(band.p25, band.min, band.max);
-  const p75Position = scorePosition(band.p75, band.min, band.max);
-  const layout = endpointLabelLayout(p25Position, p75Position, plotWidth);
-  return (
-    <span
-      className={cn("relative h-4 min-w-full")}
-      data-band-layout={layout}
-      data-slot="academic-comparison-band-endpoints"
-    >
-      {layout === "middle" ? (
-        <span className={cn("absolute left-1/2 -translate-x-1/2")}>
-          Middle 50% {band.p25}–{band.p75}
-        </span>
-      ) : (
-        <>
-          <span
-            className={cn("absolute w-6")}
-            data-band-endpoint="p25"
-            style={{ left: `${p25Position * 100}%` }}
-          >
-            {band.p25}
-          </span>
-          <span
-            className={cn("absolute w-6 -translate-x-full text-right")}
-            data-band-endpoint="p75"
-            style={{ left: `${p75Position * 100}%` }}
-          >
-            {band.p75}
-          </span>
-        </>
-      )}
-    </span>
-  );
-}
-
-function ScoreBreakdown({
-  lane,
-}: {
-  lane: ScoreLaneModel;
-}): React.ReactElement | null {
-  const entries = [
-    ...(lane.distribution?.buckets ?? []),
-    ...(lane.distribution?.omittedBuckets.map((bucket) => ({
-      ...bucket,
-      pct: null,
-      absenceDisplay: bucket.display,
-    })) ?? []),
-  ];
-  if (!entries.length) return null;
-  return (
-    <div
-      className={cn("flex flex-col gap-1")}
-      data-slot="academic-comparison-breakdown"
-    >
-      <p className={cn("text-xs text-[var(--school-fact-caveat)]")}>
-        Reported breakdown
-        {lane.distributionState.state === "distribution_unscaled"
-          ? " — not plotted to scale"
-          : ""}
-      </p>
-      <ul className={cn("flex flex-wrap gap-x-3 gap-y-1 text-xs tabular-nums")}>
-        {entries.map((bucket) => (
-          <li key={bucket.label}>
-            {bucket.label}:{" "}
-            {bucket.pct === null
-              ? (bucket.absenceDisplay ?? "Not reported")
-              : `${bucket.pct}%`}
-          </li>
-        ))}
-      </ul>
-      {lane.distribution?.reportedPeriod ? (
-        <p className={cn("text-xs text-[var(--school-fact-caveat)]")}>
-          Reported {lane.distribution.reportedPeriod}
-        </p>
-      ) : null}
-    </div>
-  );
-}
-
 function UnavailableScorePlot({
   lane,
   title,
@@ -344,44 +261,54 @@ function UnavailableScorePlot({
   const showBandStatus =
     lane.band === null && lane.bandState.display !== display;
   return (
-    <ChartFigure summary={summary}>
-      <div
-        className={cn("flex flex-col gap-2")}
-        data-slot="academic-comparison-unavailable"
+    <section
+      aria-labelledby={`score-lane-${lane.key}`}
+      data-slot="academic-comparison-lane"
+    >
+      <h3
+        className={cn("font-medium text-foreground")}
+        id={`score-lane-${lane.key}`}
       >
-        <h3 className={cn("font-medium text-foreground")}>{title}</h3>
-        <p
-          className={cn("text-sm text-[var(--school-fact-absent)]")}
-          data-school-state={lane.school.state}
+        {title}
+      </h3>
+      <ChartFigure summary={summary}>
+        <div
+          className={cn("flex flex-col gap-2")}
+          data-slot="academic-comparison-unavailable"
         >
-          {display}
-        </p>
-        {lane.school.reportedPeriod ? (
-          <p className={cn("text-xs text-[var(--school-fact-caveat)]")}>
-            Reported {lane.school.reportedPeriod}
-          </p>
-        ) : null}
-        {showBandStatus ? (
           <p
-            className={cn("text-xs text-[var(--school-fact-absent)]")}
-            data-band-state={lane.bandState.state}
+            className={cn("text-sm text-[var(--school-fact-absent)]")}
+            data-school-state={lane.school.state}
           >
-            <BandUnavailable lane={lane} />
+            {display}
           </p>
-        ) : null}
-        {showBandStatus && lane.bandState.reportedPeriod ? (
-          <p className={cn("text-xs text-[var(--school-fact-caveat)]")}>
-            Reported {lane.bandState.reportedPeriod}
-          </p>
-        ) : null}
-        <ScoreBreakdown lane={lane} />
-        {profilePlacementMessage(lane) ? (
-          <p className={cn("text-xs text-[var(--school-fact-caveat)]")}>
-            {profilePlacementMessage(lane)}
-          </p>
-        ) : null}
-      </div>
-    </ChartFigure>
+          {lane.school.reportedPeriod ? (
+            <p className={cn("text-xs text-[var(--school-fact-caveat)]")}>
+              Reported {lane.school.reportedPeriod}
+            </p>
+          ) : null}
+          {showBandStatus ? (
+            <p
+              className={cn("text-xs text-[var(--school-fact-absent)]")}
+              data-band-state={lane.bandState.state}
+            >
+              <BandUnavailable lane={lane} />
+            </p>
+          ) : null}
+          {showBandStatus && lane.bandState.reportedPeriod ? (
+            <p className={cn("text-xs text-[var(--school-fact-caveat)]")}>
+              Reported {lane.bandState.reportedPeriod}
+            </p>
+          ) : null}
+          <ScoreBreakdown lane={lane} />
+          {profilePlacementMessage(lane) ? (
+            <p className={cn("text-xs text-[var(--school-fact-caveat)]")}>
+              {profilePlacementMessage(lane)}
+            </p>
+          ) : null}
+        </div>
+      </ChartFigure>
+    </section>
   );
 }
 
@@ -445,10 +372,12 @@ function scoreSummary(
       : lane.distributionState.state !== "school_value"
         ? ` Distribution: ${lane.distributionState.display ?? "unavailable"} (${lane.distributionState.state}).`
         : "";
+  const partialDistribution = partialDistributionCaveat(lane);
+  const partialCaveat = partialDistribution ? ` ${partialDistribution}` : "";
   const comparison = lane.profile.comparison
     ? ` Profile comparison: ${lane.profile.comparison.state}.`
     : "";
-  return `${title}. ${band} ${average} ${student}${comparison} Reported breakdown: ${distribution}.${period}${distributionCaveat}${policy}`;
+  return `${title}. ${band} ${average} ${student}${comparison} Reported breakdown: ${distribution}.${period}${partialCaveat}${distributionCaveat}${policy}`;
 }
 
 function hasScoreGeometry(lane: ScoreLaneModel): boolean {
@@ -468,20 +397,4 @@ function markerLayout(
     ),
     plotWidth,
   );
-}
-function schoolFactDisplay(lane: ScoreLaneModel, fallback: string): string {
-  return lane.school.display ?? lane.distributionState.display ?? fallback;
-}
-function profilePlacementMessage(lane: ScoreLaneModel): string | null {
-  const label =
-    lane.key === "composite"
-      ? "ACT composite"
-      : lane.key === "ebrw"
-        ? "SAT Reading and Writing score"
-        : "SAT Math score";
-  if (lane.profile.state === "missing_profile_value")
-    return `Add your ${label} to place yourself on this chart.`;
-  if (lane.profile.state === "incompatible_profile_value")
-    return `Your ${label} cannot be placed on this ${scoreDomain(lane).min}–${scoreDomain(lane).max} chart.`;
-  return null;
 }

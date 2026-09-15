@@ -108,6 +108,58 @@ describe("academic comparison visual grammar", () => {
     expect(await axe(container)).toHaveNoViolations();
   });
 
+  test("keeps partial SAT and ACT distributions visibly and programmatically incomplete", () => {
+    const facts = structuredClone(schoolChancesFactFixtures.full);
+    const fact = (key: string) =>
+      facts.sections[0]!.groups[0]!.facts.find(
+        (candidate) => candidate.key === key,
+      )!;
+    (
+      fact("class_profile.sat_math_distribution").value as { sums_to: number }
+    ).sums_to = 80;
+    (
+      fact("class_profile.act_composite_distribution").value as {
+        sums_to: number;
+      }
+    ).sums_to = 90;
+
+    const sat = buildSchoolChancesModel(
+      facts,
+      schoolChancesProfileFixtures.compatible,
+      "sat",
+    );
+    const act = buildSchoolChancesModel(
+      facts,
+      schoolChancesProfileFixtures.compatible,
+      "act",
+    );
+    const { rerender } = render(
+      <SatComparison model={sat.sat!} testPolicy={sat.testPolicy} />,
+    );
+
+    const satLane = screen
+      .getByRole("heading", { name: "Math" })
+      .closest("section")!;
+    expect(
+      screen.getByText(
+        "Reported buckets total 80%; missing buckets are not treated as zero.",
+      ),
+    ).toBeVisible();
+    expect(satLane.querySelector("figcaption")).toHaveTextContent(
+      "Reported buckets total 80%; missing buckets are not treated as zero.",
+    );
+
+    rerender(<ActComparison model={act.act!} testPolicy={act.testPolicy} />);
+    expect(
+      screen.getByText(
+        "Reported buckets total 90%; missing buckets are not treated as zero.",
+      ),
+    ).toBeVisible();
+    expect(document.querySelector("figcaption")).toHaveTextContent(
+      "Reported buckets total 90%; missing buckets are not treated as zero.",
+    );
+  });
+
   test("leaves its essential chart text available when reduced motion is requested", () => {
     vi.stubGlobal(
       "matchMedia",
@@ -166,6 +218,19 @@ describe("academic comparison visual grammar", () => {
     expect(screen.getByText("Reported distribution 2024")).toBeVisible();
     expect(container.querySelector("figcaption")).toHaveTextContent(
       "3.50 - 3.74: Not reported",
+    );
+  });
+
+  test("includes the exact student value in the GPA edge figure summary", () => {
+    const model = buildSchoolChancesModel(
+      schoolChancesFactFixtures.full,
+      { academics: { gpa_unweighted: "2.00", gpa_scale: "4.0" } },
+      "gpa",
+    );
+    const { container } = render(<GpaComparison model={model.gpa!} />);
+
+    expect(container.querySelector("figcaption")).toHaveTextContent(
+      "2.00 GPA is below the reported buckets",
     );
   });
 

@@ -1,6 +1,7 @@
-import { screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 
 import type { SchoolFactsResponse } from "@/features/schools/facts/school-facts-types";
+import { schoolChancesFactFixtures } from "@/features/schools/chances/school-chances-fixtures";
 import {
   defaultAuthenticatedFetch,
   jsonResponse,
@@ -62,17 +63,150 @@ describe("SchoolDetailRoute — facts fetch states", () => {
     expect(requestedUrls.some((url) => url.endsWith("/v1/profile"))).toBe(
       false,
     );
+    expect(
+      document.querySelector("[data-slot=school-chances-panel]"),
+    ).toBeNull();
   });
 
-  /* Phase 3 turns these deliberately red contract slots into exercised route
-   * tests when the Compare panel exists. Phase 0 must not mount a placeholder
-   * panel merely to make Profile's lazy-creation GET happen. */
-  test.todo(
-    "selecting Compare requests GET /v1/profile exactly once after facts resolve",
-  );
-  test.todo(
-    "Compare scenarios issue no PATCH, application, or estimator request",
-  );
+  test("selecting Compare requests GET /v1/profile exactly once after facts resolve", async () => {
+    const requestedUrls: string[] = [];
+    renderApp(PATH, {
+      fetchHandler: (input, init) => {
+        const url = String(input);
+        requestedUrls.push(`${init?.method ?? "GET"} ${url}`);
+        if (url.includes(`/v1/schools/${UNITID}/facts`)) {
+          return jsonResponse(
+            factsFixture({ sections: schoolChancesFactFixtures.full.sections }),
+          );
+        }
+        if (url.endsWith("/v1/profile")) return jsonResponse({});
+        return defaultAuthenticatedFetch(input, init);
+      },
+    });
+
+    expect(await screen.findByRole("tab", { name: "Compare" })).toBeVisible();
+    expect(
+      requestedUrls.some((request) => request.endsWith("/v1/profile")),
+    ).toBe(false);
+
+    fireEvent.click(screen.getByRole("tab", { name: "Compare" }));
+
+    await waitFor(() =>
+      expect(
+        requestedUrls.filter((request) => request === "GET /v1/profile"),
+      ).toHaveLength(1),
+    );
+    expect(window.location.search).toContain("tab=chances");
+  });
+
+  test("returns to Compare from About with the cached Profile and no skeleton flash", async () => {
+    const requestedUrls: string[] = [];
+    renderApp(PATH, {
+      fetchHandler: (input, init) => {
+        const url = String(input);
+        requestedUrls.push(`${init?.method ?? "GET"} ${url}`);
+        if (url.includes(`/v1/schools/${UNITID}/facts`)) {
+          return jsonResponse(
+            factsFixture({ sections: schoolChancesFactFixtures.full.sections }),
+          );
+        }
+        if (url.endsWith("/v1/profile")) {
+          return jsonResponse({
+            academics: { gpa_unweighted: "3.82", gpa_scale: "4.0" },
+          });
+        }
+        return defaultAuthenticatedFetch(input, init);
+      },
+    });
+
+    fireEvent.click(await screen.findByRole("tab", { name: "Compare" }));
+    await screen.findByRole("radio", { name: "GPA", checked: true });
+    expect(
+      requestedUrls.filter((request) => request === "GET /v1/profile"),
+    ).toHaveLength(1);
+
+    fireEvent.click(screen.getByRole("tab", { name: "About" }));
+    await screen.findByRole("tab", { name: "About", selected: true });
+    fireEvent.click(screen.getByRole("tab", { name: "Compare" }));
+
+    expect(
+      await screen.findByRole("radio", { name: "GPA", checked: true }),
+    ).toBeVisible();
+    expect(
+      document.querySelector("[data-slot=school-chances-skeleton]"),
+    ).toBeNull();
+    expect(
+      requestedUrls.filter((request) => request === "GET /v1/profile"),
+    ).toHaveLength(1);
+  });
+
+  test("pushes tab navigation while metric changes replace and preserves shareable parameters", async () => {
+    renderApp(`${PATH}?from=school-list`, {
+      fetchHandler: (input, init) => {
+        const url = String(input);
+        if (url.includes(`/v1/schools/${UNITID}/facts`))
+          return jsonResponse(
+            factsFixture({ sections: schoolChancesFactFixtures.full.sections }),
+          );
+        if (url.endsWith("/v1/profile")) return jsonResponse({});
+        return defaultAuthenticatedFetch(input, init);
+      },
+    });
+
+    const beforeTab = window.history.length;
+    fireEvent.click(await screen.findByRole("tab", { name: "Compare" }));
+    await screen.findByRole("radio", { name: "GPA", checked: true });
+    expect(window.history.length).toBe(beforeTab + 1);
+    expect(window.location.search).toContain("from=school-list");
+
+    fireEvent.click(screen.getByRole("radio", { name: "SAT" }));
+    await screen.findByRole("radio", { name: "SAT", checked: true });
+    expect(window.history.length).toBe(beforeTab + 1);
+    expect(window.location.search).toContain("tab=chances");
+    expect(window.location.search).toContain("metric=sat");
+
+    window.history.back();
+    window.dispatchEvent(new PopStateEvent("popstate"));
+    expect(
+      await screen.findByRole("tab", { name: "About", selected: true }),
+    ).toBeVisible();
+    window.history.forward();
+    window.dispatchEvent(new PopStateEvent("popstate"));
+    expect(
+      await screen.findByRole("radio", { name: "SAT", checked: true }),
+    ).toBeVisible();
+  });
+
+  test("Compare scenarios issue no PATCH, application, or estimator request", async () => {
+    const requestedUrls: string[] = [];
+    renderApp(PATH, {
+      fetchHandler: (input, init) => {
+        const url = String(input);
+        requestedUrls.push(`${init?.method ?? "GET"} ${url}`);
+        if (url.includes(`/v1/schools/${UNITID}/facts`)) {
+          return jsonResponse(
+            factsFixture({ sections: schoolChancesFactFixtures.full.sections }),
+          );
+        }
+        if (url.endsWith("/v1/profile")) {
+          return jsonResponse({
+            academics: { gpa_unweighted: "3.80", gpa_scale: "4.0" },
+          });
+        }
+        return defaultAuthenticatedFetch(input, init);
+      },
+    });
+
+    fireEvent.click(await screen.findByRole("tab", { name: "Compare" }));
+    const slider = await screen.findByLabelText("Explore GPA");
+    const requestsBeforeScenario = [...requestedUrls];
+    fireEvent.keyDown(slider, { key: "ArrowRight" });
+
+    await waitFor(() =>
+      expect(slider).toHaveAttribute("aria-valuenow", "3.81"),
+    );
+    expect(requestedUrls).toEqual(requestsBeforeScenario);
+  });
 
   test("a pending query renders the skeleton, never a redirect", async () => {
     let resolve!: (value: Response) => void;

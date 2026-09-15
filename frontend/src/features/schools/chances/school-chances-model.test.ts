@@ -191,6 +191,11 @@ describe("school chances pure model", () => {
       "gpa",
     );
     expect(allAbsent.school).toMatchObject({ state: "not_reported" });
+    expect(allAbsent.gpa?.distributionState).toMatchObject({
+      state: "not_reported",
+      usable: false,
+      display: "Not reported",
+    });
     expect(
       allAbsent.gpa?.distribution?.buckets.every(
         (bucket) => bucket.pct === null,

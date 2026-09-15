@@ -7,8 +7,8 @@ import { cn } from "@/lib/utils";
 import {
   calloutLayout,
   useMeasuredPlotWidth,
-  type CalloutLayout,
 } from "./academic-comparison-geometry";
+import { GpaEdgeTicks, GpaMarkerRail } from "./GpaComparisonMarkers";
 import type { GpaModel } from "./school-chances-model";
 
 const CHART_CONFIG = {
@@ -216,108 +216,74 @@ function GpaFallback({
   );
 }
 
-type GpaCallout = {
+function gpaSummary(
+  model: GpaModel,
+  profile: string | null,
+  scenario: string | null,
+): string {
+  const buckets =
+    model.distribution?.buckets
+      .map(
+        (bucket) =>
+          `${bucket.label}: ${bucket.pct === null ? (bucket.absenceDisplay ?? "not reported") : `${bucket.pct}%`}`,
+      )
+      .concat(
+        model.distribution.omittedBuckets.map(
+          (bucket) => `${bucket.label}: ${bucket.display}`,
+        ),
+      )
+      .join("; ") ?? "No reported GPA distribution.";
+  const placement =
+    model.profile.comparison?.state === "unplaceable_profile_value"
+      ? "Your GPA cannot be placed in the school's published bucket labels."
+      : model.profile.comparison?.state === "below_reported_buckets" &&
+          model.profile.display
+        ? `Your ${model.profile.display} GPA is below the reported buckets.`
+        : model.profile.comparison?.state === "above_reported_buckets" &&
+            model.profile.display
+          ? `Your ${model.profile.display} GPA is above the reported buckets.`
+          : profile
+            ? `${profile}.`
+            : (gpaProfileMessage(model) ??
+              "No compatible student GPA is plotted.");
+  const average =
+    model.schoolSource === "average_fallback" && model.average
+      ? ` Reported average fallback: ${model.average.display}${model.average.reportedPeriod ? ` (reported ${model.average.reportedPeriod})` : ""}.`
+      : "";
+  const distributionCaveat =
+    model.distributionState.state !== "school_value"
+      ? ` Distribution: ${model.distributionState.display ?? "unavailable"} (${model.distributionState.state}).`
+      : "";
+  const total =
+    model.distribution?.sumsTo !== null &&
+    model.distribution &&
+    Math.abs(model.distribution.sumsTo - 100) > 0.5
+      ? ` Reported buckets total ${model.distribution.sumsTo}%; missing buckets are not treated as zero.`
+      : "";
+  return `GPA comparison. ${placement} ${scenario ? `${scenario}.` : ""} Profile comparison: ${model.profile.comparison?.state ?? model.profile.state}. Reported buckets: ${buckets}.${model.distribution?.reportedPeriod ? ` Reported distribution period: ${model.distribution.reportedPeriod}.` : ""}${total}${average}${distributionCaveat}`;
+}
+
+function gpaProfileMessage(model: GpaModel): string | null {
+  if (model.profile.state === "missing_profile_value")
+    return "Add your unweighted GPA on a 4.0 scale to place yourself on this chart.";
+  if (model.profile.state === "incompatible_profile_value")
+    return "Your GPA uses a different scale and cannot be placed on this 4.0-scale chart.";
+  return null;
+}
+
+export type GpaCallout = {
   label: string;
   position: number;
   placement: "below-edge" | "above-edge" | undefined;
   variant: "profile" | "scenario" | "you";
 };
 
-function GpaMarkerRail({
-  callouts,
-  layout,
-}: {
-  callouts: GpaCallout[];
-  layout: CalloutLayout;
-}): React.ReactElement | null {
-  if (!callouts.length) return null;
-  return (
-    <div
-      className={cn(
-        "relative text-xs font-medium tabular-nums",
-        layout === "value-row"
-          ? "flex flex-wrap gap-x-3 gap-y-1 border-t border-[var(--school-chances-divider)] pt-2"
-          : "h-14",
-      )}
-      data-callout-layout={layout}
-      data-slot="gpa-comparison-markers"
-      data-testid="gpa-marker-rail"
-    >
-      {layout === "rail" ? (
-        <svg
-          aria-hidden="true"
-          className={cn("absolute inset-0 h-full w-full")}
-          data-slot="gpa-comparison-callout-leaders"
-          preserveAspectRatio="none"
-          viewBox="0 0 100 56"
-        >
-          {callouts.map((callout, index) => (
-            <path
-              d={`M 50 ${index === 0 ? 14 : 38} H ${callout.position * 100} V 56`}
-              fill="none"
-              key={`${callout.variant}-${callout.label}`}
-              stroke="var(--school-chances-profile-outline)"
-              strokeWidth="1"
-            />
-          ))}
-        </svg>
-      ) : null}
-      {callouts.map((callout, index) => (
-        <span
-          className={cn(
-            layout === "separate" && "absolute",
-            layout === "rail" &&
-              (index === 0
-                ? "absolute left-1/2 top-0 -translate-x-1/2"
-                : "absolute left-1/2 top-6 -translate-x-1/2"),
-          )}
-          data-placement={callout.placement}
-          key={`${callout.variant}-${callout.label}`}
-          style={
-            layout === "separate" ? calloutStyle(callout.position) : undefined
-          }
-        >
-          {callout.label}
-        </span>
-      ))}
-    </div>
-  );
-}
-
-/** Outside values live at a true edge rather than a neighboring bucket. */
-function GpaEdgeTicks({
-  callouts,
-}: {
-  callouts: GpaCallout[];
-}): React.ReactElement | null {
-  const edges = callouts.filter((callout) => callout.placement !== undefined);
-  if (!edges.length) return null;
-  return (
-    <div
-      aria-hidden="true"
-      className={cn("pointer-events-none absolute inset-0")}
-      data-slot="gpa-comparison-edge-marks"
-    >
-      {edges.map((callout) => (
-        <span
-          className={cn(
-            "absolute inset-y-0 border-l border-[var(--school-chances-profile-outline)]",
-            callout.placement === "below-edge" ? "left-0" : "right-0",
-            callout.variant === "profile" && "border-dashed",
-            callout.variant === "scenario" && "border-l-2",
-          )}
-          data-placement={callout.placement}
-          key={`${callout.variant}-${callout.label}`}
-        />
-      ))}
-    </div>
-  );
-}
-
 function profileMarkerLabel(model: GpaModel, changed: boolean): string | null {
-  if (model.profile.state !== "value" || model.profile.value === null)
-    return null;
-  if (model.profile.comparison?.state === "unplaceable_profile_value")
+  if (
+    model.profile.state !== "value" ||
+    model.profile.value === null ||
+    model.profile.comparison?.state === "unplaceable_profile_value"
+  )
     return null;
   if (model.profile.comparison?.state === "below_reported_buckets")
     return "Below reported buckets";
@@ -345,7 +311,7 @@ function gpaCallouts(
   scenario: string | null,
   model: GpaModel,
 ): GpaCallout[] {
-  const callout = (
+  const make = (
     label: string | null,
     comparison: GpaModel["profile"]["comparison"],
     variant: GpaCallout["variant"],
@@ -357,68 +323,23 @@ function gpaCallouts(
     if (placement === "above-edge")
       return { label, position: 1, placement, variant };
     const index = bucketLabels.indexOf(comparison.label ?? "");
-    if (index < 0) return null;
-    return {
-      label,
-      position: (index + 0.5) / bucketLabels.length,
-      placement,
-      variant,
-    };
+    return index < 0
+      ? null
+      : {
+          label,
+          position: (index + 0.5) / bucketLabels.length,
+          placement,
+          variant,
+        };
   };
   return [
-    callout(
+    make(
       profile,
       model.profile.comparison,
       profile?.startsWith("You ") ? "you" : "profile",
     ),
-    callout(scenario, model.scenario?.comparison ?? null, "scenario"),
+    make(scenario, model.scenario?.comparison ?? null, "scenario"),
   ].filter((value): value is GpaCallout => value !== null);
-}
-
-function calloutStyle(position: number): React.CSSProperties {
-  if (position <= 0) return { left: "0%" };
-  if (position >= 1) return { left: "100%", transform: "translateX(-100%)" };
-  return { left: `${position * 100}%`, transform: "translateX(-50%)" };
-}
-
-function gpaSummary(
-  model: GpaModel,
-  profile: string | null,
-  scenario: string | null,
-): string {
-  const buckets =
-    model.distribution?.buckets
-      .map(
-        (bucket) =>
-          `${bucket.label}: ${bucket.pct === null ? (bucket.absenceDisplay ?? "not reported") : `${bucket.pct}%`}`,
-      )
-      .concat(
-        model.distribution.omittedBuckets.map(
-          (bucket) => `${bucket.label}: ${bucket.display}`,
-        ),
-      )
-      .join("; ") ?? "No reported GPA distribution.";
-  const placement =
-    model.profile.comparison?.state === "unplaceable_profile_value"
-      ? "Your GPA cannot be placed in the school's published bucket labels."
-      : profile
-        ? `${profile}.`
-        : (gpaProfileMessage(model) ?? "No compatible student GPA is plotted.");
-  const average =
-    model.schoolSource === "average_fallback" && model.average
-      ? ` Reported average fallback: ${model.average.display}${model.average.reportedPeriod ? ` (reported ${model.average.reportedPeriod})` : ""}.`
-      : "";
-  const distributionCaveat =
-    model.distributionState.state !== "school_value"
-      ? ` Distribution: ${model.distributionState.display ?? "unavailable"} (${model.distributionState.state}).`
-      : "";
-  const total =
-    model.distribution?.sumsTo !== null &&
-    model.distribution &&
-    Math.abs(model.distribution.sumsTo - 100) > 0.5
-      ? ` Reported buckets total ${model.distribution.sumsTo}%; missing buckets are not treated as zero.`
-      : "";
-  return `GPA comparison. ${placement} ${scenario ? `${scenario}.` : ""} Profile comparison: ${model.profile.comparison?.state ?? model.profile.state}. Reported buckets: ${buckets}.${model.distribution?.reportedPeriod ? ` Reported distribution period: ${model.distribution.reportedPeriod}.` : ""}${total}${average}${distributionCaveat}`;
 }
 
 function edgePlacement(label: string): "below-edge" | "above-edge" | undefined {
@@ -428,12 +349,4 @@ function edgePlacement(label: string): "below-edge" | "above-edge" | undefined {
     : normalized.includes("above reported buckets")
       ? "above-edge"
       : undefined;
-}
-
-function gpaProfileMessage(model: GpaModel): string | null {
-  if (model.profile.state === "missing_profile_value")
-    return "Add your unweighted GPA on a 4.0 scale to place yourself on this chart.";
-  if (model.profile.state === "incompatible_profile_value")
-    return "Your GPA uses a different scale and cannot be placed on this 4.0-scale chart.";
-  return null;
 }

@@ -1,4 +1,5 @@
 import { ExternalLink } from "lucide-react";
+import * as React from "react";
 import {
   Link,
   Navigate,
@@ -40,6 +41,7 @@ import { PageContainer } from "@/components/workspace/PageContainer";
 import { SchoolFactsPanel } from "@/features/schools/facts/SchoolFactsPanel";
 import { SchoolFactsSkeleton } from "@/features/schools/facts/SchoolFactsSkeleton";
 import { identityMeta } from "@/features/schools/facts/school-facts-format";
+import { SchoolChancesPanel } from "@/features/schools/chances/SchoolChancesPanel";
 import type {
   SchoolFactsResponse,
   SchoolIdentity,
@@ -60,9 +62,10 @@ import { SchoolWorkspace } from "@/features/schools/SchoolWorkspace";
  * rewritten at seven call sites for a change that has nothing to do with
  * them.
  *
- * Two tabs, and the division between them is absolute:
+ * Three tabs, with facts and workspace progress kept distinct:
  *
  *   About shows what the school requires.
+ *   Compare places saved academics beside entering-class context.
  *   Your application shows what you have done about it.
  *
  * The same essay prompt appears in both with a different verb — here a
@@ -70,7 +73,7 @@ import { SchoolWorkspace } from "@/features/schools/SchoolWorkspace";
  * renders twice meaning the same thing.
  */
 
-type Tab = "about" | "application";
+type Tab = "about" | "chances" | "application";
 
 function isUnitid(key: string | undefined): key is string {
   return Boolean(key && /^\d+$/.test(key));
@@ -166,9 +169,19 @@ function SchoolDetailLoaded({
   data: SchoolFactsResponse;
 }) {
   const [searchParams, setSearchParams] = useSearchParams();
+  /* Compare stays lazy on an initial About visit, then remains mounted after
+   * its first visit. That retains the local explorer and avoids turning a
+   * simple tab return into a stale Profile-query remount. */
+  const [hasVisitedCompare, setHasVisitedCompare] = React.useState(
+    searchParams.get("tab") === "chances",
+  );
   const detail = useApplication(application?.id ?? null);
   const tab: Tab =
-    searchParams.get("tab") === "application" ? "application" : "about";
+    searchParams.get("tab") === "application"
+      ? "application"
+      : searchParams.get("tab") === "chances"
+        ? "chances"
+        : "about";
   const identity = data.identity;
   const openItems = application
     ? application.progress.total - application.progress.completed
@@ -198,13 +211,14 @@ function SchoolDetailLoaded({
         onValueChange={(next) => {
           /* Tab lives in the URL so a link into the facts is shareable and
            * the back button does what the reader expects. */
+          if (next === "chances") setHasVisitedCompare(true);
           setSearchParams(
             (current) => {
               const params = new URLSearchParams(current);
               params.set("tab", String(next));
               return params;
             },
-            { replace: true },
+            { replace: false },
           );
         }}
         value={tab}
@@ -212,6 +226,9 @@ function SchoolDetailLoaded({
         <TabsList>
           <TabsTab className="sm:h-7 sm:px-2 sm:text-xs" value="about">
             About
+          </TabsTab>
+          <TabsTab className="sm:h-7 sm:px-2 sm:text-xs" value="chances">
+            Compare
           </TabsTab>
           <TabsTab className="sm:h-7 sm:px-2 sm:text-xs" value="application">
             <span>Your application</span>
@@ -224,6 +241,27 @@ function SchoolDetailLoaded({
         </TabsList>
         <TabsPanel className="pt-4" value="about">
           <SchoolFactsPanel data={data} />
+        </TabsPanel>
+        <TabsPanel
+          className="pt-4"
+          keepMounted={hasVisitedCompare}
+          value="chances"
+        >
+          <SchoolChancesPanel
+            data={data}
+            metricParam={searchParams.get("metric")}
+            onMetricChange={(metric) => {
+              setSearchParams(
+                (current) => {
+                  const params = new URLSearchParams(current);
+                  params.set("tab", "chances");
+                  params.set("metric", metric);
+                  return params;
+                },
+                { replace: true },
+              );
+            }}
+          />
         </TabsPanel>
         <TabsPanel className="pt-4" value="application">
           <ApplicationTab
