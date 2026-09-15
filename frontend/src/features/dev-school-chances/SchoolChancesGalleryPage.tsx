@@ -69,7 +69,7 @@ export function SchoolChancesGalleryPage(): React.ReactElement {
         <div className="mx-auto grid max-w-6xl gap-8 px-5 py-8 lg:grid-cols-[15rem_minmax(0,1fr)] lg:px-8">
           <nav
             aria-label="Fixture navigation"
-            className="self-start lg:sticky lg:top-6"
+            className="min-w-0 self-start lg:sticky lg:top-6"
             data-slot="school-chances-gallery-navigation"
           >
             <p className="mb-2 text-xs font-medium text-muted-foreground">

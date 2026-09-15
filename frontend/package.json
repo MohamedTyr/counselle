@@ -9,6 +9,9 @@
     "lint": "eslint .",
     "format": "prettier --write \"**/*.{ts,tsx,css,json,md}\"",
     "test": "vitest run",
+    "test:chances:coverage": "vitest run src/features/schools/chances --coverage.enabled --coverage.provider=v8 --coverage.include='src/features/schools/chances/**/*.{ts,tsx}' --coverage.thresholds.lines=80 --coverage.thresholds.functions=80 --coverage.thresholds.branches=80 --coverage.thresholds.statements=80",
+    "test:e2e:chances": "playwright test e2e/school-chances.spec.ts",
+    "test:e2e:chances:real": "playwright test --config playwright.real.config.ts e2e/school-chances.real.spec.ts",
     "test:watch": "vitest",
     "typecheck": "tsc -b --noEmit",
     "preview": "vite preview"
@@ -58,6 +61,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^10",
+    "@playwright/test": "^1.63.0",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.1",
@@ -66,6 +70,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@vitejs/plugin-react": "^6",
+    "@vitest/coverage-v8": "^4.1.9",
     "eslint": "^10",
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.2",
