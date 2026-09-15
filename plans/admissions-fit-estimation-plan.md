@@ -957,6 +957,8 @@ The feature is complete only when all are true:
 - [ ] URL-local pseudo-profile values no longer override saved Profile data.
 - [ ] `Application.list_type` remains outside the estimator and is never derived from it.
 - [ ] Backend/frontend automated suites pass with at least 80% project coverage.
+  Backend coverage meets the 80% threshold; the frontend gate is blocked by the
+  unrelated, documented `TasksLayout.test.tsx` detail-panel flake recorded below.
 - [ ] Current-data sensitivity gates pass and the report is retained with implementation evidence.
 - [ ] Real-browser mobile, keyboard, and screen-reader-visible states are verified.
 - [ ] ADR, architecture, database guide, and chancing skill agree with shipped behavior.
@@ -1162,24 +1164,26 @@ cd frontend && npx vitest run src/api/schools/explore.test.tsx \
   src/features/schools/explore/useExploreFilters.test.tsx
 # 56 passed
 uv run pytest -m "not live_llm and not live_search and not live_db" -q
-# 2,226 passed, 270 deselected (final count after removing one temporary helper test)
+# 2,367 passed, 270 deselected (37.49s, exit 0)
 # Final logging fix: test-only capture/rebind/state restoration; production logging
 # unchanged.
-cd frontend && npm test
-# 121 files passed, 1,203 tests passed
+cd frontend && npm test -- --run
+# exit 1: 1 failed / 1,276 passed across 126 files
+# pre-existing TasksLayout.test.tsx > opens the detail panel when a row title is
+# clicked: unable to find the Task title textbox
+cd frontend && npx vitest run src/features/tasks/TasksLayout.test.tsx --run
+# 5 passed
 uv run ruff check . && uv run mypy .
 # both passed globally
 ```
 
-**Coverage status:** the current combined project measurement is 72.0766% (19,829
-of 27,511 opportunities), compared with 70.664% at `origin/main`. The current
-incremental changes are 95.25% covered; the admissions-fit execution scope is
-84.8537% covered; and the core estimator/adapters are 94.2857% covered. Reaching
-the repository-wide 80% gate requires 2,180 additional covered opportunities,
-of which at least 1,828 are outside the admissions-fit scope. Therefore the
-project-wide 80% coverage item in §17 is explicitly **unmet** and remains pending
-an owner-approved divergence or separate repository hardening; it is not checked
-off by this feature's fit-scope coverage.
+**Coverage status:** the post-hardening routine measurement is **80.07629427792915%**
+(displayed as 80%), with 17,715 of 21,423 statements and a branch-aware aggregate
+of **80.0763%**. The project-wide 80% coverage gate is therefore met. Test-only
+coverage hardening is recorded by commits `515f378` (Wave 1), `ec83cba` (Wave 2),
+and `da0cc001` (Wave 3); these changes do not alter production behavior. The
+previous 72.08% measurement and its proposed divergence are historical and
+superseded.
 
 **Automated browser-matrix evidence:** the broad responsive and accessibility
 matrix is complete as a real Chromium run with mocked/intercepted API responses.
@@ -1204,9 +1208,11 @@ precedence-hidden validation-count, self-reported benchmark-count, one-connectio
 and static-check findings were resolved before the current artifact was generated.
 
 **Still required before completion:** the project-wide 80% coverage DoD item is
-unmet as recorded above and needs an owner-approved divergence or separate
-hardening. The actual VoiceOver/Safari or NVDA/Firefox reading-order check remains
-pending despite the completed automated/mock browser matrix. Owner review of every
+met by the post-hardening measurement recorded above, but the frontend automated
+suite gate remains blocked by the unrelated `TasksLayout.test.tsx` failure noted
+above. The actual VoiceOver/Safari
+or NVDA/Firefox reading-order check remains pending despite the completed
+automated/mock browser matrix. Owner review of every
 `middle-v1` changed-category row, the deterministic low/high boundary samples, and
 the visible changed-row/copy wording is still required before enabling personalized
 cards. The pre-existing flaky `TasksLayout.test.tsx` detail-panel tests noted in the
@@ -1259,7 +1265,8 @@ The sensitivity artifact is school-side only: it contains no real student Profil
 student score, workspace/user data, or PII. Retained IDs are public IPEDS UNITIDs;
 the three Profiles are synthetic fixtures only.
 
-**Final executed evidence:** routine backend suite: **2,238 passed, 270 deselected**.
+**Final executed evidence:** routine backend suite: **2,367 passed, 270 deselected**
+(37.49s, exit 0).
 The final targeted backend/evidence review record reports **241 passed**, including
 **97 admissions-fit domain tests**. Global Ruff and mypy checks passed. The report and
 replay contain **58 checks / 0 mismatches / 0 control failures**.
@@ -1295,9 +1302,8 @@ GPA/SAT/ACT/multifactor paths, unknown/stale/partial states, URL score or cost
 behavior, or the live responsive browser matrix; no browser screenshot or trace
 is claimed beyond what the reports contain.
 
-**Open gates:** repo-wide combined coverage is approximately **72.08%**, below the
-required 80%; this remains unmet pending owner-approved divergence or separate
-hardening. No VoiceOver/NVDA check has run. Owner review of all `middle-v1`
-changed rows, low/high boundary samples, and visible changed-row/copy wording
-remains required, as does owner acceptance. The plan stays ungraduated in
-`plans/`.
+**Open gates:** the repo-wide 80% coverage gate is met at **80.0763%**; the
+frontend suite remains blocked by the unrelated documented `TasksLayout.test.tsx`
+failure. No VoiceOver/NVDA check has run. Owner review of all `middle-v1` changed rows,
+low/high boundary samples, and visible changed-row/copy wording remains required,
+as does owner acceptance. The plan stays ungraduated in `plans/`.
