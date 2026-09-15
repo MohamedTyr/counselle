@@ -963,6 +963,10 @@ The feature is complete only when all are true:
   `6093885`; no product behavior changed.
 - [x] Current-data sensitivity gates pass and the report is retained with implementation evidence.
 - [ ] Real-browser mobile, keyboard, and screen-reader-visible states are verified.
+  The mobile/keyboard subset now has a local real-browser report:
+  [Explore real-browser evidence](../artifacts/admissions-fit/20260915T160500Z-explore-real-e2e/REPORT.md).
+  Screen-reader/AT reading order remains required; this report is not production
+  verification and does not cover personalized Profile or Profile-change paths.
 - [x] ADR, architecture, database guide, and chancing skill agree with shipped behavior.
 - [x] Critical/High review findings are resolved.
 - [ ] Owner accepts the visible copy and behavior before the plan graduates to `specs/`.
@@ -1037,6 +1041,20 @@ Final verdicts:
 
 **Status:** Implementation complete; owner acceptance pending. This plan remains in `plans/`. Owner acceptance is pending and
 no plan file has been moved to `specs/`.
+
+### Additional local real-browser evidence — 2026-09-15
+
+[Explore real-browser evidence](../artifacts/admissions-fit/20260915T160500Z-explore-real-e2e/REPORT.md)
+records the 3-pass local Playwright run across 375px, 768px, and 1440px
+viewports. It covers live school-rate basis rendering for **Abilene Christian
+University (222178)**, search-card discovery,
+Fit visibility, keyboard disclosure focus, overflow, and page errors. Fit-group
+assertions passed in all three viewport runs before screenshot capture. The
+retained 1440px screenshot visibly shows Abilene Christian's 66% Safety
+school-rate card; the retained 375px and 768px screenshots show the later
+legitimate `Refreshing estimate…` transient, so they are viewport evidence but
+not visual proof of the Fit block. It does not close the screen-reader/AT gate,
+production validation, or personalized Profile/change-path coverage.
 
 ### Phase 7 evidence tooling and consistency pass — 2026-09-15 (historical; superseded)
 
