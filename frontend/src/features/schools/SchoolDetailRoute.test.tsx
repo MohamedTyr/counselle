@@ -43,6 +43,37 @@ function factsFixture(overrides: Partial<SchoolFactsResponse> = {}): SchoolFacts
  */
 
 describe("SchoolDetailRoute — facts fetch states", () => {
+  test("opening About never requests the lazy Profile resource", async () => {
+    const requestedUrls: string[] = [];
+    renderApp(PATH, {
+      fetchHandler: (input, init) => {
+        requestedUrls.push(String(input));
+        if (String(input).includes(`/v1/schools/${UNITID}/facts`)) {
+          return jsonResponse(factsFixture());
+        }
+        return defaultAuthenticatedFetch(input, init);
+      },
+    });
+
+    expect(
+      await screen.findByRole("tab", { name: "About", selected: true }),
+    ).toBeInTheDocument();
+    expect(requestedUrls).not.toContain("/v1/profile");
+    expect(requestedUrls.some((url) => url.endsWith("/v1/profile"))).toBe(
+      false,
+    );
+  });
+
+  /* Phase 3 turns these deliberately red contract slots into exercised route
+   * tests when the Compare panel exists. Phase 0 must not mount a placeholder
+   * panel merely to make Profile's lazy-creation GET happen. */
+  test.todo(
+    "selecting Compare requests GET /v1/profile exactly once after facts resolve",
+  );
+  test.todo(
+    "Compare scenarios issue no PATCH, application, or estimator request",
+  );
+
   test("a pending query renders the skeleton, never a redirect", async () => {
     let resolve!: (value: Response) => void;
     const pending = new Promise<Response>((r) => {
