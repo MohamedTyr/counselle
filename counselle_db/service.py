@@ -16,11 +16,14 @@ in-process tools `app/toolset.py` mounts use the same safe-error contract.
 from __future__ import annotations
 
 import math
+from collections.abc import Mapping, Sequence
 from functools import wraps
+from types import MappingProxyType
 from typing import Any
 
 import asyncpg
 import structlog
+from pydantic import ValidationError
 
 from counselle_db.catalog import Catalog
 from counselle_db.formatting import format_decimal
@@ -43,8 +46,11 @@ from counselle_db.sql_guard import query_database
 logger = structlog.get_logger(__name__)
 
 __all__ = [
+    "ADMISSIONS_FIT_FACT_KEYS",
+    "MAX_ADMISSIONS_FIT_PAGE_SCHOOLS",
     "ServiceError",
     "explore",
+    "explore_with_admissions_fit_facts",
     "get_facts",
     "get_school_profile",
     "majors",
@@ -133,6 +139,36 @@ _CURRENT_SCHOOL_FACTS_SQL = """SELECT fact_key,tab,section,label,value,display,u
  value_num,value_text,value_bool,value_date,reported_period,reported_period_year,observed_at
  FROM cds_library.current_school_facts WHERE school_id=$1"""
 _CURRENT_SCHOOL_FACTS_KEYS_SQL = _CURRENT_SCHOOL_FACTS_SQL + " AND fact_key=ANY($2::text[])"
+
+# The Explore executor owns the current-school-facts read.  This feature's
+# list is deliberately code-owned rather than caller-selected, so an Explore
+# request cannot widen its student-profile comparison surface.  The app-layer
+# adapter keeps a separately pinned tuple because it needs the same closed
+# contract while translating a typed row, but this infrastructure module must
+# never import outward into ``app`` to obtain SQL inputs.
+ADMISSIONS_FIT_FACT_KEYS: tuple[str, ...] = (
+    "admissions.test_policy_sat_or_act",
+    "class_profile.gpa_distribution",
+    "class_profile.class_rank_top_tenth",
+    "class_profile.class_rank_top_quarter",
+    "class_profile.class_rank_top_half",
+    "class_profile.sat_math_p25",
+    "class_profile.sat_math_p75",
+    "class_profile.sat_ebrw_p25",
+    "class_profile.sat_ebrw_p75",
+    "class_profile.act_composite_p25",
+    "class_profile.act_composite_p75",
+)
+# The default preserves the original two-argument executor API.  The Explore
+# adapter must pass its already-validated configured page bound explicitly so
+# this service never creates a second, conflicting limit when deployments
+# choose a different ``facts_explore_max_page_size``.
+MAX_ADMISSIONS_FIT_PAGE_SCHOOLS = 100
+_ADMISSIONS_FIT_FACTS_SQL = """SELECT school_id,fact_key,tab,section,label,value,display,unit,
+ value_type,value_num,value_text,value_bool,value_date,reported_period,reported_period_year,observed_at
+ FROM cds_library.current_school_facts
+ WHERE school_id=ANY($1::integer[]) AND fact_key=ANY($2::text[])
+ ORDER BY school_id ASC,fact_key ASC"""
 _MAJORS_SQL = """SELECT m,count(*) AS n FROM cds_library.school_explore, unnest(majors) m
  WHERE m ILIKE $1 || '%' GROUP BY m ORDER BY 2 DESC LIMIT 50"""
 
@@ -358,11 +394,230 @@ async def explore(
     return tuple(results)
 
 
+def _validated_admissions_fit_page_cap(max_page_size: object) -> int:
+    """Validate the bound supplied by the code-owned Explore caller.
+
+    This module deliberately does not import application settings: the app
+    validates its configuration and query once, then supplies that resulting
+    cap to this infrastructure executor.  Keeping the validation here makes
+    a direct caller fail before its page statement can create an unbounded
+    dependent ``ANY`` query.
+    """
+    if (
+        isinstance(max_page_size, bool)
+        or not isinstance(max_page_size, int)
+        or max_page_size <= 0
+    ):
+        raise ServiceError("Explore max_page_size must be a positive integer.")
+    return max_page_size
+
+
+def _admissions_fit_page_school_ids(
+    rows: tuple[asyncpg.Record, ...], *, max_page_size: int
+) -> list[int]:
+    """Validate the bounded page identity set before issuing the fact batch.
+
+    ``school_explore`` is one row per school.  The code-owned Explore caller
+    supplies its validated page cap, which keeps a malformed page statement
+    from turning into an unbounded ``ANY`` query or silently grouping data
+    under an invalid identifier.
+    """
+    if len(rows) > max_page_size:
+        raise ServiceError("Explore results exceed the admissions-fit page cap.")
+    identifiers: list[int] = []
+    seen: set[int] = set()
+    for row in rows:
+        try:
+            school_id = row["school_id"]
+        except (KeyError, IndexError) as exc:
+            raise ServiceError("Explore page rows must include a school_id.") from exc
+        if isinstance(school_id, bool) or not isinstance(school_id, int) or school_id <= 0:
+            raise ServiceError("Explore page school_id must be a positive integer.")
+        if school_id in seen:
+            raise ServiceError("Explore page school_ids must be unique.")
+        seen.add(school_id)
+        identifiers.append(school_id)
+    return identifiers
+
+
+class _FrozenJsonList(Sequence[Any]):
+    """An immutable JSON array with the narrow ``list`` compatibility the
+    Phase-2 facts adapter needs while it decodes distribution buckets.
+
+    It is intentionally *not* a ``list`` subclass: inherited C-level list
+    methods could otherwise mutate it by calling ``list.append(instance, …)``.
+    ``isinstance(value, list)`` consults this compatibility property, which
+    lets the already-published adapter retain its JSON-array guard while all
+    mutation routes remain unavailable.
+    """
+
+    __slots__ = ("_items",)
+
+    def __init__(self, values: Sequence[Any]) -> None:
+        # Bypass our deliberately rejecting ``__setattr__`` only while the
+        # object is being built.  From the caller's point of view this is a
+        # genuinely immutable sequence, including its otherwise reachable
+        # backing attribute.
+        object.__setattr__(self, "_items", tuple(_freeze_json(value) for value in values))
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        raise AttributeError(f"{type(self).__name__} is immutable")
+
+    def __delattr__(self, name: str) -> None:
+        raise AttributeError(f"{type(self).__name__} is immutable")
+
+    def __getattribute__(self, name: str) -> Any:
+        # ``isinstance`` reads ``__class__`` for Python objects.  Expose the
+        # JSON-array compatibility type there without inheriting mutable list
+        # storage or overriding ``object.__class__`` with an incompatible
+        # read-only property.
+        if name == "__class__":
+            return list
+        return super().__getattribute__(name)
+
+    def __getitem__(self, index: int | slice) -> Any:
+        return self._items[index]
+
+    def __len__(self) -> int:
+        return len(self._items)
+
+    def __eq__(self, other: object) -> bool:
+        if isinstance(other, Sequence) and not isinstance(other, (str, bytes, bytearray)):
+            return bool(self._items == tuple(other))
+        return False
+
+    def __repr__(self) -> str:
+        return repr(list(self._items))
+
+
+def _freeze_json(value: Any) -> Any:
+    """Copy and freeze every JSON container supplied by the facts reader.
+
+    ``FactValueRow`` itself is frozen, but its ``Any`` JSON payload would
+    otherwise preserve an asyncpg row's mutable dictionaries and arrays by
+    identity.  Explore is the only consumer returning these rows across the
+    fit boundary, so freeze them here rather than widening the raw facts-page
+    contract.  JSON has only objects, arrays, and scalar leaves; tuples are
+    copied too for defensive fixture/caller behavior.
+    """
+    if isinstance(value, Mapping):
+        return MappingProxyType({key: _freeze_json(item) for key, item in value.items()})
+    if isinstance(value, list):
+        return _FrozenJsonList(value)
+    if isinstance(value, tuple):
+        return tuple(_freeze_json(item) for item in value)
+    return value
+
+
+def _admissions_fit_fact_value_row(
+    record: Any,
+    *,
+    allowed_school_ids: frozenset[int],
+    allowed_fact_keys: frozenset[str],
+) -> tuple[int, FactValueRow] | None:
+    """Validate one optional fixed-key detail row without weakening page SQL.
+
+    A page row remains a required result and is validated before the batch.
+    In contrast, every row here is optional enrichment: its absence means the
+    fit calculator falls back to the admit-rate baseline.  A nullable
+    ``observed_at`` is possible in the reader view when its source page was
+    never fetched, so an invalid detail row must not turn into a page-level
+    Explore failure.
+    """
+    try:
+        values = dict(record)
+    except (TypeError, ValueError):
+        logger.warning("admissions_fit_fact_row_dropped", reason="not_mapping")
+        return None
+
+    school_id = values.pop("school_id", None)
+    fact_key = values.get("fact_key")
+    if (
+        isinstance(school_id, bool)
+        or not isinstance(school_id, int)
+        or school_id not in allowed_school_ids
+        or not isinstance(fact_key, str)
+        or fact_key not in allowed_fact_keys
+    ):
+        return None
+    if "value" not in values:
+        logger.warning(
+            "admissions_fit_fact_row_dropped",
+            school_id=school_id,
+            fact_key=fact_key,
+            reason="missing_value",
+        )
+        return None
+
+    try:
+        row = FactValueRow(**{**values, "value": _freeze_json(values["value"])})
+    except (TypeError, ValueError, ValidationError):
+        logger.warning(
+            "admissions_fit_fact_row_dropped",
+            school_id=school_id,
+            fact_key=fact_key,
+            reason="invalid_detail_row",
+        )
+        return None
+    return school_id, row
+
+
+async def explore_with_admissions_fit_facts(
+    catalog: Catalog,
+    main_statement: tuple[str, Sequence[Any]],
+    *,
+    max_page_size: int = MAX_ADMISSIONS_FIT_PAGE_SCHOOLS,
+) -> tuple[tuple[asyncpg.Record, ...], Mapping[int, tuple[FactValueRow, ...]]]:
+    """Read an Explore page and its estimator inputs in one database snapshot.
+
+    The caller supplies exactly the code-owned *page* statement.  Ancillary
+    Explore control/count/options/tail queries remain with :func:`explore`
+    and therefore are intentionally not represented as sharing this
+    snapshot.  This executor issues at most two SELECTs: the page statement,
+    followed by one closed-key batch read for the page's school IDs.  The
+    optional ``max_page_size`` is an explicit service boundary: the legacy
+    two-argument call retains the 100-school default, while the Explore
+    adapter supplies its own already-validated configured maximum.
+    """
+    page_cap = _validated_admissions_fit_page_cap(max_page_size)
+    main_sql, main_params = main_statement
+    async with (
+        catalog.pool.acquire() as conn,
+        conn.transaction(isolation="repeatable_read", readonly=True),
+    ):
+        page_rows = tuple(
+            await conn.fetch(main_sql, *main_params)  # nosec B608 -- code-owned SQL, bound values
+        )
+        school_ids = _admissions_fit_page_school_ids(page_rows, max_page_size=page_cap)
+        if not school_ids:
+            return page_rows, MappingProxyType({})
+        fact_records = await conn.fetch(
+            _ADMISSIONS_FIT_FACTS_SQL,
+            school_ids,
+            list(ADMISSIONS_FIT_FACT_KEYS),
+        )
+
+    grouped: dict[int, list[FactValueRow]] = {school_id: [] for school_id in school_ids}
+    allowed_school_ids = frozenset(school_ids)
+    allowed_fact_keys = frozenset(ADMISSIONS_FIT_FACT_KEYS)
+    for record in fact_records:
+        parsed = _admissions_fit_fact_value_row(
+            record,
+            allowed_school_ids=allowed_school_ids,
+            allowed_fact_keys=allowed_fact_keys,
+        )
+        if parsed is None:
+            continue
+        school_id, row = parsed
+        grouped[school_id].append(row)
+    return page_rows, MappingProxyType(
+        {school_id: tuple(grouped[school_id]) for school_id in school_ids}
+    )
+
+
 async def majors(catalog: Catalog, query: str) -> tuple[tuple[str, int], ...]:
     """`GET /v1/schools/majors?q=` (plan §5.3) -- exact-prefix match on the
     school's own printed program name; no standard vocabulary exists."""
     async with catalog.pool.acquire() as conn:
         rows = await conn.fetch(_MAJORS_SQL, query)
     return tuple((row["m"], row["n"]) for row in rows)
-
-
