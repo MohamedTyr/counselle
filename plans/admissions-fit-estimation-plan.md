@@ -1055,6 +1055,10 @@ school-rate card; the retained 375px and 768px screenshots show the later
 legitimate `Refreshing estimate…` transient, so they are viewport evidence but
 not visual proof of the Fit block. It does not close the screen-reader/AT gate,
 production validation, or personalized Profile/change-path coverage.
+The exact local harness/runtime/dependency provenance and hashes are recorded in
+[`HARNESS_PROVENANCE.md`](../artifacts/admissions-fit/20260915T160500Z-explore-real-e2e/HARNESS_PROVENANCE.md);
+the harness files were untracked or modified in the shared worktree, so this is
+local reproducibility evidence, not clean-checkout CI proof.
 
 ### Phase 7 evidence tooling and consistency pass — 2026-09-15 (historical; superseded)
 
