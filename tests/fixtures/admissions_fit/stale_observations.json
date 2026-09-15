@@ -1,0 +1,8 @@
+{
+  "provenance": {"origin": "complete_required_school.json", "sanitization": "school identity omitted", "controlled_change": "only observed_at is backdated for hermetic stale-fact tests"},
+  "as_of": "2026-09-15T00:00:00Z",
+  "current_school_facts": [
+    {"fact_key": "admissions.test_policy_sat_or_act", "tab": "admission", "section": "getting-in", "label": "SAT or ACT", "value": {"kind": "enum", "value": {"raw": "Required"}}, "display": "Required", "unit": null, "value_type": "enum", "value_num": null, "value_text": "required", "value_bool": null, "value_date": null, "reported_period": null, "reported_period_year": null, "observed_at": "2025-01-01T00:00:00Z"},
+    {"fact_key": "class_profile.gpa_distribution", "tab": "admission", "section": "getting-in", "label": "Grade Point Average of Enrolled Freshmen (4.0 Scale)", "value": {"kind": "distribution", "value": {"scale": "gpa", "buckets": [{"label": "4.00 and Above", "pct": 21.0}, {"label": "3.75 - 3.99", "lo": 3.75, "hi": 3.99, "pct": 53.0}, {"label": "3.50 - 3.74", "lo": 3.5, "hi": 3.74, "pct": 21.0}, {"label": "3.25 - 3.49", "lo": 3.25, "hi": 3.49, "pct": 5.0}, {"label": "3.00 - 3.24", "lo": 3.0, "hi": 3.24, "pct": 0.0}], "omitted_buckets": [], "sums_to": 100.0}}, "display": "5 of 5 buckets reported", "unit": "percent", "value_type": "distribution", "value_num": null, "value_text": null, "value_bool": null, "value_date": null, "reported_period": null, "reported_period_year": null, "observed_at": "2025-01-01T00:00:00Z"}
+  ]
+}
