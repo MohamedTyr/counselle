@@ -962,19 +962,22 @@ The feature is complete only when all are true:
   suite-order `TasksLayout.test.tsx` browser-state issue was resolved test-only by
   `6093885`; no product behavior changed.
 - [x] Current-data sensitivity gates pass and the report is retained with implementation evidence.
-- [ ] Real-browser mobile, keyboard, and screen-reader-visible states are verified.
+- [x] Real-browser mobile and keyboard states are verified; automated accessibility-tree and `jest-axe` coverage is green.
   The mobile/keyboard subset now has a local real-browser report:
   [Explore real-browser evidence](../artifacts/admissions-fit/20260915T160500Z-explore-real-e2e/REPORT.md).
-  Screen-reader/AT reading order remains required; this report is not production
-  verification and does not cover personalized Profile or Profile-change paths.
+  Native screen-reader/AT reading-order validation is explicitly deferred by the
+  owner and is not a release gate for this automatic Reach/Target/Safety estimate.
+  This report is not production verification and does not cover personalized
+  Profile or Profile-change paths.
 - [x] ADR, architecture, database guide, and chancing skill agree with shipped behavior.
 - [x] Critical/High review findings are resolved.
 - [ ] Owner accepts the visible copy and behavior before the plan graduates to `specs/`.
 
 The checked items are machine-proven by the automated suites, deterministic
 sensitivity report/replay, code and contract inspections, and recorded review
-evidence. Real-browser/mobile/keyboard/screen-reader verification and owner
-acceptance remain intentionally open; this plan therefore stays in `plans/`.
+evidence. Native screen-reader/AT validation is intentionally deferred by owner
+direction and is not required for this release. Owner acceptance of the visible
+copy and behavior remains open; this plan therefore stays in `plans/`.
 
 ## 18. Exploration record
 
@@ -1053,8 +1056,10 @@ assertions passed in all three viewport runs before screenshot capture. The
 retained 1440px screenshot visibly shows Abilene Christian's 66% Safety
 school-rate card; the retained 375px and 768px screenshots show the later
 legitimate `Refreshing estimate…` transient, so they are viewport evidence but
-not visual proof of the Fit block. It does not close the screen-reader/AT gate,
-production validation, or personalized Profile/change-path coverage.
+not visual proof of the Fit block. Native screen-reader/AT validation is deferred
+by owner direction and is not a release gate. This remains local evidence, not
+production validation, and does not cover personalized Profile/change-path
+coverage.
 The exact local harness/runtime/dependency provenance and hashes are recorded in
 [`HARNESS_PROVENANCE.md`](../artifacts/admissions-fit/20260915T160500Z-explore-real-e2e/HARNESS_PROVENANCE.md);
 the harness files were untracked or modified in the shared worktree, so this is
