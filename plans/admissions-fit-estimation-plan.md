@@ -1222,6 +1222,12 @@ for audit history. Phase 7 is committed in
 `dd61daf11115e26cfb8ea8bcb2ea629375a23f35` (`feat: harden admissions fit rollout`),
 and the plan remains in `plans/` pending owner acceptance.
 
+Post-Phase-7 verification provenance is limited to the admissions-fit work: commit
+`42aab2e` is the initial verification record, commit `7036958` adds the neutral-GPA/
+rank-precedence regression coverage, and commit `2437eae` records the real
+authenticated local E2E evidence. These are the only post-Phase-7 provenance
+commits relevant to this plan.
+
 Final backend hardening:
 
 - stale provenance/caveat is preserved through malformed optional fallbacks;
@@ -1253,10 +1259,10 @@ The sensitivity artifact is school-side only: it contains no real student Profil
 student score, workspace/user data, or PII. Retained IDs are public IPEDS UNITIDs;
 the three Profiles are synthetic fixtures only.
 
-**Final executed evidence:** routine backend suite: **2,237 passed, 270 deselected**.
-The final targeted backend/evidence review record reports **240 passed**. Global Ruff
-and mypy checks passed. The report and replay contain **58 checks / 0 mismatches / 0
-control failures**.
+**Final executed evidence:** routine backend suite: **2,238 passed, 270 deselected**.
+The final targeted backend/evidence review record reports **241 passed**, including
+**97 admissions-fit domain tests**. Global Ruff and mypy checks passed. The report and
+replay contain **58 checks / 0 mismatches / 0 control failures**.
 
 ### Real local authenticated E2E — 2026-09-15
 
