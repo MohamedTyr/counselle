@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 
 import type {
@@ -165,8 +166,15 @@ describe("SchoolResultCard", () => {
 
     // Cost, share of need met, and the graduation rate -- three absent stats.
     expect(screen.getAllByText("not available")).toHaveLength(3);
-    expect(screen.getByText(/admit rate not available/)).toBeInTheDocument();
+    expect(screen.getByText(/admit rate not available/i)).toBeInTheDocument();
     expect(screen.getByText(/test range not available/)).toBeInTheDocument();
+    expect(screen.getByText("Not classified")).toBeInTheDocument();
+    expect(screen.queryByText("Unknown")).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("group", {
+        name: /fit: not classified.*admit rate: not available.*admit rate not available/i,
+      }),
+    ).toBeInTheDocument();
     expect(screen.queryByText("0%")).not.toBeInTheDocument();
     expect(screen.queryByText("—")).not.toBeInTheDocument();
     expect(screen.queryByText("$0")).not.toBeInTheDocument();
@@ -234,19 +242,20 @@ describe("SchoolResultCard", () => {
     );
 
     expect(screen.getByText("Not classified")).toBeInTheDocument();
+    expect(screen.queryByText("Unknown")).not.toBeInTheDocument();
     expect(
-      screen.getByRole("group", { name: /not classified/i }),
+      screen.getByRole("group", { name: /fit: not classified/i }),
     ).toBeInTheDocument();
   });
 
-  it("renders the server category verbatim instead of recalculating from the displayed rate", () => {
+  it("renders and announces only the canonical fit baseline rate when the card field diverges", () => {
     renderCard(
       school(
         { admit_rate: 8 },
         {
           ...baselineFit,
-          baseline_admit_rate: 8,
-          baseline_category: "Reach",
+          baseline_admit_rate: 33.3,
+          baseline_category: "Target",
           basis: "personalized",
           category: "Safety",
           evidence_level: "one_comparison",
@@ -262,7 +271,159 @@ describe("SchoolResultCard", () => {
     );
 
     expect(screen.getByText("Safety")).toBeInTheDocument();
-    expect(screen.queryByText("Reach")).not.toBeInTheDocument();
+    expect(screen.getByText("33.3%")).toBeInTheDocument();
+    expect(screen.queryByText("8%")).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("group", {
+        name: /fit: safety.*admit rate: 33\.3%.*adjusted using your profile.*applied factors: academic.*entering-class benchmarks/i,
+      }),
+    ).toBeInTheDocument();
+  });
+
+  it("keeps deeper baseline factors compact while its basis remains visible", async () => {
+    const user = userEvent.setup();
+    renderCard(school());
+
+    const disclosure = screen.getByRole("button", {
+      name: "How this estimate was made",
+    });
+    const controls = disclosure.getAttribute("aria-controls");
+    const explanation = document.getElementById(controls ?? "");
+
+    expect(disclosure).toHaveAttribute("aria-expanded", "false");
+    expect(explanation).toHaveAttribute("hidden");
+    expect(screen.getByText("Based on school admit rate")).toBeVisible();
+    expect(screen.getAllByText("Based on school admit rate")).toHaveLength(1);
+    expect(disclosure).toHaveClass("min-h-6", "min-w-6");
+    expect(disclosure).toHaveClass("pointer-coarse:min-h-11");
+    expect(disclosure).toHaveClass("focus-visible:ring-2");
+    disclosure.focus();
+    await user.keyboard("{Enter}");
+
+    expect(disclosure).toHaveAttribute("aria-expanded", "true");
+    expect(explanation).not.toHaveAttribute("hidden");
+    expect(screen.getAllByText("Based on school admit rate")).toHaveLength(1);
+    expect(
+      screen.queryByText(/chance|probability|index/i),
+    ).not.toBeInTheDocument();
+  });
+
+  it("explains an unchanged personalized estimate and its entering-class caveat after expansion", async () => {
+    const user = userEvent.setup();
+    renderCard(
+      school(
+        {},
+        {
+          ...baselineFit,
+          basis: "personalized",
+          evidence_level: "two_comparisons",
+          signals: [
+            {
+              assessment: "strong",
+              factor: "academic",
+              source: "gpa_distribution",
+            },
+            { assessment: "strong", factor: "testing", source: "sat" },
+          ],
+        },
+      ),
+    );
+
+    expect(
+      screen.getByRole("group", {
+        name: /fit: target.*admit rate: 45%.*checked against your profile.*applied factors: academic, testing.*entering-class benchmarks/i,
+      }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Checked against your profile")).toBeVisible();
+    expect(screen.getAllByText("Checked against your profile")).toHaveLength(1);
+    await user.click(
+      screen.getByRole("button", { name: "How this estimate was made" }),
+    );
+
+    expect(
+      screen.getByText("Checked against your profile"),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/GPA is in the upper part/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/SAT scores are in the upper part/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        /Entering-class benchmarks are context, not admission cutoffs or personal odds/i,
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("group", {
+        name: /checked against your profile.*entering-class benchmarks.*personal odds/i,
+      }),
+    ).toBeInTheDocument();
+  });
+
+  it("uses adjusted copy when personalization changes the server category", async () => {
+    const user = userEvent.setup();
+    renderCard(
+      school(
+        {},
+        {
+          ...baselineFit,
+          baseline_category: "Target",
+          basis: "personalized",
+          category: "Safety",
+          evidence_level: "one_comparison",
+          signals: [
+            { assessment: "strong", factor: "academic", source: "class_rank" },
+          ],
+        },
+      ),
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: "How this estimate was made" }),
+    );
+
+    expect(screen.getByText("Adjusted using your profile")).toBeInTheDocument();
+    expect(
+      screen.getByText(/Class rank is in the upper part/i),
+    ).toBeInTheDocument();
+  });
+
+  it("caps explanations at two factors and preserves the unknown-policy possibility", async () => {
+    const user = userEvent.setup();
+    renderCard(
+      school(
+        {},
+        {
+          ...baselineFit,
+          basis: "personalized",
+          evidence_level: "two_comparisons",
+          signals: [
+            { assessment: "weak", factor: "academic", source: "class_rank" },
+            { assessment: "strong", factor: "testing", source: "sat_and_act" },
+            { assessment: "strong", factor: "testing", source: "act" },
+          ],
+          unavailable: [
+            {
+              factor: "testing",
+              reason: "test_policy_not_required_or_unknown",
+            },
+          ],
+        },
+      ),
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: "How this estimate was made" }),
+    );
+
+    expect(screen.getAllByTestId("fit-applied-factor")).toHaveLength(2);
+    expect(
+      screen.getByText(
+        /testing policy is either not required or not confirmed in our data/i,
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText(/test_policy_not_required_or_unknown/),
+    ).not.toBeInTheDocument();
   });
 
   it("suppresses a cached estimate until the matching personalized response arrives", () => {
@@ -303,5 +464,18 @@ describe("SchoolResultCard", () => {
     expect(screen.getByText("ED")).toBeInTheDocument();
     expect(screen.getByText("EA")).toBeInTheDocument();
     expect(screen.getByText("Jan 15")).toBeInTheDocument();
+  });
+
+  it("does not clamp a legitimate long school name and keeps its Add action", () => {
+    const longName =
+      "University of the Commonwealth and International Studies at North River";
+    renderCard({ ...school(), name: longName });
+
+    const heading = screen.getByRole("heading", { name: longName });
+    expect(heading).not.toHaveClass("line-clamp-2");
+    expect(heading).not.toHaveClass("truncate");
+    expect(
+      screen.getByRole("button", { name: `Add ${longName} to your list` }),
+    ).toBeInTheDocument();
   });
 });

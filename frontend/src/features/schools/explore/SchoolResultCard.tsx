@@ -191,7 +191,7 @@ export function SchoolResultCard({
         <div className="row-span-2 self-center">
           <SchoolAvatar name={school.name} websiteUrl={school.website_url} />
         </div>
-        <h3 className="line-clamp-2 self-center text-base leading-tight font-medium text-balance">
+        <h3 className="min-w-0 self-center break-words text-base leading-tight font-medium text-balance">
           {href ? (
             <Link
               className="rounded-sm outline-none after:absolute after:inset-0 after:rounded-xl focus-visible:after:ring-2 focus-visible:after:ring-[var(--focus-ring)]"

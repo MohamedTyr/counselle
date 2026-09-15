@@ -1,5 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { axe, toHaveNoViolations } from "jest-axe";
 import { MemoryRouter } from "react-router";
 
 import type {
@@ -16,6 +18,8 @@ import { ExploreResultsHeader } from "@/features/schools/explore/ExploreResultsH
 import { ExploreSearchField } from "@/features/schools/explore/ExploreSearchField";
 import type { ExploreAssumptions } from "@/features/schools/explore/explore-types";
 import { SchoolResultCard } from "@/features/schools/explore/SchoolResultCard";
+
+expect.extend(toHaveNoViolations);
 
 /*
  * Honesty/a11y surfaces this feature is directly responsible for (plan §7
@@ -97,21 +101,24 @@ const baseFields: ExploreFields = {
   yield_rate: null,
 };
 
-function school(overrides: Partial<ExploreFields> = {}): ExploreSchoolCard {
+function school(
+  overrides: Partial<ExploreFields> = {},
+  fit: FitEstimate = {
+    algorithm_version: "admissions-fit-v1",
+    baseline_admit_rate: 30,
+    baseline_category: "Target",
+    basis: "school_rate",
+    category: "Target",
+    caveats: [],
+    evidence_level: "baseline_only",
+    signals: [],
+    unavailable: [],
+  },
+): ExploreSchoolCard {
   return {
     city: "Testville",
     fields: { ...baseFields, ...overrides },
-    fit: {
-      algorithm_version: "admissions-fit-v1",
-      baseline_admit_rate: 30,
-      baseline_category: "Target",
-      basis: "school_rate",
-      category: "Target",
-      caveats: [],
-      evidence_level: "baseline_only",
-      signals: [],
-      unavailable: [],
-    } satisfies FitEstimate,
+    fit,
     name: "Band University",
     state: "MA",
     unitid: 1,
@@ -159,6 +166,82 @@ describe("Explore Profile summary", () => {
 
     expect(
       screen.queryByText(/powers these estimates/i),
+    ).not.toBeInTheDocument();
+  });
+
+  it("offers one Profile link only when the saved Profile has no comparison candidate", () => {
+    render(
+      <MemoryRouter>
+        <ExploreResultsHeader
+          bandCaption=""
+          bandCaptionId={BAND_CAPTION_ID}
+          browsableTotal={100}
+          catalogTotal={100}
+          exclusions={[]}
+          factsObservedFrom={null}
+          fitProfileSummary={{
+            has_academic_candidate: false,
+            has_complete_test_candidate: false,
+            suggested_profile_fields: ["gpa", "class_rank", "test_scores"],
+          }}
+          onIncludeMissing={() => {}}
+          onAssumptionsChange={() => {}}
+          onSortChange={() => {}}
+          assumptions={assumptions}
+          showBandCaption={false}
+          sort={{ direction: "asc", key: "name" }}
+          sortedNullTail={null}
+          total={1}
+          totalIsCapped={false}
+        />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByRole("link", { name: /profile/i })).toHaveAttribute(
+      "href",
+      "/app/profile",
+    );
+    expect(screen.getByRole("link", { name: "Open Profile" })).toHaveClass(
+      "focus-visible:ring-2",
+    );
+    expect(screen.getByRole("link", { name: "Open Profile" })).toHaveClass(
+      "focus-visible:ring-[var(--focus-ring)]",
+    );
+    expect(screen.getAllByText(/Add GPA, class rank, or scores/i)).toHaveLength(
+      1,
+    );
+  });
+
+  it("does not prompt a complete but neutral Profile", () => {
+    render(
+      <MemoryRouter>
+        <ExploreResultsHeader
+          bandCaption=""
+          bandCaptionId={BAND_CAPTION_ID}
+          browsableTotal={100}
+          catalogTotal={100}
+          exclusions={[]}
+          factsObservedFrom={null}
+          fitProfileSummary={{
+            has_academic_candidate: true,
+            has_complete_test_candidate: true,
+            suggested_profile_fields: [],
+          }}
+          onIncludeMissing={() => {}}
+          onAssumptionsChange={() => {}}
+          onSortChange={() => {}}
+          assumptions={assumptions}
+          showBandCaption={false}
+          sort={{ direction: "asc", key: "name" }}
+          sortedNullTail={null}
+          total={1}
+          totalIsCapped={false}
+        />
+      </MemoryRouter>,
+    );
+
+    expect(
+      screen.queryByTestId("explore-fit-profile-status"),
     ).not.toBeInTheDocument();
   });
 });
@@ -460,6 +543,144 @@ describe("server fit -- status is never colour alone on the card", () => {
     );
 
     expect(screen.getByRole("group", { name: /target/i })).toBeInTheDocument();
+  });
+
+  it("keeps estimate refreshing as one polite header status, never a card live region", () => {
+    const { container } = render(
+      <MemoryRouter>
+        <ExploreResultsHeader
+          bandCaption=""
+          bandCaptionId={BAND_CAPTION_ID}
+          browsableTotal={100}
+          catalogTotal={100}
+          exclusions={[]}
+          factsObservedFrom={null}
+          fitProfileSummary={null}
+          isRefreshingEstimate
+          onIncludeMissing={() => {}}
+          onAssumptionsChange={() => {}}
+          onSortChange={() => {}}
+          assumptions={assumptions}
+          showBandCaption={false}
+          sort={{ direction: "asc", key: "name" }}
+          sortedNullTail={null}
+          total={1}
+          totalIsCapped={false}
+        />
+        <SchoolResultCard
+          bandCaptionId={null}
+          href={null}
+          isRefreshingEstimate
+          onAdd={() => {}}
+          assumptions={assumptions}
+          school={school()}
+        />
+      </MemoryRouter>,
+    );
+
+    const refreshed = screen.getByRole("status");
+    expect(refreshed).toHaveAttribute("aria-live", "polite");
+    expect(refreshed).toHaveTextContent("Refreshing estimates… 1 school");
+    expect(container.querySelectorAll("[aria-live]")).toHaveLength(1);
+    expect(container.querySelectorAll("[role='status']")).toHaveLength(1);
+    expect(
+      container.querySelector("[data-slot='explore-fit-refresh']"),
+    ).not.toHaveAttribute("aria-live");
+  });
+
+  it("has no automatically-detectable violations for baseline and personalized fit states", async () => {
+    const baseline = render(
+      <MemoryRouter>
+        <ExploreResultsHeader
+          bandCaption=""
+          bandCaptionId={BAND_CAPTION_ID}
+          browsableTotal={100}
+          catalogTotal={100}
+          exclusions={[]}
+          factsObservedFrom={null}
+          fitProfileSummary={null}
+          onIncludeMissing={() => {}}
+          onAssumptionsChange={() => {}}
+          onSortChange={() => {}}
+          assumptions={assumptions}
+          showBandCaption={false}
+          sort={{ direction: "asc", key: "name" }}
+          sortedNullTail={null}
+          total={1}
+          totalIsCapped={false}
+        />
+        <SchoolResultCard
+          bandCaptionId={null}
+          href={null}
+          onAdd={() => {}}
+          assumptions={assumptions}
+          school={school()}
+        />
+      </MemoryRouter>,
+    );
+
+    expect(await axe(baseline.container)).toHaveNoViolations();
+    baseline.unmount();
+
+    const personalized = render(
+      <MemoryRouter>
+        <ExploreResultsHeader
+          bandCaption=""
+          bandCaptionId={BAND_CAPTION_ID}
+          browsableTotal={100}
+          catalogTotal={100}
+          exclusions={[]}
+          factsObservedFrom={null}
+          fitProfileSummary={null}
+          onIncludeMissing={() => {}}
+          onAssumptionsChange={() => {}}
+          onSortChange={() => {}}
+          assumptions={assumptions}
+          showBandCaption={false}
+          sort={{ direction: "asc", key: "name" }}
+          sortedNullTail={null}
+          total={1}
+          totalIsCapped={false}
+        />
+        <SchoolResultCard
+          bandCaptionId={null}
+          href={null}
+          onAdd={() => {}}
+          assumptions={assumptions}
+          school={school(
+            {},
+            {
+              algorithm_version: "admissions-fit-v1",
+              baseline_admit_rate: 30,
+              baseline_category: "Target",
+              basis: "personalized",
+              category: "Target",
+              caveats: [],
+              evidence_level: "one_comparison",
+              signals: [
+                {
+                  assessment: "strong",
+                  factor: "academic",
+                  source: "gpa_distribution",
+                },
+              ],
+              unavailable: [],
+            },
+          )}
+        />
+      </MemoryRouter>,
+    );
+
+    const user = userEvent.setup();
+    await user.click(
+      screen.getByRole("button", { name: "How this estimate was made" }),
+    );
+    expect(
+      screen.getByRole("group", {
+        name: /fit: target.*admit rate: 30%.*entering-class benchmarks/i,
+      }),
+    ).toBeInTheDocument();
+    expect(await axe(personalized.container)).toHaveNoViolations();
   });
 });
 

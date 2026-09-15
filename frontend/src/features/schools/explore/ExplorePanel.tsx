@@ -279,6 +279,7 @@ export function ExplorePanel() {
           fitProfileSummary={
             isRefreshingEstimate ? null : (data?.fit_profile_summary ?? null)
           }
+          isRefreshingEstimate={isRefreshingEstimate}
           onAssumptionsChange={setAssumptions}
           onSortChange={setSort}
           assumptions={assumptions}

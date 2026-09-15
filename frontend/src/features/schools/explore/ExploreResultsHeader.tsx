@@ -1,4 +1,5 @@
 import { ChevronDown, Eye, UserRound } from "lucide-react";
+import { Link } from "react-router";
 
 import type {
   Exclusion,
@@ -238,7 +239,13 @@ function FitProfileStatus({ summary }: { summary: FitProfileSummary | null }) {
       data-slot="explore-fit-profile-status"
     >
       Add GPA, class rank, or scores to your saved Profile to refine these
-      estimates.
+      estimates.{" "}
+      <Link
+        className="rounded-sm font-medium text-[var(--ink-secondary)] underline decoration-[var(--edge-subtle)] underline-offset-2 outline-none hover:text-[var(--ink)] focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+        to="/app/profile"
+      >
+        Open Profile
+      </Link>
     </p>
   );
 }
@@ -260,6 +267,7 @@ export function ExploreResultsHeader({
   bandCaption,
   showBandCaption,
   bandCaptionId,
+  isRefreshingEstimate = false,
 }: {
   total: number;
   totalIsCapped: boolean;
@@ -277,10 +285,14 @@ export function ExploreResultsHeader({
   bandCaption: string;
   showBandCaption: boolean;
   bandCaptionId: string;
+  isRefreshingEstimate?: boolean;
 }) {
   const activeSort =
     sortOptions.find((option) => option.value === sort.key) ?? sortOptions[0];
   const outsideCatalog = catalogTotal - browsableTotal;
+  const resultCount = totalIsCapped
+    ? `${total}+ schools`
+    : `${total} ${total === 1 ? "school" : "schools"}`;
 
   return (
     <div className="flex flex-col gap-2">
@@ -290,9 +302,9 @@ export function ExploreResultsHeader({
           className="text-sm font-medium tabular-nums"
           role="status"
         >
-          {totalIsCapped
-            ? `${total}+ schools`
-            : `${total} ${total === 1 ? "school" : "schools"}`}
+          {isRefreshingEstimate
+            ? `Refreshing estimates… ${resultCount}`
+            : resultCount}
         </p>
 
         <ExploreAssumptionsChip
