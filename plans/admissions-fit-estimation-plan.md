@@ -946,26 +946,31 @@ Rollback is code-only because there is no migration and no stored estimate.
 
 The feature is complete only when all are true:
 
-- [ ] Empty/missing optional Profile fields reproduce the current admit-rate category exactly.
-- [ ] Missing admit rate returns Unknown regardless of Profile completeness.
-- [ ] Only the school/Profile allowlists in §4 can affect the result.
-- [ ] GPA, rank, tests, policies, absence, and staleness follow §5 exactly.
-- [ ] A sub-20% school cannot be upgraded out of Reach.
-- [ ] The internal adjustment is bounded to ±12 and is never shown as probability.
-- [ ] Explore performs one saved-Profile read and one fixed-key school-facts batch, not per-card reads.
-- [ ] Server and frontend share one typed fit contract; the browser does not recalculate.
-- [ ] URL-local pseudo-profile values no longer override saved Profile data.
-- [ ] `Application.list_type` remains outside the estimator and is never derived from it.
+- [x] Empty/missing optional Profile fields reproduce the current admit-rate category exactly.
+- [x] Missing admit rate returns Unknown regardless of Profile completeness.
+- [x] Only the school/Profile allowlists in §4 can affect the result.
+- [x] GPA, rank, tests, policies, absence, and staleness follow §5 exactly.
+- [x] A sub-20% school cannot be upgraded out of Reach.
+- [x] The internal adjustment is bounded to ±12 and is never shown as probability.
+- [x] Explore performs one saved-Profile read and one fixed-key school-facts batch, not per-card reads.
+- [x] Server and frontend share one typed fit contract; the browser does not recalculate.
+- [x] URL-local pseudo-profile values no longer override saved Profile data.
+- [x] `Application.list_type` remains outside the estimator and is never derived from it.
 - [x] Backend/frontend automated suites pass with at least 80% project coverage.
   Automated evidence now passes: backend 2,367 passed/270 deselected, frontend
   1,280 passed across 127 files, and coverage is 80.0763%. The former
   suite-order `TasksLayout.test.tsx` browser-state issue was resolved test-only by
   `6093885`; no product behavior changed.
-- [ ] Current-data sensitivity gates pass and the report is retained with implementation evidence.
+- [x] Current-data sensitivity gates pass and the report is retained with implementation evidence.
 - [ ] Real-browser mobile, keyboard, and screen-reader-visible states are verified.
-- [ ] ADR, architecture, database guide, and chancing skill agree with shipped behavior.
-- [ ] Critical/High review findings are resolved.
+- [x] ADR, architecture, database guide, and chancing skill agree with shipped behavior.
+- [x] Critical/High review findings are resolved.
 - [ ] Owner accepts the visible copy and behavior before the plan graduates to `specs/`.
+
+The checked items are machine-proven by the automated suites, deterministic
+sensitivity report/replay, code and contract inspections, and recorded review
+evidence. Real-browser/mobile/keyboard/screen-reader verification and owner
+acceptance remain intentionally open; this plan therefore stays in `plans/`.
 
 ## 18. Exploration record
 
@@ -1030,7 +1035,7 @@ Final verdicts:
 
 ## 20. Implementation / divergence / verification record
 
-**Status:** In progress; this plan remains in `plans/`. Owner acceptance is pending and
+**Status:** Implementation complete; owner acceptance pending. This plan remains in `plans/`. Owner acceptance is pending and
 no plan file has been moved to `specs/`.
 
 ### Phase 7 evidence tooling and consistency pass — 2026-09-15 (historical; superseded)

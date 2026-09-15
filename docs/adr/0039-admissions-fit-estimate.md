@@ -1,6 +1,6 @@
 # ADR 0039 — Admissions-fit planning estimate on Explore cards
 
-**Status:** Proposed — implementation in progress.
+**Status:** Proposed — implementation complete; owner acceptance pending.
 
 ## Context
 
