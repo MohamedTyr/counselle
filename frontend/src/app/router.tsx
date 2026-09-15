@@ -43,6 +43,14 @@ export function createAppRouter() {
             return { Component: module.OnboardingShellGalleryPage };
           },
         },
+        {
+          path: "/dev/school-chances",
+          lazy: async () => {
+            const module =
+              await import("@/features/dev-school-chances/SchoolChancesGalleryPage");
+            return { Component: module.SchoolChancesGalleryPage };
+          },
+        },
       ]
     : [];
 
