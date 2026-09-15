@@ -401,6 +401,31 @@ def test_valid_gpa_deterministically_replaces_usable_rank_without_stacking() -> 
     assert signal.assessment is Assessment.WEAK
 
 
+def test_valid_neutral_gpa_blocks_strong_rank_fallback_without_personalizing() -> None:
+    """GPA remains the chosen academic comparison even when it is neutral."""
+    school_input = school(gpa=complete_gpa_distribution(), rank=valid_rank_distribution())
+    rank_only = student(rank=decimal(1), class_size=decimal(100))
+    neutral_gpa_and_rank = student(
+        gpa=decimal("3.5"),
+        gpa_scale=decimal(4),
+        rank=decimal(1),
+        class_size=decimal(100),
+    )
+    rank_result = estimate(school_input, rank_only)
+    result = estimate(school_input, neutral_gpa_and_rank)
+
+    rank_signal = applied(rank_result, FitFactor.ACADEMIC)
+    assert rank_result.basis is FitBasis.PERSONALIZED
+    assert rank_signal is not None
+    assert rank_signal.source is FitSignalSource.CLASS_RANK
+    assert rank_signal.assessment is Assessment.STRONG
+
+    assert result.category is FitCategory.TARGET
+    assert result.basis is FitBasis.SCHOOL_RATE
+    assert applied(result, FitFactor.ACADEMIC) is None
+    assert unavailable(result, FitFactor.ACADEMIC) is None
+
+
 def test_sat_mixed_sections_are_neutral_and_do_not_personalize() -> None:
     result = estimate(
         required_sat(),
