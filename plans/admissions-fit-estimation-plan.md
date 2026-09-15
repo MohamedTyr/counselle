@@ -1181,17 +1181,17 @@ project-wide 80% coverage item in §17 is explicitly **unmet** and remains pendi
 an owner-approved divergence or separate repository hardening; it is not checked
 off by this feature's fit-scope coverage.
 
-**Real-browser evidence:** the automated browser matrix is complete as a real
-Chromium run with mocked/intercepted API responses. The authoritative report is
+**Automated browser-matrix evidence:** the broad responsive and accessibility
+matrix is complete as a real Chromium run with mocked/intercepted API responses.
+That matrix's authoritative report is
 [artifacts/admissions-fit/20260915T062158Z/browser/REPORT.md](../artifacts/admissions-fit/20260915T062158Z/browser/REPORT.md).
 It proves pointer click and focus+Enter disclosure behavior, refresh suppression
 while personalized data is revalidated, one quick-add POST with `list_type=Target`
 and no PATCH requests, no horizontal overflow at 375/768/1440 px, a 44 px
 minimum coarse-pointer target, and the expected ARIA/accessibility-tree state.
-It does **not** prove live backend, authentication, database, or persistence
-behavior, and it makes no VoiceOver/NVDA claim. The browser-matrix automated/mock
-evidence is complete; the actual AT/manual owner reading-order check remains
-pending.
+This matrix alone does **not** prove live backend, authentication, database, or
+persistence behavior, and it makes no VoiceOver/NVDA claim. Complementary real
+local-stack evidence is recorded below.
 
 **Implementation divergence/regression recorded by browser QA:** the school-link
 overlay initially intercepted the estimate disclosure. The fix is the estimate
@@ -1258,10 +1258,40 @@ The final targeted backend/evidence review record reports **240 passed**. Global
 and mypy checks passed. The report and replay contain **58 checks / 0 mismatches / 0
 control failures**.
 
+### Real local authenticated E2E — 2026-09-15
+
+The mock Chromium matrix above and the two real local-stack runs are
+complementary evidence; browser evidence is not exclusively mocked. The
+authoritative reports are:
+
+- [`artifacts/admissions-fit/20260915T124934Z/live-e2e/REPORT.md`](../artifacts/admissions-fit/20260915T124934Z/live-e2e/REPORT.md)
+  — real registration/login/onboarding, empty-Profile baseline, private/no-cache
+  response headers, card disclosure, active Explore refetch after a real Profile
+  PATCH, and quick-add with `list_type: "Target"` and no application PATCH.
+- [`artifacts/admissions-fit/20260915T131205Z/live-e2e-rank/REPORT.md`](../artifacts/admissions-fit/20260915T131205Z/live-e2e-rank/REPORT.md)
+  — a fresh no-GPA rank-only Profile, with the real Profile read showing
+  `gpa_unweighted: null` and `gpa_scale: null`, followed by real UAB
+  (`UNITID 100663`) Explore output using the personalized strong `class_rank`
+  signal and the matching card explanation. This validates rank-only
+  personalization; because GPA is null, it does not validate neutral-GPA/rank
+  precedence. Commit `7036958` supplies deterministic test coverage for valid
+  neutral-GPA precedence; it is not a functional production fix.
+
+Both runs used an isolated local server, local database, rendered UI, and real
+authenticated cookies. Both reports retain disposable accounts; the first also
+retains its disposable application, and its read-only facts diagnostic is
+supporting evidence rather than a browser/product-flow input. Only the run-local
+API/Vite processes started for the respective run were stopped. The browser and
+product flows used no direct database writes and no fixture injection; no
+production services were used. These runs are local evidence only, not
+production verification. They do not cover live
+GPA/SAT/ACT/multifactor paths, unknown/stale/partial states, URL score or cost
+behavior, or the live responsive browser matrix; no browser screenshot or trace
+is claimed beyond what the reports contain.
+
 **Open gates:** repo-wide combined coverage is approximately **72.08%**, below the
 required 80%; this remains unmet pending owner-approved divergence or separate
-hardening. Browser evidence is a mocked/intercepted Chromium matrix, not live
-authenticated backend/database/persistence E2E. No VoiceOver/NVDA check has run.
-Owner review of all `middle-v1` changed rows, low/high boundary samples, and visible
-changed-row/copy wording remains required, as does owner acceptance. The plan stays
-ungraduated in `plans/`.
+hardening. No VoiceOver/NVDA check has run. Owner review of all `middle-v1`
+changed rows, low/high boundary samples, and visible changed-row/copy wording
+remains required, as does owner acceptance. The plan stays ungraduated in
+`plans/`.
