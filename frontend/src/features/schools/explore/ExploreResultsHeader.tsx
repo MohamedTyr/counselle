@@ -1,6 +1,10 @@
 import { ChevronDown, Eye, UserRound } from "lucide-react";
 
-import type { Exclusion, NullTail } from "@/api/schools/explore";
+import type {
+  Exclusion,
+  FitProfileSummary,
+  NullTail,
+} from "@/api/schools/explore";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -10,11 +14,29 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Label } from "@/components/ui/label";
-import { NumberField, NumberFieldGroup, NumberFieldInput } from "@/components/ui/number-field";
+import {
+  NumberField,
+  NumberFieldGroup,
+  NumberFieldInput,
+} from "@/components/ui/number-field";
 import { Popover, PopoverPopup, PopoverTrigger } from "@/components/ui/popover";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { US_STATES, sortOptions } from "@/features/schools/explore/explore-config";
-import type { RangeKey, SortDirection, SortKey, StudentProfile } from "@/features/schools/explore/explore-types";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  US_STATES,
+  sortOptions,
+} from "@/features/schools/explore/explore-config";
+import type {
+  ExploreAssumptions,
+  RangeKey,
+  SortDirection,
+  SortKey,
+} from "@/features/schools/explore/explore-types";
 
 /*
  * One row, plus the universe line and the once-per-screen band caption
@@ -31,19 +53,25 @@ import type { RangeKey, SortDirection, SortKey, StudentProfile } from "@/feature
 const CHIP_CLASSNAME =
   "inline-flex h-7 shrink-0 items-center gap-1.5 rounded-lg bg-[var(--school-filter-chip-surface)] px-2 text-xs font-medium text-[var(--ink-secondary)] transition-colors outline-none hover:bg-[var(--school-filter-chip-hover)] focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] pointer-coarse:min-h-11";
 
-function PersonalizationChip({
-  profile,
+function ExploreAssumptionsChip({
+  assumptions,
   onChange,
 }: {
-  profile: StudentProfile;
-  onChange: (profile: StudentProfile) => void;
+  assumptions: ExploreAssumptions;
+  onChange: (assumptions: ExploreAssumptions) => void;
 }) {
-  const scoreCount = [profile.satMath, profile.satEbrw, profile.act].filter(
-    (value) => value !== null,
-  ).length;
+  const scoreCount = [
+    assumptions.satMath,
+    assumptions.satEbrw,
+    assumptions.act,
+  ].filter((value) => value !== null).length;
   const summary = [
-    profile.homeState ? `${profile.homeState} resident` : "No home state",
-    scoreCount > 0 ? `${scoreCount} score${scoreCount === 1 ? "" : "s"} set` : "no scores",
+    assumptions.homeState
+      ? `${assumptions.homeState} resident`
+      : "No home state",
+    scoreCount > 0
+      ? `${scoreCount} score${scoreCount === 1 ? "" : "s"} set`
+      : "no scores",
   ].join(" · ");
 
   return (
@@ -54,18 +82,23 @@ function PersonalizationChip({
        * (plan §5.3) -- that lives once, below, always mounted. */}
       <PopoverTrigger className={CHIP_CLASSNAME}>
         <UserRound aria-hidden="true" className="size-3.5 opacity-70" />
-        <span>You: {summary}</span>
+        <span>Explore preview: {summary}</span>
         <ChevronDown aria-hidden="true" className="size-3 opacity-60" />
       </PopoverTrigger>
       <PopoverPopup align="start" className="w-64">
         <div className="flex flex-col gap-3">
           <div className="flex flex-col gap-1.5">
-            <Label className="text-xs text-[var(--ink-secondary)]">Home state</Label>
+            <Label className="text-xs text-[var(--ink-secondary)]">
+              Home state
+            </Label>
             <Select
               onValueChange={(value) =>
-                onChange({ ...profile, homeState: value === "none" ? null : String(value) })
+                onChange({
+                  ...assumptions,
+                  homeState: value === "none" ? null : String(value),
+                })
               }
-              value={profile.homeState ?? "none"}
+              value={assumptions.homeState ?? "none"}
             >
               <SelectTrigger className="w-full" size="sm">
                 <SelectValue />
@@ -84,12 +117,16 @@ function PersonalizationChip({
           <NumberField
             max={800}
             min={200}
-            onValueChange={(value) => onChange({ ...profile, satMath: value })}
+            onValueChange={(value) =>
+              onChange({ ...assumptions, satMath: value })
+            }
             size="sm"
             step={10}
-            value={profile.satMath}
+            value={assumptions.satMath}
           >
-            <Label className="text-xs text-[var(--ink-secondary)]">SAT Math</Label>
+            <Label className="text-xs text-[var(--ink-secondary)]">
+              SAT Math
+            </Label>
             <NumberFieldGroup>
               <NumberFieldInput placeholder="Not set" />
             </NumberFieldGroup>
@@ -98,12 +135,16 @@ function PersonalizationChip({
           <NumberField
             max={800}
             min={200}
-            onValueChange={(value) => onChange({ ...profile, satEbrw: value })}
+            onValueChange={(value) =>
+              onChange({ ...assumptions, satEbrw: value })
+            }
             size="sm"
             step={10}
-            value={profile.satEbrw}
+            value={assumptions.satEbrw}
           >
-            <Label className="text-xs text-[var(--ink-secondary)]">SAT EBRW</Label>
+            <Label className="text-xs text-[var(--ink-secondary)]">
+              SAT EBRW
+            </Label>
             <NumberFieldGroup>
               <NumberFieldInput placeholder="Not set" />
             </NumberFieldGroup>
@@ -112,10 +153,10 @@ function PersonalizationChip({
           <NumberField
             max={36}
             min={1}
-            onValueChange={(value) => onChange({ ...profile, act: value })}
+            onValueChange={(value) => onChange({ ...assumptions, act: value })}
             size="sm"
             step={1}
-            value={profile.act}
+            value={assumptions.act}
           >
             <Label className="text-xs text-[var(--ink-secondary)]">ACT</Label>
             <NumberFieldGroup>
@@ -124,8 +165,9 @@ function PersonalizationChip({
           </NumberField>
 
           <p className="text-xs text-[var(--ink-muted)]">
-            Your scores pick which band each card shows. They only filter the list when you set a
-            score filter.
+            These Explore filters and previews pick tuition rows, score bands,
+            and score filters. Your saved Profile can refine the estimate; these
+            values do not.
           </p>
         </div>
       </PopoverPopup>
@@ -133,8 +175,15 @@ function PersonalizationChip({
   );
 }
 
-function ExclusionChip({ exclusion, onInclude }: { exclusion: Exclusion; onInclude: () => void }) {
-  const word = exclusion.reason === "not_reported" ? "not reported" : "not available";
+function ExclusionChip({
+  exclusion,
+  onInclude,
+}: {
+  exclusion: Exclusion;
+  onInclude: () => void;
+}) {
+  const word =
+    exclusion.reason === "not_reported" ? "not reported" : "not available";
 
   return (
     <span className="inline-flex h-7 shrink-0 items-center gap-1.5 rounded-lg bg-[var(--warning-surface)] px-2 text-xs text-[var(--warning-fg)]">
@@ -171,17 +220,41 @@ function formatMonthYear(iso: string): string {
     : date.toLocaleDateString("en-US", { month: "long", year: "numeric" });
 }
 
+function FitProfileStatus({ summary }: { summary: FitProfileSummary | null }) {
+  if (summary === null) {
+    return null;
+  }
+
+  const hasComparisonCandidate =
+    summary.has_academic_candidate || summary.has_complete_test_candidate;
+
+  if (hasComparisonCandidate) {
+    return null;
+  }
+
+  return (
+    <p
+      className="text-xs text-[var(--ink-muted)]"
+      data-slot="explore-fit-profile-status"
+    >
+      Add GPA, class rank, or scores to your saved Profile to refine these
+      estimates.
+    </p>
+  );
+}
+
 export function ExploreResultsHeader({
   total,
   totalIsCapped,
   browsableTotal,
   catalogTotal,
   factsObservedFrom,
-  profile,
+  assumptions,
+  fitProfileSummary,
   exclusions,
   sortedNullTail,
   sort,
-  onProfileChange,
+  onAssumptionsChange,
   onSortChange,
   onIncludeMissing,
   bandCaption,
@@ -193,28 +266,39 @@ export function ExploreResultsHeader({
   browsableTotal: number;
   catalogTotal: number;
   factsObservedFrom: string | null;
-  profile: StudentProfile;
+  assumptions: ExploreAssumptions;
+  fitProfileSummary: FitProfileSummary | null;
   exclusions: Exclusion[];
   sortedNullTail: NullTail | null;
   sort: { key: SortKey; direction: SortDirection };
-  onProfileChange: (profile: StudentProfile) => void;
+  onAssumptionsChange: (assumptions: ExploreAssumptions) => void;
   onSortChange: (sort: { key: SortKey; direction: SortDirection }) => void;
   onIncludeMissing: (key: RangeKey) => void;
   bandCaption: string;
   showBandCaption: boolean;
   bandCaptionId: string;
 }) {
-  const activeSort = sortOptions.find((option) => option.value === sort.key) ?? sortOptions[0];
+  const activeSort =
+    sortOptions.find((option) => option.value === sort.key) ?? sortOptions[0];
   const outsideCatalog = catalogTotal - browsableTotal;
 
   return (
     <div className="flex flex-col gap-2">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-        <p aria-live="polite" className="text-sm font-medium tabular-nums" role="status">
-          {totalIsCapped ? `${total}+ schools` : `${total} ${total === 1 ? "school" : "schools"}`}
+        <p
+          aria-live="polite"
+          className="text-sm font-medium tabular-nums"
+          role="status"
+        >
+          {totalIsCapped
+            ? `${total}+ schools`
+            : `${total} ${total === 1 ? "school" : "schools"}`}
         </p>
 
-        <PersonalizationChip onChange={onProfileChange} profile={profile} />
+        <ExploreAssumptionsChip
+          onChange={onAssumptionsChange}
+          assumptions={assumptions}
+        />
 
         {exclusions.map((exclusion) => (
           <ExclusionChip
@@ -234,7 +318,12 @@ export function ExploreResultsHeader({
           <DropdownMenuContent align="end" className="w-56">
             <DropdownMenuLabel>Sort by</DropdownMenuLabel>
             <DropdownMenuRadioGroup
-              onValueChange={(value) => onSortChange({ direction: sort.direction, key: value as SortKey })}
+              onValueChange={(value) =>
+                onSortChange({
+                  direction: sort.direction,
+                  key: value as SortKey,
+                })
+              }
               value={sort.key}
             >
               {sortOptions.map((option) => (
@@ -254,16 +343,18 @@ export function ExploreResultsHeader({
           : ""}
       </p>
 
+      <FitProfileStatus summary={fitProfileSummary} />
+
       {factsObservedFrom ? (
         <p className="text-xs text-[var(--ink-muted)]">
-          Some of these values were last checked {formatMonthYear(factsObservedFrom)} and may be
-          out of date.
+          Some of these values were last checked{" "}
+          {formatMonthYear(factsObservedFrom)} and may be out of date.
         </p>
       ) : null}
 
       {/* The wire's own band caption -- never a frontend literal (plan
        * §5.3) -- rendered once here, never on a card and never inside
-       * PersonalizationChip's popover. Every VerdictBand showing a score
+       * ExploreAssumptionsChip's popover. Every VerdictBand showing a score
        * band points its aria-describedby at this node's id. */}
       {showBandCaption ? (
         <p className="text-xs text-[var(--ink-muted)]" id={bandCaptionId}>

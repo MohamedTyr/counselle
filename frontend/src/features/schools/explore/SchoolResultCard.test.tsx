@@ -1,9 +1,13 @@
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 
-import type { ExploreFields, ExploreSchoolCard } from "@/api/schools/explore";
+import type {
+  ExploreFields,
+  ExploreSchoolCard,
+  FitEstimate,
+} from "@/api/schools/explore";
 import { SchoolResultCard } from "@/features/schools/explore/SchoolResultCard";
-import type { StudentProfile } from "@/features/schools/explore/explore-types";
+import type { ExploreAssumptions } from "@/features/schools/explore/explore-types";
 
 /*
  * The one render assertion that earns its place: a null metric must render
@@ -77,10 +81,26 @@ const baseFields: ExploreFields = {
   yield_rate: null,
 };
 
-function school(overrides: Partial<ExploreFields> = {}): ExploreSchoolCard {
+const baselineFit: FitEstimate = {
+  algorithm_version: "admissions-fit-v1",
+  baseline_admit_rate: 45,
+  baseline_category: "Target",
+  basis: "school_rate",
+  category: "Target",
+  caveats: [],
+  evidence_level: "baseline_only",
+  signals: [],
+  unavailable: [],
+};
+
+function school(
+  overrides: Partial<ExploreFields> = {},
+  fit: FitEstimate = baselineFit,
+): ExploreSchoolCard {
   return {
     city: "Testville",
     fields: { ...baseFields, ...overrides },
+    fit,
     name: "Test University",
     state: "MA",
     unitid: 1,
@@ -88,19 +108,28 @@ function school(overrides: Partial<ExploreFields> = {}): ExploreSchoolCard {
   };
 }
 
-const profile: StudentProfile = { act: null, homeState: "MA", satEbrw: 720, satMath: 740 };
+const assumptions: ExploreAssumptions = {
+  act: null,
+  homeState: "MA",
+  satEbrw: 720,
+  satMath: 740,
+};
 
 function renderCard(
   card: ExploreSchoolCard,
-  overrides: Partial<{ profile: StudentProfile }> = {},
+  overrides: Partial<{
+    assumptions: ExploreAssumptions;
+    refreshing: boolean;
+  }> = {},
 ) {
   return render(
     <MemoryRouter>
       <SchoolResultCard
         bandCaptionId={null}
         href={null}
+        isRefreshingEstimate={overrides.refreshing ?? false}
         onAdd={() => {}}
-        profile={overrides.profile ?? profile}
+        assumptions={overrides.assumptions ?? assumptions}
         school={card}
       />
     </MemoryRouter>,
@@ -110,19 +139,28 @@ function renderCard(
 describe("SchoolResultCard", () => {
   it("names every absent metric rather than leaving a hole", () => {
     renderCard(
-      school({
-        act_composite_p25: null,
-        act_composite_p75: null,
-        admit_rate: null,
-        cost_attendance_in_state: null,
-        cost_attendance_out_of_state: null,
-        grad_rate_4y: null,
-        need_met_pct: null,
-        sat_ebrw_p25: null,
-        sat_ebrw_p75: null,
-        sat_math_p25: null,
-        sat_math_p75: null,
-      }),
+      school(
+        {
+          act_composite_p25: null,
+          act_composite_p75: null,
+          admit_rate: null,
+          cost_attendance_in_state: null,
+          cost_attendance_out_of_state: null,
+          grad_rate_4y: null,
+          need_met_pct: null,
+          sat_ebrw_p25: null,
+          sat_ebrw_p75: null,
+          sat_math_p25: null,
+          sat_math_p75: null,
+        },
+        {
+          ...baselineFit,
+          baseline_admit_rate: null,
+          baseline_category: "Unknown",
+          basis: "missing_admit_rate",
+          category: "Unknown",
+        },
+      ),
     );
 
     // Cost, share of need met, and the graduation rate -- three absent stats.
@@ -135,7 +173,12 @@ describe("SchoolResultCard", () => {
   });
 
   it("picks the in-state cost row when the student's home state matches", () => {
-    renderCard(school({ cost_attendance_in_state: 20_000, cost_attendance_out_of_state: 45_000 }));
+    renderCard(
+      school({
+        cost_attendance_in_state: 20_000,
+        cost_attendance_out_of_state: 45_000,
+      }),
+    );
 
     expect(screen.getByText("$20,000")).toBeInTheDocument();
     expect(screen.getByText("in-state cost")).toBeInTheDocument();
@@ -143,41 +186,118 @@ describe("SchoolResultCard", () => {
 
   it("falls back to the out-of-state row with no home state set", () => {
     renderCard(
-      school({ cost_attendance_in_state: 20_000, cost_attendance_out_of_state: 45_000 }),
-      { profile: { ...profile, homeState: null } },
+      school({
+        cost_attendance_in_state: 20_000,
+        cost_attendance_out_of_state: 45_000,
+      }),
+      { assumptions: { ...assumptions, homeState: null } },
     );
 
     expect(screen.getByText("$45,000")).toBeInTheDocument();
     expect(screen.getByText("out-of-state cost")).toBeInTheDocument();
   });
 
-  it("shows the SAT Math band and the student's own score beside it", () => {
+  it("labels the institutional score band as an Explore-only preview", () => {
     renderCard(school());
 
     expect(screen.getByText("SAT Math 700–780")).toBeInTheDocument();
-    expect(screen.getByText("you 740")).toBeInTheDocument();
+    expect(
+      screen.getByText("Explore preview — does not affect estimate"),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("you 740")).not.toBeInTheDocument();
   });
 
   it("prefers the ACT band for a student who only entered an ACT score", () => {
     renderCard(school({ act_composite_p25: 30, act_composite_p75: 34 }), {
-      profile: { act: 32, homeState: "MA", satEbrw: null, satMath: null },
+      assumptions: { act: 32, homeState: "MA", satEbrw: null, satMath: null },
     });
 
     expect(screen.getByText("ACT 30–34")).toBeInTheDocument();
-    expect(screen.getByText("you 32")).toBeInTheDocument();
+    expect(
+      screen.getByText("Explore preview — does not affect estimate"),
+    ).toBeInTheDocument();
     expect(screen.queryByText(/^SAT/)).not.toBeInTheDocument();
   });
 
   it("says it is not classified when there is no admit rate to classify on", () => {
-    renderCard(school({ admit_rate: null }));
+    renderCard(
+      school(
+        { admit_rate: null },
+        {
+          ...baselineFit,
+          baseline_admit_rate: null,
+          baseline_category: "Unknown",
+          category: "Unknown",
+          basis: "missing_admit_rate",
+        },
+      ),
+    );
 
     expect(screen.getByText("Not classified")).toBeInTheDocument();
-    expect(screen.getByRole("group", { name: /not classified/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole("group", { name: /not classified/i }),
+    ).toBeInTheDocument();
+  });
+
+  it("renders the server category verbatim instead of recalculating from the displayed rate", () => {
+    renderCard(
+      school(
+        { admit_rate: 8 },
+        {
+          ...baselineFit,
+          baseline_admit_rate: 8,
+          baseline_category: "Reach",
+          basis: "personalized",
+          category: "Safety",
+          evidence_level: "one_comparison",
+          signals: [
+            {
+              assessment: "strong",
+              factor: "academic",
+              source: "gpa_distribution",
+            },
+          ],
+        },
+      ),
+    );
+
+    expect(screen.getByText("Safety")).toBeInTheDocument();
+    expect(screen.queryByText("Reach")).not.toBeInTheDocument();
+  });
+
+  it("suppresses a cached estimate until the matching personalized response arrives", () => {
+    renderCard(
+      school(
+        {},
+        {
+          ...baselineFit,
+          basis: "personalized",
+          category: "Safety",
+          evidence_level: "one_comparison",
+          signals: [
+            {
+              assessment: "strong",
+              factor: "academic",
+              source: "gpa_distribution",
+            },
+          ],
+        },
+      ),
+      { refreshing: true },
+    );
+
+    expect(screen.getByText("Refreshing estimate…")).toBeInTheDocument();
+    expect(screen.queryByText("Safety")).not.toBeInTheDocument();
+    expect(screen.queryByText("45%")).not.toBeInTheDocument();
   });
 
   it("renders the offered rounds and the regular deadline", () => {
     renderCard(
-      school({ deadline_regular: "2027-01-15", offers_early_action: true, offers_early_decision: true }),
+      school({
+        deadline_regular: "2027-01-15",
+        offers_early_action: true,
+        offers_early_decision: true,
+      }),
     );
 
     expect(screen.getByText("ED")).toBeInTheDocument();

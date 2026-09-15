@@ -1,5 +1,6 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 
+import { refreshActiveExploreEstimates } from "@/api/schools/explore-cache";
 import { handleMutationError } from "@/api/workspace/hook-utils";
 import { workspaceKeys } from "@/api/workspace/keys";
 import { getProfile, updateProfile } from "@/api/workspace/profile";
@@ -22,8 +23,9 @@ export function useUpdateProfile() {
     onError: (error, _patch, _snapshot, context) => {
       handleMutationError(error, context);
     },
-    onSuccess: (profile, _patch, _snapshot, context) => {
+    onSuccess: async (profile, _patch, _snapshot, context) => {
       context.client.setQueryData(workspaceKeys.profile.detail(), profile);
+      await refreshActiveExploreEstimates(context.client);
     },
   });
 }

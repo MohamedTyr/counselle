@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 
 import { authQueryKey, useMe } from "@/app/auth";
+import { refreshActiveExploreEstimates } from "@/api/schools/explore-cache";
 import { fetchMe } from "@/api/http/auth";
 import {
   createWorkspaceEventSource,
@@ -20,6 +21,7 @@ const objectTypes: WorkspaceObjectType[] = [
   "essay",
   "activity",
   "honor",
+  "profile",
 ];
 const changeOps: ChangeOp[] = ["created", "updated", "archived", "restored"];
 const workspaceEventTypes = objectTypes.flatMap((objectType) =>
@@ -94,6 +96,12 @@ export function useWorkspaceEvents(
           void queryClient.invalidateQueries({
             queryKey: workspaceKeys.honors.list(),
           });
+          break;
+        case "profile":
+          void queryClient.invalidateQueries({
+            queryKey: workspaceKeys.profile.detail(),
+          });
+          void refreshActiveExploreEstimates(queryClient);
           break;
         default:
           // Only reachable if objectTypes gains a value with no matching

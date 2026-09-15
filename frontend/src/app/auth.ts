@@ -2,9 +2,12 @@ import {
   useMutation,
   useQuery,
   useQueryClient,
+  type QueryClient,
   type UseQueryResult,
 } from "@tanstack/react-query";
+import { useLayoutEffect, useRef, type PropsWithChildren } from "react";
 
+import { schoolsExploreQueryKey } from "@/api/schools/explore-query-key";
 import {
   fetchMe,
   login,
@@ -19,9 +22,38 @@ import {
   type OnboardingCommand,
   type OnboardingProgress,
 } from "@/api/http/onboarding";
+import { workspaceKeys } from "@/api/workspace/keys";
 
 export const authQueryKey = ["me"] as const;
 export const onboardingQueryKey = ["onboarding"] as const;
+
+/**
+ * Saved Profile, workspace, and Explore data belongs to one authenticated
+ * owner. Abort all active private reads before removing their cache entries
+ * so an old response cannot repopulate a later session. An owner transition
+ * targets the old owner's Explore key, leaving a just-started new-owner
+ * request alone; logout without a known owner clears the whole Explore root.
+ */
+export async function discardPrivateQueryData(
+  queryClient: QueryClient,
+  exploreOwnerId?: string | null,
+): Promise<void> {
+  const privateQueryRoots = [
+    exploreOwnerId === undefined
+      ? schoolsExploreQueryKey
+      : ([...schoolsExploreQueryKey, exploreOwnerId] as const),
+    workspaceKeys.all,
+    onboardingQueryKey,
+  ] as const;
+  await Promise.all(
+    privateQueryRoots.map((queryKey) =>
+      queryClient.cancelQueries({ queryKey }),
+    ),
+  );
+  privateQueryRoots.forEach((queryKey) => {
+    queryClient.removeQueries({ queryKey });
+  });
+}
 
 export class AccountCreatedLoginError extends Error {
   readonly cause: unknown;
@@ -52,11 +84,43 @@ export function useAuthUser(): MeData | null {
   return useMe().data ?? null;
 }
 
+/**
+ * Clears private data before the browser paints an auth-owner transition,
+ * preventing unscoped workspace keys from flashing A's data in B's session.
+ * Explore is additionally owner-scoped at its own query key.
+ */
+export function AuthSessionCacheBoundary({ children }: PropsWithChildren) {
+  const queryClient = useQueryClient();
+  const me = useMe();
+  const ownerId = me.isSuccess ? (me.data?.id ?? null) : undefined;
+  const previousOwnerId = useRef<string | null | undefined>(undefined);
+
+  useLayoutEffect(() => {
+    if (ownerId === undefined) {
+      return undefined;
+    }
+
+    const previous = previousOwnerId.current;
+    previousOwnerId.current = ownerId;
+    if (previous === undefined || previous === ownerId) {
+      return undefined;
+    }
+
+    void discardPrivateQueryData(queryClient, previous);
+    return undefined;
+  }, [ownerId, queryClient]);
+
+  return children;
+}
+
 export function useLogin() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: login,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: authQueryKey }),
+    onSuccess: async () => {
+      await discardPrivateQueryData(queryClient);
+      await queryClient.invalidateQueries({ queryKey: authQueryKey });
+    },
   });
 }
 
@@ -71,7 +135,10 @@ export function useRegisterAndLogin() {
         throw new AccountCreatedLoginError(error);
       }
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: authQueryKey }),
+    onSuccess: async () => {
+      await discardPrivateQueryData(queryClient);
+      await queryClient.invalidateQueries({ queryKey: authQueryKey });
+    },
   });
 }
 
@@ -79,8 +146,19 @@ export function useLogout() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: logout,
-    onSuccess: () => {
-      queryClient.removeQueries({ queryKey: authQueryKey });
+    onMutate: () => ({
+      ownerId:
+        queryClient.getQueryData<MeData | null>(authQueryKey)?.id ?? null,
+    }),
+    onSuccess: async (_data, _variables, context) => {
+      const currentOwnerId =
+        queryClient.getQueryData<MeData | null>(authQueryKey)?.id ?? null;
+      // A late logout from A must not erase B's just-established session.
+      if (currentOwnerId !== null && currentOwnerId !== context.ownerId) {
+        return;
+      }
+      await discardPrivateQueryData(queryClient);
+      queryClient.setQueryData(authQueryKey, null);
     },
   });
 }
@@ -96,7 +174,10 @@ export function useUpdateOnboardingProgress() {
       queryClient.setQueryData(onboardingQueryKey, progress);
       queryClient.setQueryData<MeData | null>(authQueryKey, (previous) =>
         previous
-          ? { ...previous, settings: { ...previous.settings, onboarding: progress } }
+          ? {
+              ...previous,
+              settings: { ...previous.settings, onboarding: progress },
+            }
           : previous,
       );
     },
@@ -104,4 +185,7 @@ export function useUpdateOnboardingProgress() {
 }
 
 export type { LoginInput, MeData, RegisterInput };
-export type { OnboardingCommand, OnboardingProgress } from "@/api/http/onboarding";
+export type {
+  OnboardingCommand,
+  OnboardingProgress,
+} from "@/api/http/onboarding";

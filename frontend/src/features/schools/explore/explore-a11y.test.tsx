@@ -2,14 +2,19 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 
-import type { Exclusion, ExploreFields, ExploreSchoolCard } from "@/api/schools/explore";
-import { classifyFit } from "@/features/schools/explore/classify-fit";
+import type {
+  Exclusion,
+  ExploreFields,
+  ExploreSchoolCard,
+  FitEstimate,
+  FitProfileSummary,
+} from "@/api/schools/explore";
 import { defaultFilters } from "@/features/schools/explore/explore-config";
 import { ExploreFilterBar } from "@/features/schools/explore/ExploreFilterBar";
 import { ExploreFilterPanel } from "@/features/schools/explore/ExploreFilterPanel";
 import { ExploreResultsHeader } from "@/features/schools/explore/ExploreResultsHeader";
 import { ExploreSearchField } from "@/features/schools/explore/ExploreSearchField";
-import type { StudentProfile } from "@/features/schools/explore/explore-types";
+import type { ExploreAssumptions } from "@/features/schools/explore/explore-types";
 import { SchoolResultCard } from "@/features/schools/explore/SchoolResultCard";
 
 /*
@@ -96,6 +101,17 @@ function school(overrides: Partial<ExploreFields> = {}): ExploreSchoolCard {
   return {
     city: "Testville",
     fields: { ...baseFields, ...overrides },
+    fit: {
+      algorithm_version: "admissions-fit-v1",
+      baseline_admit_rate: 30,
+      baseline_category: "Target",
+      basis: "school_rate",
+      category: "Target",
+      caveats: [],
+      evidence_level: "baseline_only",
+      signals: [],
+      unavailable: [],
+    } satisfies FitEstimate,
     name: "Band University",
     state: "MA",
     unitid: 1,
@@ -103,7 +119,49 @@ function school(overrides: Partial<ExploreFields> = {}): ExploreSchoolCard {
   };
 }
 
-const profile: StudentProfile = { act: null, homeState: null, satEbrw: null, satMath: 700 };
+const assumptions: ExploreAssumptions = {
+  act: null,
+  homeState: null,
+  satEbrw: null,
+  satMath: 700,
+};
+
+const savedProfileHasCandidates: FitProfileSummary = {
+  has_academic_candidate: true,
+  has_complete_test_candidate: false,
+  suggested_profile_fields: [],
+};
+
+describe("Explore Profile summary", () => {
+  it("does not claim that candidate Profile values affected every returned estimate", () => {
+    render(
+      <MemoryRouter>
+        <ExploreResultsHeader
+          bandCaption=""
+          bandCaptionId={BAND_CAPTION_ID}
+          browsableTotal={100}
+          catalogTotal={100}
+          exclusions={[]}
+          factsObservedFrom={null}
+          fitProfileSummary={savedProfileHasCandidates}
+          onIncludeMissing={() => {}}
+          onAssumptionsChange={() => {}}
+          onSortChange={() => {}}
+          assumptions={assumptions}
+          showBandCaption={false}
+          sort={{ direction: "asc", key: "name" }}
+          sortedNullTail={null}
+          total={1}
+          totalIsCapped={false}
+        />
+      </MemoryRouter>,
+    );
+
+    expect(
+      screen.queryByText(/powers these estimates/i),
+    ).not.toBeInTheDocument();
+  });
+});
 
 describe("Explore band caption -- mounted once, resolvable by every card", () => {
   it("renders the wire caption exactly once, and a card's evidence line resolves aria-describedby to it", () => {
@@ -116,10 +174,11 @@ describe("Explore band caption -- mounted once, resolvable by every card", () =>
           catalogTotal={100}
           exclusions={[]}
           factsObservedFrom={null}
+          fitProfileSummary={null}
           onIncludeMissing={() => {}}
-          onProfileChange={() => {}}
+          onAssumptionsChange={() => {}}
           onSortChange={() => {}}
-          profile={profile}
+          assumptions={assumptions}
           showBandCaption
           sort={{ direction: "asc", key: "name" }}
           sortedNullTail={null}
@@ -130,7 +189,7 @@ describe("Explore band caption -- mounted once, resolvable by every card", () =>
           bandCaptionId={BAND_CAPTION_ID}
           href={null}
           onAdd={() => {}}
-          profile={profile}
+          assumptions={assumptions}
           school={school()}
         />
       </MemoryRouter>,
@@ -147,9 +206,9 @@ describe("Explore band caption -- mounted once, resolvable by every card", () =>
     // -- resolves its aria-describedby to that exact node.
     const evidenceLine = screen.getByText("SAT Math 650–740").closest("p");
     expect(evidenceLine).toHaveAttribute("aria-describedby", BAND_CAPTION_ID);
-    expect(document.getElementById(evidenceLine!.getAttribute("aria-describedby")!)).toBe(
-      captionNode,
-    );
+    expect(
+      document.getElementById(evidenceLine!.getAttribute("aria-describedby")!),
+    ).toBe(captionNode);
   });
 
   it("never renders inside a popover -- the caption node sits in the header's own flow, not a hidden popup", () => {
@@ -162,10 +221,11 @@ describe("Explore band caption -- mounted once, resolvable by every card", () =>
           catalogTotal={100}
           exclusions={[]}
           factsObservedFrom={null}
+          fitProfileSummary={null}
           onIncludeMissing={() => {}}
-          onProfileChange={() => {}}
+          onAssumptionsChange={() => {}}
           onSortChange={() => {}}
-          profile={profile}
+          assumptions={assumptions}
           showBandCaption
           sort={{ direction: "asc", key: "name" }}
           sortedNullTail={null}
@@ -192,10 +252,11 @@ describe("Explore band caption -- mounted once, resolvable by every card", () =>
           catalogTotal={100}
           exclusions={[]}
           factsObservedFrom={null}
+          fitProfileSummary={null}
           onIncludeMissing={() => {}}
-          onProfileChange={() => {}}
+          onAssumptionsChange={() => {}}
           onSortChange={() => {}}
-          profile={profile}
+          assumptions={assumptions}
           showBandCaption={false}
           sort={{ direction: "asc", key: "name" }}
           sortedNullTail={null}
@@ -221,10 +282,11 @@ describe("Explore results count -- a live region, never colour alone", () => {
           catalogTotal={100}
           exclusions={[]}
           factsObservedFrom={null}
+          fitProfileSummary={null}
           onIncludeMissing={() => {}}
-          onProfileChange={() => {}}
+          onAssumptionsChange={() => {}}
           onSortChange={() => {}}
-          profile={profile}
+          assumptions={assumptions}
           showBandCaption={false}
           sort={{ direction: "asc", key: "name" }}
           sortedNullTail={null}
@@ -249,10 +311,11 @@ describe("Explore results count -- a live region, never colour alone", () => {
           catalogTotal={3_500}
           exclusions={[]}
           factsObservedFrom={null}
+          fitProfileSummary={null}
           onIncludeMissing={() => {}}
-          onProfileChange={() => {}}
+          onAssumptionsChange={() => {}}
           onSortChange={() => {}}
-          profile={profile}
+          assumptions={assumptions}
           showBandCaption={false}
           sort={{ direction: "asc", key: "name" }}
           sortedNullTail={null}
@@ -268,7 +331,13 @@ describe("Explore results count -- a live region, never colour alone", () => {
 
 describe("Exclusion chips -- wording chosen by reason, never 'no {metric}'", () => {
   function missing(overrides: Partial<Exclusion> = {}): Exclusion {
-    return { count: 12, key: "testPolicy", metric_label: "test policy", reason: "missing", ...overrides };
+    return {
+      count: 12,
+      key: "testPolicy",
+      metric_label: "test policy",
+      reason: "missing",
+      ...overrides,
+    };
   }
 
   it("reads 'not available' for a crawled-fact-fed column (reason: missing)", () => {
@@ -281,10 +350,11 @@ describe("Exclusion chips -- wording chosen by reason, never 'no {metric}'", () 
           catalogTotal={100}
           exclusions={[missing()]}
           factsObservedFrom={null}
+          fitProfileSummary={null}
           onIncludeMissing={() => {}}
-          onProfileChange={() => {}}
+          onAssumptionsChange={() => {}}
           onSortChange={() => {}}
-          profile={profile}
+          assumptions={assumptions}
           showBandCaption={false}
           sort={{ direction: "asc", key: "name" }}
           sortedNullTail={null}
@@ -294,10 +364,14 @@ describe("Exclusion chips -- wording chosen by reason, never 'no {metric}'", () 
       </MemoryRouter>,
     );
 
-    expect(screen.getByText("12 hidden — test policy not available")).toBeInTheDocument();
+    expect(
+      screen.getByText("12 hidden — test policy not available"),
+    ).toBeInTheDocument();
     // Built from two pieces rather than one literal: the wording is chosen
     // by `reason`, never "hidden {en dash} no {metric}" (plan §5.3).
-    expect(screen.queryByText(new RegExp(`hidden ${"—"} no `))).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(new RegExp(`hidden ${"—"} no `)),
+    ).not.toBeInTheDocument();
   });
 
   it("reads 'not reported' for a store-we-hold-entirely column (reason: not_reported)", () => {
@@ -308,12 +382,19 @@ describe("Exclusion chips -- wording chosen by reason, never 'no {metric}'", () 
           bandCaptionId={BAND_CAPTION_ID}
           browsableTotal={100}
           catalogTotal={100}
-          exclusions={[missing({ key: "gender", metric_label: "gender model", reason: "not_reported" })]}
+          exclusions={[
+            missing({
+              key: "gender",
+              metric_label: "gender model",
+              reason: "not_reported",
+            }),
+          ]}
           factsObservedFrom={null}
+          fitProfileSummary={null}
           onIncludeMissing={() => {}}
-          onProfileChange={() => {}}
+          onAssumptionsChange={() => {}}
           onSortChange={() => {}}
-          profile={profile}
+          assumptions={assumptions}
           showBandCaption={false}
           sort={{ direction: "asc", key: "name" }}
           sortedNullTail={null}
@@ -323,10 +404,14 @@ describe("Exclusion chips -- wording chosen by reason, never 'no {metric}'", () 
       </MemoryRouter>,
     );
 
-    expect(screen.getByText("12 hidden — gender model not reported")).toBeInTheDocument();
+    expect(
+      screen.getByText("12 hidden — gender model not reported"),
+    ).toBeInTheDocument();
     // Built from two pieces rather than one literal: the wording is chosen
     // by `reason`, never "hidden {en dash} no {metric}" (plan §5.3).
-    expect(screen.queryByText(new RegExp(`hidden ${"—"} no `))).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(new RegExp(`hidden ${"—"} no `)),
+    ).not.toBeInTheDocument();
   });
 
   it("renders the null tail as its own chip, with no 'include' affordance", () => {
@@ -339,10 +424,11 @@ describe("Exclusion chips -- wording chosen by reason, never 'no {metric}'", () 
           catalogTotal={100}
           exclusions={[]}
           factsObservedFrom={null}
+          fitProfileSummary={null}
           onIncludeMissing={() => {}}
-          onProfileChange={() => {}}
+          onAssumptionsChange={() => {}}
           onSortChange={() => {}}
-          profile={profile}
+          assumptions={assumptions}
           showBandCaption={false}
           sort={{ direction: "asc", key: "admit" }}
           sortedNullTail={{ count: 5, metric_label: "admit rate" }}
@@ -352,28 +438,37 @@ describe("Exclusion chips -- wording chosen by reason, never 'no {metric}'", () 
       </MemoryRouter>,
     );
 
-    expect(screen.getByText("5 with no admit rate — sorted to the end")).toBeInTheDocument();
+    expect(
+      screen.getByText("5 with no admit rate — sorted to the end"),
+    ).toBeInTheDocument();
     expect(screen.queryByText("include")).not.toBeInTheDocument();
   });
 });
 
-describe("classifyFit -- status is never colour alone on the card", () => {
-  it("carries the verdict as both a word (badge text) and an accessible sentence naming the evidence", () => {
-    const verdict = classifyFit(baseFields.admit_rate);
+describe("server fit -- status is never colour alone on the card", () => {
+  it("carries the server category as both a word and an accessible sentence", () => {
     render(
       <MemoryRouter>
-        <SchoolResultCard bandCaptionId={null} href={null} onAdd={() => {}} profile={profile} school={school()} />
+        <SchoolResultCard
+          bandCaptionId={null}
+          href={null}
+          onAdd={() => {}}
+          assumptions={assumptions}
+          school={school()}
+        />
       </MemoryRouter>,
     );
 
-    expect(screen.getByRole("group", { name: new RegExp(verdict.reason) })).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: /target/i })).toBeInTheDocument();
   });
 });
 
 describe("Landmarks -- the explore page's own labelled regions/controls", () => {
   it("the search field is a searchbox with an accessible name", () => {
     render(<ExploreSearchField onChange={() => {}} value="" />);
-    expect(screen.getByRole("searchbox", { name: "Search schools" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("searchbox", { name: "Search schools" }),
+    ).toBeInTheDocument();
   });
 
   it("the 'More filters' disclosure button points aria-controls at the panel's real id", () => {
@@ -389,7 +484,12 @@ describe("Landmarks -- the explore page's own labelled regions/controls", () => 
             onRangeChange={() => {}}
             onTogglePanel={() => {}}
             panelOpen={false}
-            profile={{ act: null, homeState: null, satEbrw: null, satMath: null }}
+            assumptions={{
+              act: null,
+              homeState: null,
+              satEbrw: null,
+              satMath: null,
+            }}
             regionOptions={[]}
           />
           <ExploreFilterPanel
@@ -419,10 +519,14 @@ describe("Landmarks -- the explore page's own labelled regions/controls", () => 
 
 describe("Focus rings -- the visible-focus token contract, not a pixel", () => {
   it("the search field carries the composer's softer focus-within token", () => {
-    const { container } = render(<ExploreSearchField onChange={() => {}} value="" />);
+    const { container } = render(
+      <ExploreSearchField onChange={() => {}} value="" />,
+    );
     const wrapper = container.firstElementChild as HTMLElement;
     expect(wrapper.className).toContain("focus-within:ring-2");
-    expect(wrapper.className).toContain("focus-within:ring-[var(--focus-ring)]/30");
+    expect(wrapper.className).toContain(
+      "focus-within:ring-[var(--focus-ring)]/30",
+    );
   });
 
   it("the 'More filters' toggle carries the buttons/chips focus-ring token", () => {
@@ -438,7 +542,12 @@ describe("Focus rings -- the visible-focus token contract, not a pixel", () => {
             onRangeChange={() => {}}
             onTogglePanel={() => {}}
             panelOpen={false}
-            profile={{ act: null, homeState: null, satEbrw: null, satMath: null }}
+            assumptions={{
+              act: null,
+              homeState: null,
+              satEbrw: null,
+              satMath: null,
+            }}
             regionOptions={[]}
           />
         </MemoryRouter>
@@ -447,6 +556,8 @@ describe("Focus rings -- the visible-focus token contract, not a pixel", () => {
 
     const toggle = screen.getByRole("button", { name: /more filters/i });
     expect(toggle.className).toContain("focus-visible:ring-2");
-    expect(toggle.className).toContain("focus-visible:ring-[var(--focus-ring)]");
+    expect(toggle.className).toContain(
+      "focus-visible:ring-[var(--focus-ring)]",
+    );
   });
 });

@@ -21,14 +21,18 @@ import {
   scoreFitOptions,
   sizeBucketOptions,
 } from "@/features/schools/explore/explore-config";
-import { CheckboxRow, FilterChip, RangeFields } from "@/features/schools/explore/explore-controls";
+import {
+  CheckboxRow,
+  FilterChip,
+  RangeFields,
+} from "@/features/schools/explore/explore-controls";
 import { formatCurrency } from "@/features/schools/explore/explore-format";
 import type {
   ExploreFilters,
   NumericRange,
   ScoreFit,
   SizeBucket,
-  StudentProfile,
+  ExploreAssumptions,
 } from "@/features/schools/explore/explore-types";
 import { cn } from "@/lib/utils";
 
@@ -40,7 +44,9 @@ import { cn } from "@/lib/utils";
  */
 
 function toggle<T>(list: T[], value: T): T[] {
-  return list.includes(value) ? list.filter((entry) => entry !== value) : [...list, value];
+  return list.includes(value)
+    ? list.filter((entry) => entry !== value)
+    : [...list, value];
 }
 
 function summarizeList(values: string[], max = 3) {
@@ -53,7 +59,10 @@ function summarizeList(values: string[], max = 3) {
     : `${values.slice(0, max).join(" · ")} +${values.length - max}`;
 }
 
-function summarizeRange(range: NumericRange, format: (value: number) => string) {
+function summarizeRange(
+  range: NumericRange,
+  format: (value: number) => string,
+) {
   if (range.min !== null && range.max !== null) {
     return `${format(range.min)}–${format(range.max)}`;
   }
@@ -66,7 +75,9 @@ function summarizeRange(range: NumericRange, format: (value: number) => string) 
 }
 
 const compactMoney = (value: number) =>
-  value >= 1_000 ? `$${Math.round(value / 1_000)}k` : (formatCurrency(value) ?? "");
+  value >= 1_000
+    ? `$${Math.round(value / 1_000)}k`
+    : (formatCurrency(value) ?? "");
 
 function RegionPopup({
   options,
@@ -84,12 +95,21 @@ function RegionPopup({
         <CommandEmpty>No regions match.</CommandEmpty>
         <CommandGroup>
           {options.map((option) => (
-            <CommandItem key={option.value} onSelect={() => onToggle(option.value)} value={option.value}>
-              <Checkbox checked={selected.includes(option.value)} tabIndex={-1} />
+            <CommandItem
+              key={option.value}
+              onSelect={() => onToggle(option.value)}
+              value={option.value}
+            >
+              <Checkbox
+                checked={selected.includes(option.value)}
+                tabIndex={-1}
+              />
               <div className="flex min-w-0 flex-col">
                 <span className="truncate">{option.label}</span>
                 {option.states ? (
-                  <span className="truncate text-xs text-[var(--ink-muted)]">{option.states}</span>
+                  <span className="truncate text-xs text-[var(--ink-muted)]">
+                    {option.states}
+                  </span>
                 ) : null}
               </div>
             </CommandItem>
@@ -116,14 +136,21 @@ function MajorPopup({
 
   return (
     <Command shouldFilter={false}>
-      <CommandInput onValueChange={setQuery} placeholder="Search majors…" value={query} />
+      <CommandInput
+        onValueChange={setQuery}
+        placeholder="Search majors…"
+        value={query}
+      />
       <CommandList>
         <CommandEmpty>
           {majors.isLoading ? "Searching…" : "No majors match that name."}
         </CommandEmpty>
         <CommandGroup>
           {value ? (
-            <CommandItem onSelect={() => onSelect(null)} value={`clear-${value}`}>
+            <CommandItem
+              onSelect={() => onSelect(null)}
+              value={`clear-${value}`}
+            >
               <Checkbox checked tabIndex={-1} />
               {value}
             </CommandItem>
@@ -131,7 +158,11 @@ function MajorPopup({
           {(majors.data?.majors ?? [])
             .filter((major) => major.name !== value)
             .map((major) => (
-              <CommandItem key={major.name} onSelect={() => onSelect(major.name)} value={major.name}>
+              <CommandItem
+                key={major.name}
+                onSelect={() => onSelect(major.name)}
+                value={major.name}
+              >
                 <span className="min-w-0 flex-1 truncate">{major.name}</span>
                 <span className="text-xs text-[var(--ink-muted)] tabular-nums">
                   {major.school_count}
@@ -151,7 +182,7 @@ function MajorPopup({
 
 type BarProps = {
   filters: ExploreFilters;
-  profile: StudentProfile;
+  assumptions: ExploreAssumptions;
   regionOptions: readonly FilterOption[];
   controlCounts: Record<Control, number>;
   activeCount: number;
@@ -163,7 +194,7 @@ type BarProps = {
 
 export function ExploreFilterBar({
   filters,
-  profile,
+  assumptions,
   regionOptions,
   controlCounts,
   activeCount,
@@ -174,11 +205,16 @@ export function ExploreFilterBar({
 }: BarProps) {
   const sizeSummary = summarizeList(
     filters.sizeBucket.map(
-      (bucket) => sizeBucketOptions.find((option) => option.value === bucket)?.label ?? "",
+      (bucket) =>
+        sizeBucketOptions.find((option) => option.value === bucket)?.label ??
+        "",
     ),
     1,
   );
-  const hasAnyScore = profile.satMath !== null || profile.satEbrw !== null || profile.act !== null;
+  const hasAnyScore =
+    assumptions.satMath !== null ||
+    assumptions.satEbrw !== null ||
+    assumptions.act !== null;
 
   return (
     <div className="flex flex-wrap items-center gap-2">
@@ -206,7 +242,10 @@ export function ExploreFilterBar({
                       }
                       value={state}
                     >
-                      <Checkbox checked={filters.states.includes(state)} tabIndex={-1} />
+                      <Checkbox
+                        checked={filters.states.includes(state)}
+                        tabIndex={-1}
+                      />
                       {state}
                     </CommandItem>
                   ))}
@@ -222,7 +261,9 @@ export function ExploreFilterBar({
             label="Region"
             value={summarizeList(
               filters.region.map(
-                (value) => regionOptions.find((option) => option.value === value)?.label ?? value,
+                (value) =>
+                  regionOptions.find((option) => option.value === value)
+                    ?.label ?? value,
               ),
               1,
             )}
@@ -230,7 +271,10 @@ export function ExploreFilterBar({
           <PopoverPopup align="start" className="w-72">
             <RegionPopup
               onToggle={(value) =>
-                onChange((current) => ({ ...current, region: toggle(current.region, value) }))
+                onChange((current) => ({
+                  ...current,
+                  region: toggle(current.region, value),
+                }))
               }
               options={regionOptions}
               selected={filters.region}
@@ -239,10 +283,16 @@ export function ExploreFilterBar({
         </Popover>
 
         <Popover>
-          <FilterChip isActive={filters.major !== null} label="Major" value={filters.major} />
+          <FilterChip
+            isActive={filters.major !== null}
+            label="Major"
+            value={filters.major}
+          />
           <PopoverPopup align="start" className="w-72">
             <MajorPopup
-              onSelect={(name) => onChange((current) => ({ ...current, major: name }))}
+              onSelect={(name) =>
+                onChange((current) => ({ ...current, major: name }))
+              }
               value={filters.major}
             />
           </PopoverPopup>
@@ -250,7 +300,10 @@ export function ExploreFilterBar({
 
         <Popover>
           <FilterChip
-            isActive={filters.ranges.admit.min !== null || filters.ranges.admit.max !== null}
+            isActive={
+              filters.ranges.admit.min !== null ||
+              filters.ranges.admit.max !== null
+            }
             label="Admit rate"
             value={summarizeRange(filters.ranges.admit, (value) => `${value}%`)}
           />
@@ -264,18 +317,28 @@ export function ExploreFilterBar({
         </Popover>
 
         <Popover>
-          <FilterChip isActive={filters.sizeBucket.length > 0} label="Size" value={sizeSummary} />
+          <FilterChip
+            isActive={filters.sizeBucket.length > 0}
+            label="Size"
+            value={sizeSummary}
+          />
           <PopoverPopup align="start" className="w-60">
             <div className="flex flex-col gap-2.5">
               {sizeBucketOptions.map((option) => (
-                <CheckboxRow htmlFor={`size-${option.value}`} key={option.value}>
+                <CheckboxRow
+                  htmlFor={`size-${option.value}`}
+                  key={option.value}
+                >
                   <Checkbox
                     checked={filters.sizeBucket.includes(option.value)}
                     id={`size-${option.value}`}
                     onCheckedChange={() =>
                       onChange((current) => ({
                         ...current,
-                        sizeBucket: toggle<SizeBucket>(current.sizeBucket, option.value),
+                        sizeBucket: toggle<SizeBucket>(
+                          current.sizeBucket,
+                          option.value,
+                        ),
                       }))
                     }
                   />
@@ -290,19 +353,31 @@ export function ExploreFilterBar({
           <FilterChip
             isActive={filters.control !== "any"}
             label="Type"
-            value={controlOptions.find((option) => option.value === filters.control)?.label ?? null}
+            value={
+              controlOptions.find((option) => option.value === filters.control)
+                ?.label ?? null
+            }
           />
           <PopoverPopup align="start" className="w-56">
             <RadioGroup
               aria-label="School ownership"
               onValueChange={(value) =>
-                onChange((current) => ({ ...current, control: value as ExploreFilters["control"] }))
+                onChange((current) => ({
+                  ...current,
+                  control: value as ExploreFilters["control"],
+                }))
               }
               value={filters.control}
             >
               {controlOptions.map((option) => (
-                <CheckboxRow htmlFor={`control-${option.value}`} key={option.value}>
-                  <RadioGroupItem id={`control-${option.value}`} value={option.value} />
+                <CheckboxRow
+                  htmlFor={`control-${option.value}`}
+                  key={option.value}
+                >
+                  <RadioGroupItem
+                    id={`control-${option.value}`}
+                    value={option.value}
+                  />
                   {option.label}
                   {option.value === "any" ? null : (
                     <span className="ml-auto text-xs text-[var(--ink-muted)] tabular-nums">
@@ -317,7 +392,10 @@ export function ExploreFilterBar({
 
         <Popover>
           <FilterChip
-            isActive={filters.ranges.cost.min !== null || filters.ranges.cost.max !== null}
+            isActive={
+              filters.ranges.cost.min !== null ||
+              filters.ranges.cost.max !== null
+            }
             label="Your cost"
             value={summarizeRange(filters.ranges.cost, compactMoney)}
           />
@@ -329,8 +407,8 @@ export function ExploreFilterBar({
                 range={filters.ranges.cost}
               />
               <p className="text-xs text-[var(--ink-muted)]">
-                {profile.homeState
-                  ? `Public schools show the ${profile.homeState} resident row.`
+                {assumptions.homeState
+                  ? `Public schools show the ${assumptions.homeState} resident row.`
                   : "Set your home state above to get the resident tuition row for public schools."}
               </p>
             </div>
@@ -342,32 +420,46 @@ export function ExploreFilterBar({
             disabled={!hasAnyScore}
             isActive={filters.scoreFit !== "any"}
             label="Score fit"
-            title={hasAnyScore ? undefined : "Add a score in the results header to use this filter."}
+            title={
+              hasAnyScore
+                ? undefined
+                : "Add a score in the results header to use this filter."
+            }
             value={
               filters.scoreFit === "any"
                 ? null
-                : (scoreFitOptions.find((option) => option.value === filters.scoreFit)?.label ??
-                  null)
+                : (scoreFitOptions.find(
+                    (option) => option.value === filters.scoreFit,
+                  )?.label ?? null)
             }
           />
           <PopoverPopup align="start" className="w-72">
             <RadioGroup
               aria-label="Score fit"
               onValueChange={(value) =>
-                onChange((current) => ({ ...current, scoreFit: value as ScoreFit }))
+                onChange((current) => ({
+                  ...current,
+                  scoreFit: value as ScoreFit,
+                }))
               }
               value={filters.scoreFit}
             >
               {scoreFitOptions.map((option) => (
-                <CheckboxRow htmlFor={`scorefit-${option.value}`} key={option.value}>
-                  <RadioGroupItem id={`scorefit-${option.value}`} value={option.value} />
+                <CheckboxRow
+                  htmlFor={`scorefit-${option.value}`}
+                  key={option.value}
+                >
+                  <RadioGroupItem
+                    id={`scorefit-${option.value}`}
+                    value={option.value}
+                  />
                   {option.label}
                 </CheckboxRow>
               ))}
             </RadioGroup>
             <p className="mt-2.5 text-xs text-[var(--ink-muted)]">
-              Your scores pick which band each card shows. Setting this is what makes them filter
-              the list.
+              Your scores pick which band each card shows. Setting this is what
+              makes them filter the list.
             </p>
           </PopoverPopup>
         </Popover>
@@ -387,7 +479,9 @@ export function ExploreFilterBar({
       >
         <SlidersHorizontal aria-hidden="true" className="size-3.5 opacity-70" />
         More filters
-        {activeCount > 0 ? <span className="tabular-nums">{activeCount}</span> : null}
+        {activeCount > 0 ? (
+          <span className="tabular-nums">{activeCount}</span>
+        ) : null}
       </button>
     </div>
   );

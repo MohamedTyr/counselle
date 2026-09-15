@@ -14,7 +14,9 @@ import { useExploreFilters } from "@/features/schools/explore/useExploreFilters"
 
 function wrapperFor(initialUrl: string) {
   return function Wrapper({ children }: PropsWithChildren) {
-    return <MemoryRouter initialEntries={[initialUrl]}>{children}</MemoryRouter>;
+    return (
+      <MemoryRouter initialEntries={[initialUrl]}>{children}</MemoryRouter>
+    );
   };
 }
 
@@ -33,7 +35,7 @@ describe("useExploreFilters -- the URL codec", () => {
     expect(result.current.filters.testPolicy).toBe("required");
     expect(result.current.filters.gender).toBe("coed");
     expect(result.current.filters.calendar).toBe("semester");
-    expect(result.current.profile.homeState).toBe("CA");
+    expect(result.current.assumptions.homeState).toBe("CA");
   });
 
   it("ignores retired params (testfit, greek, data, noreea, outofstate, a bare sat=) rather than erroring", () => {
@@ -45,9 +47,9 @@ describe("useExploreFilters -- the URL codec", () => {
 
     // No crash, and every retired filter falls back to its default.
     expect(result.current.filters.scoreFit).toBe("any");
-    expect(result.current.profile.satMath).toBeNull();
-    expect(result.current.profile.satEbrw).toBeNull();
-    expect(result.current.profile.act).toBeNull();
+    expect(result.current.assumptions.satMath).toBeNull();
+    expect(result.current.assumptions.satEbrw).toBeNull();
+    expect(result.current.assumptions.act).toBeNull();
   });
 
   it("falls back a URL carrying the retired testfit= param to fit=any", () => {
@@ -77,9 +79,32 @@ describe("useExploreFilters -- the URL codec", () => {
       wrapper: wrapperFor("/app/schools?satm=700&satebrw=680&act=32"),
     });
 
-    expect(result.current.profile.satMath).toBe(700);
-    expect(result.current.profile.satEbrw).toBe(680);
-    expect(result.current.profile.act).toBe(32);
+    expect(result.current.assumptions.satMath).toBe(700);
+    expect(result.current.assumptions.satEbrw).toBe(680);
+    expect(result.current.assumptions.act).toBe(32);
+  });
+
+  it("keeps copied URL scores and home state as Explore assumptions only", () => {
+    const { result } = renderHook(() => useExploreFilters(), {
+      wrapper: wrapperFor("/app/schools?home=CA&satm=790&satebrw=780&act=35"),
+    });
+
+    expect(result.current.assumptions).toEqual({
+      act: 35,
+      homeState: "CA",
+      satEbrw: 780,
+      satMath: 790,
+    });
+    expect("fit" in result.current.assumptions).toBe(false);
+  });
+
+  it("preserves existing score-fit filtering alongside copied score assumptions", () => {
+    const { result } = renderHook(() => useExploreFilters(), {
+      wrapper: wrapperFor("/app/schools?satm=790&fit=at_or_above_p75"),
+    });
+
+    expect(result.current.assumptions.satMath).toBe(790);
+    expect(result.current.filters.scoreFit).toBe("at_or_above_p75");
   });
 
   it("starts at page 1 and grows only via loadMore", () => {
@@ -93,7 +118,9 @@ describe("useExploreFilters -- the URL codec", () => {
     expect(result.current.page).toBe(2);
 
     // A filter change starts the result set over at one page.
-    act(() => result.current.setFilters((current) => ({ ...current, query: "yale" })));
+    act(() =>
+      result.current.setFilters((current) => ({ ...current, query: "yale" })),
+    );
     expect(result.current.page).toBe(1);
   });
 });

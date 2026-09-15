@@ -3,6 +3,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import type { PropsWithChildren } from "react";
 
 import { authQueryKey } from "@/app/auth";
+import { schoolsExploreQueryKey } from "@/api/schools/explore";
 import { useWorkspaceEvents } from "@/api/workspace/events";
 import { workspaceKeys } from "@/api/workspace/keys";
 import {
@@ -103,6 +104,69 @@ describe("workspace events", () => {
           JSON.stringify(workspaceKeys.applications.all()),
       ),
     ).toHaveLength(2);
+  });
+
+  it("aborts Explore before forcing a fresh refetch for profile.updated", async () => {
+    installMockEventSource();
+    const queryClient = createTestQueryClient();
+    const cancel = vi.spyOn(queryClient, "cancelQueries");
+    const invalidate = vi.spyOn(queryClient, "invalidateQueries");
+    const firstExploreKey = [
+      ...schoolsExploreQueryKey,
+      "owner-a",
+      { q: "first" },
+      1,
+    ] as const;
+    const secondExploreKey = [
+      ...schoolsExploreQueryKey,
+      "owner-a",
+      { q: "second" },
+      2,
+    ] as const;
+    queryClient.setQueryData(firstExploreKey, { page: 1 });
+    queryClient.setQueryData(secondExploreKey, { page: 2 });
+
+    renderHook(() => useWorkspaceEvents(), { wrapper: wrapper(queryClient) });
+
+    act(() => {
+      MockWorkspaceEventSource.instances[0]?.emit(
+        "profile.updated",
+        change({
+          type: "profile.updated",
+          data: {
+            object_type: "profile",
+            object_id: "profile-id",
+            op: "updated",
+            actor: "student",
+            application_id: null,
+          },
+        }),
+      );
+    });
+
+    expect(invalidate).toHaveBeenCalledWith({
+      queryKey: workspaceKeys.profile.detail(),
+    });
+    await waitFor(() => {
+      expect(cancel).toHaveBeenCalledWith({
+        queryKey: schoolsExploreQueryKey,
+      });
+      expect(invalidate).toHaveBeenCalledWith({
+        queryKey: schoolsExploreQueryKey,
+        refetchType: "active",
+      });
+    });
+    expect(cancel.mock.invocationCallOrder[0]).toBeLessThan(
+      invalidate.mock.invocationCallOrder.find(
+        (order) => order > cancel.mock.invocationCallOrder[0]!,
+      )!,
+    );
+    expect(queryClient.getQueryState(firstExploreKey)?.isInvalidated).toBe(
+      true,
+    );
+    expect(queryClient.getQueryState(secondExploreKey)?.isInvalidated).toBe(
+      true,
+    );
   });
 
   it("forces a network auth check on stream error and closes after an expired session", async () => {

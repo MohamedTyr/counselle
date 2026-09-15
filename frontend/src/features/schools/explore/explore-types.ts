@@ -14,7 +14,8 @@ import type {
  * The Explore filter/UI types. The read model itself -- one school's ~60
  * metric columns -- is `ExploreFields` in `@/api/schools/explore` (the wire
  * contract); this file holds only what the client adds on top: filter
- * state, the student's own profile, and the fit verdict.
+ * state and URL-local Explore assumptions. Saved Profile data and the fit
+ * verdict are server-owned wire values in `@/api/schools/explore`.
  *
  * Every metric field on the wire is nullable, and null is a first-class
  * render path rather than an error path (SchoolResultCard's "not
@@ -42,23 +43,11 @@ export type NumericRange = { min: number | null; max: number | null };
  * ExploreFilters, not here) is the only thing that FILTERS -- these three
  * scores only pick what a card displays until the student opts in.
  */
-export type StudentProfile = {
+export type ExploreAssumptions = {
   homeState: string | null;
   satMath: number | null;
   satEbrw: number | null;
   act: number | null;
-};
-
-/* ---- the verdict ---- */
-
-/** "Unknown" is a fourth state, not a fourth tier: no admit rate was
- *  published, so we decline to classify. Never rendered as a guess. */
-export type FitCategory = "Reach" | "Target" | "Safety";
-
-export type FitVerdict = {
-  category: FitCategory | "Unknown";
-  /** One sentence naming the evidence the category rests on. */
-  reason: string;
 };
 
 /* ---- filters ---- */
