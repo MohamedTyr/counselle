@@ -376,6 +376,7 @@ export const chatTransport: ChatTransport = {
     responseMode,
     inReplyTo,
     clarifyResponse,
+    goalMode,
   }: SendMessageInput) {
     clearStoredCursor(sessionId);
     const isClarificationAnswer =
@@ -405,6 +406,10 @@ export const chatTransport: ChatTransport = {
             ? { replace_message_id: replaceMessageId }
             : {}),
           ...(responseMode !== undefined ? { response_mode: responseMode } : {}),
+          /* Never sent on a clarification answer (the `isClarificationAnswer`
+           * branch above) — the backend rejects goal_mode there because a
+           * clarification answer can't change turn settings. */
+          ...(goalMode !== undefined ? { goal_mode: goalMode } : {}),
         };
     const response = await streamFetch(`${sessionPath(sessionId)}/messages`, {
       method: "POST",
