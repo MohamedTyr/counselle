@@ -62,6 +62,29 @@ def _require_vertex_prefix(model_setting: str) -> None:
         )
 
 
+def goal_judge_model_setting(settings: Settings) -> str:
+    """Resolve the model setting for the goal-mode judge call (plans/goal-mode-plan.md
+    §3, D15). Empty ``settings.model_goal_judge`` falls back to ``settings.model_cheap``
+    — the plan's default, made an explicit knob rather than inherited by accident.
+
+    R2 (plans/goal-mode-plan.md §7.1): a cheap-tier judge is the model MOST
+    vulnerable to verbosity/padding attacks (MT-Bench measured a 91.3% fool
+    rate on weak judges vs. 8.7% on a strong one). Raising ``model_goal_judge``
+    to a stronger tier than the agent itself is a live, argued-for owner
+    option (§9(b)) — this seam is what makes that a config change, not a
+    rewrite.
+    """
+    return settings.model_goal_judge or settings.model_cheap
+
+
+def goal_criteria_model_setting(settings: Settings) -> str:
+    """Resolve the model setting for the goal-mode criteria-derivation call
+    (plans/goal-mode-plan.md §3.2, D15). Empty ``settings.model_goal_criteria``
+    falls back to ``settings.model_cheap``.
+    """
+    return settings.model_goal_criteria or settings.model_cheap
+
+
 def counselor_model_selection(
     response_mode: ResponseMode,
     settings: Settings,

@@ -206,6 +206,47 @@ class Settings(BaseSettings):
     goal_compaction_keep_tokens: int = Field(default=8_000, ge=0)  # OpenCode's DEFAULT_KEEP_TOKENS
     goal_compaction_reserve_tokens: int = Field(default=20_000, ge=0)  # OpenCode's DEFAULT_BUFFER
 
+    # --- Goal mode (plans/goal-mode-plan.md §2.10; Phase 2 knobs. The
+    # compaction_*/goal_compaction_* knobs above shipped in Phase 1;
+    # goal_max_concurrent_turns ships in Phase 3. This is the single source
+    # of truth for which phase ships which knob.) ---
+    goal_model: str = ""  # "" => model_cheap (D15). Resolved through
+    # app/model_selection.py, the SAME ADR 0011 seam as
+    # model_goal_judge/model_goal_criteria — not inline in agent_node, so
+    # all three stay consistent. (Consumed by Phase 3's agent construction.)
+    goal_max_cost_usd: float = Field(default=3.00, gt=0)  # THE primary budget
+    # (D14), but a SOFT one: UsageLimits understands requests/tokens, not
+    # dollars, so this is enforced as a projection checked before each
+    # iteration, by Phase 3's GoalLoopController — a single unusually
+    # expensive iteration can overshoot it before the next checkpoint fires.
+    goal_max_model_requests: int = Field(default=90, gt=0)  # DERIVED: at
+    # model_cheap and a ~55k average context, 90 requests ~ 4.95M input +
+    # ~72k output ~ $1.67 - about 44% headroom under the $3.00 cap for the
+    # judge, criteria, and wrap-up calls. Re-derive whenever goal_model or
+    # the cap moves.
+    goal_max_total_tokens: int = Field(default=10_000_000, gt=0)  # backstop
+    # ONLY, sized so cost genuinely binds first: $3.00 at model_cheap's
+    # $0.30/1M input is ~10M input-equivalent tokens.
+    goal_max_iterations: int = Field(default=6, gt=0)  # judge rounds
+    goal_wrapup_reserve_requests: int = Field(default=3, ge=0)
+    goal_max_wall_clock_s: float = Field(default=3600.0, gt=0)  # 60 min,
+    # inside goal_turn_timeout_s
+    goal_turn_timeout_s: int = Field(default=5400, gt=0)  # 90 min watchdog
+    # (vs 3600 normal)
+    goal_stall_iterations: int = Field(default=2, gt=0)
+    goal_max_consecutive_tool_errors: int = Field(default=3, gt=0)
+    goal_judge_retries: int = Field(default=2, ge=0)  # then stopped_check_failed (C12)
+    # "" => model_cheap. A cheap-tier judge is the model MOST vulnerable to
+    # verbosity/padding attacks (R2, plans/goal-mode-plan.md §7.1) — raising
+    # this to a stronger tier than the agent is a live owner option (§9(b)),
+    # made a config change rather than a rewrite by this knob existing.
+    model_goal_judge: str = ""
+    model_goal_criteria: str = ""  # "" => model_cheap
+    goal_max_criteria: int = Field(default=6, gt=0)
+    goal_judge_evidence_max_chars: int = Field(
+        default=30_000, gt=0
+    )  # §3.3 — bounded, was unbounded
+
     # Native provider thought output. Gemini exposes this through
     # include_thoughts; it is the rawest trace Google exposes through the API,
     # not private internal CoT tokens. Counselle displays that provider output

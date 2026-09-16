@@ -1,0 +1,166 @@
+# SYNTHETIC, hand-labeled criteria-set examples — see README.md. Each entry is
+# a candidate output of `derive_criteria` (or a hand-authored stand-in for
+# one) for a goal statement, with a human `verdict` and, when rejected, the
+# §3.2 constraint(s) violated: "binary", "checkable", or "c11" (claims
+# coverage Counselle cannot observe — the constraint that matters most).
+
+- id: crit-01-good-school-deadlines
+  statement: "Make sure every school on my list has a deadline recorded."
+  criteria:
+    - id: c1
+      text: "Every school on the list has an application deadline recorded."
+  not_checked_note: "Counselle only checked the deadline field in your workspace; it did not verify these dates against each school's real, current admissions calendar."
+  verdict: accept
+  violated: []
+
+- id: crit-02-good-two-part-decomposition
+  statement: "Get my school list in good shape: deadlines and why-this-school notes."
+  criteria:
+    - id: c1
+      text: "Every school on the list has an application deadline recorded."
+    - id: c2
+      text: "Every school on the list has a why-this-school note of at least 3 sentences."
+  not_checked_note: "Counselle checked only the deadline and notes fields; it did not verify anything about the schools themselves, your chances, or application portal status."
+  verdict: accept
+  violated: []
+
+- id: crit-03-reject-c11-application-ready
+  statement: "Get my UC applications ready to submit."
+  criteria:
+    - id: c1
+      text: "My UC application is ready to submit."
+  not_checked_note: "Everything needed has been checked."
+  verdict: reject
+  violated: [c11, checkable]
+  reason: >
+    "Ready to submit" requires visibility into the UC portal, transcripts,
+    test-score sends, and recommendation letters — none of which Counselle
+    can observe. This is the plan's named flagship failure example (§0.3 C11):
+    the exact lie-to-a-student failure the constraint exists to prevent. The
+    not_checked_note is also a contentless restatement, not a real caveat.
+
+- id: crit-04-reject-c11-recommendation-letters
+  statement: "Make sure my recommendation letters are all in."
+  criteria:
+    - id: c1
+      text: "All requested recommendation letters have been received by the schools."
+  not_checked_note: "N/A"
+  verdict: reject
+  violated: [c11]
+  reason: >
+    Whether a letter has been received by a school is not observable from
+    the Counselle workspace at all — there is no receipt a tool call could
+    ever produce for this. A correct decomposition would instead check
+    whether a *task* tracking each requested letter exists and is marked
+    done, which is workspace-observable.
+
+- id: crit-05-reject-not-binary
+  statement: "Improve my essay."
+  criteria:
+    - id: c1
+      text: "The essay is sufficiently improved and reads well."
+  not_checked_note: "Only the essay text itself was reviewed."
+  verdict: reject
+  violated: [binary, checkable]
+  reason: >
+    "Sufficiently improved" and "reads well" are not binary — there is no
+    single tool receipt that could prove or disprove either. A correct
+    version would name a concrete, checkable fact (e.g. a word count target,
+    or "every paragraph has at least one concrete, specific detail" if that
+    were itself made checkable).
+
+- id: crit-06-reject-c11-test-scores-sent
+  statement: "Make sure my SAT scores have been sent to every school on my list."
+  criteria:
+    - id: c1
+      text: "SAT scores have been sent to every school on the list."
+  not_checked_note: ""
+  verdict: reject
+  violated: [c11]
+  reason: >
+    Score-sending happens on the College Board's site, entirely outside
+    Counselle. Also fails structurally: `not_checked_note` is blank, which
+    the plan requires to be a validation error, never accepted as-is.
+
+- id: crit-07-good-task-done
+  statement: "Mark the FAFSA task as done."
+  criteria:
+    - id: c1
+      text: "The task named 'Submit FAFSA' has done=true."
+  not_checked_note: "Counselle only checked whether the task record is marked done; it did not verify the FAFSA was actually submitted to the government site."
+  verdict: accept
+  violated: []
+
+- id: crit-08-reject-vague-scale
+  statement: "Make my activities list stronger."
+  criteria:
+    - id: c1
+      text: "The activities list is meaningfully stronger than before."
+  not_checked_note: "Nothing outside the activities list was checked."
+  verdict: reject
+  violated: [binary, checkable]
+  reason: >
+    "Meaningfully stronger" is a scale judgment with no single fact a
+    receipt could prove. Needs decomposition into concrete facts (e.g. "every
+    activity has a non-empty description" or "the activities are ordered by
+    the student's stated priority").
+
+- id: crit-09-good-essay-word-count
+  statement: "Get my personal statement to at least 500 words."
+  criteria:
+    - id: c1
+      text: "The personal statement's final word count is at least 500."
+  not_checked_note: "Counselle checked only the word count; it did not assess the essay's quality or whether the content is true to the student's own voice and experience."
+  verdict: accept
+  violated: []
+
+- id: crit-10-reject-financial-aid-awarded
+  statement: "Make sure I get enough financial aid to afford State Tech."
+  criteria:
+    - id: c1
+      text: "State Tech has awarded enough financial aid to make attendance affordable."
+  not_checked_note: "This was checked as thoroughly as possible."
+  verdict: reject
+  violated: [c11, binary]
+  reason: >
+    Financial aid award decisions come from the school, not Counselle, and
+    "enough to make attendance affordable" is not binary in the first place.
+    A correct decomposition might check "the CSS Profile task is marked
+    done" and "a task exists to compare offers once they arrive" — both
+    workspace-observable, neither claiming the outcome itself.
+
+- id: crit-11-good-honor-added
+  statement: "Add my National Merit Scholarship as an honor."
+  criteria:
+    - id: c1
+      text: "An honor record titled 'National Merit Scholarship' exists."
+  not_checked_note: "Only the honors list in your workspace was checked."
+  verdict: accept
+  violated: []
+
+- id: crit-12-reject-too-many-and-vague
+  statement: "Get everything ready for application season."
+  criteria:
+    - id: c1
+      text: "Tasks are organized."
+    - id: c2
+      text: "Schools look good."
+    - id: c3
+      text: "Essays are progressing well."
+    - id: c4
+      text: "Activities are complete."
+    - id: c5
+      text: "Profile is filled in reasonably."
+    - id: c6
+      text: "Everything feels on track."
+    - id: c7
+      text: "Nothing important is missing."
+  not_checked_note: "Everything was reviewed at a high level."
+  verdict: reject
+  violated: [binary, checkable, c11]
+  reason: >
+    Every single criterion here fails binary-ness ("organized", "look good",
+    "progressing well", "on track" are all scales, not facts), and the set
+    exceeds the plan's 2-6 criterion cap besides. A correct version would
+    pick 2-6 concrete, checkable facts — e.g. "every school has a deadline"
+    — rather than one vague criterion per workspace family.
