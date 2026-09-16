@@ -141,7 +141,6 @@ describe("useSlashCommand trigger detection", () => {
   });
 
   it("does not open when the slash arrives mid-sentence even at the start of typing", async () => {
-    const user = userEvent.setup();
     render(<Harness initialText="tell me " />);
     const textarea = screen.getByRole("combobox", {
       name: "Message Counselle",
