@@ -209,6 +209,70 @@
 }
 
 /*
+ * Fix round (school-chances-redesign, FIX 2/3/5): the chances plots' own
+ * additions — a settled-value crossfade, the pill's dual-timing grab scale,
+ * and the container query context `cqw` positioning needs.
+ */
+
+/* FIX 5: `cqw` container-query length units let `YouMark`/`ScrubbablePlot`
+ * position their rule, pill, hover ghost rule and click-to-edit hit target
+ * with `transform: translateX()` (compositor-only) instead of `left` (which
+ * forces a layout recalc on every `getBoundingClientRect()` read elsewhere
+ * on the page while it's mid-tween) — `1cqw` is 1% of the nearest
+ * `container-type: inline-size` ancestor's inline size, standing in for the
+ * `%` these used to resolve `left` against. Both the shape's own plot box
+ * (inside `ChartFigure`, unpadded — see chart-shell.tsx) and the
+ * `ScrubbablePlot` overlay stretch to this same panel's full width, so one
+ * declaration here is the correct query container for both trees. */
+[data-slot="gpa-comparison"],
+[data-slot="academic-comparison-plot"] {
+  container-type: inline-size;
+}
+
+/* FIX 3d: the pill's grab-scale is timed separately (160ms ease-out) from
+ * its 180ms cubic-bezier position tween (plan §7) — Tailwind's duration/ease
+ * utilities apply one timing to every property in one `transition-property`
+ * list, so this dual-timing transition is hand-written instead of composed
+ * from utility classes. */
+[data-slot="you-mark-pill"] {
+  transition-property: transform, scale;
+  transition-duration: 180ms, 160ms;
+  transition-timing-function: cubic-bezier(0.23, 1, 0.32, 1), ease-out;
+}
+/* FIX 5: `instant` only suppresses the POSITION tween — `transform` snaps
+ * 1:1 with the pointer during a drag (plan §7) — never the grab-scale.
+ * `pressed`/`instant` both flip from the same `dragging` boolean
+ * (`ScrubbablePlot.tsx`) in one React commit, so a shared `transition: none`
+ * here used to land in the same frame as the `scale-[0.96]` class and the
+ * press feedback never got to play; zeroing only the transform duration
+ * lets `scale` keep its own 160ms ease-out untouched. */
+[data-slot="you-mark-pill"][data-instant="true"] {
+  transition-duration: 0s, 160ms;
+}
+
+/* FIX 3a: the verdict sentence and the three-number row crossfade in over
+ * 120ms whenever their own value settles — `key`'d to their content in
+ * SchoolChancesPanel.tsx, so a change forces a fresh DOM node whose
+ * `@starting-style` opacity is what this transition animates away from,
+ * rather than mutating text in place with nothing to trigger a transition. */
+[data-slot="school-chances-interpretation-text"],
+[data-slot="school-chances-numbers"] {
+  transition: opacity 120ms ease-out;
+
+  @starting-style {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-slot="you-mark-pill"],
+  [data-slot="school-chances-interpretation-text"],
+  [data-slot="school-chances-numbers"] {
+    transition: none;
+  }
+}
+
+/*
  * The callout-rail / marker-collision rules that used to live here
  * (`[data-slot="academic-comparison-plot"] { container-type: inline-size }`,
  * the GPA below/above-edge margins, the `@container (width < 160px)`

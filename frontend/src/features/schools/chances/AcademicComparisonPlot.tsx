@@ -8,9 +8,23 @@ import {
   selectClassShapeKind,
   YOU_MARK_PILL_CLEARANCE,
 } from "./ClassShape";
+import { ScrubAffordanceHint, ScrubbablePlot } from "./ScrubbablePlot";
 import { YouMark } from "./YouMark";
 import { plotWindow, type PlotWindowMetric } from "./academic-comparison-geometry";
-import { dominantReportedPeriod, divergentPeriod } from "./school-chances-copy";
+import {
+  laneConfigs,
+  offGridCopy,
+  onGrid,
+  profileValue,
+  withChangedLane,
+  withoutLane,
+  type ScenarioLane,
+} from "./scenario-explorer-model";
+import {
+  dominantReportedPeriod,
+  divergentPeriod,
+  scenarioSetCopy,
+} from "./school-chances-copy";
 import {
   isSumsToMaterial,
   partialDistributionSummaryText,
@@ -19,6 +33,8 @@ import {
 } from "./score-plot-copy";
 import {
   SCORE_DOMAINS,
+  type ChancesMetric,
+  type ChancesScenarioInput,
   type ScalarModel,
   type ScoreLaneModel,
 } from "./school-chances-model";
@@ -32,6 +48,14 @@ type AcademicComparisonPlotProps = {
    * (one lane) leaves it unset and this file derives it from its own three
    * fields, which is equivalent to a single-lane baseline. */
   periodBaseline?: string | null;
+  /** Panel-level scenario plumbing (plan §5) — this lane's own `ScrubbablePlot`
+   * reads and writes through these, exactly as `ScenarioExplorer` used to for
+   * the whole metric at once. Optional so `UnavailableScorePlot`'s early
+   * return (no geometry at all) never has to thread them through. */
+  metric: ChancesMetric;
+  profile: ChancesScenarioInput;
+  scenario: ChancesScenarioInput;
+  onScenarioChange: (next: ChancesScenarioInput) => void;
 };
 
 export function AcademicComparisonPlot({
@@ -39,6 +63,10 @@ export function AcademicComparisonPlot({
   title,
   testPolicy,
   periodBaseline,
+  metric,
+  profile,
+  scenario,
+  onScenarioChange,
 }: AcademicComparisonPlotProps): React.ReactElement {
   const markers = scoreMarkers(lane);
   const summary = scoreSummary(title, lane, markers, testPolicy);
@@ -60,9 +88,9 @@ export function AcademicComparisonPlot({
   }
 
   const domain = SCORE_DOMAINS[lane.key];
-  const metric: PlotWindowMetric = lane.key === "composite" ? "act" : "sat";
+  const plotMetric: PlotWindowMetric = lane.key === "composite" ? "act" : "sat";
   const window = plotWindow(
-    metric,
+    plotMetric,
     domain,
     drawnValues(lane),
     lane.scenario?.value ?? lane.profile.value ?? null,
@@ -74,6 +102,42 @@ export function AcademicComparisonPlot({
   });
   const plotHeight = kind ? CLASS_SHAPE_HEIGHT[kind] : CLASS_SHAPE_HEIGHT.rail;
   const sumsTo = lane.distribution?.sumsTo;
+  /* The plot is a slider only where there is something honest to compare
+   * against (plan §5's "no comparison scale" guard) — an average alone was
+   * already excluded from the old `ScenarioExplorer`'s `laneIsComparable`,
+   * and stays excluded here. */
+  const comparable = lane.distributionState.usable || lane.bandState.usable;
+  /* The control is interactive only where a scenario COULD land on this
+   * chart. `comparable` alone lets an incompatible saved value (a score
+   * outside the instrument's own domain) still get a working `role="slider"`
+   * that scrubs freely while the verdict sentence never moves — see
+   * `GpaComparison.tsx`'s identical `interactive` guard for the GPA lane's
+   * own version of this. */
+  const interactive =
+    comparable && lane.profile.state !== "incompatible_profile_value";
+  const laneKey: ScenarioLane = lane.key;
+  const laneConfig = laneConfigs(metric, profile, scenario).find(
+    (candidate) => candidate.key === laneKey,
+  );
+  const savedValue = profileValue(metric, laneKey, profile);
+  const scenarioValue = profileValue(metric, laneKey, scenario);
+  /* The mark shows the raw saved or scenario value, off-grid or not — never
+   * `laneConfig.seed`, which exists purely to seed on-grid interaction and
+   * silently drops an off-grid saved value (e.g. a 3.825 GPA) to `null`.
+   * `GpaComparison.tsx`'s FIX 1 made this same call for the old static
+   * marks; the interactive mark keeps it. */
+  const displayValue = scenarioValue ?? savedValue;
+  const offGrid =
+    displayValue !== null && laneConfig ? !onGrid(displayValue, laneConfig) : false;
+  const secondaryMarkers = comparable
+    ? markers.filter((marker) => marker.variant === "saved")
+    : markers;
+  const ariaLabel =
+    lane.key === "composite"
+      ? "ACT composite"
+      : lane.key === "math"
+        ? "SAT Math"
+        : "SAT Reading and Writing";
 
   return (
     <section
@@ -86,33 +150,80 @@ export function AcademicComparisonPlot({
       >
         {title}
       </h3>
-      <ChartFigure summary={summary}>
-        <div className={cn("flex flex-col gap-2")} data-slot="academic-comparison-plot">
-          {/* FIX 4: reserves the room `YouMark`'s pill escapes into above the
-           * plot box, so it lands in empty space instead of the heading
-           * above. The plot box itself keeps its exact `plotHeight`. */}
-          <div style={{ paddingTop: YOU_MARK_PILL_CLEARANCE }}>
-            <div className={cn("relative")} style={{ height: plotHeight }}>
-              <ClassShape
-                average={lane.average ? { value: Number(lane.average.value) } : null}
-                band={lane.band}
-                distribution={lane.distribution}
-                distributionUsable={lane.distributionState.usable}
-                metric={metric}
-                window={window}
-              />
-              {markers.map((marker) => (
-                <YouMark
-                  display={String(marker.value)}
-                  key={`${marker.variant}-${marker.value}`}
-                  value={marker.value}
-                  variant={marker.variant}
+      <div className={cn("relative flex flex-col gap-2")} data-slot="academic-comparison-plot">
+        <ChartFigure summary={summary}>
+          <div className={cn("flex flex-col gap-2")}>
+            {/* FIX 4: reserves the room `YouMark`'s pill escapes into above
+             * the plot box, so it lands in empty space instead of the
+             * heading above. The plot box itself keeps its exact
+             * `plotHeight`. */}
+            <div style={{ paddingTop: YOU_MARK_PILL_CLEARANCE }}>
+              <div className={cn("relative")} style={{ height: plotHeight }}>
+                <ClassShape
+                  average={lane.average ? { value: Number(lane.average.value) } : null}
+                  band={lane.band}
+                  distribution={lane.distribution}
+                  distributionUsable={lane.distributionState.usable}
+                  metric={plotMetric}
                   window={window}
                 />
-              ))}
+                {secondaryMarkers.map((marker) => (
+                  <YouMark
+                    display={String(marker.value)}
+                    key={`${marker.variant}-${marker.value}`}
+                    value={marker.value}
+                    variant={marker.variant}
+                    window={window}
+                  />
+                ))}
+              </div>
             </div>
+            <AxisEndpointLabels window={window} />
           </div>
-          <AxisEndpointLabels window={window} />
+        </ChartFigure>
+        {/* The interactive layer sits OUTSIDE `ChartFigure`'s aria-hidden
+         * decorative box (plan §5): a `role="slider"` control has to be
+         * reachable by keyboard and assistive tech, which `ChartFigure`
+         * deliberately hides everything inside from (its sr-only
+         * `figcaption` is the accessible channel for the shape). Positioned
+         * to land exactly over the same plot box `ClassShape` drew above. */}
+        {interactive && laneConfig ? (
+          <div
+            className={cn("absolute inset-x-0")}
+            style={{ top: YOU_MARK_PILL_CLEARANCE, height: plotHeight }}
+          >
+            <ScrubbablePlot
+              ariaLabel={ariaLabel}
+              ariaValueText={(next) =>
+                scenarioSetCopy(
+                  metric,
+                  next,
+                  laneKey === "math" || laneKey === "ebrw" ? laneKey : undefined,
+                )
+              }
+              formatDisplay={String}
+              height={plotHeight}
+              lane={laneConfig}
+              onScenarioChange={(next) =>
+                onScenarioChange(
+                  next === null
+                    ? withoutLane(scenario, laneKey)
+                    : withChangedLane(scenario, profile, metric, laneKey, next),
+                )
+              }
+              savedValue={savedValue}
+              value={displayValue}
+              window={window}
+            />
+          </div>
+        ) : null}
+        <div className={cn("flex flex-col gap-2")}>
+          {interactive ? <ScrubAffordanceHint /> : null}
+          {interactive && offGrid ? (
+            <p className={cn("text-xs text-[var(--school-fact-caveat)]")}>
+              {offGridCopy(metric, laneConfig!.step)}
+            </p>
+          ) : null}
           {/* Visible restatement of what `ChartFigure`'s sr-only summary
            * already says — DESIGN.md §15.5 requires an absent or
            * incompatible value to state its absence on screen, not only to
@@ -160,7 +271,7 @@ export function AcademicComparisonPlot({
             </p>
           ) : null}
         </div>
-      </ChartFigure>
+      </div>
     </section>
   );
 }
@@ -169,7 +280,9 @@ function UnavailableScorePlot({
   lane,
   title,
   summary,
-}: AcademicComparisonPlotProps & { summary: string }): React.ReactElement {
+}: Pick<AcademicComparisonPlotProps, "lane" | "title"> & {
+  summary: string;
+}): React.ReactElement {
   /* FIX 2: ACT is the sole lane with its own number row, which already
    * states both "Middle 50%" and "Reported average" as absent when this
    * whole-lane fallback fires — so its own copy of the same fact, and the

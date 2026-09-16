@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter, useSearchParams } from "react-router";
 import { beforeEach, describe, expect, test, vi } from "vitest";
@@ -65,6 +65,15 @@ function renderPanel(initial?: string) {
   );
 }
 
+/** Drives `ScrubbablePlot`'s exact-entry path (plan §5) the way a student
+ * would: `Enter` on the focused plot, type, `Enter` to commit. */
+async function typeExactValue(slider: HTMLElement, value: string) {
+  fireEvent.keyDown(slider, { key: "Enter" });
+  const input = await screen.findByLabelText("Enter an exact value");
+  fireEvent.input(input, { target: { value } });
+  fireEvent.keyDown(input, { key: "Enter" });
+}
+
 describe("SchoolChancesPanel", () => {
   test("uses the deterministic comparable default, preserves other search params, and renders the one flat frame", async () => {
     renderPanel("tab=chances&from=school-list&metric=not-a-metric");
@@ -113,13 +122,19 @@ describe("SchoolChancesPanel", () => {
 
     // The "You " label prefix died with academic-comparison-marks.tsx /
     // GpaComparisonMarkers.tsx (P1 shape rewrite) — the pill now shows only
-    // the raw value.
+    // the raw value, off-grid or not (P3's `ScrubbablePlot` draws the mark
+    // from the raw saved value, never the 0.01-grid-snapped seed).
     await waitFor(() =>
       expect(
         container.querySelector('[data-slot="you-mark"][data-variant="you"]'),
       ).toHaveTextContent("3.825"),
     );
-    expect(screen.queryByRole("slider", { name: "Explore GPA" })).toBeNull();
+    // The plot is still a slider — off-grid only means nothing has been
+    // typed onto its own step grid yet, not that the control disappears.
+    expect(await screen.findByRole("slider", { name: "GPA" })).toHaveAttribute(
+      "aria-valuenow",
+      "3.825",
+    );
     expect(
       screen.getByText(
         "Your saved GPA is more precise than this 0.01 explorer. Enter a two-decimal scenario to start.",
@@ -127,7 +142,7 @@ describe("SchoolChancesPanel", () => {
     ).toBeVisible();
   });
 
-  test("starts a missing profile metric empty and enables its slider only after a valid commit", async () => {
+  test("starts a missing profile metric with no visible mark, then draws one after a valid exact-entry commit", async () => {
     render(
       <SchoolChancesPanel
         data={schoolChancesFactFixtures.full}
@@ -136,19 +151,24 @@ describe("SchoolChancesPanel", () => {
       />,
     );
 
-    const input = await screen.findByLabelText("GPA scenario");
-    expect(screen.queryByLabelText("Explore GPA")).toBeNull();
-    expect(screen.getByText("Enter a value to start exploring")).toBeVisible();
+    // The plot is present and focusable with nothing to compare against yet
+    // — it never shows an invented starting position (ScrubbablePlot.tsx's
+    // own honesty note), so there is no pill to find.
+    const slider = await screen.findByRole("slider", { name: "GPA" });
+    expect(
+      document.querySelector('[data-slot="you-mark"]'),
+    ).toBeNull();
+    // FIX 1: the same honesty guard on the ARIA channel — no invented
+    // aria-valuenow, and an explicit statement of absence a screen reader
+    // actually announces instead.
+    expect(slider).not.toHaveAttribute("aria-valuenow");
+    expect(slider).toHaveAttribute("aria-valuetext", "No GPA set");
 
-    fireEvent.pointerDown(input);
-    fireEvent.input(input, { target: { value: "3.8" } });
-    fireEvent.blur(input);
+    await typeExactValue(slider, "3.8");
 
-    expect(await screen.findByLabelText("Explore GPA")).toHaveAttribute(
-      "aria-valuenow",
-      "3.8",
-    );
-    expect(screen.getByLabelText("Explore GPA")).toHaveFocus();
+    expect(slider).toHaveAttribute("aria-valuenow", "3.8");
+    expect(slider).toHaveAttribute("aria-valuetext", "Scenario set to 3.80 GPA.");
+    expect(slider).toHaveFocus();
   });
 
   test("does not relabel an incompatible or scale-less GPA as a 4.0 GPA", async () => {
@@ -252,9 +272,12 @@ describe("SchoolChancesPanel", () => {
       />,
     );
 
-    expect(await screen.findByLabelText("GPA scenario")).toHaveValue("");
-    expect(screen.queryByLabelText("Explore GPA")).toBeNull();
-    expect(screen.getByText("Enter a value to start exploring")).toBeVisible();
+    const slider = await screen.findByRole("slider", { name: "GPA" });
+    expect(document.querySelector('[data-slot="you-mark"]')).toBeNull();
+    expect(screen.queryByText(/Your saved GPA is more precise/)).toBeNull();
+
+    await typeExactValue(slider, "3.8");
+    expect(slider).toHaveAttribute("aria-valuenow", "3.8");
   });
 
   test("does not treat GPA average-only data as a comparable default", async () => {
@@ -286,15 +309,16 @@ describe("SchoolChancesPanel", () => {
         profile={null}
       />,
     );
-    const input = await screen.findByLabelText("GPA scenario");
-    fireEvent.input(input, { target: { value: "3.8" } });
-    fireEvent.blur(input);
+    const slider = await screen.findByRole("slider", { name: "GPA" });
+    await typeExactValue(slider, "3.8");
 
-    expect(
-      await screen.findByRole("button", { name: "Reset to your GPA" }),
-    ).toBeVisible();
-    fireEvent.click(screen.getByRole("button", { name: "Reset to your GPA" }));
-    expect(screen.queryByLabelText("Explore GPA")).toBeNull();
+    // The three old "Reset to your GPA" / "Reset SAT" / "Reset to your ACT"
+    // variants collapse into one word (plan §5) — which metric is being
+    // reset is unambiguous from context.
+    expect(await screen.findByRole("button", { name: "Reset" })).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Reset" }));
+    expect(document.querySelector('[data-slot="you-mark"]')).toBeNull();
+    expect(screen.queryByRole("button", { name: "Reset" })).toBeNull();
   });
 
   test("uses the response-owned SAT footer wording verbatim", async () => {
@@ -406,12 +430,12 @@ describe("SchoolChancesPanel", () => {
   // shows only the raw value, so `marker` is just `value` again — kept as
   // its own column so the table still documents intent per row.
   test.each([
-    ["gpa", "GPA scenario", "3.82", "3.82"],
-    ["sat", "Math scenario", "760", "760"],
-    ["act", "ACT composite scenario", "33", "33"],
+    ["gpa", "GPA", "3.82", "3.82"],
+    ["sat", "SAT Math", "760", "760"],
+    ["act", "ACT composite", "33", "33"],
   ] as const)(
     "does not create a second scenario surface when %s equals the saved profile",
-    async (metric, inputName, value, marker) => {
+    async (metric, ariaLabel, value, marker) => {
       const { container } = render(
         <SchoolChancesPanel
           data={schoolChancesFactFixtures.full}
@@ -420,9 +444,8 @@ describe("SchoolChancesPanel", () => {
         />,
       );
 
-      const input = await screen.findByLabelText(inputName);
-      fireEvent.input(input, { target: { value } });
-      fireEvent.blur(input);
+      const slider = await screen.findByRole("slider", { name: ariaLabel });
+      await typeExactValue(slider, value);
 
       const matchingMarks = () =>
         [...container.querySelectorAll('[data-slot="you-mark"]')].filter(
@@ -431,15 +454,11 @@ describe("SchoolChancesPanel", () => {
       await waitFor(() => expect(matchingMarks()).toHaveLength(1));
       expect(matchingMarks()[0]).toHaveAttribute("data-variant", "you");
       expect(screen.queryByText(/Your profile/)).toBeNull();
-      expect(
-        document.querySelector("[data-slot=school-chances-scenario-position]"),
-      ).toBeNull();
-      expect(screen.queryByText(/^Scenario set to /)).toBeNull();
-      expect(screen.queryByRole("button", { name: /Reset/ })).toBeNull();
+      expect(screen.queryByRole("button", { name: "Reset" })).toBeNull();
     },
   );
 
-  test("reveals a metric only after its profile-loaded plot mounts, once per metric", async () => {
+  test("FIX 3b/3c: reveals every GPA<->SAT<->ACT switch, not only a metric's first visit — 160ms, opacity + blur(3px)", async () => {
     profileQuery.current = {
       data: undefined,
       isPending: true,
@@ -471,7 +490,13 @@ describe("SchoolChancesPanel", () => {
     const firstGpaReveal = await screen.findByTestId(
       "school-chances-plot-reveal",
     );
-    expect(firstGpaReveal).toHaveClass("motion-safe:animate-in");
+    expect(firstGpaReveal).toHaveClass(
+      "motion-safe:animate-in",
+      "motion-safe:fade-in",
+      "motion-safe:blur-in-3",
+      "duration-[160ms]",
+      "ease-out",
+    );
 
     rerender(
       <SchoolChancesPanel
@@ -480,8 +505,11 @@ describe("SchoolChancesPanel", () => {
       />,
     );
     const satReveal = await screen.findByTestId("school-chances-plot-reveal");
-    expect(satReveal).toHaveClass("motion-safe:animate-in");
+    expect(satReveal).toHaveClass("motion-safe:animate-in", "motion-safe:blur-in-3");
 
+    // The common case (plan-reviewer's own framing): a student flipping
+    // back to a metric they've already seen this session must still get
+    // the reveal — an instant hard cut there was the actual defect.
     rerender(
       <SchoolChancesPanel
         data={schoolChancesFactFixtures.full}
@@ -492,10 +520,13 @@ describe("SchoolChancesPanel", () => {
       "school-chances-plot-reveal",
     );
     expect(returnedGpaReveal).not.toBe(firstGpaReveal);
-    expect(returnedGpaReveal).not.toHaveClass("motion-safe:animate-in");
+    expect(returnedGpaReveal).toHaveClass(
+      "motion-safe:animate-in",
+      "motion-safe:blur-in-3",
+    );
   });
 
-  test("keeps the first metric reveal through incidental rerenders without replaying it", async () => {
+  test("keeps one metric's reveal mount through incidental rerenders without replaying it", async () => {
     const { rerender } = render(
       <SchoolChancesPanel
         data={schoolChancesFactFixtures.full}
@@ -505,23 +536,18 @@ describe("SchoolChancesPanel", () => {
     );
 
     const firstReveal = await screen.findByTestId("school-chances-plot-reveal");
-    expect(firstReveal).toHaveAttribute("data-reveal-state", "first-visit");
-    expect(firstReveal).toHaveClass(
-      "motion-safe:animate-in",
-      "duration-200",
-      "ease-out",
-    );
+    expect(firstReveal).toHaveAttribute("data-reveal-state", "revealing");
+    expect(firstReveal).toHaveClass("motion-safe:animate-in");
 
-    // Scenario edits and Reset are parent updates and must not interrupt it.
-    const scenarioInput = await screen.findByLabelText("GPA scenario");
-    fireEvent.input(scenarioInput, { target: { value: "3.9" } });
-    fireEvent.blur(scenarioInput);
+    // Scenario edits and Reset are parent updates on the SAME metric (the
+    // caller's `key={metric}` does not change) and must not remount, and so
+    // must not replay, the reveal.
+    const slider = await screen.findByRole("slider", { name: "GPA" });
+    await typeExactValue(slider, "3.9");
     expect(screen.getByTestId("school-chances-plot-reveal")).toBe(firstReveal);
-    expect(firstReveal).toHaveAttribute("data-reveal-state", "first-visit");
-    expect(firstReveal).toHaveClass("motion-safe:animate-in");
-    fireEvent.click(screen.getByRole("button", { name: "Reset to your GPA" }));
+    expect(firstReveal).toHaveAttribute("data-reveal-state", "revealing");
+    fireEvent.click(screen.getByRole("button", { name: "Reset" }));
     expect(screen.getByTestId("school-chances-plot-reveal")).toBe(firstReveal);
-    expect(firstReveal).toHaveClass("motion-safe:animate-in");
 
     // A refetch-style parent update must not interrupt the one reveal.
     rerender(
@@ -532,9 +558,10 @@ describe("SchoolChancesPanel", () => {
       />,
     );
     expect(screen.getByTestId("school-chances-plot-reveal")).toBe(firstReveal);
-    expect(firstReveal).toHaveAttribute("data-reveal-state", "first-visit");
-    expect(firstReveal).toHaveClass("motion-safe:animate-in");
+    expect(firstReveal).toHaveAttribute("data-reveal-state", "revealing");
 
+    // A metric switch, unlike the above, DOES remount (and so DOES replay
+    // the reveal — FIX 3b's own point).
     rerender(
       <SchoolChancesPanel
         data={schoolChancesFactFixtures.full}
@@ -550,11 +577,12 @@ describe("SchoolChancesPanel", () => {
       />,
     );
     const revisited = await screen.findByTestId("school-chances-plot-reveal");
-    expect(revisited).toHaveAttribute("data-reveal-state", "visited");
-    expect(revisited).not.toHaveClass("motion-safe:animate-in");
+    expect(revisited).not.toBe(firstReveal);
+    expect(revisited).toHaveAttribute("data-reveal-state", "revealing");
+    expect(revisited).toHaveClass("motion-safe:animate-in");
   });
 
-  test("does not reveal a first-view plot when reduced motion is requested", async () => {
+  test("does not reveal a plot when reduced motion is requested", async () => {
     vi.stubGlobal(
       "matchMedia",
       (query: string) =>
@@ -575,7 +603,7 @@ describe("SchoolChancesPanel", () => {
         />,
       );
       const reveal = await screen.findByTestId("school-chances-plot-reveal");
-      expect(reveal).toHaveAttribute("data-reveal-state", "visited");
+      expect(reveal).toHaveAttribute("data-reveal-state", "static");
       expect(reveal).not.toHaveClass("motion-safe:animate-in");
     } finally {
       vi.unstubAllGlobals();
@@ -650,32 +678,38 @@ describe("SchoolChancesPanel", () => {
       />,
     );
     expect(
-      await screen.findByLabelText("Explore SAT Math"),
+      await screen.findByRole("slider", { name: "SAT Math" }),
     ).toBeInTheDocument();
     expect(
-      screen.queryByLabelText("Explore SAT Reading and Writing"),
+      screen.queryByRole("slider", { name: "SAT Reading and Writing" }),
     ).toBeNull();
   });
 
-  test("rejects invalid entry without changing the last valid scenario and only announces committed changes", async () => {
+  test("rejects invalid entry without changing the last valid scenario, and reuses scenarioSetCopy() as the slider's own aria-valuetext", async () => {
     renderPanel();
-    const input = await screen.findByLabelText("GPA scenario");
+    const slider = await screen.findByRole("slider", { name: "GPA" });
+    expect(slider).toHaveAttribute("aria-valuenow", "3.82");
+
+    fireEvent.keyDown(slider, { key: "Enter" });
+    const input = await screen.findByLabelText("Enter an exact value");
     fireEvent.input(input, { target: { value: "4.01" } });
-    fireEvent.blur(input);
+    fireEvent.keyDown(input, { key: "Enter" });
+    // Off-grid entry (plan §5) shows `errorCopy()` inline, under the pill,
+    // and stays in edit mode without committing the bad value.
     expect(await screen.findByText("Use increments of 0.01")).toBeVisible();
     expect(input).toHaveAttribute("aria-invalid", "true");
-    expect(input).toHaveAttribute("aria-describedby", "gpa-scenario-error");
-    expect(screen.getByLabelText("Explore GPA")).toHaveAttribute(
-      "aria-valuenow",
-      "3.82",
-    );
+    expect(slider).toHaveAttribute("aria-valuenow", "3.82");
 
     fireEvent.input(input, { target: { value: "3.9" } });
-    fireEvent.blur(input);
-    expect(await screen.findByText("Scenario set to 3.90 GPA.")).toBeVisible();
-    expect(
-      screen.getByRole("button", { name: "Reset to your GPA" }),
-    ).toBeVisible();
+    fireEvent.keyDown(input, { key: "Enter" });
+    // `aria-valuetext` reuses `scenarioSetCopy()` verbatim (plan §5) — the
+    // old sr-only live-region announcement collapses into the native
+    // mechanism a `role="slider"` already has.
+    await waitFor(() =>
+      expect(slider).toHaveAttribute("aria-valuetext", "Scenario set to 3.90 GPA."),
+    );
+    expect(slider).toHaveAttribute("aria-valuenow", "3.9");
+    expect(screen.getByRole("button", { name: "Reset" })).toBeVisible();
   });
 
   test("renders the three-number row's absence grammar instead of blanks or dashes", async () => {
@@ -744,5 +778,407 @@ describe("SchoolChancesPanel", () => {
     expect(
       await screen.findByText("Reported 2019-20"),
     ).toBeVisible();
+  });
+
+  /**
+   * FIX 2/7: §5's "the verdict updates live" requirement — previously
+   * unimplemented (the interpretation copy read only `.profile`, never
+   * `.scenario`), and previously untested.
+   */
+  describe("scenario-aware verdict (FIX 2)", () => {
+    test("dragging the GPA scenario updates the verdict live, framed as a hypothetical", async () => {
+      render(
+        <SchoolChancesPanel
+          data={schoolChancesFactFixtures.full}
+          metricParam="gpa"
+          profile={schoolChancesProfileFixtures.compatible}
+        />,
+      );
+
+      expect(
+        await screen.findByText(
+          "Your 3.82 GPA sits in the 3.75 - 3.99 reported band.",
+        ),
+      ).toBeVisible();
+
+      const slider = screen.getByRole("slider", { name: "GPA" });
+      await typeExactValue(slider, "3.60");
+
+      expect(
+        await screen.findByText(
+          "If your GPA were 3.60, it would sit in the 3.50 - 3.74 reported band.",
+        ),
+      ).toBeVisible();
+      // The old, unedited verdict is gone — never shown alongside the
+      // hypothetical.
+      expect(
+        screen.queryByText(
+          "Your 3.82 GPA sits in the 3.75 - 3.99 reported band.",
+        ),
+      ).toBeNull();
+    });
+
+    test("resetting the scenario back to the saved value restores the exact original verdict copy", async () => {
+      render(
+        <SchoolChancesPanel
+          data={schoolChancesFactFixtures.full}
+          metricParam="gpa"
+          profile={schoolChancesProfileFixtures.compatible}
+        />,
+      );
+      const slider = screen.getByRole("slider", { name: "GPA" });
+      await typeExactValue(slider, "3.60");
+      await screen.findByText(
+        "If your GPA were 3.60, it would sit in the 3.50 - 3.74 reported band.",
+      );
+
+      fireEvent.click(screen.getByRole("button", { name: "Reset" }));
+
+      expect(
+        await screen.findByText(
+          "Your 3.82 GPA sits in the 3.75 - 3.99 reported band.",
+        ),
+      ).toBeVisible();
+    });
+
+    test("a scenario never papers over the absence message for a student with no saved GPA", async () => {
+      render(
+        <SchoolChancesPanel
+          data={schoolChancesFactFixtures.full}
+          metricParam="gpa"
+          profile={null}
+        />,
+      );
+      const slider = await screen.findByRole("slider", { name: "GPA" });
+      expect(
+        screen.getByText(
+          "Add your unweighted GPA to place yourself on this chart.",
+        ),
+      ).toBeVisible();
+
+      await typeExactValue(slider, "3.60");
+
+      // Honesty guard (fix brief): the absence wording still wins even
+      // though a scenario is now active on the plot itself.
+      expect(
+        screen.getByText(
+          "Add your unweighted GPA to place yourself on this chart.",
+        ),
+      ).toBeVisible();
+      expect(screen.queryByText(/^If your GPA were/)).toBeNull();
+    });
+
+    test("dragging the ACT scenario away from the saved value describes the hypothetical", async () => {
+      render(
+        <SchoolChancesPanel
+          data={schoolChancesFactFixtures.full}
+          metricParam="act"
+          profile={schoolChancesProfileFixtures.compatible}
+        />,
+      );
+      const slider = await screen.findByRole("slider", { name: "ACT composite" });
+      await typeExactValue(slider, "29");
+
+      expect(
+        await screen.findByText(
+          /^A hypothetical ACT composite of 29 would be (within|below|above) the reported middle 50%\.$/,
+        ),
+      ).toBeVisible();
+    });
+
+    test("dragging an SAT lane's scenario away from its saved value describes that lane's own hypothetical, not the other lane's static comparison", async () => {
+      render(
+        <SchoolChancesPanel
+          data={schoolChancesFactFixtures.full}
+          metricParam="sat"
+          profile={schoolChancesProfileFixtures.compatible}
+        />,
+      );
+      const ebrwSlider = await screen.findByRole("slider", {
+        name: "SAT Reading and Writing",
+      });
+      await typeExactValue(ebrwSlider, "600");
+
+      expect(
+        await screen.findByText(
+          /^A hypothetical SAT Reading and Writing score of 600 would be (within|below|above) the reported middle 50%\.$/,
+        ),
+      ).toBeVisible();
+    });
+
+    // Defect 2 (browser-audit fix round): both SAT lanes actively scrubbed
+    // at once must both be described — the old selection picked math
+    // unconditionally and silently dropped whichever lane the student was
+    // actually looking at.
+    test("dragging both SAT lanes at once addresses both in the verdict, not just math", async () => {
+      render(
+        <SchoolChancesPanel
+          data={schoolChancesFactFixtures.full}
+          metricParam="sat"
+          profile={schoolChancesProfileFixtures.compatible}
+        />,
+      );
+      const mathSlider = await screen.findByRole("slider", { name: "SAT Math" });
+      const ebrwSlider = await screen.findByRole("slider", {
+        name: "SAT Reading and Writing",
+      });
+      // Math nudges one step within its band (690-760); EBRW goes
+      // dramatically above its band (680-750) — two different states, so
+      // the fix must produce two sentences, not one that hedges both.
+      await typeExactValue(mathSlider, "750");
+      await typeExactValue(ebrwSlider, "800");
+
+      expect(
+        await screen.findByText(
+          "A hypothetical SAT Math score of 750 would be within the reported middle 50%. A hypothetical SAT Reading and Writing score of 800 would be above the reported middle 50%.",
+        ),
+      ).toBeVisible();
+    });
+  });
+
+  describe("number row tracks the active scenario (defect 1 fix)", () => {
+    test("dragging the GPA scenario updates every cell in the number row, marks 'You' as a hypothetical, and Reset restores the exact original cells", async () => {
+      render(
+        <SchoolChancesPanel
+          data={schoolChancesFactFixtures.full}
+          metricParam="gpa"
+          profile={schoolChancesProfileFixtures.compatible}
+        />,
+      );
+      const row = () =>
+        document.querySelector('[data-slot="school-chances-numbers"]')!;
+      const originalCells = row().textContent;
+
+      const slider = screen.getByRole("slider", { name: "GPA" });
+      await typeExactValue(slider, "4.00");
+
+      // The verdict and the number row must tell one story: the verdict
+      // names the top band ("4.00 and Above", 20% of the class per the
+      // `full` fixture's distribution) and the cells must name the same
+      // band and the same percentage — never the saved 3.82's middle band.
+      await screen.findByText(
+        "If your GPA were 4.00, it would sit in the 4.00 and Above reported band.",
+      );
+      expect(row()).toHaveTextContent("You4.00 / 4.0");
+      expect(row()).toHaveTextContent("Reported band4.00 and Above");
+      expect(row()).toHaveTextContent("Of the class20%");
+      // The "You" cell is visually marked as a hypothetical using the same
+      // `--school-chances-scenario` token the mark itself uses.
+      const youValue = row().querySelector(
+        '[data-scenario="true"]',
+      ) as HTMLElement;
+      expect(youValue).not.toBeNull();
+      expect(youValue.textContent).toBe("4.00 / 4.0");
+
+      fireEvent.click(screen.getByRole("button", { name: "Reset" }));
+
+      await screen.findByText(
+        "Your 3.82 GPA sits in the 3.75 - 3.99 reported band.",
+      );
+      // Character-for-character back to the pre-scenario content.
+      expect(row().textContent).toBe(originalCells);
+      expect(row().querySelector('[data-scenario="true"]')).toBeNull();
+    });
+
+    test("the ACT 'You' cell tracks an active scenario while Middle 50% and Reported average stay the school-level constants", async () => {
+      render(
+        <SchoolChancesPanel
+          data={schoolChancesFactFixtures.full}
+          metricParam="act"
+          profile={schoolChancesProfileFixtures.compatible}
+        />,
+      );
+      const row = () =>
+        document.querySelector('[data-slot="school-chances-numbers"]')!;
+      const slider = await screen.findByRole("slider", { name: "ACT composite" });
+      await typeExactValue(slider, "29");
+
+      expect(row()).toHaveTextContent("You29");
+      // School-level constants never move with the student's scenario.
+      expect(row()).toHaveTextContent("Middle 50%30–34");
+      expect(row()).toHaveTextContent("Reported average32");
+
+      fireEvent.click(screen.getByRole("button", { name: "Reset" }));
+      await screen.findByText(
+        "Your ACT composite is within the reported middle 50%.",
+      );
+      expect(row()).toHaveTextContent("You33");
+    });
+
+    // Absence-wins: `stale` reports only a top GPA bucket the saved 3.82
+    // falls below, so the saved-value cells read "Not available" even
+    // though the verdict states a real, non-scenario fact. Dragging a
+    // scenario into that reported bucket must bring the cells into
+    // agreement with the verdict rather than leaving them on stale text.
+    test("stale-facts: the number row agrees with a scenario placed inside the school's only reported bucket", async () => {
+      render(
+        <SchoolChancesPanel
+          data={schoolChancesFactFixtures.stale}
+          metricParam="gpa"
+          profile={schoolChancesProfileFixtures.compatible}
+        />,
+      );
+      const row = () =>
+        document.querySelector('[data-slot="school-chances-numbers"]')!;
+
+      await screen.findByText("Your 3.82 GPA is below the reported buckets.");
+      expect(row()).toHaveTextContent("Reported bandNot available");
+      expect(row()).toHaveTextContent("Of the classNot available");
+
+      const slider = screen.getByRole("slider", { name: "GPA" });
+      await typeExactValue(slider, "4.00");
+
+      await screen.findByText(
+        "If your GPA were 4.00, it would sit in the 4.00 and Above reported band.",
+      );
+      expect(row()).toHaveTextContent("Reported band4.00 and Above");
+      expect(row()).toHaveTextContent("Of the class100%");
+    });
+  });
+
+  /**
+   * An incompatible saved value (a GPA on another scale, a score outside its
+   * instrument's own domain) can never be placed on this chart no matter
+   * what the student scrubs to — the verdict already says so permanently.
+   * The interactive control must not exist either: it used to render a
+   * working `role="slider"` regardless, taking a tab stop and announcing
+   * `aria-valuetext` changes for a scenario the verdict would ignore.
+   * `missing_profile_value` (the student simply hasn't entered a value yet)
+   * is the other state that collapses to the same `savedValue={null}` prop
+   * and MUST stay fully interactive — both are asserted here so a fix that
+   * only handles one state doesn't ship unnoticed.
+   */
+  describe("an incompatible saved value suppresses the slider (not just the verdict)", () => {
+    test("GPA on a 5.0 scale: no slider, no tab stop, verdict copy states the real scale", async () => {
+      render(
+        <SchoolChancesPanel
+          data={schoolChancesFactFixtures.full}
+          metricParam="gpa"
+          profile={schoolChancesProfileFixtures.incompatible}
+        />,
+      );
+
+      expect(
+        await screen.findByText(
+          "Your GPA is saved on a 5.0 scale, so it cannot be placed on this 4.0-scale chart.",
+        ),
+      ).toBeVisible();
+      expect(screen.queryByRole("slider", { name: "GPA" })).toBeNull();
+      expect(
+        screen.queryByText("Drag to try a different score"),
+      ).toBeNull();
+    });
+
+    test("ACT composite outside 1-36: no slider, no tab stop", async () => {
+      render(
+        <SchoolChancesPanel
+          data={schoolChancesFactFixtures.full}
+          metricParam="act"
+          profile={{ testing: { act: { composite: 99 } } }}
+        />,
+      );
+
+      expect(
+        await screen.findByText("Your ACT composite cannot be placed on this chart."),
+      ).toBeVisible();
+      expect(
+        screen.queryByRole("slider", { name: "ACT composite" }),
+      ).toBeNull();
+      expect(
+        screen.queryByText("Drag to try a different score"),
+      ).toBeNull();
+    });
+
+    test("a missing (never-entered) GPA stays fully scrubbable — the absence guard must not over-apply", async () => {
+      render(
+        <SchoolChancesPanel
+          data={schoolChancesFactFixtures.full}
+          metricParam="gpa"
+          profile={null}
+        />,
+      );
+
+      const slider = await screen.findByRole("slider", { name: "GPA" });
+      expect(slider).toHaveAttribute("tabindex", "0");
+      expect(
+        screen.getByText("Drag to try a different score"),
+      ).toBeVisible();
+
+      await typeExactValue(slider, "3.60");
+
+      expect(slider).toHaveAttribute("aria-valuenow", "3.6");
+      // The absence guard still wins in the verdict sentence (existing
+      // coverage above) — this test's own job is only the control itself.
+    });
+
+    test("a missing (never-entered) ACT composite stays fully scrubbable", async () => {
+      render(
+        <SchoolChancesPanel
+          data={schoolChancesFactFixtures.full}
+          metricParam="act"
+          profile={null}
+        />,
+      );
+
+      const slider = await screen.findByRole("slider", { name: "ACT composite" });
+      expect(slider).toHaveAttribute("tabindex", "0");
+
+      await typeExactValue(slider, "29");
+      expect(slider).toHaveAttribute("aria-valuenow", "29");
+    });
+  });
+
+  /**
+   * Item 3 (fix round 2): the scrubbing store used to be one module-level
+   * singleton shared by every mounted `ScrubbablePlot` on the page, so a
+   * drag on one `SchoolChancesPanel`'s plot set `aria-busy="true"` on
+   * every OTHER panel's verdict too — confirmed live on the 19-fixture dev
+   * gallery, fixed by scoping the store per panel instance
+   * (`ScrubbingProvider`/`createScrubbingStore`, `ScrubbablePlot.tsx`).
+   * Nothing in this suite rendered two panels side by side before this
+   * test, so the fix shipped unprotected against a regression.
+   */
+  test("item 3: dragging one panel's plot never sets aria-busy on a sibling panel's verdict", () => {
+    render(
+      <>
+        <div data-testid="panel-a">
+          <SchoolChancesPanel data={schoolChancesFactFixtures.full} metricParam="gpa" />
+        </div>
+        <div data-testid="panel-b">
+          <SchoolChancesPanel data={schoolChancesFactFixtures.full} metricParam="gpa" />
+        </div>
+      </>,
+    );
+
+    const panelA = screen.getByTestId("panel-a");
+    const panelB = screen.getByTestId("panel-b");
+    const sliderA = within(panelA).getByRole("slider", { name: "GPA" });
+    const verdictA = panelA.querySelector(
+      '[data-slot="school-chances-interpretation"]',
+    )!;
+    const verdictB = panelB.querySelector(
+      '[data-slot="school-chances-interpretation"]',
+    )!;
+
+    // jsdom has neither real layout nor pointer capture — same minimal
+    // stub `ScrubbablePlot.test.tsx`'s `mockControlGeometry` uses.
+    Object.defineProperties(sliderA, {
+      hasPointerCapture: { value: vi.fn(() => false) },
+      releasePointerCapture: { value: vi.fn() },
+      setPointerCapture: { value: vi.fn() },
+    });
+
+    expect(verdictA).toHaveAttribute("aria-busy", "false");
+    expect(verdictB).toHaveAttribute("aria-busy", "false");
+
+    fireEvent.pointerDown(sliderA, { button: 0, clientX: 210, pointerId: 1 });
+
+    expect(verdictA).toHaveAttribute("aria-busy", "true");
+    expect(verdictB).toHaveAttribute("aria-busy", "false");
+
+    fireEvent.pointerUp(sliderA, { clientX: 210, pointerId: 1 });
+
+    expect(verdictA).toHaveAttribute("aria-busy", "false");
+    expect(verdictB).toHaveAttribute("aria-busy", "false");
   });
 });

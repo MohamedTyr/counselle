@@ -4,14 +4,30 @@ import { describe, expect, test, vi } from "vitest";
 
 import { ActComparison } from "./ActComparison";
 import { GpaComparison } from "./GpaComparison";
+import { profileScenario } from "./SchoolChancesPanel";
 import { SatComparison } from "./SatComparison";
-import { buildSchoolChancesModel } from "./school-chances-model";
+import {
+  buildSchoolChancesModel,
+  type ChancesScenarioInput,
+  type SchoolChancesModel,
+} from "./school-chances-model";
 import {
   schoolChancesFactFixtures,
   schoolChancesProfileFixtures,
 } from "./school-chances-fixtures";
 
 expect.extend(toHaveNoViolations);
+
+/** These tests exercise the summary/marker rendering `ScrubbablePlot`
+ * composes, not its interaction — that's `ScrubbablePlot.test.tsx`'s job —
+ * so every render below wires the same `profile`/`scenario` plumbing
+ * `SchoolChancesPanel.tsx` does, with a no-op `onScenarioChange`. */
+function scenarioProps(
+  model: SchoolChancesModel,
+  scenario: ChancesScenarioInput = {},
+) {
+  return { onScenarioChange: vi.fn(), profile: profileScenario(model), scenario };
+}
 
 describe("academic comparison visual grammar", () => {
   test("renders the GPA bucket profile as text-equivalent categorical data in the accessible summary, including gaps and the profile marker", async () => {
@@ -21,7 +37,9 @@ describe("academic comparison visual grammar", () => {
       "gpa",
       { gpa: 3.9 },
     );
-    const { container } = render(<GpaComparison model={model.gpa!} />);
+    const { container } = render(
+      <GpaComparison model={model.gpa!} {...scenarioProps(model, { gpa: 3.9 })} />,
+    );
 
     // The bucket grid died in P2 (school-chances-minimal-redesign §6) — the
     // shape already draws the same class profile. Every reported and
@@ -65,7 +83,9 @@ describe("academic comparison visual grammar", () => {
       schoolChancesProfileFixtures.compatible,
       "gpa",
     );
-    const { container } = render(<GpaComparison model={model.gpa!} />);
+    const { container } = render(
+      <GpaComparison model={model.gpa!} {...scenarioProps(model)} />,
+    );
 
     expect(
       container.querySelector('[aria-hidden="true"]')?.textContent,
@@ -83,7 +103,11 @@ describe("academic comparison visual grammar", () => {
       { sat: { math: 770, ebrw: 740 } },
     );
     const { container } = render(
-      <SatComparison model={model.sat!} testPolicy={model.testPolicy} />,
+      <SatComparison
+        model={model.sat!}
+        testPolicy={model.testPolicy}
+        {...scenarioProps(model, { sat: { math: 770, ebrw: 740 } })}
+      />,
     );
 
     expect(screen.getByText("Math")).toBeVisible();
@@ -134,7 +158,11 @@ describe("academic comparison visual grammar", () => {
       { act: { composite: 34 } },
     );
     const { container, rerender } = render(
-      <ActComparison model={fullAct.act!} testPolicy={fullAct.testPolicy} />,
+      <ActComparison
+        model={fullAct.act!}
+        testPolicy={fullAct.testPolicy}
+        {...scenarioProps(fullAct, { act: { composite: 34 } })}
+      />,
     );
 
     expect(screen.getByText("Composite")).toBeVisible();
@@ -149,7 +177,11 @@ describe("academic comparison visual grammar", () => {
     ).toHaveAttribute("data-variant", "saved");
 
     rerender(
-      <ActComparison model={model.act!} testPolicy={model.testPolicy} />,
+      <ActComparison
+        model={model.act!}
+        testPolicy={model.testPolicy}
+        {...scenarioProps(model, { act: { composite: 34 } })}
+      />,
     );
     // The visible "Reported breakdown — not plotted to scale" list died
     // with ScoreBreakdown.tsx (plan §6) — the shape draws the same class
@@ -189,7 +221,7 @@ describe("academic comparison visual grammar", () => {
       "act",
     );
     const { rerender } = render(
-      <SatComparison model={sat.sat!} testPolicy={sat.testPolicy} />,
+      <SatComparison model={sat.sat!} testPolicy={sat.testPolicy} {...scenarioProps(sat)} />,
     );
 
     const satLane = screen
@@ -204,7 +236,9 @@ describe("academic comparison visual grammar", () => {
       "Reported buckets total 80%; missing buckets are not treated as zero.",
     );
 
-    rerender(<ActComparison model={act.act!} testPolicy={act.testPolicy} />);
+    rerender(
+      <ActComparison model={act.act!} testPolicy={act.testPolicy} {...scenarioProps(act)} />,
+    );
     expect(
       screen.getByText(
         "Reported buckets total 90%; missing buckets are not treated as zero.",
@@ -234,7 +268,11 @@ describe("academic comparison visual grammar", () => {
         "act",
       );
       const { container } = render(
-        <ActComparison model={model.act!} testPolicy={model.testPolicy} />,
+        <ActComparison
+          model={model.act!}
+          testPolicy={model.testPolicy}
+          {...scenarioProps(model)}
+        />,
       );
 
       // "Middle 50% 30–34" died with ScoreBandDetails.tsx — the band is
@@ -261,7 +299,9 @@ describe("academic comparison visual grammar", () => {
       "gpa",
       { gpa: 4 },
     );
-    const { container } = render(<GpaComparison model={model.gpa!} />);
+    const { container } = render(
+      <GpaComparison model={model.gpa!} {...scenarioProps(model, { gpa: 4 })} />,
+    );
 
     // The bucket grid ("3.50 - 3.74: Not reported") and the standalone
     // "Reported distribution 2024" line both died with the P2 bucket-grid
@@ -290,7 +330,9 @@ describe("academic comparison visual grammar", () => {
       { academics: { gpa_unweighted: "2.00", gpa_scale: "4.0" } },
       "gpa",
     );
-    const { container } = render(<GpaComparison model={model.gpa!} />);
+    const { container } = render(
+      <GpaComparison model={model.gpa!} {...scenarioProps(model)} />,
+    );
 
     expect(container.querySelector("figcaption")).toHaveTextContent(
       "2.00 GPA is below the reported buckets",
@@ -306,7 +348,11 @@ describe("academic comparison visual grammar", () => {
     math.reported_period = "band 2023";
     const model = buildSchoolChancesModel(facts, null, "sat");
     const { container } = render(
-      <SatComparison model={model.sat!} testPolicy={model.testPolicy} />,
+      <SatComparison
+        model={model.sat!}
+        testPolicy={model.testPolicy}
+        {...scenarioProps(model)}
+      />,
     );
 
     expect(
@@ -346,7 +392,11 @@ describe("academic comparison visual grammar", () => {
       "sat",
     );
     const { container } = render(
-      <SatComparison model={model.sat!} testPolicy={model.testPolicy} />,
+      <SatComparison
+        model={model.sat!}
+        testPolicy={model.testPolicy}
+        {...scenarioProps(model)}
+      />,
     );
 
     // The literal bucket list ("Score of 500 - 599: Not reported by the

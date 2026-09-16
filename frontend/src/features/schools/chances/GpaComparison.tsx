@@ -8,13 +8,23 @@ import {
   CLASS_SHAPE_HEIGHT,
   YOU_MARK_PILL_CLEARANCE,
 } from "./ClassShape";
+import { ScrubAffordanceHint, ScrubbablePlot } from "./ScrubbablePlot";
 import { YouMark } from "./YouMark";
 import { plotWindow } from "./academic-comparison-geometry";
+import { scenarioSetCopy } from "./school-chances-copy";
+import {
+  laneConfigs,
+  offGridCopy,
+  onGrid,
+  profileValue,
+  withChangedLane,
+  withoutLane,
+} from "./scenario-explorer-model";
 import {
   isSumsToMaterial,
   partialDistributionSummaryText,
 } from "./score-plot-copy";
-import type { GpaModel } from "./school-chances-model";
+import type { ChancesScenarioInput, GpaModel } from "./school-chances-model";
 
 /** GPA has one fixed instrument scale — the 4.0 scale this whole tab is
  * scoped to (school-chances-model.ts's `gpaProfile` rejects anything else). */
@@ -22,8 +32,17 @@ const GPA_DOMAIN = { min: 0, max: 4 };
 
 export function GpaComparison({
   model,
+  profile,
+  scenario,
+  onScenarioChange,
 }: {
   model: GpaModel;
+  /** Panel-level scenario plumbing (plan §5) — this plot's own
+   * `ScrubbablePlot` reads and writes through these, exactly as
+   * `ScenarioExplorer` used to for the whole GPA metric at once. */
+  profile: ChancesScenarioInput;
+  scenario: ChancesScenarioInput;
+  onScenarioChange: (next: ChancesScenarioInput) => void;
 }): React.ReactElement {
   const distribution = model.distribution;
   const changed =
@@ -44,34 +63,92 @@ export function GpaComparison({
     model.scenario?.value ?? model.profile.value ?? null,
   );
   const markers = gpaMarkers(model);
+  const secondaryMarkers = markers.filter((marker) => marker.variant === "saved");
+  const laneConfig = laneConfigs("gpa", profile, scenario).find(
+    (candidate) => candidate.key === "gpa",
+  );
+  const savedValue = profileValue("gpa", "gpa", profile);
+  const scenarioValue = profileValue("gpa", "gpa", scenario);
+  /* The control is interactive only where a scenario COULD land on this
+   * chart. A GPA saved on a different scale can never be placed here no
+   * matter what the student scrubs to, so the slider itself — not just the
+   * verdict sentence — has to stay off; see `AcademicComparisonPlot.tsx`'s
+   * identical `interactive` guard for the SAT/ACT lanes' own version of
+   * this. */
+  const interactive = model.profile.state !== "incompatible_profile_value";
+  /* The mark shows the raw saved or scenario value, off-grid or not — never
+   * `laneConfig.seed`, which exists purely to seed on-grid interaction and
+   * silently drops an off-grid saved value (e.g. a 3.825 GPA) to `null`
+   * (FIX 1's own rationale, restated for the interactive mark). */
+  const displayValue = scenarioValue ?? savedValue;
+  const offGrid =
+    displayValue !== null && laneConfig ? !onGrid(displayValue, laneConfig) : false;
+  const plotHeight = CLASS_SHAPE_HEIGHT.stepped;
 
   return (
-    <ChartFigure summary={summary}>
-      <div className={cn("flex flex-col gap-3")} data-slot="gpa-comparison">
-        {/* FIX 4: reserves the room `YouMark`'s pill escapes into above the
-         * plot box, so it lands in empty space instead of the heading
-         * above. The plot box itself keeps its exact stepped height. */}
-        <div style={{ paddingTop: YOU_MARK_PILL_CLEARANCE }}>
-          <div className={cn("relative")} style={{ height: CLASS_SHAPE_HEIGHT.stepped }}>
-            <ClassShape
-              band={null}
-              distribution={distribution}
-              distributionUsable={model.distributionState.usable}
-              metric="gpa"
-              window={window}
-            />
-            {markers.map((marker) => (
-              <YouMark
-                display={marker.display}
-                key={marker.variant}
-                value={marker.value}
-                variant={marker.variant}
+    <div className={cn("relative flex flex-col gap-3")} data-slot="gpa-comparison">
+      <ChartFigure summary={summary}>
+        <div className={cn("flex flex-col gap-3")}>
+          {/* FIX 4: reserves the room `YouMark`'s pill escapes into above the
+           * plot box, so it lands in empty space instead of the heading
+           * above. The plot box itself keeps its exact stepped height. */}
+          <div style={{ paddingTop: YOU_MARK_PILL_CLEARANCE }}>
+            <div className={cn("relative")} style={{ height: plotHeight }}>
+              <ClassShape
+                band={null}
+                distribution={distribution}
+                distributionUsable={model.distributionState.usable}
+                metric="gpa"
                 window={window}
               />
-            ))}
+              {secondaryMarkers.map((marker) => (
+                <YouMark
+                  display={marker.display}
+                  key={marker.variant}
+                  value={marker.value}
+                  variant={marker.variant}
+                  window={window}
+                />
+              ))}
+            </div>
           </div>
+          <AxisEndpointLabels format={(value) => value.toFixed(2)} window={window} />
         </div>
-        <AxisEndpointLabels format={(value) => value.toFixed(2)} window={window} />
+      </ChartFigure>
+      {/* Outside `ChartFigure`'s aria-hidden box — see the identical note in
+       * `AcademicComparisonPlot.tsx`. */}
+      {laneConfig && interactive ? (
+        <div
+          className={cn("absolute inset-x-0")}
+          style={{ top: YOU_MARK_PILL_CLEARANCE, height: plotHeight }}
+        >
+          <ScrubbablePlot
+            ariaLabel="GPA"
+            ariaValueText={(next) => scenarioSetCopy("gpa", next)}
+            formatDisplay={(value) => value.toFixed(2)}
+            height={plotHeight}
+            lane={laneConfig}
+            onScenarioChange={(next) =>
+              onScenarioChange(
+                next === null
+                  ? withoutLane(scenario, "gpa")
+                  : withChangedLane(scenario, profile, "gpa", "gpa", next),
+              )
+            }
+            savedDisplay={model.profile.display}
+            savedValue={savedValue}
+            value={displayValue}
+            window={window}
+          />
+        </div>
+      ) : null}
+      <div className={cn("flex flex-col gap-3")}>
+        {interactive ? <ScrubAffordanceHint /> : null}
+        {interactive && offGrid ? (
+          <p className={cn("text-xs text-[var(--school-fact-caveat)]")}>
+            {offGridCopy("gpa", laneConfig!.step)}
+          </p>
+        ) : null}
         {/* The bucket grid is gone — the shape draws the same class profile
          * (plan §6). Its reported period moves to the "Reported band"
          * number cell in SchoolChancesPanel.tsx, printed only when it
@@ -87,7 +164,7 @@ export function GpaComparison({
           </p>
         ) : null}
       </div>
-    </ChartFigure>
+    </div>
   );
 }
 

@@ -182,7 +182,16 @@ function SteppedArea({
       data-slot="class-shape-stepped"
       style={{ height: CLASS_SHAPE_HEIGHT.stepped }}
     >
-      <ComposedChart data={data} margin={{ top: 4, right: 0, bottom: 0, left: 0 }}>
+      {/* Recharts' own keyboard/accessibility layer defaults on — a second,
+       * redundant `tabIndex=0` SVG surface sitting inside this figure's own
+       * `aria-hidden` box (plan §5's interactive layer lives outside it, in
+       * `ScrubbablePlot`). Disabled so tabbing through the plot never lands
+       * on an inert, AT-invisible stop. */}
+      <ComposedChart
+        accessibilityLayer={false}
+        data={data}
+        margin={{ top: 4, right: 0, bottom: 0, left: 0 }}
+      >
         <XAxis dataKey="x" domain={[window.lo, window.hi]} hide type="number" />
         <YAxis domain={[0, 100]} hide type="number" />
         <Area

@@ -1,14 +1,24 @@
 import { AcademicComparisonPlot } from "./AcademicComparisonPlot";
 import { dominantReportedPeriod } from "./school-chances-copy";
-import type { ScalarModel, SchoolChancesModel } from "./school-chances-model";
+import type {
+  ChancesScenarioInput,
+  ScalarModel,
+  SchoolChancesModel,
+} from "./school-chances-model";
 import { cn } from "@/lib/utils";
 
 export function SatComparison({
   model,
   testPolicy,
+  profile,
+  scenario,
+  onScenarioChange,
 }: {
   model: NonNullable<SchoolChancesModel["sat"]>;
   testPolicy: ScalarModel;
+  profile: ChancesScenarioInput;
+  scenario: ChancesScenarioInput;
+  onScenarioChange: (next: ChancesScenarioInput) => void;
 }): React.ReactElement {
   const [math, ebrw] = model.lanes;
   /* Both lanes share one reporting-period baseline (plan §6) so a period
@@ -34,13 +44,21 @@ export function SatComparison({
       ) : null}
       <AcademicComparisonPlot
         lane={math!}
+        metric="sat"
+        onScenarioChange={onScenarioChange}
         periodBaseline={periodBaseline}
+        profile={profile}
+        scenario={scenario}
         testPolicy={testPolicy}
         title="Math"
       />
       <AcademicComparisonPlot
         lane={ebrw!}
+        metric="sat"
+        onScenarioChange={onScenarioChange}
         periodBaseline={periodBaseline}
+        profile={profile}
+        scenario={scenario}
         testPolicy={testPolicy}
         title="Reading and Writing"
       />

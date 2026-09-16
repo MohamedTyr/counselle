@@ -1,3 +1,4 @@
+ 
 import { cn } from "@/lib/utils";
 
 import { scorePosition, type PlotWindow } from "./academic-comparison-geometry";
@@ -21,7 +22,7 @@ import { scorePosition, type PlotWindow } from "./academic-comparison-geometry";
  * the plot bounds near either window edge; the value's rule below is never
  * clamped by it.
  */
-const PILL_HALF_WIDTH_PX = 20;
+export const PILL_HALF_WIDTH_PX = 20;
 
 export type YouMarkVariant = "you" | "scenario" | "saved";
 
@@ -41,6 +42,20 @@ export type YouMarkProps = {
    * hypothetical for attention.
    */
   variant?: YouMarkVariant;
+  /**
+   * `ScrubbablePlot`'s only lever on this component's motion (plan §7): a
+   * `scale(0.96)` press-feedback on the pill while a drag is live. Ignored
+   * for `variant="saved"`, which has no pill.
+   */
+  pressed?: boolean;
+  /**
+   * `true` while a pointer drag is live: the rule and pill snap 1:1 with no
+   * transition, because a spring or ease here reads as lag against a
+   * pointer the student is actively moving. `false` (default) — on
+   * mount, on release, and on every keyboard step — animates `left` over
+   * 180ms `cubic-bezier(0.23, 1, 0.32, 1)` (plan §7).
+   */
+  instant?: boolean;
   className?: string;
 };
 
@@ -49,6 +64,8 @@ export function YouMark({
   display,
   window,
   variant = "you",
+  pressed = false,
+  instant = false,
   className,
 }: YouMarkProps): React.ReactElement | null {
   if (window.hi <= window.lo) return null;
@@ -64,7 +81,7 @@ export function YouMark({
         )}
         data-slot="you-mark"
         data-variant={variant}
-        style={{ left: `${left}%` }}
+        style={{ transform: `translateX(${left}cqw)` }}
       />
     );
   }
@@ -82,13 +99,34 @@ export function YouMark({
    * ~37px pill exactly on the boundary and clip it by roughly half its
    * width.
    */
-  const pillLeft = `clamp(${PILL_HALF_WIDTH_PX}px, ${left}%, calc(100% - ${PILL_HALF_WIDTH_PX}px))`;
+  /* FIX 5: `cqw` (container query width — 1cqw = 1% of the nearest
+   * `container-type: inline-size` ancestor's inline size, `schools.css`)
+   * instead of `%`, so this can move on `transform` instead of `left`. A
+   * plain `translateX(${left}%)` would resolve its percentage against this
+   * element's OWN box, not the plot's — `cqw` is what makes the container's
+   * width the reference again. `transform` composes independently of the
+   * `translate` CSS property Tailwind's `-translate-x-1/2` sets (Tailwind
+   * v4), so the self-centering below is untouched by this. */
+  const pillTranslateX = `clamp(${PILL_HALF_WIDTH_PX}px, ${left}cqw, calc(100cqw - ${PILL_HALF_WIDTH_PX}px))`;
+  /* Plan §7: 180ms cubic-bezier(0.23, 1, 0.32, 1) on release/keyboard step,
+   * nothing while a drag is live — `motion-reduce` collapses both to an
+   * instant snap, since the mark must still move, only the tweening stops.
+   * FIX 5: `transform` instead of `left` — a compositor-only property, so
+   * this no longer forces a layout recalc the way `left` did whenever a
+   * pointermove elsewhere read `getBoundingClientRect()` mid-tween. */
+  const markTransition = cn(
+    "transition-[transform] motion-reduce:transition-none",
+    instant ? "duration-0" : "duration-[180ms] ease-[cubic-bezier(0.23,1,0.32,1)]",
+  );
 
   return (
     <span className={cn("contents", className)} data-slot="you-mark" data-variant={variant}>
       <span
-        className={cn("pointer-events-none absolute inset-y-0 w-0.5 -translate-x-1/2")}
-        style={{ left: `${left}%`, background: color }}
+        className={cn(
+          "pointer-events-none absolute inset-y-0 w-0.5 -translate-x-1/2",
+          markTransition,
+        )}
+        style={{ transform: `translateX(${left}cqw)`, background: color }}
       />
       <span
         className={cn(
@@ -98,8 +136,15 @@ export function YouMark({
           // font's own default line height, which drifts across browsers
           // and font metrics.
           "pointer-events-none absolute top-0 -translate-x-1/2 -translate-y-full whitespace-nowrap rounded-[6px] px-1.5 py-0.5 text-chrome font-medium tabular-nums",
+          pressed && "scale-[0.96]",
         )}
-        style={{ left: pillLeft, color, background: "var(--school-chances-you-chip)" }}
+        data-instant={instant}
+        data-slot="you-mark-pill"
+        style={{
+          transform: `translateX(${pillTranslateX})`,
+          color,
+          background: "var(--school-chances-you-chip)",
+        }}
       >
         {display}
       </span>
