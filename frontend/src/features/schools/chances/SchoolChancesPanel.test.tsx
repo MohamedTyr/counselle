@@ -781,6 +781,46 @@ describe("SchoolChancesPanel", () => {
   });
 
   /**
+   * Plan §4: `SatComparison`'s deleted "Your SAT 1500 shown for context"
+   * caption moves into the verdict sentence rather than vanishing — the
+   * one screen-reader-reachable place for that fact now that it no longer
+   * has a paragraph of its own.
+   */
+  test("folds the saved SAT total into the verdict sentence instead of a floating caption", async () => {
+    render(
+      <SchoolChancesPanel
+        data={schoolChancesFactFixtures.full}
+        metricParam="sat"
+        profile={schoolChancesProfileFixtures.compatible}
+      />,
+    );
+
+    const interpretation = await screen.findByText(
+      /Your SAT 1500 shown for context\.$/,
+    );
+    expect(interpretation).toBeVisible();
+    expect(interpretation.closest('[data-slot="school-chances-interpretation"]')).not.toBeNull();
+    expect(
+      document.querySelector('[data-slot="sat-comparison"] > p'),
+    ).toBeNull();
+  });
+
+  test("omits the SAT total context sentence when the student has no saved total", async () => {
+    render(
+      <SchoolChancesPanel
+        data={schoolChancesFactFixtures.full}
+        metricParam="sat"
+        profile={null}
+      />,
+    );
+
+    await screen.findByText(
+      "Add your SAT section scores to place yourself on these charts.",
+    );
+    expect(screen.queryByText(/shown for context/)).toBeNull();
+  });
+
+  /**
    * FIX 2/7: §5's "the verdict updates live" requirement — previously
    * unimplemented (the interpretation copy read only `.profile`, never
    * `.scenario`), and previously untested.
@@ -899,9 +939,12 @@ describe("SchoolChancesPanel", () => {
       });
       await typeExactValue(ebrwSlider, "600");
 
+      // Plan §4: the saved SAT total (1500 on the `compatible` fixture) now
+      // rides along in the verdict sentence rather than its own floating
+      // caption, on every SAT sentence including a live scenario.
       expect(
         await screen.findByText(
-          /^A hypothetical SAT Reading and Writing score of 600 would be (within|below|above) the reported middle 50%\.$/,
+          /^A hypothetical SAT Reading and Writing score of 600 would be (within|below|above) the reported middle 50%\. Your SAT 1500 shown for context\.$/,
         ),
       ).toBeVisible();
     });
@@ -930,7 +973,7 @@ describe("SchoolChancesPanel", () => {
 
       expect(
         await screen.findByText(
-          "A hypothetical SAT Math score of 750 would be within the reported middle 50%. A hypothetical SAT Reading and Writing score of 800 would be above the reported middle 50%.",
+          "A hypothetical SAT Math score of 750 would be within the reported middle 50%. A hypothetical SAT Reading and Writing score of 800 would be above the reported middle 50%. Your SAT 1500 shown for context.",
         ),
       ).toBeVisible();
     });

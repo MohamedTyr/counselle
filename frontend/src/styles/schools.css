@@ -273,6 +273,33 @@
 }
 
 /*
+ * P4 SAT layout (school-chances-minimal-redesign §4): two compact lane
+ * rows sharing one visual scale instead of two full stacked copies of the
+ * ACT screen.
+ *
+ * `AcademicComparisonPlot.tsx` is shared with the ACT tab. Its label/value/
+ * plot sequence is now real DOM order (`valueSlot` prop, SatComparison.tsx)
+ * rather than a CSS `order` hack — defect 1 fix, school-chances-minimal-
+ * redesign: `display: contents` + `order` only reorders paint, never the
+ * DOM or accessibility tree a screen reader walks, so a reader heard the
+ * bare value before anything said what it was (WCAG 1.3.2). The row's
+ * internal 4px gap between label/value/plot/caveats now comes from the
+ * component's own `flex flex-col gap-1` (applied only when `valueSlot` is
+ * passed, i.e. only on this screen — ACT/GPA render unchanged).
+ *
+ * What's left here is purely cosmetic scoping: the <h3> becomes this row's
+ * 13px inline label (`--school-fact-caveat`, the same alias as
+ * `--ink-muted`), not the 16px semibold heading a second lane on the same
+ * card no longer needs (plan §4: "two headings on one card was already too
+ * many") — confined to this ancestor selector so ACT's own `<h3>` is
+ * untouched.
+ */
+[data-slot="sat-lane"] [data-slot="academic-comparison-lane"] h3 {
+  color: var(--school-fact-caveat);
+  font-size: 13px;
+}
+
+/*
  * The callout-rail / marker-collision rules that used to live here
  * (`[data-slot="academic-comparison-plot"] { container-type: inline-size }`,
  * the GPA below/above-edge margins, the `@container (width < 160px)`

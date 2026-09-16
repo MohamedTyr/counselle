@@ -100,13 +100,13 @@ describe("academic comparison visual grammar", () => {
       schoolChancesFactFixtures.full,
       schoolChancesProfileFixtures.compatible,
       "sat",
-      { sat: { math: 770, ebrw: 740 } },
+      { sat: { math: 770 } },
     );
     const { container } = render(
       <SatComparison
         model={model.sat!}
         testPolicy={model.testPolicy}
-        {...scenarioProps(model, { sat: { math: 770, ebrw: 740 } })}
+        {...scenarioProps(model, { sat: { math: 770 } })}
       />,
     );
 
@@ -126,12 +126,22 @@ describe("academic comparison visual grammar", () => {
     expect(container.querySelectorAll("figcaption")[0]).toHaveTextContent(
       "Testing policy: Considered if submitted",
     );
-    // The total-context line the deleted ledger used to carry — its proper
-    // home is the verdict sentence once SAT's own two-lane redesign lands
-    // (P4, plan §4); until then it stays visible here rather than vanishing.
-    expect(
-      container.querySelector("[data-slot=sat-comparison] > p"),
-    ).toHaveTextContent("Your SAT 1500 shown for context");
+    // Plan §4: each lane's own value line replaces SAT's three-number row
+    // (SAT has none of its own) — math is dragged to a scenario (770,
+    // differing from the saved 760) and reads in the scenario ink; ebrw
+    // has no active scenario, so it stays the plain saved value.
+    const [mathValue, ebrwValue] = container.querySelectorAll(
+      '[data-slot="sat-lane-value"]',
+    );
+    expect(mathValue).toHaveTextContent("770");
+    expect(mathValue).toHaveAttribute("data-scenario", "true");
+    expect(ebrwValue).toHaveTextContent("740");
+    expect(ebrwValue).not.toHaveAttribute("data-scenario");
+    // The total-context line the deleted ledger used to carry now moves
+    // into the verdict sentence (plan §4) — `SchoolChancesPanel.test.tsx`
+    // covers that composition; `SatComparison` alone no longer renders it
+    // as a floating paragraph.
+    expect(screen.queryByText(/shown for context/)).toBeNull();
     expect(container.querySelector("[role=tooltip]")).toBeNull();
     expect(await axe(container)).toHaveNoViolations();
   });
@@ -434,4 +444,121 @@ describe("academic comparison visual grammar", () => {
   // and `ScoreBandDetails.tsx`. `ClassShape`/`YouMark` position everything by
   // the windowed axis instead of measured-width collision layout, so none of
   // that machinery exists to test any more.
+
+  test("defect 1: SAT lane's DOM order is label, then value, then plot — matching visual and a11y-tree order", () => {
+    const model = buildSchoolChancesModel(
+      schoolChancesFactFixtures.full,
+      schoolChancesProfileFixtures.compatible,
+      "sat",
+    );
+    render(
+      <SatComparison model={model.sat!} testPolicy={model.testPolicy} {...scenarioProps(model)} />,
+    );
+
+    const mathLane = screen
+      .getByRole("heading", { name: "Math" })
+      .closest('[data-slot="sat-lane"]')!;
+    const h3 = mathLane.querySelector("h3")!;
+    const value = mathLane.querySelector('[data-slot="sat-lane-value"]')!;
+    const figure = mathLane.querySelector("figure")!;
+
+    // A CSS `order`-based layout (the previous implementation) leaves the
+    // value line a sibling of the section, painted in between but living
+    // later in the DOM/a11y tree than the figure — `compareDocumentPosition`
+    // catches that even though the two look identical on screen, which is
+    // exactly the discriminating power this test needs (WCAG 1.3.2).
+    expect(
+      h3.compareDocumentPosition(value) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      value.compareDocumentPosition(figure) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  test("defect 2: prints the SAT lane's own band bounds and reported average as endpoint labels", () => {
+    const model = buildSchoolChancesModel(
+      schoolChancesFactFixtures.full,
+      schoolChancesProfileFixtures.compatible,
+      "sat",
+    );
+    const { container } = render(
+      <SatComparison model={model.sat!} testPolicy={model.testPolicy} {...scenarioProps(model)} />,
+    );
+
+    const [mathEndpoints, ebrwEndpoints] = container.querySelectorAll(
+      '[data-slot="score-band-endpoints"]',
+    );
+    expect(mathEndpoints).toHaveTextContent("690");
+    expect(mathEndpoints).toHaveTextContent("725");
+    expect(mathEndpoints).toHaveTextContent("760");
+    expect(ebrwEndpoints).toHaveTextContent("680");
+    expect(ebrwEndpoints).toHaveTextContent("715");
+    expect(ebrwEndpoints).toHaveTextContent("750");
+    // Never the windowed axis' own cropped bounds standing in for the real
+    // band — those numbers must not appear as the printed endpoints.
+    expect(mathEndpoints).not.toHaveTextContent("560");
+    expect(mathEndpoints).not.toHaveTextContent("800");
+  });
+
+  test("defect 2 (absence): a band with no reported average shows the band bounds without fabricating a midpoint", () => {
+    const facts = structuredClone(schoolChancesFactFixtures.full);
+    const averageFact = facts.sections[0]!.groups[0]!.facts.find(
+      (fact) => fact.key === "class_profile.sat_math_avg",
+    )!;
+    averageFact.state = "not_reported";
+    averageFact.value = null;
+    averageFact.display = "Not reported";
+    const model = buildSchoolChancesModel(
+      facts,
+      schoolChancesProfileFixtures.compatible,
+      "sat",
+    );
+    const { container } = render(
+      <SatComparison model={model.sat!} testPolicy={model.testPolicy} {...scenarioProps(model)} />,
+    );
+
+    const [mathEndpoints] = container.querySelectorAll(
+      '[data-slot="score-band-endpoints"]',
+    );
+    expect(mathEndpoints).toHaveTextContent("690");
+    expect(mathEndpoints).toHaveTextContent("760");
+    // Never a fabricated midpoint like (690 + 760) / 2 = 725 standing in
+    // for a reported average that doesn't exist.
+    expect(mathEndpoints).not.toHaveTextContent("725");
+    expect(mathEndpoints).toHaveTextContent("Not available");
+  });
+
+  test("comprehension fix: the band row is labelled, and a student's value is distinguishable from an identical band bound", () => {
+    // schoolChancesProfileFixtures.compatible's saved SAT Math (760) equals
+    // schoolChancesFactFixtures.full's own SAT Math band upper bound (760)
+    // digit-for-digit — the exact collision the audit found on `full-sat`.
+    const model = buildSchoolChancesModel(
+      schoolChancesFactFixtures.full,
+      schoolChancesProfileFixtures.compatible,
+      "sat",
+    );
+    const { container } = render(
+      <SatComparison model={model.sat!} testPolicy={model.testPolicy} {...scenarioProps(model)} />,
+    );
+
+    // The band row names both kinds of number it prints, reusing the exact
+    // words `actNumberCells` already uses for the same two facts — no
+    // invented vocabulary.
+    const [mathEndpoints] = container.querySelectorAll(
+      '[data-slot="score-band-endpoints"]',
+    );
+    expect(mathEndpoints).toHaveTextContent("Middle 50%");
+    expect(mathEndpoints).toHaveTextContent("Reported average");
+
+    // The student's own value carries a distinct "You" label...
+    const [mathValue] = container.querySelectorAll('[data-slot="sat-lane-value"]');
+    expect(mathValue).toHaveTextContent("You");
+    expect(mathValue).toHaveTextContent("760");
+
+    // ...so the two "760"s on screen are never the same unlabelled text: the
+    // value line's own text excludes the band words, and the band row's own
+    // text excludes "You".
+    expect(mathValue).not.toHaveTextContent("Middle 50%");
+    expect(mathEndpoints).not.toHaveTextContent("You");
+  });
 });

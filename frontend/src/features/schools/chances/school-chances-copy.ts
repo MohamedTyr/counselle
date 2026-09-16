@@ -7,6 +7,13 @@ import type {
 export const CHANCES_TRUTH_FOOTER =
   "Reported entering-class data — not a cutoff or a chance.";
 
+/** The two SAT lane labels (plan §4) — the short form used as the
+ * per-lane inline label, distinct from `scenarioLabel`'s "SAT Math" /
+ * "SAT Reading and Writing" (spoken form, prefixed with the instrument). */
+export function satLaneTitle(lane: "math" | "ebrw"): string {
+  return lane === "math" ? "Math" : "Reading and Writing";
+}
+
 export function gpaInterpretation(
   model: GpaModel,
   gpaScale?: string | null,
@@ -74,7 +81,7 @@ export function scoreInterpretation(lane: ScoreLaneModel): string {
   if (lane.scenario) return scoreScenarioInterpretation(subject, lane.scenario);
   if (!lane.bandState.usable)
     return lane.distributionState.usable
-      ? "Middle 50% unavailable"
+      ? "Middle 50% unavailable."
       : "Data could not be compared.";
   if (!lane.profile.comparison)
     return schoolComparisonUnavailable(lane.school.display);
@@ -117,18 +124,31 @@ function bothScoreScenarioInterpretation(
   return `${scoreScenarioInterpretation(scoreSubject("math"), math)} ${scoreScenarioInterpretation(scoreSubject("ebrw"), ebrw)}`;
 }
 
+type SatInterpretationModel = {
+  lanes: ScoreLaneModel[];
+  /** The saved SAT total, when one exists — plan §4 deletes this from its
+   * own floating caption and folds it into the verdict sentence instead: it
+   * is the one number on the SAT screen that isn't compared to anything, so
+   * it earns a place in the sentence rather than a caption of its own. */
+  totalContext: { value: number; display: number } | null;
+};
+
 export function metricInterpretation(
   metric: ChancesMetric,
   model: {
     gpa: GpaModel | null;
-    sat: { lanes: ScoreLaneModel[] } | null;
+    sat: SatInterpretationModel | null;
     act: ScoreLaneModel | null;
   },
   gpaScale?: string | null,
 ): string {
   if (metric === "gpa") return gpaInterpretation(model.gpa!, gpaScale);
   if (metric === "act") return scoreInterpretation(model.act!);
-  const [math, ebrw] = model.sat!.lanes;
+  return satInterpretation(model.sat!);
+}
+
+function satInterpretation(sat: SatInterpretationModel): string {
+  const [math, ebrw] = sat.lanes;
   /* Same guard-mirroring rationale as `gpaNumberCells`'s `activeGpaScenario`
    * (SchoolChancesPanel.tsx): a lane's scenario only counts as "active" for
    * this sentence once `scoreInterpretation`'s own profile-absence guards
@@ -136,6 +156,18 @@ export function metricInterpretation(
    * still be reporting as absent could get counted as active here. */
   const mathScenario = math!.profile.state === "value" ? math!.scenario : null;
   const ebrwScenario = ebrw!.profile.state === "value" ? ebrw!.scenario : null;
+  const sentence = satVerdict(math!, ebrw!, mathScenario, ebrwScenario);
+  return sat.totalContext
+    ? `${sentence} Your SAT ${sat.totalContext.display} shown for context.`
+    : sentence;
+}
+
+function satVerdict(
+  math: ScoreLaneModel,
+  ebrw: ScoreLaneModel,
+  mathScenario: ScoreLaneModel["scenario"],
+  ebrwScenario: ScoreLaneModel["scenario"],
+): string {
   /* Defect 2 fix: both lanes actively scrubbed at once must both be
    * described — see `bothScoreScenarioInterpretation` above. */
   if (mathScenario && ebrwScenario)
@@ -144,14 +176,14 @@ export function metricInterpretation(
    * actually dragging right now — describe that one live, rather than
    * always favoring math's static comparison while an ebrw drag goes
    * unreflected in the verdict (plan §5). */
-  const scenarioLane = math!.scenario ? math! : ebrw!.scenario ? ebrw! : null;
+  const scenarioLane = math.scenario ? math : ebrw.scenario ? ebrw : null;
   if (scenarioLane) return scoreInterpretation(scenarioLane);
   if (
-    math!.profile.state === "missing_profile_value" &&
-    ebrw!.profile.state === "missing_profile_value"
+    math.profile.state === "missing_profile_value" &&
+    ebrw.profile.state === "missing_profile_value"
   )
     return "Add your SAT section scores to place yourself on these charts.";
-  return scoreInterpretation(math!.profile.state === "value" ? math! : ebrw!);
+  return scoreInterpretation(math.profile.state === "value" ? math : ebrw);
 }
 
 export function scenarioLabel(metric: ChancesMetric, lane?: "math" | "ebrw") {

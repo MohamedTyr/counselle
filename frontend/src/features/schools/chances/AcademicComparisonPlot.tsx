@@ -10,7 +10,12 @@ import {
 } from "./ClassShape";
 import { ScrubAffordanceHint, ScrubbablePlot } from "./ScrubbablePlot";
 import { YouMark } from "./YouMark";
-import { plotWindow, type PlotWindowMetric } from "./academic-comparison-geometry";
+import {
+  plotWindow,
+  scorePosition,
+  type PlotWindow,
+  type PlotWindowMetric,
+} from "./academic-comparison-geometry";
 import {
   laneConfigs,
   offGridCopy,
@@ -27,12 +32,14 @@ import {
 } from "./school-chances-copy";
 import {
   isSumsToMaterial,
+  NOT_AVAILABLE,
   partialDistributionSummaryText,
   profilePlacementMessage,
   schoolFactDisplay,
 } from "./score-plot-copy";
 import {
   SCORE_DOMAINS,
+  type BandModel,
   type ChancesMetric,
   type ChancesScenarioInput,
   type ScalarModel,
@@ -56,6 +63,30 @@ type AcademicComparisonPlotProps = {
   profile: ChancesScenarioInput;
   scenario: ChancesScenarioInput;
   onScenarioChange: (next: ChancesScenarioInput) => void;
+  /**
+   * Defect 1 fix (school-chances-minimal-redesign): a caller-owned element
+   * rendered directly in the DOM between this component's own `<h3>` label
+   * and its plot body — SAT's lane value line (`SatLaneValue`,
+   * SatComparison.tsx), the analogue of the GPA/ACT number row's "You"
+   * cell. Previously SAT rendered that value as a sibling *outside* this
+   * component and used `display: contents` plus CSS `order` to visually
+   * interleave it between the label and the plot (schools.css) — `order`
+   * only reorders paint, never the DOM or accessibility tree, so a screen
+   * reader read the bare value before anything said what it was (WCAG
+   * 1.3.2). Passing it here instead makes visual order, DOM order, and
+   * accessibility-tree order the same thing: real DOM position. Undefined
+   * for GPA/ACT, which have their own number row elsewhere and never pass
+   * this — their rendering is byte-for-byte unchanged.
+   */
+  valueSlot?: React.ReactNode;
+  /**
+   * Defect 2 fix: SAT passes `"band"` so the axis endpoint row shows the
+   * lane's own reported middle-50% bounds and average (plan §4's "690 725
+   * 760") instead of the windowed axis' own cropped edges. Omitted by
+   * GPA/ACT, whose `AxisEndpointLabels` behavior (the window's own lo/hi)
+   * is unchanged.
+   */
+  endpointsVariant?: "band";
 };
 
 export function AcademicComparisonPlot({
@@ -67,6 +98,8 @@ export function AcademicComparisonPlot({
   profile,
   scenario,
   onScenarioChange,
+  valueSlot,
+  endpointsVariant,
 }: AcademicComparisonPlotProps): React.ReactElement {
   const markers = scoreMarkers(lane);
   const summary = scoreSummary(title, lane, markers, testPolicy);
@@ -84,7 +117,14 @@ export function AcademicComparisonPlot({
   const averagePeriod = divergentPeriod(lane.average?.reportedPeriod, baseline);
 
   if (!hasScoreGeometry(lane)) {
-    return <UnavailableScorePlot lane={lane} summary={summary} title={title} />;
+    return (
+      <UnavailableScorePlot
+        lane={lane}
+        summary={summary}
+        title={title}
+        valueSlot={valueSlot}
+      />
+    );
   }
 
   const domain = SCORE_DOMAINS[lane.key];
@@ -142,6 +182,7 @@ export function AcademicComparisonPlot({
   return (
     <section
       aria-labelledby={`score-lane-${lane.key}`}
+      className={cn(valueSlot && "flex flex-col gap-1")}
       data-slot="academic-comparison-lane"
     >
       <h3
@@ -150,6 +191,7 @@ export function AcademicComparisonPlot({
       >
         {title}
       </h3>
+      {valueSlot}
       <div className={cn("relative flex flex-col gap-2")} data-slot="academic-comparison-plot">
         <ChartFigure summary={summary}>
           <div className={cn("flex flex-col gap-2")}>
@@ -178,7 +220,11 @@ export function AcademicComparisonPlot({
                 ))}
               </div>
             </div>
-            <AxisEndpointLabels window={window} />
+            {endpointsVariant === "band" ? (
+              <ScoreEndpointLabels average={lane.average} band={lane.band} window={window} />
+            ) : (
+              <AxisEndpointLabels window={window} />
+            )}
           </div>
         </ChartFigure>
         {/* The interactive layer sits OUTSIDE `ChartFigure`'s aria-hidden
@@ -280,7 +326,8 @@ function UnavailableScorePlot({
   lane,
   title,
   summary,
-}: Pick<AcademicComparisonPlotProps, "lane" | "title"> & {
+  valueSlot,
+}: Pick<AcademicComparisonPlotProps, "lane" | "title" | "valueSlot"> & {
   summary: string;
 }): React.ReactElement {
   /* FIX 2: ACT is the sole lane with its own number row, which already
@@ -298,6 +345,7 @@ function UnavailableScorePlot({
   return (
     <section
       aria-labelledby={isSingleLane ? undefined : `score-lane-${lane.key}`}
+      className={cn(valueSlot && "flex flex-col gap-1")}
       data-slot="academic-comparison-lane"
     >
       {isSingleLane ? null : (
@@ -308,6 +356,7 @@ function UnavailableScorePlot({
           {title}
         </h3>
       )}
+      {valueSlot}
       <ChartFigure summary={summary}>
         <div
           className={cn("flex flex-col gap-2")}
@@ -476,5 +525,110 @@ function markerLabel(marker: ScorePlotMarker): string {
 function hasScoreGeometry(lane: ScoreLaneModel): boolean {
   return (
     lane.band !== null || lane.average !== null || lane.distributionState.usable
+  );
+}
+
+/** Minimum separation (percent of the row's own width) an average label
+ * must keep from either edge label before it is drawn. A 3-digit SAT/ACT
+ * score at `text-xs`/`tabular-nums` is roughly 20px wide (half ≈10px);
+ * even at this screen's narrowest real lane width (~300px, two SAT lanes
+ * side by side at the sm:grid-cols-2 breakpoint), 9% is ≈27px — enough
+ * clearance that the two labels' text never touches, without discarding a
+ * legitimately-centered average like the shipped fixtures' (band 690–760,
+ * average 725 sits at a real ~15% gap from either edge). A genuinely
+ * edge-hugging average (never fabricated a position, never nudged) simply
+ * drops the visible label rather than overlapping one; the accessible
+ * summary always carries the exact value regardless. */
+const SCORE_LABEL_MIN_GAP_PCT = 9;
+
+/**
+ * Defect 2 fix: plan §4's "690 725 760" row — the band's own lower bound,
+ * the reported average, and the band's own upper bound, each positioned at
+ * its real score location on the same windowed axis `ClassShape` draws
+ * against (not the window's own cropped edges `AxisEndpointLabels` shows
+ * for GPA/ACT, which the implementation was wrongly reusing here). Falls
+ * back to `AxisEndpointLabels` whenever there is no band to position
+ * against at all — the existing "Middle 50% not available" paragraph
+ * lower in this file is what states that absence, and this row never
+ * invents a position for a value nobody reported. A reported average with
+ * no band to sit inside of does not fabricate a position either: `Not
+ * available` renders centered instead, mirroring `actNumberCells`' own
+ * `NOT_AVAILABLE` fallback for the identical absent-average case.
+ */
+/**
+ * The "Middle 50% · Reported average" caption printed above a lane's three
+ * band numbers (comprehension fix, school-chances-minimal-redesign audit,
+ * MEDIUM): three bare numbers under the SAT rail had no visible word
+ * naming what they were — the explanation lived only in `ChartFigure`'s
+ * `aria-hidden` summary, invisible to a sighted reader. Reuses the exact
+ * two words `actNumberCells`/`gpaNumberCells` already print for the same
+ * two facts (SchoolChancesPanel.tsx) rather than inventing new copy — one
+ * product, one vocabulary.
+ *
+ * One caption spanning the row, not one per number: a first attempt
+ * anchored "Middle 50%" over the lower bound and "Reported average" over
+ * the average mark, each own width, which read fine when the average sat
+ * near an edge but visibly overlapped ("MiddReted50%verage") whenever the
+ * average landed close to the lower bound — exactly the shipped fixtures'
+ * own layout (690 / 725 / 760). A single row-wide line can never collide
+ * with itself regardless of where the average falls, and it still names
+ * both facts using the same two words.
+ */
+const SCORE_BAND_LEGEND = "Middle 50% · Reported average";
+
+function ScoreEndpointLabels({
+  band,
+  average,
+  window,
+}: {
+  band: BandModel | null;
+  average: ScalarModel;
+  window: PlotWindow;
+}): React.ReactElement {
+  if (!band || window.hi <= window.lo) return <AxisEndpointLabels window={window} />;
+  const clamp = (value: number) => Math.min(window.hi, Math.max(window.lo, value));
+  const p25Pct = scorePosition(clamp(band.p25), window.lo, window.hi) * 100;
+  const p75Pct = scorePosition(clamp(band.p75), window.lo, window.hi) * 100;
+  const avgPct = average
+    ? scorePosition(clamp(Number(average.value)), window.lo, window.hi) * 100
+    : null;
+  const averageFits =
+    avgPct !== null &&
+    avgPct - p25Pct >= SCORE_LABEL_MIN_GAP_PCT &&
+    p75Pct - avgPct >= SCORE_LABEL_MIN_GAP_PCT;
+  return (
+    <div
+      className={cn("flex flex-col gap-1")}
+      data-slot="score-band-endpoints"
+    >
+      <p className={cn("text-[11px] leading-none text-[var(--school-fact-caveat)]")}>
+        {SCORE_BAND_LEGEND}
+      </p>
+      <div
+        className={cn("relative h-5 text-xs text-[var(--school-fact-caveat)] tabular-nums")}
+      >
+        <span className={cn("absolute")} style={{ left: `${p25Pct}%` }}>
+          {band.p25}
+        </span>
+        {average && averageFits ? (
+          <span className={cn("absolute -translate-x-1/2")} style={{ left: `${avgPct}%` }}>
+            {average.display}
+          </span>
+        ) : null}
+        {!average ? (
+          <span
+            className={cn(
+              "absolute -translate-x-1/2 text-[var(--school-fact-absent)]",
+            )}
+            style={{ left: "50%" }}
+          >
+            {NOT_AVAILABLE}
+          </span>
+        ) : null}
+        <span className={cn("absolute -translate-x-full")} style={{ left: `${p75Pct}%` }}>
+          {band.p75}
+        </span>
+      </div>
+    </div>
   );
 }
