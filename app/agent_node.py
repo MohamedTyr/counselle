@@ -60,7 +60,11 @@ from pydantic_ai.messages import (
 from pydantic_ai.models import Model
 from pydantic_ai.tools import RunContext
 from pydantic_ai.usage import RunUsage, UsageLimits
-from pydantic_ai_harness.experimental.compaction import ClearToolResults
+from pydantic_ai_harness.experimental.compaction import (
+    ClearToolResults,
+    SummarizingCompaction,
+    TieredCompaction,
+)
 from pydantic_graph import End
 
 from app import viz as viz_mod
@@ -875,11 +879,59 @@ class _CompactionBeat(ClearToolResults):
         return cleared
 
 
-def _make_compaction_beat_emitter(writer: Callable[[dict[str, Any]], None]) -> Callable[[], None]:
+@dataclass
+class _SummarizingBeat(SummarizingCompaction):
+    """``SummarizingCompaction`` instrumented to disclose itself, and to
+    degrade rather than abort the run when the summary call fails.
+
+    D11/§4.2 (plans/goal-mode-plan.md): the expensive tier, goal turns only.
+    Like ``_CompactionBeat``, 0.4.0 exposes no compact-fired hook, so a real
+    summarization is detected the same way the library decides internally —
+    ``compact()`` hands back the same list object when it declined (no cutoff
+    above the preserved tail).
+
+    **Failure is survivable.** A goal run is the long, unattended case, so a
+    summary call that times out, is rate-limited, or trips the inner run's own
+    request limit must not take the whole run with it: the failure is logged
+    and the un-summarized history is handed straight back. The cheap tier has
+    already run by then, and ``target_tokens`` is a cost guard rather than a
+    context-window limit, so the next request simply goes out longer than the
+    target instead of not going out at all. ``CancelledError`` is not an
+    ``Exception``, so cancelling a turn stays immediate.
+    """
+
+    on_summary: Callable[[], None] | None = None
+
+    async def compact(
+        self, messages: list[ModelMessage], ctx: RunContext[Any]
+    ) -> list[ModelMessage]:
+        try:
+            summarized = await super().compact(messages, ctx)
+        except Exception:
+            logger.warning(
+                "goal compaction: summarization failed, continuing on the un-summarized history",
+                exc_info=True,
+            )
+            return messages
+        if summarized is not messages and self.on_summary is not None:
+            self.on_summary()
+        return summarized
+
+
+def _make_compaction_beat_emitter(
+    writer: Callable[[dict[str, Any]], None],
+    *,
+    step_prefix: str = "compaction",
+    label: str = "Compacted the conversation to keep working",
+) -> Callable[[], None]:
     """A ``compaction`` step beat, one line, C4: the model never mentions it.
 
-    Emitted as a single ``end`` (no ``start``) — clearing is synchronous and
-    atomic, so there is no in-progress phase to show.
+    Emitted as a single ``end`` (no ``start``) — by the time either tier can
+    report, the edit it describes is already complete, so there is no
+    in-progress phase to show. *label* is what distinguishes the two tiers on
+    the surface: the frontend renders it verbatim, so blanking old tool
+    results and rewriting earlier turns into a summary never read as the same
+    event.
     """
     counter = 0
 
@@ -887,15 +939,84 @@ def _make_compaction_beat_emitter(writer: Callable[[dict[str, Any]], None]) -> C
         nonlocal counter
         counter += 1
         step = StepData(
-            step_id=f"compaction-{counter}",
+            step_id=f"{step_prefix}-{counter}",
             status="end",
             kind="compaction",
-            label="Compacted the conversation to keep working",
+            label=label,
             tier=None,
         )
         writer({"type": "step", "data": ev_step(step).data})
 
     return _emit
+
+
+def _clear_tool_results_tier(
+    settings: Any, writer: Callable[[dict[str, Any]], None]
+) -> _CompactionBeat:
+    """The cheap, zero-LLM tier — mounted directly on every turn (D11) and
+    again as the first tier a goal turn escalates through."""
+    return _CompactionBeat(
+        max_messages=settings.compaction_clear_tool_results_after_messages,
+        keep_pairs=settings.compaction_clear_tool_keep_pairs,
+        min_clear_tokens=settings.compaction_min_clear_tokens,
+        on_clear=_make_compaction_beat_emitter(writer),
+    )
+
+
+def compaction_capabilities(
+    settings: Any, writer: Callable[[dict[str, Any]], None], *, goal_mode: bool
+) -> list[Any]:
+    """The compaction capabilities for one turn, in chain order (D11).
+
+    Every turn gets the cheap tier. A goal turn additionally gets the
+    escalating :class:`TieredCompaction`, which re-runs the cheap pass and
+    then pays for a summary only if the history is still above
+    ``goal_compaction_target_tokens``. The cheap tier appears twice on
+    purpose: the standalone one fires on its own message-count trigger, while
+    the one inside the escalation fires on the token budget — a history of few
+    but enormous messages is over budget without ever reaching the message
+    count, and paying a model to summarize what blanking would have reclaimed
+    for free is the one thing the escalation exists to avoid. Whichever
+    declines to act returns its input unchanged and emits no beat.
+
+    The summarizing tier takes ``model=None``: it inherits the running agent's
+    model, which on a goal turn is already the cheap tier
+    (:func:`goal_agent_model_setting`), so it needs no second model knob and —
+    more importantly — never re-resolves a model-setting string through
+    PydanticAI's generic inference, which would bypass ``app/vertex.py``'s
+    auth entirely (ADR 0011: one seam). Its usage folds into the run's shared
+    ``RunUsage``, so the summary's tokens are priced in the agent's own slice
+    at the agent's own rate, and its request counts against
+    ``goal_max_model_requests`` like any other — it is a real request.
+    """
+    capabilities: list[Any] = [_clear_tool_results_tier(settings, writer)]
+    if not goal_mode:
+        return capabilities
+    capabilities.append(
+        TieredCompaction(
+            tiers=[
+                _clear_tool_results_tier(settings, writer),
+                _SummarizingBeat(
+                    model=None,
+                    # `TieredCompaction` drives each tier's `compact()`
+                    # directly and owns the trigger, so this threshold is
+                    # never consulted; it is set to the same budget so the
+                    # tier still reads honestly on its own.
+                    max_tokens=settings.goal_compaction_target_tokens,
+                    keep_tokens=settings.goal_compaction_keep_tokens,
+                    preserve_first_user_message=True,  # C2 — non-negotiable
+                    incremental=True,  # anchored update, no summary decay
+                    on_summary=_make_compaction_beat_emitter(
+                        writer,
+                        step_prefix="compaction-summary",
+                        label="Summarized the earlier conversation to keep working",
+                    ),
+                ),
+            ],
+            target_tokens=settings.goal_compaction_target_tokens,
+        )
+    )
+    return capabilities
 
 
 def _goal_step(
@@ -1684,12 +1805,7 @@ async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
         retries=2,
         capabilities=[
             PlanReminder(plan_state),
-            _CompactionBeat(
-                max_messages=settings.compaction_clear_tool_results_after_messages,
-                keep_pairs=settings.compaction_clear_tool_keep_pairs,
-                min_clear_tokens=settings.compaction_min_clear_tokens,
-                on_clear=_make_compaction_beat_emitter(writer),
-            ),
+            *compaction_capabilities(settings, writer, goal_mode=goal_mode),
         ],
         # Normal-run output: prose or one validated ask_student draft
         # (app/clarification.py — factored out so an A2 continuation run can

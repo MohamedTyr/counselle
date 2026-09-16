@@ -194,17 +194,18 @@ class Settings(BaseSettings):
     # --- Compaction (also closes plans/agent-loop-hardening.md §1) ---
     # `ClearToolResults` (pydantic-ai-harness==0.4.0, D3) is mounted for EVERY
     # turn, goal or not (D11, plans/goal-mode-plan.md §4.2/§4.4) — cheap,
-    # zero-LLM, in-place blanking of old tool results. `goal_compaction_*`
-    # knobs configure the goal-only `SummarizingCompaction` tier and are
-    # unused until Phase 2/3 wire a goal run, but ship here per §2.10 (the
-    # single source of truth for which phase ships which knob).
+    # zero-LLM, in-place blanking of old tool results. The `goal_compaction_*`
+    # knobs configure the goal-only `SummarizingCompaction` tier behind it.
     compaction_clear_tool_results_after_messages: int = Field(default=40, ge=1)
     compaction_clear_tool_keep_pairs: int = Field(default=3, ge=0)
     compaction_min_clear_tokens: int = Field(default=20_000, ge=0)  # OpenCode's PRUNE_MINIMUM
+    # The token budget a goal turn escalates on: above it the cheap tier runs
+    # again and, if that is not enough, a summary is paid for. It is the whole
+    # headroom knob — a separate "reserve" subtracted from it would only ever
+    # be equivalent to setting it lower, so there is one number, not two.
     # MUST stay < 200_000 (price cliff)
     goal_compaction_target_tokens: int = Field(default=100_000, gt=0)
     goal_compaction_keep_tokens: int = Field(default=8_000, ge=0)  # OpenCode's DEFAULT_KEEP_TOKENS
-    goal_compaction_reserve_tokens: int = Field(default=20_000, ge=0)  # OpenCode's DEFAULT_BUFFER
 
     # --- Goal mode (plans/goal-mode-plan.md §2.10; Phase 2 knobs. The
     # compaction_*/goal_compaction_* knobs above shipped in Phase 1;
