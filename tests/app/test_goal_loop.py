@@ -15,9 +15,11 @@ from pydantic_ai.models.function import AgentInfo, FunctionModel
 from pydantic_ai.usage import RunUsage, UsageLimits
 
 import app.agent_node as an
+from app.goal_judge import GoalCriteriaError
 from app.goal_loop import criterion_views
 from app.plan_tool import PlanState
 from app.records import build_segments
+from app.run_handle import RunHandle
 from app.sources import SourceRegistry
 from app.steps import EmissionRouter, StepMapper
 from config.settings import ModelPriceTier
@@ -94,22 +96,32 @@ async def test_shared_run_usage_is_cumulative_across_iterations() -> None:
 
 
 # ---------------------------------------------------------------------------
-# 2. A cancelled goal turn persists its ledger and lands stopped_user
+# 2. A cancelled goal turn streams its ledger and names only a REAL student Stop
 # ---------------------------------------------------------------------------
 
 
-async def test_cancelled_goal_loop_emits_final_step_with_stopped_user(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """§2.8: the ledger + terminal status must reach the student BEFORE
-    ``CancelledError`` propagates — streamed via `writer`, since the turn
-    record itself is never built on a cancelled turn (same as an ordinary
-    turn's cancel path, which persists from the stream too)."""
+async def _drive_cancelled_goal_loop(
+    monkeypatch: pytest.MonkeyPatch, *, cause: str
+) -> list[dict[str, Any]]:
+    """Run `_run_goal_loop` to a cancellation, by either cause, and return
+    everything it streamed before `CancelledError` propagated.
+
+    Both causes deliver the SAME bare `task.cancel()` from outside the run —
+    the only difference is the one the registry itself makes: `_cancel_active`
+    (the student's Stop) marks `RunHandle.cancelled_by_user` before cancelling,
+    and `_drain_active_with_error` (BC-15) does not. A live handle is passed on
+    both paths so the mark, not the handle's mere presence, is what is under
+    test. `tests/app/test_turns.py` covers the registry side of that seam.
+    """
+    started = asyncio.Event()
 
     async def fake_run_once(*args: Any, **kwargs: Any) -> Any:
-        raise asyncio.CancelledError()
+        started.set()
+        await asyncio.sleep(3600)
+        raise AssertionError("unreachable")
 
     monkeypatch.setattr(an, "_run_once", fake_run_once)
+    handle = RunHandle(session_id="s-goal-cancel")
 
     emitted: list[dict[str, Any]] = []
 
@@ -124,32 +136,64 @@ async def test_cancelled_goal_loop_emits_final_step_with_stopped_user(
         recording_writer=lambda _c: None,
         writer=writer,
         emissions=[],
-        handle=None,
+        handle=handle,
         parked_store=None,
         parked_session_id="",
         message_id="m1",
         parked_user_id=None,
         registry=None,
     )
-
+    coro = an._run_goal_loop(
+        cast(Any, object()),
+        "Make sure every school has a deadline.",
+        None,
+        criteria=criteria,
+        not_checked_note="Application portals were not checked.",
+        limits=cast(Any, object()),
+        goal_limits=_goal_limits(),
+        settings=_NoPriceSettings(),
+        model_setting="google-vertex:gemini-2.5-flash",
+        model_settings=None,
+        instructions="instructions",
+        plan_state=PlanState(),
+        injected_model_factory=None,
+        shared_usage=RunUsage(),
+        run_once_kwargs=run_once_kwargs,
+    )
+    task = asyncio.create_task(coro)
+    await started.wait()
+    if cause == "user_stop":
+        # What `app/turns.py::_cancel_active` does, in its order: mark the
+        # handle synchronously, THEN cancel.
+        handle.cancelled_by_user = True
+    # Byte for byte what BOTH `_cancel_active` and `_drain_active_with_error`
+    # do to the turn task — a bare `task.cancel()`, carrying nothing on the
+    # exception that says which one it was.
+    task.cancel()
     with pytest.raises(asyncio.CancelledError):
-        await an._run_goal_loop(
-            cast(Any, object()),
-            "Make sure every school has a deadline.",
-            None,
-            criteria=criteria,
-            not_checked_note="Application portals were not checked.",
-            limits=cast(Any, object()),
-            goal_limits=_goal_limits(),
-            settings=_NoPriceSettings(),
-            model_setting="google-vertex:gemini-2.5-flash",
-            model_settings=None,
-            instructions="instructions",
-            plan_state=PlanState(),
-            injected_model_factory=None,
-            shared_usage=RunUsage(),
-            run_once_kwargs=run_once_kwargs,
-        )
+        await task
+    return emitted
+
+
+@pytest.mark.parametrize("cause", ["user_stop", "shutdown_drain"])
+async def test_cancelled_goal_loop_streams_its_ledger_and_claims_only_a_real_stop(
+    monkeypatch: pytest.MonkeyPatch, cause: str
+) -> None:
+    """§2.8: the ledger + last verdict must reach the student BEFORE
+    ``CancelledError`` propagates — streamed via `writer`, since the turn
+    record itself is never built on a cancelled turn (same as an ordinary
+    turn's cancel path, which persists from the stream too).
+
+    The step claims a terminal status ONLY on the student's own Stop.
+    ``app/turns.py`` cancels the same task for two different reasons — a
+    student's Stop (done(cancelled)) and a shutdown drain (error, BC-15: the
+    student never pressed anything) — so `stopped_user` on the drain would
+    render "Stopped — you stopped it" at a student who was redeployed out
+    from under them. The drain therefore claims nothing and the frontend's
+    crash rule shows it as "Stopped — interrupted"; the genuine Stop is
+    reported precisely.
+    """
+    emitted = await _drive_cancelled_goal_loop(monkeypatch, cause=cause)
 
     goal_steps = [
         chunk["data"]
@@ -158,7 +202,11 @@ async def test_cancelled_goal_loop_emits_final_step_with_stopped_user(
     ]
     final_steps = [s for s in goal_steps if s["detail"]["goal"]["phase"] == "final"]
     assert len(final_steps) == 1
-    assert final_steps[0]["detail"]["goal"]["status"] == "stopped_user"
+    detail = final_steps[0]["detail"]["goal"]
+    assert detail["status"] == ("stopped_user" if cause == "user_stop" else None)
+    # §2.8's actual payload still reaches the student on both causes.
+    assert detail["total_count"] == 1
+    assert detail["not_checked_note"]
 
 
 # ---------------------------------------------------------------------------
@@ -594,3 +642,238 @@ async def test_partial_status_is_reachable_after_consecutive_tool_errors(
     final_steps = [s for s in goal_steps if s["detail"]["goal"]["phase"] == "final"]
     assert len(final_steps) == 1
     assert final_steps[0]["detail"]["goal"]["status"] == "partial"
+
+
+# ---------------------------------------------------------------------------
+# 8. C12 through the loop: a judge that gives out mid-run lands
+#    `stopped_check_failed`, keeps its ledger, and still gets its wrap-up
+# ---------------------------------------------------------------------------
+
+
+async def test_judge_failure_mid_run_lands_stopped_check_failed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """C12 end to end, not just in `decide_terminal_status`: `judge_goal`
+    returning ``None`` (its retries exhausted) must stop the loop at
+    `stopped_check_failed`, report the spend it already made rather than a
+    clean zero, leave every criterion unchecked (C9 — a check that never
+    completed is not a failed criterion), and still run the §2.7 wrap-up so
+    the student gets prose explaining it, the same as any non-achieved stop.
+    """
+    iterations = 0
+
+    async def fake_run_once(*args: Any, **kwargs: Any) -> Any:
+        nonlocal iterations
+        iterations += 1
+        usage = kwargs["usage"]
+        usage.input_tokens = (usage.input_tokens or 0) + 1000
+        usage.output_tokens = (usage.output_tokens or 0) + 500
+        usage.requests += 1
+        return an._RunOnceResult(
+            result=SimpleNamespace(output=f"run-{iterations}", all_messages=lambda: []),
+            hit_budget=False,
+            completion_fallback=None,
+            had_tool_error=False,
+        )
+
+    async def fake_judge_goal(**kwargs: Any) -> Any:
+        # §3.7/C12: `judge_goal` swallows its own transport failures and
+        # returns None once `goal_judge_retries` is exhausted.
+        return None
+
+    monkeypatch.setattr(an, "_run_once", fake_run_once)
+    monkeypatch.setattr(an, "judge_goal", fake_judge_goal)
+
+    emitted: list[dict[str, Any]] = []
+
+    def writer(chunk: dict[str, Any]) -> None:
+        emitted.append(chunk)
+
+    criteria = (GoalCriterion(id="c1", text="Every school has a deadline."),)
+    run_once_kwargs: dict[str, Any] = dict(
+        turn_deps=None,
+        router=None,
+        final_writer=None,
+        recording_writer=lambda _c: None,
+        writer=writer,
+        emissions=[],
+        handle=None,
+        parked_store=None,
+        parked_session_id="",
+        message_id="m1",
+        parked_user_id=None,
+        registry=None,
+    )
+    wrapup_model = FunctionModel(
+        lambda messages, info: ModelResponse(parts=[TextPart(content="wrap-up")])
+    )
+
+    result, _fallback = await an._run_goal_loop(
+        cast(Any, object()),
+        "Make sure every school has a deadline.",
+        None,
+        criteria=criteria,
+        not_checked_note="Application portals were not checked.",
+        limits=cast(Any, object()),
+        goal_limits=_goal_limits(),
+        settings=_PricedSettings(model_goal_judge=""),
+        model_setting="google-vertex:cheap-model",
+        model_settings=None,
+        instructions="instructions",
+        plan_state=PlanState(),
+        injected_model_factory=lambda: wrapup_model,
+        shared_usage=RunUsage(),
+        run_once_kwargs=run_once_kwargs,
+    )
+
+    # Exactly two `_run_once` calls: ONE governed round (a failed check never
+    # nudges for another — there is no verdict to nudge from), then the §2.7
+    # wrap-up, which runs through `_run_once` on its own tool-less Agent.
+    assert iterations == 2
+    goal_steps = [
+        chunk["data"]
+        for chunk in emitted
+        if chunk.get("type") == "step" and chunk["data"].get("kind") == "goal"
+    ]
+    final_steps = [s for s in goal_steps if s["detail"]["goal"]["phase"] == "final"]
+    assert len(final_steps) == 1
+    detail = final_steps[0]["detail"]["goal"]
+    assert detail["status"] == "stopped_check_failed"
+    # C9: never checked is never "checked and failed".
+    assert detail["met_count"] == 0
+    assert detail["unchecked_count"] == 1
+    assert detail["criteria"][0]["met"] is None
+    assert detail["criteria"][0]["checked"] is False
+    # The ledger reports what the round actually spent.
+    assert detail["requests_used"] >= 1
+    assert detail["tokens_used"] >= 1500
+    assert detail["est_cost_usd"] > 0
+    # §2.7: a non-achieved stop still gets its tool-less wrap-up, and it is
+    # the wrap-up's output — not the failed round's — that the student reads.
+    assert result is not None
+    assert result.output == "run-2"
+
+
+# ---------------------------------------------------------------------------
+# 9. A criteria-derivation failure reaches the student as
+#    `stopped_check_failed`, not a generic turn error
+# ---------------------------------------------------------------------------
+
+
+class _NodeSettings(_NoPriceSettings):
+    """The slice of Settings `run_agent_node` reads on a goal turn."""
+
+    model_counselor = "google-vertex:gemini-2.5-pro"
+    model_counselor_think = "google-vertex:gemini-3.1-pro-preview"
+    response_mode_think_enabled = True
+    agent_max_model_requests = 80
+    agent_max_total_tokens = 2_000_000
+    compaction_clear_tool_results_after_messages = 40
+    compaction_clear_tool_keep_pairs = 3
+    compaction_min_clear_tokens = 20_000
+    goal_compaction_target_tokens = 100_000
+    goal_compaction_keep_tokens = 8_000
+    thinking_stream = True
+    thinking_summaries: bool | None = None
+    thinking_threshold_chars = 240
+    agent_tool_result_max_chars = 8_000
+    essay_context_max_chars = 8_000
+    goal_max_iterations = 6
+    goal_max_wall_clock_s = 3600.0
+    goal_max_cost_usd = 3.0
+    goal_max_consecutive_tool_errors = 3
+    goal_wrapup_reserve_requests = 2
+
+    @property
+    def effective_thinking_stream(self) -> bool:
+        return self.thinking_stream if self.thinking_summaries is None else self.thinking_summaries
+
+
+def _goal_node_state(prompt: str) -> dict[str, Any]:
+    from pydantic_ai.messages import (
+        ModelMessagesTypeAdapter,
+        ModelRequest,
+        UserPromptPart,
+    )
+
+    from domain.specs import SourceConfig
+
+    messages = ModelMessagesTypeAdapter.dump_python(
+        [ModelRequest(parts=[UserPromptPart(content=prompt)])], mode="json"
+    )
+    return {
+        "messages": messages,
+        "source_registry": [],
+        "source_config": SourceConfig(web=False, edu=False, reddit=False).model_dump(mode="json"),
+        "temporal": {"today": "2026-09-16", "context": "It is September 2026."},
+        "turn_ids": {
+            "message_id": "assistant-1",
+            "user_message_id": "user-1",
+            "goal_mode": True,
+        },
+        "turn_records": [],
+        "tool_result_store": {},
+    }
+
+
+async def test_criteria_derivation_failure_emits_stopped_check_failed_step(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """§5.2 point 3b: derivation giving out after its retries is the SAME
+    fact as the judge giving out mid-run (C12), so it lands on the SAME
+    terminal state — a `phase: "final"` step carrying `stopped_check_failed`
+    and no criteria, which the goal card renders as "Counselle couldn't work
+    out how to check this goal."
+
+    Left to propagate, `GoalCriteriaError` reaches run_turn's generic
+    failure path instead: the student gets "Something went wrong on our
+    side" with no goal card at all, and the frontend's dedicated branch for
+    this state is unreachable. The turn must also END here — no model call,
+    since the criteria ARE the contract a goal run is governed by (C2/D12).
+    """
+    from types import SimpleNamespace as NS
+
+    async def boom(*args: Any, **kwargs: Any) -> Any:
+        raise GoalCriteriaError("criteria derivation failed after retries")
+
+    emitted: list[dict[str, Any]] = []
+
+    monkeypatch.setattr(an, "derive_criteria", boom)
+    monkeypatch.setattr(an, "get_stream_writer", lambda: emitted.append)
+    monkeypatch.setattr(an, "build_tools", lambda *args, **kwargs: [])
+    monkeypatch.setattr(
+        an, "_run_once", lambda *a, **k: pytest.fail("no model run without criteria")
+    )
+
+    deps = cast(
+        Any,
+        NS(
+            catalog=NS(school_count=0, school_name=None, school_domain=None),
+            app_pool=None,
+            settings=_NodeSettings(),
+            run_handles=None,
+            parked_sources=None,
+            workspace_events=None,
+            tool_deps=NS(),
+            model_factory=lambda: FunctionModel(
+                lambda messages, info: ModelResponse(parts=[TextPart(content="unused")])
+            ),
+        ),
+    )
+
+    state = _goal_node_state("Make sure every school has a deadline.")
+    delta = await an.run_agent_node(state, deps)
+
+    goal_steps = [
+        chunk["data"]
+        for chunk in emitted
+        if chunk.get("type") == "step" and chunk["data"].get("kind") == "goal"
+    ]
+    assert len(goal_steps) == 1
+    detail = goal_steps[0]["detail"]["goal"]
+    assert detail["phase"] == "final"
+    assert detail["status"] == "stopped_check_failed"
+    assert detail["criteria"] == []
+    # The turn still completes as a turn — the specific card is the answer,
+    # never a generic error banner stacked on top of it.
+    assert delta["turn_records"][-1]["status"] == "complete"

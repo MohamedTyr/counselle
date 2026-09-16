@@ -1108,6 +1108,13 @@ class TurnRegistry:
         task = turn.task
         if task is None:  # guarded by the caller; defensive (asserts strip under -O)
             return
+        if turn.run_handle is not None:
+            # This cancel — and only this one — is the student's own Stop, so
+            # the run can honestly report it as such. Set BEFORE `cancel()`,
+            # synchronously, so the flag is already visible when the
+            # `CancelledError` surfaces inside the run. No other termination
+            # path sets it (BC-15's shutdown drain and the watchdog must not).
+            turn.run_handle.cancelled_by_user = True
         task.cancel()
         try:
             await task

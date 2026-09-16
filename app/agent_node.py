@@ -65,7 +65,7 @@ from pydantic_graph import End
 
 from app import viz as viz_mod
 from app.clarification import ask_student_output_type, build_pending_clarification
-from app.goal_judge import derive_criteria, judge_goal
+from app.goal_judge import GoalCriteriaError, derive_criteria, judge_goal
 from app.goal_loop import (
     GoalDecision,
     GoalLoopController,
@@ -1341,6 +1341,32 @@ async def _run_goal_loop(
         # judge, or wrap-up) is priced at the agent's rate, since which one
         # was in flight isn't known here — a rare race, and the ledger is
         # documented as a soft estimate regardless.
+        #
+        # `CancelledError` arrives here from several causes `app/turns.py`
+        # keeps apart and the exception itself cannot carry: the student
+        # pressing Stop (`_cancel_active` -> done(cancelled)), a shutdown
+        # drain (`_drain_active_with_error` -> error, BC-15 — the student
+        # never pressed anything) and the turn watchdog. The registry marks
+        # its own — and only its own — student cancel on the run handle, so
+        # "stopped_user" is claimed when that mark is present and NOTHING is
+        # claimed otherwise. The direction is deliberate: an unset flag, an
+        # absent handle, or a future termination path that knows nothing
+        # about the flag all fall back to claiming nothing, never to telling
+        # a student who was redeployed out from under them that they stopped
+        # it themselves. A status-less final step still keeps the ledger and
+        # the last verdict (§2.8's whole point), and the frontend's crash
+        # rule (`isInterruptedGoal`, §5.3) renders it "Stopped —
+        # interrupted".
+        cancel_status: GoalStatus | None = None
+        if getattr(run_once_kwargs.get("handle"), "cancelled_by_user", False):
+            # Through the controller, so the terminal state is still decided
+            # in exactly one place (`domain.goal.decide_terminal_status`).
+            cancel_status = controller.decide(
+                verdict=verdict,
+                ledger=ledger,
+                plan_signature=render_plan(plan_state.items),
+                cancelled=True,
+            ).status
         _update_goal_ledger_totals(ledger, shared_usage)
         ledger.cost_usd += _price_usage_delta(
             usage_snapshot, _usage_tokens(shared_usage), model_setting, settings
@@ -1360,7 +1386,7 @@ async def _run_goal_loop(
                         not_checked_note=not_checked_note,
                         requests_limit=settings.goal_max_model_requests,
                         tokens_limit=settings.goal_max_total_tokens,
-                        status="stopped_user",
+                        status=cancel_status,
                     )
                 ).data,
             }
@@ -1563,15 +1589,27 @@ async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
     goal_not_checked_note = ""
     goal_instructions = ""
     goal_initial_cost_usd = 0.0
+    goal_criteria_failed = False
     if goal_mode:
         assert goal_limits is not None  # narrows for mypy; true whenever goal_mode
         # D12/C2: derived and frozen ONCE, before the agent is constructed —
         # never rebuilt per iteration. A derivation failure is this turn's
         # only honest option: fail the turn rather than run ungoverned.
         criteria_usage_before = _usage_tokens(shared_usage)
-        goal_criteria, goal_not_checked_note = await derive_criteria(
-            user_text, settings=settings, usage=shared_usage
-        )
+        try:
+            goal_criteria, goal_not_checked_note = await derive_criteria(
+                user_text, settings=settings, usage=shared_usage
+            )
+        except GoalCriteriaError:
+            # §5.2 point 3b: derivation giving out is the SAME fact as the
+            # judge giving out mid-run (C12), so it lands on the same
+            # terminal state — a "final" step carrying `stopped_check_failed`
+            # and no criteria, which the goal card renders as its own
+            # actionable message. Left to propagate, it would reach
+            # run_turn's generic failure path instead: a "something went
+            # wrong on our side" banner with no goal card at all.
+            logger.warning("goal criteria derivation failed", exc_info=True)
+            goal_criteria_failed = True
         # HIGH-2: `derive_criteria` spends against `shared_usage` before the
         # loop (and its ledger) exists — priced here, at its own model's
         # rate, and handed to `_run_goal_loop` as the ledger's starting
@@ -1582,22 +1620,30 @@ async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
             goal_criteria_model_setting(settings),
             settings,
         )
-        goal_instructions = render_goal_mode(user_text, goal_criteria)
+        # The ledger a criteria-failure "final" step reports: derivation is
+        # the only thing that spent anything on this turn, so its spend is
+        # the whole truth — reported, never rounded away to a clean zero.
+        criteria_ledger = GoalLedger()
+        _update_goal_ledger_totals(criteria_ledger, shared_usage)
+        criteria_ledger.cost_usd = goal_initial_cost_usd
+        if not goal_criteria_failed:
+            goal_instructions = render_goal_mode(user_text, goal_criteria)
         writer(
             {
                 "type": "step",
                 "data": ev_step(
                     _goal_step(
-                        phase="criteria",
+                        phase="final" if goal_criteria_failed else "criteria",
                         statement=user_text,
                         criteria=goal_criteria,
                         verdict=None,
                         checked_by_id={},
-                        ledger=GoalLedger(),
+                        ledger=criteria_ledger if goal_criteria_failed else GoalLedger(),
                         limits=goal_limits,
                         not_checked_note=goal_not_checked_note,
                         requests_limit=settings.goal_max_model_requests,
                         tokens_limit=settings.goal_max_total_tokens,
+                        status="stopped_check_failed" if goal_criteria_failed else None,
                     )
                 ).data,
             }
@@ -1713,7 +1759,15 @@ async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
     try:
         if requested_narration:
             recording_writer({"type": "narration", "text": requested_narration})
-        if not goal_mode:
+        if goal_criteria_failed:
+            # C2/D12: the criteria are the contract the run is graded
+            # against. Without them there is nothing to govern a loop with,
+            # so the turn ends here — as an ordinary completed turn, so the
+            # `stopped_check_failed` card emitted above is what the student
+            # gets, rather than a generic error banner on top of it. No
+            # model call is made; `result` stays None.
+            pass
+        elif not goal_mode:
             outcome = await _run_once(
                 agent, user_text, history or None, usage=None, limits=limits, **run_once_kwargs
             )
