@@ -15,6 +15,7 @@ from pydantic_ai.models.function import AgentInfo, FunctionModel
 from pydantic_ai.usage import RunUsage, UsageLimits
 
 import app.agent_node as an
+from app.goal_loop import criterion_views
 from app.plan_tool import PlanState
 from app.records import build_segments
 from app.sources import SourceRegistry
@@ -40,6 +41,25 @@ def _goal_limits() -> GoalLimits:
     return GoalLimits(
         max_iterations=6, max_wall_clock_s=3600.0, max_cost_usd=3.0, max_consecutive_tool_errors=3
     )
+
+
+# ---------------------------------------------------------------------------
+# 0. C9 wire view: an omitted (never-assessed) criterion must never present
+#    as "checked and failed" on the wire.
+# ---------------------------------------------------------------------------
+
+
+def test_criterion_views_omitted_criterion_is_unchecked_and_unmet() -> None:
+    criterion = GoalCriterion(id="c1", text="do the thing")
+    verdict = GoalVerdict(
+        criteria=(CriterionVerdict(criterion_id="c1", met=None, reason="", evidence_step_ids=()),),
+        critique="ran out of time",
+    )
+    views = criterion_views([criterion], verdict, checked_by_id={"c1": False})
+    assert len(views) == 1
+    view = views[0]
+    assert view.met is None
+    assert view.checked is False
 
 
 # ---------------------------------------------------------------------------

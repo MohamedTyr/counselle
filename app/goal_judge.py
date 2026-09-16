@@ -430,12 +430,21 @@ async def judge_goal(
     for criterion in criteria:
         rv = raw_by_id.get(criterion.id)
         if rv is None:
-            # Omitted entirely: no citations at all -> not checked, not met
-            # (C9). Never guessed either way.
+            # Omitted entirely: the judge never assessed this criterion at
+            # all -> checked=False, met=None (C9). `None` is the honest
+            # "unknown", never a stand-in for "checked and failed" —
+            # `CriterionVerdict.met` is typed `bool | None` for exactly this
+            # case. `checked_by_id[id] = False` is the "never attempted"
+            # signal that reaches the wire as `GoalCriterionView.checked`;
+            # every consumer of `.met` (`GoalVerdict.met`'s all-criteria-met
+            # computation, `app/goal_loop.py`'s `met_ids`/`unmet`
+            # derivations, `app/agent_node.py`'s wrap-up prompt, and the
+            # frontend `CriterionMark` gate) treats `None` as falsy, so an
+            # unassessed criterion never counts as met anywhere.
             checked_by_id[criterion.id] = False
             corrected.append(
                 CriterionVerdict(
-                    criterion_id=criterion.id, met=False, reason="", evidence_step_ids=()
+                    criterion_id=criterion.id, met=None, reason="", evidence_step_ids=()
                 )
             )
             continue

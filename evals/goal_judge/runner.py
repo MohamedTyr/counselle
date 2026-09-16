@@ -275,8 +275,17 @@ def run_criteria_audit() -> None:
 # ---------------------------------------------------------------------------
 
 
-async def score_case(case: JudgeCase) -> dict[str, tuple[bool, bool]]:
-    """Return {criterion_id: (predicted_met, true_met)} for one case."""
+async def score_case(case: JudgeCase) -> dict[str, tuple[bool | None, bool]]:
+    """Return {criterion_id: (predicted_met, true_met)} for one case.
+
+    ``predicted_met`` is ``None`` when the judge never assessed the criterion
+    at all (omitted from its raw response, C9) — a distinct outcome from a
+    predicted ``False``, and never coerced to one here: doing so would score
+    "the judge didn't check" as "the judge correctly caught a failure" (a
+    true negative) or "the judge missed a pass" (a false negative), neither
+    of which is what happened. :func:`run_judge_eval` excludes ``None``
+    predictions from TPR/TNR/FPR and reports them as their own count instead.
+    """
     settings = get_settings()
     result = await judge_goal(
         statement=case.statement,
@@ -293,15 +302,25 @@ async def score_case(case: JudgeCase) -> dict[str, tuple[bool, bool]]:
         return {c.id: (False, case.labels[c.id]) for c in case.criteria}
     verdict, _checked = result
     by_id = {v.criterion_id: v.met for v in verdict.criteria}
-    return {c.id: (by_id.get(c.id, False), case.labels[c.id]) for c in case.criteria}
+    # `judge_goal` always returns one `CriterionVerdict` per input criterion
+    # (never assessed -> `met=None`, C9), so `by_id` covers every id here;
+    # `None` is the honest default if that ever stopped holding, not `False`.
+    return {c.id: (by_id.get(c.id), case.labels[c.id]) for c in case.criteria}
 
 
 async def run_judge_eval(cases: list[JudgeCase]) -> None:
-    tp = fp = tn = fn = 0
+    tp = fp = tn = fn = unassessed = 0
     for case in cases:
         outcomes = await score_case(case)
         for _criterion_id, (predicted, true) in outcomes.items():
-            if true and predicted:
+            if predicted is None:
+                # The judge never assessed this criterion (C9) — not a
+                # prediction of any kind, so it cannot be scored as a hit or
+                # a miss. Counting it as False here would silently rebuild
+                # the exact "not done" == "not checked" conflation this
+                # honesty correction exists to remove.
+                unassessed += 1
+            elif true and predicted:
                 tp += 1
             elif true and not predicted:
                 fn += 1
@@ -317,11 +336,17 @@ async def run_judge_eval(cases: list[JudgeCase]) -> None:
     fpr = fp / (fp + tn) if (fp + tn) else float("nan")
     agreement = (tp + tn) / total if total else float("nan")
     print(
-        f"\nn={total} TP={tp} FP={fp} TN={tn} FN={fn}\n"
+        f"\nn={total} TP={tp} FP={fp} TN={tn} FN={fn} unassessed={unassessed}\n"
         f"TPR={tpr:.3f}  TNR={tnr:.3f}  FPR={fpr:.3f}  overall agreement={agreement:.3f}\n"
         f"gate (§6.2/§3.8): TPR > 0.90 AND TNR > 0.90 -> "
         f"{'PASS' if tpr > 0.90 and tnr > 0.90 else 'FAIL'}"
     )
+    if unassessed:
+        print(
+            f"NOTE: {unassessed} criterion-cases were never assessed by the judge "
+            "(omitted from its response) and are excluded from the rates above — "
+            "this is itself a judge-quality signal worth investigating, not noise."
+        )
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:

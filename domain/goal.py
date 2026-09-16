@@ -49,12 +49,22 @@ class CriterionVerdict(BaseModel):
     (C10). ``checked`` is deliberately NOT a field: it is derived fresh from
     ``evidence_step_ids`` against the bundle actually sent, wherever that
     bundle is known, rather than baked in and left able to go stale.
+
+    ``met`` is ``bool | None``: ``None`` means the judge never assessed this
+    criterion at all (it was omitted from the judge's raw response) — a
+    distinct state from ``False`` (assessed and not satisfied). C9 forbids
+    representing "not checked" as "checked and failed"; typing ``met`` as
+    ``bool`` would force exactly that collapse on every omitted criterion.
+    ``None`` behaves as falsy everywhere this is combined with ``all()``/
+    truthiness (:attr:`GoalVerdict.met`, callers' met/unmet derivations), so
+    the "achieved only if every criterion is genuinely met" invariant holds
+    without a criterion ever needing special-casing.
     """
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     criterion_id: str
-    met: bool  # binary, code-corrected. Not a score.
+    met: bool | None  # binary, code-corrected; None = never assessed (C9). Not a score.
     reason: str  # one sentence naming what it relied on
     evidence_step_ids: tuple[str, ...] = ()  # C10 — as cited, validated elsewhere
 
@@ -71,6 +81,9 @@ class GoalVerdict(BaseModel):
 
     @property
     def met(self) -> bool:
+        # `all()` treats a criterion's `met=None` (never assessed, C9) exactly
+        # like `met=False`: an unassessed criterion can never contribute to
+        # "achieved" — unknown is not evidence of success.
         return bool(self.criteria) and all(c.met for c in self.criteria)
 
 

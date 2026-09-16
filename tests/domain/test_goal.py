@@ -95,6 +95,26 @@ class TestDecideTerminalStatus:
         )
         assert status == "stopped_budget"
 
+    def test_budget_exhausted_with_one_unassessed_is_stopped_budget_never_achieved(self) -> None:
+        """C9: an omitted (never-assessed, `met=None`) criterion must be as
+        disqualifying for "achieved" as a genuinely unmet one -- the run
+        must not be reported as an accomplishment while a criterion's true
+        state is unknown, not just when it is known-failed."""
+        criteria = (
+            CriterionVerdict(criterion_id="c1", met=True, reason="done", evidence_step_ids=("s1",)),
+            CriterionVerdict(criterion_id="c2", met=None, reason="", evidence_step_ids=()),
+        )
+        verdict = GoalVerdict(criteria=criteria, critique="ran out of time")
+        ledger = GoalLedger(iteration=6)
+        status = decide_terminal_status(
+            verdict=verdict,
+            ledger=ledger,
+            limits=_limits(max_iterations=6),
+            stalled=False,
+            cancelled=False,
+        )
+        assert status == "stopped_budget"
+
     def test_wall_clock_exhaustion_is_stopped_budget(self) -> None:
         verdict = _verdict(unmet_ids=("c1",))
         ledger = GoalLedger(elapsed_s=4000.0)
@@ -186,6 +206,17 @@ class TestGoalVerdictMetIsDerived:
 
     def test_met_false_when_criteria_empty(self) -> None:
         verdict = GoalVerdict(criteria=(), critique="nothing judged")
+        assert verdict.met is False
+
+    def test_met_false_when_a_criterion_was_never_assessed(self) -> None:
+        """C9: a criterion the judge omitted entirely carries `met=None`
+        (never assessed), not `False` (assessed and failed) -- but either
+        way, `GoalVerdict.met` must never be True while one is unknown."""
+        criteria = (
+            CriterionVerdict(criterion_id="c1", met=True, reason="done", evidence_step_ids=("s1",)),
+            CriterionVerdict(criterion_id="c2", met=None, reason="", evidence_step_ids=()),
+        )
+        verdict = GoalVerdict(criteria=criteria, critique="round summary")
         assert verdict.met is False
 
     def test_met_is_not_a_settable_field(self) -> None:

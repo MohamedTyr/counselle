@@ -282,8 +282,18 @@ class TestJudgeGoal:
         )
         assert result is not None
         verdict, checked_by_id = result
-        assert verdict.criteria[0].met is False
+        # `verdict.criteria[0].met is None` is the honest "never assessed"
+        # signal (C9) -- distinct from `False` ("assessed and not
+        # satisfied"). `checked_by_id["c1"] is False` is the companion
+        # "never attempted" signal that reaches the wire as
+        # `GoalCriterionView.checked`. `app/goal_loop.py`'s wire builder
+        # (`criterion_views`) and the frontend's `CriterionMark` both key
+        # off `checked` first, so this `met=None` is never presented to a
+        # student as "the judge checked this and it failed"
+        # (plans/goal-mode-plan.md C9; frontend/.../GoalHeader.tsx).
+        assert verdict.criteria[0].met is None
         assert checked_by_id["c1"] is False
+        assert verdict.met is False
 
     async def test_genuinely_met_criterion_with_valid_citation_is_met(
         self, monkeypatch: pytest.MonkeyPatch
