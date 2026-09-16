@@ -43,6 +43,36 @@
   --school-chances-profile-outline: var(--brand-subtle-ink);
   --school-chances-scenario: var(--brand);
 
+  /* ---- academic comparison v2 (school-chances-minimal-redesign §2.3) ----
+   * Institutional class data is a wash, not a solid — --school-chances-mark
+   * above (full-strength --ink-secondary) is retired by this redesign but
+   * kept live until its remaining consumers (academic-comparison-marks.tsx,
+   * AcademicComparisonPlot.tsx, GpaComparison.tsx) are deleted — the first is
+   * a P1 deletion, the latter two are only rewritten in P2. --*-you is
+   * the student's own mark and the only full-contrast object on the plot;
+   * --*-scenario (lime-500) is the hypothetical, never the real score.
+   *
+   * The class silhouette is the data this plot exists to show, so it is not
+   * exempt from WCAG 1.4.11: the fill stays a 14% decorative wash and the
+   * EDGE carries the required 3:1 graphical-object contrast instead (a
+   * filled shape satisfies 1.4.11 via its boundary). 71% is the lowest
+   * whole-percent mix of --ink-faint that clears 3:1 against the panel
+   * surface (measures 3.03:1) — kept at the floor, not a comfortable
+   * margin, so the edge stays visually subordinate to --*-you (9.69:1). */
+  --school-chances-class-fill: color-mix(
+    in oklch,
+    var(--ink-faint) 14%,
+    transparent
+  );
+  --school-chances-class-edge: color-mix(
+    in oklch,
+    var(--ink-faint) 71%,
+    transparent
+  );
+  --school-chances-axis: var(--hairline);
+  --school-chances-you: var(--brand-scale-3);
+  --school-chances-you-chip: var(--brand-subtle);
+
   /* ---- result card ---- */
   --school-card-surface: var(--surface-raised);
   --school-card-border: var(--edge);
