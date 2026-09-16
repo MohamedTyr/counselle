@@ -77,6 +77,12 @@ class FakeSettings:
     response_mode_think_enabled = True
     agent_max_model_requests = 80
     agent_max_total_tokens = 2_000_000
+    # Compaction (plans/goal-mode-plan.md §4.2/§6.1): agent_node reads these
+    # unconditionally for the every-turn `ClearToolResults` capability — the
+    # stub MUST carry them or Agent construction raises AttributeError.
+    compaction_clear_tool_results_after_messages: int = 40
+    compaction_clear_tool_keep_pairs: int = 3
+    compaction_min_clear_tokens: int = 20_000
     vertex_api_key = None
     source_web_default = True
     source_reddit_default = True

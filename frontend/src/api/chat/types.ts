@@ -241,7 +241,8 @@ export type KnownStepKind =
   | "research"
   | "write_plan"
   | "workspace"
-  | "memory";
+  | "memory"
+  | "compaction";
 
 export type StepKind = KnownStepKind | (string & {});
 

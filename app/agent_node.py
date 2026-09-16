@@ -56,7 +56,9 @@ from pydantic_ai.messages import (
     UserPromptPart,
 )
 from pydantic_ai.models import Model
+from pydantic_ai.tools import RunContext
 from pydantic_ai.usage import UsageLimits
+from pydantic_ai_harness.experimental.compaction import ClearToolResults
 from pydantic_graph import End
 
 from app import viz as viz_mod
@@ -99,7 +101,7 @@ from app.workspace.models import Essay, WorkspaceNotFoundError
 from app.workspace.service_essays import get_essay
 from config.settings import get_settings, load_yaml_asset
 from domain.clarification import ClarifyDraftV2
-from domain.events import UsageData
+from domain.events import StepData, UsageData, ev_step
 from domain.response_mode import ResponseMode
 from domain.specs import ColumnInput, SourceConfig, VizRowInput
 from domain.surface import Surface
@@ -804,6 +806,51 @@ def _write_mode(surface: Surface, essay: Essay | None) -> WriteMode:
     return "direct" if essay is not None and essay.word_count == 0 else "suggest"
 
 
+@dataclass
+class _CompactionBeat(ClearToolResults):
+    """``ClearToolResults`` instrumented to disclose itself as a stream beat.
+
+    D11/§4.2 (plans/goal-mode-plan.md): mounted on every turn, goal or not.
+    0.4.0 exposes no compact-fired hook, so this detects an actual clear the
+    same way the library does internally — ``compact()`` returns the same
+    list object when it declined to clear (no clearable pairs, or
+    ``min_clear_tokens`` not reached) and a new one when it did.
+    """
+
+    on_clear: Callable[[], None] | None = None
+
+    async def compact(
+        self, messages: list[ModelMessage], ctx: RunContext[Any]
+    ) -> list[ModelMessage]:
+        cleared = await super().compact(messages, ctx)
+        if cleared is not messages and self.on_clear is not None:
+            self.on_clear()
+        return cleared
+
+
+def _make_compaction_beat_emitter(writer: Callable[[dict[str, Any]], None]) -> Callable[[], None]:
+    """A ``compaction`` step beat, one line, C4: the model never mentions it.
+
+    Emitted as a single ``end`` (no ``start``) — clearing is synchronous and
+    atomic, so there is no in-progress phase to show.
+    """
+    counter = 0
+
+    def _emit() -> None:
+        nonlocal counter
+        counter += 1
+        step = StepData(
+            step_id=f"compaction-{counter}",
+            status="end",
+            kind="compaction",
+            label="Compacted the conversation to keep working",
+            tier=None,
+        )
+        writer({"type": "step", "data": ev_step(step).data})
+
+    return _emit
+
+
 async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
     """One agent turn: rebuild from state, run the agent, return the delta."""
     settings = getattr(deps, "settings", None) or get_settings()
@@ -975,7 +1022,15 @@ async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
         # before the turn dies (pydantic_ai default is 1; see
         # plans/fix-search-fields-resilience.md Bug C).
         retries=2,
-        capabilities=[PlanReminder(plan_state)],
+        capabilities=[
+            PlanReminder(plan_state),
+            _CompactionBeat(
+                max_messages=settings.compaction_clear_tool_results_after_messages,
+                keep_pairs=settings.compaction_clear_tool_keep_pairs,
+                min_clear_tokens=settings.compaction_min_clear_tokens,
+                on_clear=_make_compaction_beat_emitter(writer),
+            ),
+        ],
         # Normal-run output: prose or one validated ask_student draft
         # (app/clarification.py — factored out so an A2 continuation run can
         # pass output_type=[str] without duplicating this list). A2 never

@@ -20,6 +20,7 @@ Run: ``uv run uvicorn api.main:create_app --factory``.
 
 from __future__ import annotations
 
+import warnings
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -29,6 +30,12 @@ import structlog
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
+from pydantic_ai_harness.experimental import HarnessExperimentalWarning
+
+# pydantic-ai-harness==0.4.0 (D3, plans/goal-mode-plan.md §4.1) is pinned
+# `Development Status :: 3 - Alpha`; every capability it ships warns on
+# import. Silenced once at the app boundary rather than per call site.
+warnings.filterwarnings("ignore", category=HarnessExperimentalWarning)
 
 from api.auth import (
     UserCreate,

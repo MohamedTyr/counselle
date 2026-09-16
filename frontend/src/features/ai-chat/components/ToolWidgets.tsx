@@ -39,6 +39,7 @@ import { WorkspaceReadWidget } from "./WorkspaceReadWidget";
 import { isWriteTool } from "./write-tools";
 import { WriteToolWidget } from "./WriteToolWidget";
 import { MutationReceiptRenderer } from "./mutation-receipts/MutationReceiptRenderer";
+import { CompactionBeat } from "./GoalBeat";
 
 type ToolWidgetProps = {
   isLiveSegment?: boolean;
@@ -385,6 +386,14 @@ export function ToolStepBeat({
 
   if (isSearchKind(step.kind)) {
     return <SearchToolWidget isLiveSegment={isLiveSegment} step={step} />;
+  }
+
+  // No `step.tool`/`step.ui?.widget` to key on — the predicate cascade below
+  // this point is entirely tool-name-driven, so compaction is special-cased
+  // here to get the spec's quietest-beat single middle-dot line rather than
+  // a generic tool-call row (plans/goal-mode-plan.md §5.4).
+  if (step.kind === "compaction") {
+    return <CompactionBeat step={step} />;
   }
 
   if (isWorkspaceReadTool(step.tool)) {
