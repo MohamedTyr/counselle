@@ -1909,12 +1909,41 @@ that the broader goal is accomplished.
 a hand-rolled mechanism. `ClearToolResults` (zero-LLM, in-place blanking of old tool
 results below a token floor) is mounted in the `capabilities=[...]` list `app/agent_node.py`
 already builds for **every** turn, goal or not, closing `plans/agent-loop-hardening.md`
-§1 (rated HIGH independently of this feature) as a side effect. Goal turns additionally
-get `TieredCompaction` escalating to `SummarizingCompaction` on the cheap model tier when
-history exceeds `goal_compaction_target_tokens` (100,000 — deliberately held below the
-200,000-token threshold where `model_counselor_think`'s price doubles, per
-`config/settings.py`'s `long_context_threshold_tokens`). No wrapper module: the
-capabilities are constructed directly from Settings values per ADR 0017.
+§1 (rated HIGH independently of this feature) as a side effect.
+
+Goal turns additionally get `TieredCompaction`, which escalates when the history exceeds
+`goal_compaction_target_tokens` (100,000 — deliberately held below the 200,000-token
+threshold where `model_counselor_think`'s price doubles, per `config/settings.py`'s
+`long_context_threshold_tokens`). It runs the cheap pass again first and pays for a
+`SummarizingCompaction` only if that was not enough; the cheap tier is therefore
+constructed twice on a goal turn, on purpose, because the standalone one fires on a
+message count while the escalation fires on a token budget, and a history of few but
+enormous messages is over budget without ever reaching the count. `goal_compaction_target_tokens`
+is the single headroom knob: a second "reserve" subtracted from it would only ever be
+equivalent to setting it lower.
+
+The summarizing tier takes `model=None` and so **inherits the running agent's model**,
+which on a goal turn is already the cheap tier (`goal_agent_model_setting`) — no second
+model knob, and no second path to a model: resolving a setting string here would bypass
+`app/vertex.py`'s Vertex auth (ADR 0011, one seam). Its usage folds into the turn's
+shared `RunUsage`, so summary tokens are priced inside the agent's own slice at the
+agent's own rate and its request counts against `goal_max_model_requests` like any other
+— a summary is a real request, and the ledger says so. `keep_tokens` preserves an 8,000-token
+raw tail, `preserve_first_user_message=True` and `incremental=True` hold C2 and prevent
+summary decay.
+
+Both tiers **disclose themselves** (C4): each is subclassed in `app/agent_node.py`
+purely to detect that it really acted (0.4.0 exposes no compact-fired hook, so a real
+edit is a new list object) and to emit one settled `kind:"compaction"` step. The two
+carry different labels — blanking old tool results and rewriting earlier turns into a
+model-written summary are not the same event, and the student reads the label verbatim.
+A summarization that **fails** (timeout, rate limit, provider error) is logged and the
+un-summarized history is handed back rather than aborting the run: a goal run is the long
+unattended case, the cheap tier has already run, and the target is a cost guard rather
+than a context-window limit. No beat is emitted on that path — a compaction that did not
+happen is never claimed. No wrapper module: the capabilities are constructed directly
+from Settings values per ADR 0017, and `compaction_capabilities()` is the one function
+that decides which turn gets which tier.
 
 ### 42.6 How the judge was measured
 

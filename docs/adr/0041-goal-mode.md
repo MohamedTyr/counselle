@@ -89,6 +89,21 @@ goal or not; only the escalating summarizing tier is goal-only. This closes
 `plans/agent-loop-hardening.md` §1 (rated HIGH independently of this feature) as a side
 effect rather than a special case — see Consequences.
 
+The goal-only tier is a `TieredCompaction` over the cheap pass and a
+`SummarizingCompaction` with `model=None`, so the summary **inherits the running agent's
+model** — already the cheap tier on a goal turn (D15) — rather than re-resolving a model
+setting, which would bypass the Vertex client that is ADR 0011's only seam. Its usage
+folds into the turn's shared `RunUsage`, so summary tokens are priced in the agent's slice
+and its request counts against `goal_max_model_requests`: a summary is a real request and
+the ledger reports it. Both tiers emit a `kind:"compaction"` beat under distinct labels
+(C4) — a model-written summary of earlier turns is disclosed as that, not as blanked tool
+results. A summarization **failure degrades rather than aborts**: it is logged, the
+un-summarized history is used, and no beat is emitted, because a long unattended run must
+not die over an optional cost optimisation and a compaction that did not happen must never
+be claimed. There is one headroom knob, `goal_compaction_target_tokens`; the plan's
+mooted `goal_compaction_reserve_tokens` had no binding in the library and was only ever
+equivalent to lowering that number, so it does not ship.
+
 **D12 — the goal statement and frozen criteria are pinned in the agent's
 `instructions`**, computed once at `Agent(...)` construction, never rebuilt per
 iteration. This is a correction (C2) of the plan's own first draft, which claimed the

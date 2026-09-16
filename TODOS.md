@@ -793,7 +793,9 @@ follow-up in the same phase; this entry is closed on the backend side.
     (`_emit_injected_steers`, `_record_uninjected_steers`, `record_replayable_snapshot`).
   - `app/final_content_writer.py` — the viz placer/writer (`_FinalContentPlacementWriter`
     and friends).
-  - `app/compaction_beat.py` — `_CompactionBeat`, `_make_compaction_beat_emitter`.
+  - `app/compaction_beat.py` — `_CompactionBeat`, `_SummarizingBeat`,
+    `_make_compaction_beat_emitter`, `_clear_tool_results_tier`,
+    `compaction_capabilities`.
 - **Context:** `app/agent_node.py`; `plans/goal-mode-plan.md` §5.3 correction C6.
 - *(Logged from the goal-mode Phase 3 review-fix batch, 2026-09-16.)*
 
@@ -874,3 +876,24 @@ follow-up in the same phase; this entry is closed on the backend side.
 - *(Logged from the goal-mode Phase 6 documentation pass, 2026-09-16. `plans/goal-mode-plan.md`
   stays in `plans/` — it graduates to `specs/goal-mode/` only after owner acceptance, per
   the planning-workflow rule; it was NOT moved as part of this entry.)*
+
+## The goal-only summarizing compaction tier has never run against a real model
+- **What:** the `SummarizingCompaction` tier (D11) is mounted, disclosed, and tested, but
+  every test drives it through a `FunctionModel` — no live goal run has yet crossed
+  `goal_compaction_target_tokens` and paid for a real summary. So three things are
+  built-and-unmeasured rather than verified: (1) whether a real summary keeps a goal run
+  coherent across the cut (the plan's Phase 6 scenario E), (2) whether 100,000 /
+  8,000 (`goal_compaction_target_tokens` / `goal_compaction_keep_tokens`) are the right
+  numbers — they are ported from OpenCode's defaults, not measured here, and the same
+  caveat as the §2.10 budget defaults applies, and (3) what a real summary costs inside
+  the ledger, which now carries it at the agent's own rate.
+- **Also still open:** the domain-specific `summary_prompt` (school names, UNITIDs,
+  deadlines, citation markers verbatim) that `plans/goal-mode-plan.md` §4.3 defers until
+  real traces exist — already recorded above under the Part 8 non-goals, and the same
+  traces close both items.
+- **Why it's recorded rather than fixed:** it needs a real, long goal run, which is
+  Phase 6/7 dogfood work and costs real money; guessing at the numbers first is exactly
+  what §4.3 says not to do.
+- **Context:** `app/agent_node.py` (`compaction_capabilities`, `_SummarizingBeat`);
+  `config/settings.py` (`goal_compaction_*`); `tests/app/test_agent_node_compaction.py`.
+- *(Logged when the summarizing tier was built, 2026-09-16.)*
