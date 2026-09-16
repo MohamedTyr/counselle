@@ -12,8 +12,11 @@ import { SatComparison } from "./SatComparison";
 import { ScenarioExplorer } from "./ScenarioExplorer";
 import {
   CHANCES_TRUTH_FOOTER,
+  dominantReportedPeriod,
+  divergentPeriod,
   metricInterpretation,
 } from "./school-chances-copy";
+import { NOT_AVAILABLE } from "./score-plot-copy";
 import {
   buildSchoolChancesModel,
   type ChancesMetric,
@@ -72,30 +75,36 @@ export function SchoolChancesPanel({
         )}
         data-slot="school-chances-header"
       >
-        <div className={cn("flex min-w-0 flex-col gap-3")}>
-          <h2 className={cn("text-lg font-semibold text-foreground")}>
-            How your academics compare
-          </h2>
-          <SegmentedControl
-            className={cn("w-full sm:w-fit")}
-            label="Academic comparison metric"
-            onValueChange={(next) => {
-              onMetricChange?.(next as ChancesMetric);
-            }}
-            options={METRIC_OPTIONS}
-            value={metric}
-          />
+        <SegmentedControl
+          className={cn("w-full bg-[var(--surface-inset)] sm:w-fit")}
+          label="Academic comparison metric"
+          onValueChange={(next) => {
+            onMetricChange?.(next as ChancesMetric);
+          }}
+          options={METRIC_OPTIONS}
+          value={metric}
+        />
+        {/* One metadata line: the page's freshness stamp, plus the testing
+         * policy beside it (moved out of the body, plan §3). Both are the
+         * same 12px muted caveat weight — neither outranks the other. */}
+        <div className={cn("flex flex-col items-end gap-0.5 text-right")}>
+          {data.freshness_line ? (
+            <p className={cn("text-xs text-[var(--school-fact-caveat)]")}>
+              {data.freshness_line}
+            </p>
+          ) : null}
+          {model.testPolicy ? (
+            <p className={cn("text-xs text-[var(--school-fact-caveat)]")}>
+              Testing policy: {model.testPolicy.display}
+              {model.testPolicy.reportedPeriod
+                ? ` · Reported ${model.testPolicy.reportedPeriod}`
+                : ""}
+            </p>
+          ) : null}
         </div>
-        {data.freshness_line ? (
-          <p className={cn("text-xs text-[var(--school-fact-caveat)]")}>
-            {data.freshness_line}
-          </p>
-        ) : null}
       </header>
       <div
-        className={cn(
-          "flex flex-col gap-4 border-t border-[var(--school-chances-divider)] p-4",
-        )}
+        className={cn("flex flex-col gap-4 p-4")}
         data-slot="school-chances-content"
       >
         {isError ? (
@@ -116,13 +125,18 @@ export function SchoolChancesPanel({
             </Button>
           </div>
         ) : null}
+        {/* The only prose on the screen (plan §3): everything else is either
+         * a number or the shape itself. */}
         <p
-          className={cn("text-sm text-foreground")}
+          className={cn(
+            "max-w-[48ch] text-[17px] text-foreground leading-[1.45] text-pretty",
+          )}
           data-slot="school-chances-interpretation"
         >
           {metricInterpretation(metric, model, profile?.academics?.gpa_scale)}
         </p>
-        <ComparisonLedger metric={metric} model={model} />
+        {metric === "gpa" ? <NumberRow cells={gpaNumberCells(model)} /> : null}
+        {metric === "act" ? <NumberRow cells={actNumberCells(model)} /> : null}
         <MetricPlotReveal
           key={metric}
           metric={metric}
@@ -210,119 +224,142 @@ function ComparisonGraphic({
   return <ActComparison model={model.act!} testPolicy={model.testPolicy} />;
 }
 
-function ComparisonLedger({
-  metric,
-  model,
-}: {
-  metric: ChancesMetric;
-  model: SchoolChancesModel;
-}) {
-  const entries =
-    metric === "gpa"
-      ? gpaLedger(model)
-      : metric === "sat"
-        ? satLedger(model)
-        : actLedger(model);
+type NumberCell = {
+  label: string;
+  value: string;
+  /** Renders the DESIGN.md §15.5 absence treatment — 15px in
+   * `--school-value-absent`, never blank, never a dash — instead of the
+   * 30px hero figure. */
+  absent?: boolean;
+  /** Only set when this field's own reported period diverges from the rest
+   * of the screen (plan §6's differing-period exception). */
+  period?: string | null;
+};
+
+/**
+ * The three-number row (plan §3): what used to be `ComparisonLedger`'s
+ * `<dl>`, now the screen's second-loudest thing after the verdict sentence.
+ * Exactly three, no icons, no accent colour on the digits, no cards around
+ * them — these numbers *are* the data the screen exists to deliver, not a
+ * decorative SaaS hero (plan §3's note on the `impeccable` hero-metric ban).
+ * SAT has no equivalent row here: its own two-lane redesign is a later
+ * phase (plan §4), so its per-lane numbers still live inside
+ * `AcademicComparisonPlot`.
+ */
+function NumberRow({ cells }: { cells: NumberCell[] }): React.ReactElement {
   return (
-    <dl
-      className={cn("grid gap-x-4 gap-y-3 text-sm sm:grid-cols-3")}
-      data-slot="school-chances-ledger"
+    <div
+      className={cn("grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-3")}
+      data-slot="school-chances-numbers"
     >
-      {entries.map((entry) => (
-        <div className={cn("flex min-w-0 flex-col gap-0.5")} key={entry.label}>
-          <dt className={cn("text-xs text-[var(--school-fact-caveat)]")}>
-            {entry.label}
-          </dt>
-          <dd className={cn("font-medium text-foreground tabular-nums")}>
-            {entry.value}
-          </dd>
-          {entry.period ? (
+      {cells.map((cell, index) => (
+        <div
+          className={cn(
+            "flex min-w-0 flex-col gap-1",
+            index === 2 && "col-span-2 sm:col-span-1",
+          )}
+          key={cell.label}
+        >
+          <p className={cn("text-xs text-[var(--school-fact-caveat)]")}>
+            {cell.label}
+          </p>
+          {cell.absent ? (
+            <p
+              className={cn("text-[15px] text-[var(--school-fact-absent)]")}
+              data-slot="school-chances-number-absent"
+            >
+              {cell.value}
+            </p>
+          ) : (
+            <p
+              className={cn(
+                "font-medium text-[30px] leading-none tracking-[-0.01em] text-foreground tabular-nums",
+              )}
+            >
+              {cell.value}
+            </p>
+          )}
+          {cell.period ? (
             <p className={cn("text-xs text-[var(--school-fact-caveat)]")}>
-              Reported {entry.period}
+              Reported {cell.period}
             </p>
           ) : null}
         </div>
       ))}
-    </dl>
+    </div>
   );
 }
 
-function gpaLedger(model: SchoolChancesModel) {
+function gpaNumberCells(model: SchoolChancesModel): NumberCell[] {
   const gpa = model.gpa!;
   const bucket = gpa.profile.comparison?.label;
   const percentage = bucket
     ? gpa.distribution?.buckets.find((item) => item.label === bucket)?.pct
     : null;
+  const bandPeriod = gpa.distribution?.reportedPeriod ?? gpa.distributionState.reportedPeriod;
+  const baseline = dominantReportedPeriod([bandPeriod, gpa.average?.reportedPeriod]);
+  const you = gpa.profile.display
+    ? gpa.profile.state === "value"
+      ? `${gpa.profile.display} / 4.0`
+      : gpa.profile.scale
+        ? `${gpa.profile.display} / ${gpa.profile.scale}`
+        : gpa.profile.display
+    : "Not added";
+  /* FIX 1: `distributionState.display` is the distribution's own accounting
+   * ("N buckets reported") — it is only ever the right fallback when the
+   * distribution itself is unusable. When the distribution is usable but the
+   * student's own GPA has no bucket (missing, incompatible scale, or
+   * unplaceable), that is a student-side absence, not a distribution-side
+   * one — it gets the same local "Not available" word `actNumberCells` (the
+   * model to follow) already uses for an absent band or average. */
+  const noBucketValue = gpa.distributionState.usable
+    ? NOT_AVAILABLE
+    : (gpa.distributionState.display ?? NOT_AVAILABLE);
+  return [
+    { label: "You", value: you, absent: !gpa.profile.display },
+    {
+      label: "Reported band",
+      value: bucket ?? noBucketValue,
+      absent: !bucket,
+      period: divergentPeriod(bandPeriod, baseline),
+    },
+    {
+      label: "Of the class",
+      value:
+        percentage === null || percentage === undefined
+          ? noBucketValue
+          : `${percentage}%`,
+      absent: percentage === null || percentage === undefined,
+    },
+  ];
+}
+
+function actNumberCells(model: SchoolChancesModel): NumberCell[] {
+  const act = model.act!;
+  const bandPeriod = act.band?.reportedPeriod ?? act.bandState.reportedPeriod;
+  const baseline = dominantReportedPeriod([bandPeriod, act.average?.reportedPeriod]);
   return [
     {
       label: "You",
-      value: gpa.profile.display
-        ? gpa.profile.state === "value"
-          ? `${gpa.profile.display} on a 4.0 scale`
-          : gpa.profile.scale
-            ? `${gpa.profile.display} on a ${gpa.profile.scale} scale`
-            : gpa.profile.display
-        : "Not added",
-      period: null,
+      value: act.profile.display !== null ? String(act.profile.display) : "Not added",
+      absent: act.profile.display === null,
     },
-    {
-      label: "Reported band",
-      value: bucket ?? gpa.distributionState.display ?? "Not available",
-      period:
-        gpa.distribution?.reportedPeriod ??
-        gpa.distributionState.reportedPeriod,
-    },
-    ...(percentage === null || percentage === undefined
-      ? []
-      : [{ label: "In this band", value: `${percentage}%`, period: null }]),
-  ];
-}
-
-function satLedger(model: SchoolChancesModel) {
-  const sat = model.sat!;
-  const [math, ebrw] = sat.lanes;
-  return [
-    {
-      label: "Your SAT",
-      value: sat.totalContext
-        ? `${sat.totalContext.display} shown for context`
-        : "Not added",
-      period: null,
-    },
-    {
-      label: "Math",
-      value: math!.profile.display ?? "Not added",
-      period: null,
-    },
-    {
-      label: "Reading and Writing",
-      value: ebrw!.profile.display ?? "Not added",
-      period: null,
-    },
-    { label: "Comparison", value: "Compared by section", period: null },
-  ];
-}
-
-function actLedger(model: SchoolChancesModel) {
-  const act = model.act!;
-  return [
-    { label: "You", value: act.profile.display ?? "Not added", period: null },
     {
       label: "Middle 50%",
       value: act.band
         ? `${act.band.p25}–${act.band.p75}`
-        : (act.bandState.display ?? "Not available"),
-      period: act.band?.reportedPeriod ?? act.bandState.reportedPeriod,
+        : (act.bandState.display ?? NOT_AVAILABLE),
+      absent: !act.band,
+      period: divergentPeriod(bandPeriod, baseline),
     },
-    ...(act.average
-      ? [
-          {
-            label: "Reported average",
-            value: act.average.display,
-            period: act.average.reportedPeriod,
-          },
-        ]
-      : []),
+    {
+      label: "Reported average",
+      value: act.average ? act.average.display : NOT_AVAILABLE,
+      absent: !act.average,
+      period: act.average
+        ? divergentPeriod(act.average.reportedPeriod, baseline)
+        : null,
+    },
   ];
 }
 
@@ -449,9 +486,9 @@ function SchoolChancesSkeleton() {
       )}
       data-slot="school-chances-skeleton"
     >
-      <Skeleton className={cn("h-6 w-56")} />
       <Skeleton className={cn("h-9 w-full sm:w-52")} />
       <Skeleton className={cn("h-5 w-3/4")} />
+      <Skeleton className={cn("h-16 w-full")} />
       <Skeleton className={cn("h-36 w-full")} />
       <Skeleton className={cn("h-11 w-full")} />
     </section>

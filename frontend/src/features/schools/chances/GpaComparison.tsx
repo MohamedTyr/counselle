@@ -10,6 +10,10 @@ import {
 } from "./ClassShape";
 import { YouMark } from "./YouMark";
 import { plotWindow } from "./academic-comparison-geometry";
+import {
+  isSumsToMaterial,
+  partialDistributionSummaryText,
+} from "./score-plot-copy";
 import type { GpaModel } from "./school-chances-model";
 
 /** GPA has one fixed instrument scale — the 4.0 scale this whole tab is
@@ -68,52 +72,18 @@ export function GpaComparison({
           </div>
         </div>
         <AxisEndpointLabels format={(value) => value.toFixed(2)} window={window} />
-        <div
-          className={cn("grid gap-2 sm:grid-cols-3")}
-          data-slot="gpa-comparison-buckets"
-        >
-          {[
-            ...distribution.buckets,
-            ...distribution.omittedBuckets.map((bucket) => ({
-              ...bucket,
-              pct: null,
-              absenceDisplay: bucket.display,
-            })),
-          ].map((bucket) => (
-            <div
-              className={cn(
-                "border-t border-[var(--school-chances-divider)] pt-1.5 text-xs",
-              )}
-              key={bucket.label}
-            >
-              <p className={cn("font-medium text-foreground")}>
-                {bucket.label}
-              </p>
-              <p
-                className={cn("text-[var(--school-fact-caveat)] tabular-nums")}
-              >
-                {bucket.pct === null
-                  ? `${bucket.label}: ${bucket.absenceDisplay ?? "Not reported"}`
-                  : `${bucket.pct}%`}
-              </p>
-            </div>
-          ))}
-        </div>
+        {/* The bucket grid is gone — the shape draws the same class profile
+         * (plan §6). Its reported period moves to the "Reported band"
+         * number cell in SchoolChancesPanel.tsx, printed only when it
+         * diverges from the rest of this screen. */}
         {gpaProfileMessage(model) ? (
           <p className={cn("text-xs text-[var(--school-fact-caveat)]")}>
             {gpaProfileMessage(model)}
           </p>
         ) : null}
-        {distribution.reportedPeriod ? (
+        {isSumsToMaterial(distribution.sumsTo) ? (
           <p className={cn("text-xs text-[var(--school-fact-caveat)]")}>
-            Reported {distribution.reportedPeriod}
-          </p>
-        ) : null}
-        {distribution.sumsTo !== null &&
-        Math.abs(distribution.sumsTo - 100) > 0.5 ? (
-          <p className={cn("text-xs text-[var(--school-fact-caveat)]")}>
-            Reported buckets total {distribution.sumsTo}%; missing buckets are
-            not treated as zero.
+            {partialDistributionSummaryText(distribution.sumsTo)}
           </p>
         ) : null}
       </div>
@@ -167,9 +137,15 @@ function GpaFallback({
   model: GpaModel;
   summary: string;
 }): React.ReactElement {
+  /* FIX 2: the number row (`gpaNumberCells` in SchoolChancesPanel.tsx)
+   * already states the distribution's own absence for both "Reported band"
+   * and "Of the class" — repeating it here, inside a figure whose children
+   * are `aria-hidden` anyway (`ChartFigure`), is pure visual duplication.
+   * A reported average is the one thing the row never carries, so it still
+   * gets its own visible line. */
   const display = model.average
     ? `Reported average ${model.average.display}`
-    : (model.distributionState.display ?? "No reported GPA comparison data.");
+    : null;
   return (
     <ChartFigure summary={summary}>
       <div
@@ -177,12 +153,14 @@ function GpaFallback({
         data-slot="gpa-comparison-unavailable"
       >
         <AxisOnly />
-        <p
-          className={cn("text-sm text-[var(--school-fact-absent)]")}
-          data-school-state={model.distributionState.state}
-        >
-          {display}
-        </p>
+        {display ? (
+          <p
+            className={cn("text-sm text-[var(--school-fact-absent)]")}
+            data-school-state={model.distributionState.state}
+          >
+            {display}
+          </p>
+        ) : null}
         {(model.average?.reportedPeriod ??
         model.distributionState.reportedPeriod) ? (
           <p className={cn("text-xs text-[var(--school-fact-caveat)]")}>
@@ -240,12 +218,10 @@ function gpaSummary(
     model.distributionState.state !== "school_value"
       ? ` Distribution: ${model.distributionState.display ?? "unavailable"} (${model.distributionState.state}).`
       : "";
-  const total =
-    model.distribution?.sumsTo !== null &&
-    model.distribution &&
-    Math.abs(model.distribution.sumsTo - 100) > 0.5
-      ? ` Reported buckets total ${model.distribution.sumsTo}%; missing buckets are not treated as zero.`
-      : "";
+  const totalSummary = partialDistributionSummaryText(
+    model.distribution?.sumsTo,
+  );
+  const total = totalSummary ? ` ${totalSummary}` : "";
   // FIX 5: same mitigation as the score lanes' `scoreSummary` — the windowed
   // axis is only permissible because the accessible summary always states
   // the real, uncropped instrument scale. Additive.

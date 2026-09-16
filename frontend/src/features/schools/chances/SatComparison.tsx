@@ -1,4 +1,5 @@
 import { AcademicComparisonPlot } from "./AcademicComparisonPlot";
+import { dominantReportedPeriod } from "./school-chances-copy";
 import type { ScalarModel, SchoolChancesModel } from "./school-chances-model";
 import { cn } from "@/lib/utils";
 
@@ -9,23 +10,37 @@ export function SatComparison({
   model: NonNullable<SchoolChancesModel["sat"]>;
   testPolicy: ScalarModel;
 }): React.ReactElement {
+  const [math, ebrw] = model.lanes;
+  /* Both lanes share one reporting-period baseline (plan §6) so a period
+   * that's identical across the screen collapses into the header freshness
+   * line, and only a field that genuinely diverges — the "Different
+   * reported periods" dev fixture — still prints beside its own number. */
+  const periodBaseline = dominantReportedPeriod(
+    model.lanes.flatMap((lane) => [
+      lane.band?.reportedPeriod,
+      lane.distribution?.reportedPeriod,
+      lane.average?.reportedPeriod,
+    ]),
+  );
   return (
     <section className={cn("flex flex-col gap-5")} data-slot="sat-comparison">
-      {testPolicy ? (
+      {/* SAT's own two-lane layout is P4 scope (plan §4); this preserves the
+       * one piece of information the deleted ledger carried that has no
+       * other home yet, rather than dropping it silently. */}
+      {model.totalContext ? (
         <p className={cn("text-xs text-[var(--school-fact-caveat)]")}>
-          Testing policy: {testPolicy.display}
-          {testPolicy.reportedPeriod
-            ? ` · Reported ${testPolicy.reportedPeriod}`
-            : ""}
+          Your SAT {model.totalContext.display} shown for context
         </p>
       ) : null}
       <AcademicComparisonPlot
-        lane={model.lanes[0]!}
+        lane={math!}
+        periodBaseline={periodBaseline}
         testPolicy={testPolicy}
         title="Math"
       />
       <AcademicComparisonPlot
-        lane={model.lanes[1]!}
+        lane={ebrw!}
+        periodBaseline={periodBaseline}
         testPolicy={testPolicy}
         title="Reading and Writing"
       />

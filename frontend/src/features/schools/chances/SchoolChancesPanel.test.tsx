@@ -69,21 +69,25 @@ describe("SchoolChancesPanel", () => {
   test("uses the deterministic comparable default, preserves other search params, and renders the one flat frame", async () => {
     renderPanel("tab=chances&from=school-list&metric=not-a-metric");
 
+    // The "How your academics compare" heading died with the P2 recompose
+    // (plan §3) — the tab is already called Compare and the verdict
+    // sentence below says what the panel is; it was a label for a labelled
+    // thing. There is deliberately no heading here to find any more.
     expect(
-      await screen.findByRole("heading", {
-        name: "How your academics compare",
-      }),
+      await screen.findByText(
+        "Your 3.82 GPA sits in the 3.75 - 3.99 reported band.",
+      ),
     ).toBeVisible();
+    expect(
+      document.querySelector('[data-slot="school-chances-panel"] h2'),
+    ).toBeNull();
     expect(screen.getByText("Checked September 2026")).toBeVisible();
     expect(
       screen.getByRole("radio", { name: "GPA", checked: true }),
     ).toBeVisible();
     expect(
-      screen.getByText("Your 3.82 GPA sits in the 3.75 - 3.99 reported band."),
-    ).toBeVisible();
-    expect(
       screen.getByText(
-        "These are reported entering-class comparisons, not cutoffs or a personal admission chance.",
+        "Reported entering-class data — not a cutoff or a chance.",
       ),
     ).toBeVisible();
 
@@ -156,8 +160,8 @@ describe("SchoolChancesPanel", () => {
       />,
     );
 
-    expect(await screen.findByText("4.50 on a 5.0 scale")).toBeVisible();
-    expect(screen.queryByText("4.50 on a 4.0 scale")).toBeNull();
+    expect(await screen.findByText("4.50 / 5.0")).toBeVisible();
+    expect(screen.queryByText("4.50 / 4.0")).toBeNull();
 
     rerender(
       <SchoolChancesPanel
@@ -167,7 +171,7 @@ describe("SchoolChancesPanel", () => {
       />,
     );
     expect(await screen.findByText("3.82")).toBeVisible();
-    expect(screen.queryByText("3.82 on a 4.0 scale")).toBeNull();
+    expect(screen.queryByText("3.82 / 4.0")).toBeNull();
   });
 
   test.each([
@@ -606,11 +610,22 @@ describe("SchoolChancesPanel", () => {
         profile={schoolChancesProfileFixtures.compatible}
       />,
     );
+    // FIX 2: the distribution's own absence line no longer duplicates
+    // itself inside the chart (whose contents are `aria-hidden` anyway) —
+    // the number row's "Reported band"/"Of the class" cells are the one
+    // visible place "Not reported" is now stated.
     expect(
-      await screen.findByText("Not reported", {
-        selector: "[data-school-state=not_reported]",
-      }),
-    ).toBeInTheDocument();
+      (
+        await screen.findAllByText("Not reported", {
+          selector: '[data-slot="school-chances-number-absent"]',
+        })
+      ).length,
+    ).toBe(2);
+    expect(
+      document.querySelector(
+        "[data-slot=gpa-comparison-unavailable] [data-school-state]",
+      ),
+    ).toBeNull();
     expect(
       document.querySelector("[data-slot=gpa-comparison-chart]"),
     ).toBeNull();
@@ -660,6 +675,74 @@ describe("SchoolChancesPanel", () => {
     expect(await screen.findByText("Scenario set to 3.90 GPA.")).toBeVisible();
     expect(
       screen.getByRole("button", { name: "Reset to your GPA" }),
+    ).toBeVisible();
+  });
+
+  test("renders the three-number row's absence grammar instead of blanks or dashes", async () => {
+    render(
+      <SchoolChancesPanel
+        data={schoolChancesFactFixtures.allAbsent}
+        metricParam="gpa"
+        profile={null}
+      />,
+    );
+
+    await screen.findAllByText("Not reported", {
+      selector: '[data-slot="school-chances-number-absent"]',
+    });
+    const row = document.querySelector(
+      '[data-slot="school-chances-numbers"]',
+    );
+    expect(row).not.toBeNull();
+    // "You" (no saved profile) and "Reported band"/"Of the class" (every
+    // bucket absent) all fall back to the DESIGN.md §15.5 absence
+    // treatment — never blank, never a dash.
+    const absentCells = row!.querySelectorAll(
+      '[data-slot="school-chances-number-absent"]',
+    );
+    expect(absentCells.length).toBe(3);
+    for (const cell of absentCells) {
+      expect(cell.textContent).not.toBe("");
+      expect(cell.textContent).not.toBe("—");
+      expect(cell.textContent).not.toBe("-");
+    }
+    expect(screen.getByText("Not added")).toBeVisible();
+    // FIX 2: "Not reported" used to appear a second time inside the chart's
+    // own (aria-hidden) fallback text, duplicating these same two cells —
+    // it now appears exactly where the row states it and nowhere else.
+    expect(screen.getAllByText("Not reported")).toHaveLength(2);
+  });
+
+  test("only prints a per-field reported period on the number row when it diverges from the rest of the screen", async () => {
+    const uniform = render(
+      <SchoolChancesPanel
+        data={schoolChancesFactFixtures.full}
+        metricParam="act"
+        profile={schoolChancesProfileFixtures.compatible}
+      />,
+    );
+    // Every ACT fact in the fixture reports the same "2025-26" period, so
+    // the number row states it once via the header freshness line instead
+    // of repeating it beside every number (plan §6).
+    expect(
+      document.querySelector('[data-slot="school-chances-numbers"]'),
+    ).not.toHaveTextContent("Reported 2025-26");
+    uniform.unmount();
+
+    const facts = structuredClone(schoolChancesFactFixtures.full);
+    const band = facts.sections[0]!.groups[0]!.facts.find(
+      (fact) => fact.key === "class_profile.act_composite",
+    )!;
+    band.reported_period = "2019-20";
+    render(
+      <SchoolChancesPanel
+        data={facts}
+        metricParam="act"
+        profile={schoolChancesProfileFixtures.compatible}
+      />,
+    );
+    expect(
+      await screen.findByText("Reported 2019-20"),
     ).toBeVisible();
   });
 });

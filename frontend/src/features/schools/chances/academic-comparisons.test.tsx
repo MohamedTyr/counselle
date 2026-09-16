@@ -14,7 +14,7 @@ import {
 expect.extend(toHaveNoViolations);
 
 describe("academic comparison visual grammar", () => {
-  test("renders the GPA bucket profile as text-equivalent categorical data, including gaps and the profile marker", async () => {
+  test("renders the GPA bucket profile as text-equivalent categorical data in the accessible summary, including gaps and the profile marker", async () => {
     const model = buildSchoolChancesModel(
       schoolChancesFactFixtures.partial,
       schoolChancesProfileFixtures.compatible,
@@ -23,9 +23,12 @@ describe("academic comparison visual grammar", () => {
     );
     const { container } = render(<GpaComparison model={model.gpa!} />);
 
-    expect(screen.getByText("3.75 - 3.99")).toBeVisible();
-    expect(screen.getByText("60%")).toBeVisible();
-    expect(screen.getByText("4.00 and Above: Not reported")).toBeVisible();
+    // The bucket grid died in P2 (school-chances-minimal-redesign §6) — the
+    // shape already draws the same class profile. Every reported and
+    // omitted bucket remains fully stated in the accessible summary.
+    const figcaption = container.querySelector("figcaption");
+    expect(figcaption).toHaveTextContent("3.75 - 3.99: 60%");
+    expect(figcaption).toHaveTextContent("4.00 and Above: not reported");
     // The old "Your profile 3.82" / "Scenario 3.9" callout labels die with
     // GpaComparisonMarkers.tsx: the saved value is now a dashed rule with no
     // pill (plan §2.2), and the scenario pill shows only the raw value.
@@ -35,16 +38,41 @@ describe("academic comparison visual grammar", () => {
     expect(
       container.querySelector('[data-slot="you-mark"][data-variant="scenario"]'),
     ).toHaveTextContent("3.9");
+    // 60% is a 40-point gap from 100 — comfortably past the 5-point inline
+    // threshold (plan §6, owner decision), so it stays visible on screen too.
     expect(
       screen.getByText(
         "Reported buckets total 60%; missing buckets are not treated as zero.",
       ),
     ).toBeVisible();
+    expect(figcaption).toHaveTextContent(
+      "Reported buckets total 60%; missing buckets are not treated as zero.",
+    );
     expect(container.querySelector("figure > div")).toHaveAttribute(
       "aria-hidden",
       "true",
     );
     expect(await axe(container)).toHaveNoViolations();
+  });
+
+  test("keeps a sums-to gap under the 5-point threshold out of view but still in the accessible summary", () => {
+    const facts = structuredClone(schoolChancesFactFixtures.full);
+    (
+      facts.sections[0]!.groups[0]!.facts[0]!.value as { sums_to: number }
+    ).sums_to = 96;
+    const model = buildSchoolChancesModel(
+      facts,
+      schoolChancesProfileFixtures.compatible,
+      "gpa",
+    );
+    const { container } = render(<GpaComparison model={model.gpa!} />);
+
+    expect(
+      container.querySelector('[aria-hidden="true"]')?.textContent,
+    ).not.toMatch(/Reported buckets total 96%/);
+    expect(container.querySelector("figcaption")).toHaveTextContent(
+      "Reported buckets total 96%; missing buckets are not treated as zero.",
+    );
   });
 
   test("keeps SAT section lanes separate, prints bands and does not rely on a tooltip", async () => {
@@ -69,9 +97,17 @@ describe("academic comparison visual grammar", () => {
     expect(container.querySelectorAll("figcaption")[0]).toHaveTextContent(
       "Reported average is 725",
     );
+    // Testing policy moved to the panel header (plan §3); it stays fully
+    // stated in each lane's accessible summary.
+    expect(container.querySelectorAll("figcaption")[0]).toHaveTextContent(
+      "Testing policy: Considered if submitted",
+    );
+    // The total-context line the deleted ledger used to carry — its proper
+    // home is the verdict sentence once SAT's own two-lane redesign lands
+    // (P4, plan §4); until then it stays visible here rather than vanishing.
     expect(
       container.querySelector("[data-slot=sat-comparison] > p"),
-    ).toHaveTextContent("Testing policy: Considered if submitted");
+    ).toHaveTextContent("Your SAT 1500 shown for context");
     expect(container.querySelector("[role=tooltip]")).toBeNull();
     expect(await axe(container)).toHaveNoViolations();
   });
@@ -115,10 +151,15 @@ describe("academic comparison visual grammar", () => {
     rerender(
       <ActComparison model={model.act!} testPolicy={model.testPolicy} />,
     );
-    expect(
-      screen.getByText("Reported breakdown — not plotted to scale"),
-    ).toBeVisible();
-    expect(screen.getByText("Score of 40 - 45: 100%")).toBeVisible();
+    // The visible "Reported breakdown — not plotted to scale" list died
+    // with ScoreBreakdown.tsx (plan §6) — the shape draws the same class
+    // profile, and the accessible summary still states the literal,
+    // unscaled breakdown in full.
+    const figcaption = container.querySelector("figcaption");
+    expect(figcaption).toHaveTextContent(
+      "Reported breakdown is not plotted to scale.",
+    );
+    expect(figcaption).toHaveTextContent("Score of 40 - 45: 100%");
     expect(await axe(container)).toHaveNoViolations();
   });
 
@@ -209,7 +250,7 @@ describe("academic comparison visual grammar", () => {
     }
   });
 
-  test("keeps every omitted GPA bucket, edge placement, and per-fact period in the visible and screen-reader equivalents", () => {
+  test("keeps every omitted GPA bucket, edge placement, and per-fact period in the accessible summary", () => {
     const facts = structuredClone(schoolChancesFactFixtures.partial);
     const distribution = facts.sections[0]!.groups[0]!.facts[0]!;
     (distribution.value as { buckets: unknown[] }).buckets.shift();
@@ -222,7 +263,12 @@ describe("academic comparison visual grammar", () => {
     );
     const { container } = render(<GpaComparison model={model.gpa!} />);
 
-    expect(screen.getByText("3.50 - 3.74: Not reported")).toBeVisible();
+    // The bucket grid ("3.50 - 3.74: Not reported") and the standalone
+    // "Reported distribution 2024" line both died with the P2 bucket-grid
+    // deletion (plan §6) — the reported period now lives on the "Reported
+    // band" number cell in SchoolChancesPanel.tsx, printed only when it
+    // diverges from the rest of the screen. Both remain fully stated here.
+    const figcaption = container.querySelector("figcaption");
     // "Below reported buckets" / "Scenario above reported buckets" edge
     // callouts died with GpaComparisonMarkers.tsx — the mark now positions
     // by its raw numeric value on the windowed axis instead (plan §2.2), and
@@ -231,13 +277,11 @@ describe("academic comparison visual grammar", () => {
     expect(
       container.querySelector('[data-slot="you-mark"][data-variant="scenario"]'),
     ).toHaveTextContent("4");
-    expect(container.querySelector("figcaption")).toHaveTextContent(
+    expect(figcaption).toHaveTextContent(
       "Your 2.00 GPA is below the reported buckets",
     );
-    expect(screen.getByText("Reported distribution 2024")).toBeVisible();
-    expect(container.querySelector("figcaption")).toHaveTextContent(
-      "3.50 - 3.74: Not reported",
-    );
+    expect(figcaption).toHaveTextContent("Reported distribution period: distribution 2024.");
+    expect(figcaption).toHaveTextContent("3.50 - 3.74: Not reported");
   });
 
   test("includes the exact student value in the GPA edge figure summary", () => {
@@ -305,13 +349,14 @@ describe("academic comparison visual grammar", () => {
       <SatComparison model={model.sat!} testPolicy={model.testPolicy} />,
     );
 
-    expect(
-      screen.getByText("Score of 500 - 599: Not reported by the school"),
-    ).toBeVisible();
+    // The literal bucket list ("Score of 500 - 599: Not reported by the
+    // school") died with ScoreBreakdown.tsx (plan §6) — the accessible
+    // summary still carries it. The three periods genuinely diverge from
+    // the rest of this screen (the ebrw lane stays on "2025-26"), so plan
+    // §6's differing-period exception keeps them visible too.
+    expect(screen.getByText("Reported band band 2023")).toBeVisible();
     expect(screen.getByText("Reported distribution 2022")).toBeVisible();
-    // "Reported band 2023" / "Reported average 2024" died with
-    // ScoreBandDetails.tsx's value row; both periods are still fully stated
-    // in the accessible summary.
+    expect(screen.getByText("Reported average average 2024")).toBeVisible();
     expect(container.querySelector("figcaption")).toHaveTextContent(
       "reported band 2023",
     );

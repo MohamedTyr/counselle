@@ -10,9 +10,10 @@ import {
 } from "./ClassShape";
 import { YouMark } from "./YouMark";
 import { plotWindow, type PlotWindowMetric } from "./academic-comparison-geometry";
-import { ScoreBreakdown } from "./ScoreBreakdown";
+import { dominantReportedPeriod, divergentPeriod } from "./school-chances-copy";
 import {
-  partialDistributionCaveat,
+  isSumsToMaterial,
+  partialDistributionSummaryText,
   profilePlacementMessage,
   schoolFactDisplay,
 } from "./score-plot-copy";
@@ -26,18 +27,37 @@ type AcademicComparisonPlotProps = {
   lane: ScoreLaneModel;
   title: string;
   testPolicy?: ScalarModel;
+  /** The dominant reported period across every lane on this screen — SAT
+   * passes one shared baseline computed across both lanes (plan §6); ACT
+   * (one lane) leaves it unset and this file derives it from its own three
+   * fields, which is equivalent to a single-lane baseline. */
+  periodBaseline?: string | null;
 };
 
 export function AcademicComparisonPlot({
   lane,
   title,
   testPolicy,
+  periodBaseline,
 }: AcademicComparisonPlotProps): React.ReactElement {
   const markers = scoreMarkers(lane);
   const summary = scoreSummary(title, lane, markers, testPolicy);
+  /* ACT is the sole lane with its own number row (`actNumberCells` in
+   * SchoolChancesPanel.tsx, always rendered alongside this component for
+   * the ACT tab); SAT's two lanes have no equivalent row yet (plan §4). */
+  const isSingleLane = lane.key === "composite";
+  const baseline =
+    periodBaseline !== undefined ? periodBaseline : lanePeriodBaseline(lane);
+  const bandPeriod = divergentPeriod(lane.band?.reportedPeriod, baseline);
+  const distributionPeriod = divergentPeriod(
+    lane.distribution?.reportedPeriod,
+    baseline,
+  );
+  const averagePeriod = divergentPeriod(lane.average?.reportedPeriod, baseline);
 
-  if (!hasScoreGeometry(lane))
+  if (!hasScoreGeometry(lane)) {
     return <UnavailableScorePlot lane={lane} summary={summary} title={title} />;
+  }
 
   const domain = SCORE_DOMAINS[lane.key];
   const metric: PlotWindowMetric = lane.key === "composite" ? "act" : "sat";
@@ -53,6 +73,7 @@ export function AcademicComparisonPlot({
     average: lane.average ? { value: Number(lane.average.value) } : null,
   });
   const plotHeight = kind ? CLASS_SHAPE_HEIGHT[kind] : CLASS_SHAPE_HEIGHT.rail;
+  const sumsTo = lane.distribution?.sumsTo;
 
   return (
     <section
@@ -92,28 +113,45 @@ export function AcademicComparisonPlot({
             </div>
           </div>
           <AxisEndpointLabels window={window} />
-          <ScoreBreakdown lane={lane} />
           {/* Visible restatement of what `ChartFigure`'s sr-only summary
            * already says — DESIGN.md §15.5 requires an absent or
            * incompatible value to state its absence on screen, not only to
            * a screen reader. Mirrors `GpaComparison.tsx`'s
-           * `gpaProfileMessage` treatment so the two paths stay symmetric. */}
-          {lane.band === null ? (
+           * `gpaProfileMessage` treatment so the two paths stay symmetric.
+           * FIX 2: for ACT (the one lane with its own number row) this is
+           * pure duplication of the row's "Middle 50%" cell, so it is
+           * skipped there; SAT has no number row of its own, so it stays
+           * the only place this fact is stated visibly. */}
+          {lane.band === null && !isSingleLane ? (
             <p
               className={cn("text-xs text-[var(--school-fact-absent)]")}
               data-band-state={lane.bandState.state}
             >
-              {lane.bandState.display ?? "Middle 50% unavailable"}
+              {lane.bandState.display ?? "Middle 50% not available"}
             </p>
           ) : null}
-          {lane.band?.reportedPeriod ? (
+          {/* A per-field period only prints when it diverges from what the
+           * rest of this screen reports — plan §6's differing-period
+           * exception. The common case (every field on the same reporting
+           * cycle) collapses into the one header freshness line instead. */}
+          {bandPeriod ? (
             <p className={cn("text-xs text-[var(--school-fact-caveat)]")}>
-              Reported band {lane.band.reportedPeriod}
+              Reported band {bandPeriod}
             </p>
           ) : null}
-          {lane.average?.reportedPeriod ? (
+          {distributionPeriod ? (
             <p className={cn("text-xs text-[var(--school-fact-caveat)]")}>
-              Reported average {lane.average.reportedPeriod}
+              Reported {distributionPeriod}
+            </p>
+          ) : null}
+          {averagePeriod ? (
+            <p className={cn("text-xs text-[var(--school-fact-caveat)]")}>
+              Reported average {averagePeriod}
+            </p>
+          ) : null}
+          {isSumsToMaterial(sumsTo) ? (
+            <p className={cn("text-xs text-[var(--school-fact-caveat)]")}>
+              {partialDistributionSummaryText(sumsTo)}
             </p>
           ) : null}
           {profilePlacementMessage(lane) ? (
@@ -132,32 +170,46 @@ function UnavailableScorePlot({
   title,
   summary,
 }: AcademicComparisonPlotProps & { summary: string }): React.ReactElement {
+  /* FIX 2: ACT is the sole lane with its own number row, which already
+   * states both "Middle 50%" and "Reported average" as absent when this
+   * whole-lane fallback fires — so its own copy of the same fact, and the
+   * fourth naming of "ACT" the heading added on top of the tab, the verdict
+   * sentence and the row's cell labels, are both dropped here. SAT has no
+   * number row and no lane heading is redundant with anything else, so
+   * neither change applies there. */
+  const isSingleLane = lane.key === "composite";
   const fallback = `No reported ${title === "Composite" ? "ACT" : title} comparison data.`;
   const display = schoolFactDisplay(lane, fallback);
   const showBandStatus =
-    lane.band === null && lane.bandState.display !== display;
+    !isSingleLane && lane.band === null && lane.bandState.display !== display;
   return (
     <section
-      aria-labelledby={`score-lane-${lane.key}`}
+      aria-labelledby={isSingleLane ? undefined : `score-lane-${lane.key}`}
       data-slot="academic-comparison-lane"
     >
-      <h3
-        className={cn("font-medium text-foreground")}
-        id={`score-lane-${lane.key}`}
-      >
-        {title}
-      </h3>
+      {isSingleLane ? null : (
+        <h3
+          className={cn("font-medium text-foreground")}
+          id={`score-lane-${lane.key}`}
+        >
+          {title}
+        </h3>
+      )}
       <ChartFigure summary={summary}>
         <div
           className={cn("flex flex-col gap-2")}
           data-slot="academic-comparison-unavailable"
         >
-          <p
-            className={cn("text-sm text-[var(--school-fact-absent)]")}
-            data-school-state={lane.school.state}
-          >
-            {display}
-          </p>
+          {isSingleLane ? null : (
+            <p
+              className={cn("text-sm text-[var(--school-fact-absent)]")}
+              data-school-state={lane.school.state}
+            >
+              {display}
+            </p>
+          )}
+          {/* Nothing else is reported for this lane, so there is nothing to
+           * diverge from or collapse into — this stays unconditional. */}
           {lane.school.reportedPeriod ? (
             <p className={cn("text-xs text-[var(--school-fact-caveat)]")}>
               Reported {lane.school.reportedPeriod}
@@ -168,7 +220,7 @@ function UnavailableScorePlot({
               className={cn("text-xs text-[var(--school-fact-absent)]")}
               data-band-state={lane.bandState.state}
             >
-              {lane.bandState.display ?? "Middle 50% unavailable"}
+              {lane.bandState.display ?? "Middle 50% not available"}
             </p>
           ) : null}
           {showBandStatus && lane.bandState.reportedPeriod ? (
@@ -176,7 +228,6 @@ function UnavailableScorePlot({
               Reported {lane.bandState.reportedPeriod}
             </p>
           ) : null}
-          <ScoreBreakdown lane={lane} />
           {profilePlacementMessage(lane) ? (
             <p className={cn("text-xs text-[var(--school-fact-caveat)]")}>
               {profilePlacementMessage(lane)}
@@ -186,6 +237,17 @@ function UnavailableScorePlot({
       </ChartFigure>
     </section>
   );
+}
+
+/** A single lane's own dominant period, used only when the caller (ACT, one
+ * lane) doesn't pass a cross-lane baseline — the same three fact sources
+ * `AcademicComparisonPlot`'s own has-geometry branch compares. */
+function lanePeriodBaseline(lane: ScoreLaneModel): string | null {
+  return dominantReportedPeriod([
+    lane.band?.reportedPeriod,
+    lane.distribution?.reportedPeriod,
+    lane.average?.reportedPeriod,
+  ]);
 }
 
 type ScorePlotMarker = {
@@ -227,13 +289,12 @@ function drawnValues(lane: ScoreLaneModel): number[] {
   return values;
 }
 
-function scoreSummary(
-  title: string,
-  lane: ScoreLaneModel,
-  markers: ScorePlotMarker[],
-  testPolicy?: ScalarModel,
-): string {
-  const distribution =
+/** The literal, unscaled bucket-by-bucket breakdown sentence — every
+ * reported and omitted bucket by label, exactly as `gpaSummary` does for the
+ * GPA tab. Its own function only because `scoreSummary` ran over the 50-line
+ * budget; behaviour is unchanged, this is a straight extraction. */
+function formatDistributionBreakdown(lane: ScoreLaneModel): string {
+  return (
     lane.distribution?.buckets
       .map(
         (bucket) =>
@@ -244,7 +305,17 @@ function scoreSummary(
           (bucket) => `${bucket.label}: ${bucket.display}`,
         ),
       )
-      .join("; ") ?? "No reported breakdown.";
+      .join("; ") ?? "No reported breakdown."
+  );
+}
+
+function scoreSummary(
+  title: string,
+  lane: ScoreLaneModel,
+  markers: ScorePlotMarker[],
+  testPolicy?: ScalarModel,
+): string {
+  const distribution = formatDistributionBreakdown(lane);
   const band = lane.band
     ? `Middle 50% is ${lane.band.p25} to ${lane.band.p75}${lane.band.reportedPeriod ? ` (reported ${lane.band.reportedPeriod})` : ""}.`
     : `${lane.bandState.display ?? "Middle 50% unavailable"} (${lane.bandState.state}).`;
@@ -266,7 +337,9 @@ function scoreSummary(
       : lane.distributionState.state !== "school_value"
         ? ` Distribution: ${lane.distributionState.display ?? "unavailable"} (${lane.distributionState.state}).`
         : "";
-  const partialDistribution = partialDistributionCaveat(lane);
+  const partialDistribution = partialDistributionSummaryText(
+    lane.distribution?.sumsTo,
+  );
   const partialCaveat = partialDistribution ? ` ${partialDistribution}` : "";
   const comparison = lane.profile.comparison
     ? ` Profile comparison: ${lane.profile.comparison.state}.`

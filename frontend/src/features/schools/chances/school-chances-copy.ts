@@ -5,7 +5,7 @@ import type {
 } from "./school-chances-model";
 
 export const CHANCES_TRUTH_FOOTER =
-  "These are reported entering-class comparisons, not cutoffs or a personal admission chance.";
+  "Reported entering-class data — not a cutoff or a chance.";
 
 export function gpaInterpretation(
   model: GpaModel,
@@ -89,4 +89,48 @@ export function scenarioSetCopy(
 
 function schoolComparisonUnavailable(display: string | null): string {
   return display ?? "Data could not be compared.";
+}
+
+/**
+ * The reported period most of a metric's own fields share, scoped to
+ * whichever fields are actually on screen for that metric — not a
+ * response-wide vote. A period only becomes the baseline once it is
+ * genuinely redundant, i.e. shared by two or more of the compared fields;
+ * a field that is the *only* source for its number has nothing to be
+ * redundant with, so it is never treated as colliding with itself. A full
+ * tie (every value distinct, as when a school reports several fields from
+ * different years) has no baseline at all, so every field is treated as
+ * diverging (plan §6).
+ */
+export function dominantReportedPeriod(
+  periods: (string | null | undefined)[],
+): string | null {
+  const counts = new Map<string, number>();
+  for (const period of periods) {
+    if (!period) continue;
+    counts.set(period, (counts.get(period) ?? 0) + 1);
+  }
+  let dominant: string | null = null;
+  let max = 1;
+  for (const [period, count] of counts) {
+    if (count > max) {
+      dominant = period;
+      max = count;
+    }
+  }
+  return dominant;
+}
+
+/**
+ * A per-field reported period only prints beside its own number when it
+ * diverges from the metric's dominant period — otherwise repeating it next
+ * to every number is exactly the "says everything twice" defect the header
+ * freshness line already covers (plan §6).
+ */
+export function divergentPeriod(
+  period: string | null | undefined,
+  baseline: string | null,
+): string | null {
+  if (!period) return null;
+  return period === baseline ? null : period;
 }
