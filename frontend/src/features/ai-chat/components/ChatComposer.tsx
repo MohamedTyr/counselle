@@ -1,4 +1,4 @@
-import { AtSign, Send, Square, TextQuote, X } from "lucide-react";
+import { AtSign, Send, Square, Target, TextQuote, X } from "lucide-react";
 import {
   useEffect,
   useRef,
@@ -34,6 +34,8 @@ import {
 } from "@/features/skill-picker/InlineSkillMentionLayer";
 import { SkillPicker } from "@/features/skill-picker/SkillPicker";
 import { useSkillPicker } from "@/features/skill-picker/useSkillPicker";
+import { SlashCommandMenu } from "@/features/slash-command/SlashCommandMenu";
+import { useSlashCommand } from "@/features/slash-command/useSlashCommand";
 import { useAutoResizeTextarea } from "@/hooks/use-auto-resize-textarea";
 import { cn } from "@/lib/utils";
 
@@ -73,6 +75,20 @@ export type ChatComposerProps = {
   responseModes?: readonly ResponseModeOption[];
   onResponseModeChange?: (mode: ResponseMode) => void;
   onSubmit: (text: string) => void;
+  /**
+   * Fired immediately before `onSubmit` on every send, carrying whether goal
+   * mode is armed for this message (goal-mode plan §5.5). `true` only when
+   * the student explicitly selected `/goal` from the slash-command menu —
+   * never derived from the raw text, so typing the literal string `/goal`
+   * and sending it never arms an autonomous, budget-spending run.
+   *
+   * A separate callback, not a second `onSubmit` argument: `onSubmit`'s
+   * single-string-argument contract is shared by callers that reuse the
+   * same handler for other call sites with their own second parameter
+   * (e.g. `AiChatPage`'s `handleComposerSubmit(text, taskSkills, ...)`), so
+   * widening `onSubmit`'s arity would silently misfeed those positions.
+   */
+  onGoalModeSubmit?: (goalMode: boolean) => void;
   onStop: () => void;
   isSubmitting: boolean;
   awaitingClarify: boolean;
@@ -116,6 +132,7 @@ export function ChatComposer({
   responseModes = BUILT_IN_RESPONSE_MODE_OPTIONS,
   onResponseModeChange = () => undefined,
   onSubmit,
+  onGoalModeSubmit = () => undefined,
   onStop,
   isSubmitting,
   awaitingClarify,
@@ -153,6 +170,13 @@ export function ChatComposer({
     disabled:
       disabled || isSubmitting || awaitingClarify || maxTaskSkills === 0,
   });
+  const slash = useSlashCommand({
+    text: value,
+    onTextChange: onValueChange,
+    textareaRef,
+    disabled: disabled || isSubmitting || awaitingClarify,
+  });
+  const goalArmed = slash.armedCommandId === "goal";
   const placeholder = awaitingClarify
     ? CLARIFY_PLACEHOLDER
     : DEFAULT_PLACEHOLDER;
@@ -169,7 +193,13 @@ export function ChatComposer({
       return;
     }
 
+    onGoalModeSubmit(goalArmed);
     onSubmit(text);
+    // Every send clears the armed command, so a later, unrelated message can
+    // never silently inherit goal mode (§5.5) — the hook also self-clears
+    // when the composer text empties, but that's not guaranteed to happen
+    // before the *next* send if a caller repopulates `value` first.
+    slash.clearArmedCommand();
     adjustHeight(true);
   }
 
@@ -179,6 +209,11 @@ export function ChatComposer({
   }
 
   function handleKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
+    // Chained slash → skill → submit (§5.5): both return `true` when they
+    // consume a key, so first refusal wins and nothing falls through.
+    if (slash.handleKeyDown(event)) {
+      return;
+    }
     if (picker.handleKeyDown(event)) {
       return;
     }
@@ -272,6 +307,30 @@ export function ChatComposer({
           </div>
         )}
 
+        {goalArmed && (
+          /* Above the message, matching the selection chip's placement: the
+           * one thing a student must see before they hit send is that this
+           * message is about to start a long, autonomous, budget-spending
+           * run — not a chip buried among the settings controls below. */
+          <div className="flex px-[var(--workspace-composer-inset)] pt-3">
+            <Badge
+              className="min-w-0 max-w-full gap-1.5 py-0.5 pr-1 pl-2 font-normal"
+              variant="outline"
+            >
+              <Target aria-hidden="true" className="size-3.5 shrink-0" />
+              <span className="truncate">Goal mode</span>
+              <button
+                aria-label="Cancel goal mode"
+                className="-mr-0.5 relative flex size-4 shrink-0 cursor-pointer items-center justify-center rounded-sm text-muted-foreground transition-colors duration-150 ease-out hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background focus-visible:outline-none motion-reduce:transition-none pointer-coarse:after:absolute pointer-coarse:after:size-full pointer-coarse:after:min-h-11 pointer-coarse:after:min-w-11"
+                onClick={slash.clearArmedCommand}
+                type="button"
+              >
+                <X aria-hidden="true" className="size-3" />
+              </button>
+            </Badge>
+          </div>
+        )}
+
         <div className="relative">
           {hasSkillMention && (
             <InlineSkillMentionLayer
@@ -281,10 +340,18 @@ export function ChatComposer({
             />
           )}
           <Textarea
-            aria-activedescendant={picker.activeOptionId}
+            aria-activedescendant={
+              slash.isOpen ? slash.activeOptionId : picker.activeOptionId
+            }
             aria-autocomplete="list"
-            aria-controls={picker.isOpen ? picker.listboxId : undefined}
-            aria-expanded={picker.isOpen}
+            aria-controls={
+              slash.isOpen
+                ? slash.listboxId
+                : picker.isOpen
+                  ? picker.listboxId
+                  : undefined
+            }
+            aria-expanded={slash.isOpen || picker.isOpen}
             aria-label="Message Counselle"
             role="combobox"
             unstyled
@@ -297,22 +364,28 @@ export function ChatComposer({
             )}
             disabled={disabled}
             onChange={(event) => {
+              slash.handleTextChange(event);
               picker.handleTextChange(event);
               adjustHeight();
             }}
             onCompositionEnd={(event) => {
               setIsComposing(false);
+              slash.handleCompositionEnd(event);
               picker.handleCompositionEnd(event);
             }}
             onCompositionStart={() => {
               setIsComposing(true);
+              slash.handleCompositionStart();
               picker.handleCompositionStart();
             }}
             onKeyDown={handleKeyDown}
             onScroll={(event) =>
               setTextareaScrollTop(event.currentTarget.scrollTop)
             }
-            onSelect={picker.handleTextareaSelect}
+            onSelect={(event) => {
+              slash.handleTextareaSelect(event);
+              picker.handleTextareaSelect(event);
+            }}
             placeholder={placeholder}
             ref={textareaRef}
             style={{ resize: "none" }}
@@ -418,6 +491,18 @@ export function ChatComposer({
           results={picker.results}
           selectedSkills={selectedSkills}
           setActiveIndex={picker.setActiveIndex}
+        />
+        <SlashCommandMenu
+          activeIndex={slash.activeIndex}
+          anchorRef={composerRef}
+          announcement={slash.announcement}
+          isOpen={slash.isOpen}
+          listboxId={slash.listboxId}
+          onClose={slash.close}
+          onSelect={slash.selectCommand}
+          query={slash.query}
+          results={slash.results}
+          setActiveIndex={slash.setActiveIndex}
         />
       </div>
     </form>

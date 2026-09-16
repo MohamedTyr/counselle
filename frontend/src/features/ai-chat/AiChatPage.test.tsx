@@ -508,6 +508,97 @@ describe("AiChatPage", () => {
     );
   });
 
+  test("selecting /goal from the menu and sending carries goal_mode: true on the wire", async () => {
+    const user = userEvent.setup();
+    fakeTransport.getSession.mockResolvedValue(session());
+    const controlled = controllableStream();
+    fakeTransport.sendMessage.mockReturnValue(controlled.stream);
+
+    renderPage();
+    await screen.findByText("No messages yet");
+
+    const textarea = screen.getByPlaceholderText("Message Counselle");
+    await user.type(textarea, "/goal");
+    await screen.findByRole("option", { name: /Goal mode/ });
+    await user.keyboard("{Enter}");
+    await user.type(textarea, "Help me get into MIT");
+    await user.keyboard("{Enter}");
+
+    expect(await screen.findByText("Help me get into MIT")).toBeInTheDocument();
+    expect(fakeTransport.sendMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sessionId: "s1",
+        text: "Help me get into MIT",
+        goalMode: true,
+      }),
+    );
+  });
+
+  test("typing the literal /goal without selecting it sends an ordinary message with no goal_mode", async () => {
+    const user = userEvent.setup();
+    fakeTransport.getSession.mockResolvedValue(session());
+    const controlled = controllableStream();
+    fakeTransport.sendMessage.mockReturnValue(controlled.stream);
+
+    renderPage();
+    await screen.findByText("No messages yet");
+
+    const textarea = screen.getByPlaceholderText("Message Counselle");
+    await user.type(textarea, "/goal");
+    await screen.findByRole("option", { name: /Goal mode/ });
+    await user.keyboard("{Escape}");
+    await user.keyboard("{Enter}");
+
+    expect(await screen.findByText("/goal")).toBeInTheDocument();
+    expect(fakeTransport.sendMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ sessionId: "s1", text: "/goal" }),
+    );
+    expect(
+      fakeTransport.sendMessage.mock.calls.at(-1)?.[0].goalMode,
+    ).toBeUndefined();
+  });
+
+  test("a second send right after a goal send does not carry a stale goal_mode", async () => {
+    const user = userEvent.setup();
+    fakeTransport.getSession.mockResolvedValue(session());
+    fakeTransport.sendMessage
+      .mockImplementationOnce(() =>
+        replay([
+          meta({ messageId: "assistant-1", userMessageId: "user-1" }),
+          delta("First answer."),
+          done(),
+        ]),
+      )
+      .mockImplementationOnce(() =>
+        replay([
+          meta({ messageId: "assistant-2", userMessageId: "user-2" }),
+          delta("Second answer."),
+          done(),
+        ]),
+      );
+
+    renderPage();
+    await screen.findByText("No messages yet");
+
+    const textarea = screen.getByPlaceholderText("Message Counselle");
+    await user.type(textarea, "/goal");
+    await screen.findByRole("option", { name: /Goal mode/ });
+    await user.keyboard("{Enter}");
+    await user.type(textarea, "Help me get into MIT");
+    await user.keyboard("{Enter}");
+    await screen.findByText("First answer.");
+
+    await user.type(textarea, "A normal follow-up");
+    await user.keyboard("{Enter}");
+    await screen.findByText("Second answer.");
+
+    expect(fakeTransport.sendMessage).toHaveBeenCalledTimes(2);
+    expect(fakeTransport.sendMessage.mock.calls[0]?.[0].goalMode).toBe(true);
+    expect(
+      fakeTransport.sendMessage.mock.calls[1]?.[0].goalMode,
+    ).toBeUndefined();
+  });
+
   test("submits a routed initial prompt once after the empty session loads", async () => {
     const onInitialPromptConsumed = vi.fn();
     fakeTransport.getSession.mockResolvedValue(session());
@@ -527,6 +618,67 @@ describe("AiChatPage", () => {
     expect(fakeTransport.sendMessage).toHaveBeenCalledWith(
       expect.objectContaining({ sessionId: "s1", text: "Compare aid" }),
     );
+    controlled.push(done());
+    controlled.close();
+  });
+
+  test("a goal-armed initial turn carries goal_mode: true on the wire", async () => {
+    const onInitialTurnConsumed = vi.fn();
+    fakeTransport.getSession.mockResolvedValue(session());
+    const controlled = controllableStream();
+    fakeTransport.sendMessage.mockReturnValue(controlled.stream);
+
+    renderPage("s1", {
+      initialTurn: {
+        text: "Help me get into MIT",
+        skills: [],
+        responseMode: "quick",
+        goalMode: true,
+      },
+      onInitialTurnConsumed,
+    });
+
+    expect(
+      await screen.findByText("Help me get into MIT"),
+    ).toBeInTheDocument();
+    expect(onInitialTurnConsumed).toHaveBeenCalledTimes(1);
+    expect(fakeTransport.sendMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sessionId: "s1",
+        text: "Help me get into MIT",
+        goalMode: true,
+      }),
+    );
+    controlled.push(meta());
+    controlled.push(delta("Initial answer"));
+    controlled.push(done());
+    controlled.close();
+  });
+
+  test("a normal initial turn (no goalMode) sends no goal_mode", async () => {
+    const onInitialTurnConsumed = vi.fn();
+    fakeTransport.getSession.mockResolvedValue(session());
+    const controlled = controllableStream();
+    fakeTransport.sendMessage.mockReturnValue(controlled.stream);
+
+    renderPage("s1", {
+      initialTurn: {
+        text: "Compare aid",
+        skills: [],
+        responseMode: "quick",
+      },
+      onInitialTurnConsumed,
+    });
+
+    expect(await screen.findByText("Compare aid")).toBeInTheDocument();
+    expect(fakeTransport.sendMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ sessionId: "s1", text: "Compare aid" }),
+    );
+    expect(
+      fakeTransport.sendMessage.mock.calls.at(-1)?.[0].goalMode,
+    ).toBeUndefined();
+    controlled.push(meta());
+    controlled.push(delta("Initial answer"));
     controlled.push(done());
     controlled.close();
   });

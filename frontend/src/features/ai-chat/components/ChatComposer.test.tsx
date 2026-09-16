@@ -6,12 +6,13 @@ import {
   within,
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { useState } from "react";
 import { describe, expect, test, vi } from "vitest";
 
 import type { CounselingMode, SkillCatalogEntry } from "@/api/chat/types";
 import { BUILT_IN_SOURCE_CONFIG } from "@/api/chat/source-config";
 
-import { ChatComposer } from "./ChatComposer";
+import { ChatComposer, type ChatComposerProps } from "./ChatComposer";
 
 const modes: CounselingMode[] = [
   {
@@ -302,6 +303,84 @@ describe("ChatComposer", () => {
     expect(
       screen.queryByRole("button", { name: /Counseling mode:/ }),
     ).not.toBeInTheDocument();
+  });
+
+  function ControlledComposer(
+    props: Omit<Partial<ChatComposerProps>, "value" | "onValueChange">,
+  ) {
+    const [value, setValue] = useState("");
+    return (
+      <ChatComposer
+        awaitingClarify={false}
+        isSubmitting={false}
+        onSourceConfigChange={vi.fn()}
+        onStop={vi.fn()}
+        onSubmit={vi.fn()}
+        sourceConfig={BUILT_IN_SOURCE_CONFIG}
+        {...props}
+        onValueChange={setValue}
+        value={value}
+      />
+    );
+  }
+
+  test("selecting /goal from the menu arms the chip; sending reports goal_mode true and the chip clears", async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn();
+    const onGoalModeSubmit = vi.fn();
+    render(
+      <ControlledComposer onGoalModeSubmit={onGoalModeSubmit} onSubmit={onSubmit} />,
+    );
+
+    const textarea = screen.getByPlaceholderText("Message Counselle");
+    await user.type(textarea, "/goal");
+    await screen.findByRole("option", { name: /Goal mode/ });
+
+    await user.keyboard("{Enter}");
+    expect(screen.getByText("Goal mode")).toBeInTheDocument();
+
+    await user.type(textarea, "Help me get into MIT");
+    await user.keyboard("{Enter}");
+
+    expect(onGoalModeSubmit).toHaveBeenCalledWith(true);
+    expect(onSubmit).toHaveBeenCalledWith("Help me get into MIT");
+    expect(screen.queryByText("Goal mode")).not.toBeInTheDocument();
+  });
+
+  test("typing /goal without selecting it sends an ordinary message with goal_mode false", async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn();
+    const onGoalModeSubmit = vi.fn();
+    render(
+      <ControlledComposer onGoalModeSubmit={onGoalModeSubmit} onSubmit={onSubmit} />,
+    );
+
+    const textarea = screen.getByPlaceholderText("Message Counselle");
+    await user.type(textarea, "/goal");
+    // The menu is open (query matches), but nothing was explicitly selected.
+    await screen.findByRole("option", { name: /Goal mode/ });
+
+    await user.click(screen.getByRole("button", { name: "Send" }));
+
+    expect(onGoalModeSubmit).toHaveBeenCalledWith(false);
+    expect(onSubmit).toHaveBeenCalledWith("/goal");
+  });
+
+  test("Escape closes the slash menu without arming or submitting", async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn();
+    render(<ControlledComposer onSubmit={onSubmit} />);
+
+    const textarea = screen.getByPlaceholderText("Message Counselle");
+    await user.type(textarea, "/goal");
+    await screen.findByRole("option", { name: /Goal mode/ });
+
+    await user.keyboard("{Escape}");
+
+    expect(
+      screen.queryByRole("option", { name: /Goal mode/ }),
+    ).not.toBeInTheDocument();
+    expect(onSubmit).not.toHaveBeenCalled();
   });
 
   test("hides the counseling mode during clarification answers", () => {

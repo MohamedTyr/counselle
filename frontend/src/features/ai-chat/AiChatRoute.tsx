@@ -14,6 +14,11 @@ export type InitialTurn = {
   text: string;
   skills: string[];
   responseMode: ResponseMode;
+  /** Only ever `true` when the student explicitly selected `/goal` on the
+   *  new-chat composer before this session existed. Absent (not `false`) on
+   *  every other path, including a malformed value in replayed or
+   *  hand-edited router state -- see the validation below. */
+  goalMode?: boolean;
 };
 
 function initialTurnFromState(state: unknown): InitialTurn | null {
@@ -42,10 +47,18 @@ function initialTurnFromState(state: unknown): InitialTurn | null {
     ? candidate.responseMode
     : "quick";
 
+  // Router state is untrusted input (replayable, hand-editable, or stale
+  // from an old build). Arm goal mode only on a genuine boolean `true`;
+  // anything else -- missing, `false`, a string, `null` -- falls through to
+  // `undefined`. Falsely arming a long, autonomous, workspace-writing run is
+  // far worse than failing to arm one, so this never guesses.
+  const goalMode = candidate.goalMode === true ? true : undefined;
+
   return {
     text: candidate.text,
     skills: [...candidate.skills],
     responseMode,
+    goalMode,
   };
 }
 

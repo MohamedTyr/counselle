@@ -120,6 +120,16 @@ export function AiChatPage({
    * the conversation. */
   const panelTriggerRef = useRef<HTMLElement | null>(null);
   const consumedInitialTurnRef = useRef(false);
+  /**
+   * Set only by `ChatComposer`'s `onGoalModeSubmit`, which fires immediately
+   * before `onSubmit` on every send and carries `true` only when the student
+   * explicitly selected `/goal` from the slash-command menu (never derived
+   * from typed text). `handleComposerSubmit` reads and clears this
+   * synchronously for the one send it belongs to, so a later, unrelated
+   * call to `handleComposerSubmit` (retry, regenerate, the initial-turn
+   * handoff) never inherits a stale `true`.
+   */
+  const pendingGoalModeRef = useRef(false);
   const clarifySubmitInFlightRef = useRef<string | null>(null);
   const hydratedModeRef = useRef(false);
   const modeTouchedRef = useRef(false);
@@ -153,6 +163,7 @@ export function AiChatPage({
     transcriptError,
     retryTranscript,
     messages,
+    liveTurn,
     sourceConfig,
     setSourceConfig,
     selectedResponseMode,
@@ -175,6 +186,14 @@ export function AiChatPage({
     initialResponseMode,
     modeSkillNames,
   });
+  // The actual live-turn id (useTurnEngine's `liveTurn.assistantMessageId`),
+  // threaded to `ChatMessages` -> `ChatMessage` for the goal-mode crash rule
+  // (`isInterruptedGoal`). Scoped to this session so a stale turn from a
+  // just-abandoned session can never read as live here.
+  const liveMessageId =
+    liveTurn !== null && liveTurn.sessionId === sessionId
+      ? liveTurn.assistantMessageId
+      : null;
   const responseModes =
     skillConfig?.responseModes ?? BUILT_IN_RESPONSE_MODE_OPTIONS;
   const normalizedSelectedResponseMode = skillConfig
@@ -239,6 +258,13 @@ export function AiChatPage({
       // `selectedResponseMode` happens to show before hydration settles.
       responseMode = normalizedSelectedResponseMode,
     ) => {
+      // Read-then-clear, synchronously, before anything async: this send
+      // owns whatever value `onGoalModeSubmit` just set (or the default
+      // `false` when this call didn't come from a composer send at all --
+      // retry, regenerate, the initial-turn handoff). Clearing immediately
+      // means a later, unrelated call can never inherit it.
+      const goalMode = pendingGoalModeRef.current;
+      pendingGoalModeRef.current = false;
       const clarifyReplyTo =
         latestMessage?.kind === "assistant" &&
         latestMessage.turnStatus === "awaiting_input" &&
@@ -253,6 +279,10 @@ export function AiChatPage({
         latestMessage.responseMode.supported
           ? latestMessage.responseMode.mode
           : responseMode;
+      // Never arm goal mode on a clarify reply -- it can't change turn
+      // settings, and doing so is not a fresh, explicit `/goal` selection.
+      const submittedGoalMode =
+        clarifyReplyTo === undefined && goalMode ? true : undefined;
       setComposerValue("");
       if (clarifyReplyTo === undefined) {
         setSelectedTaskSkills([]);
@@ -264,6 +294,7 @@ export function AiChatPage({
         executionResponseMode: submittedMode,
         clarifyReplyTo,
         essayContext,
+        goalMode: submittedGoalMode,
       }).then((result) => {
         if (!result.ok) {
           setComposerValue(result.keepText);
@@ -340,6 +371,14 @@ export function AiChatPage({
     const initialModeSkill = split.modeSkill ?? defaultMode?.skillName;
     setSelectedModeSkill(initialModeSkill ?? null);
     setSelectedTaskSkills([]);
+    // Arm goal mode from the initial turn only on a genuine boolean `true`
+    // (already fail-closed upstream in `initialTurnFromState`, but this is
+    // the last checkpoint before the read-then-clear in
+    // `handleComposerSubmit`, so re-assert it rather than trust the type).
+    // Setting the ref here -- instead of widening `handleComposerSubmit`'s
+    // signature -- keeps this on the exact same read-then-clear path the
+    // composer's `/goal` selection already uses.
+    pendingGoalModeRef.current = effectiveInitialTurn.goalMode === true;
     // Must use the captured initial-turn mode explicitly -- not the
     // default-parameter read of `selectedResponseMode`, which can still be
     // the pre-hydration fallback at this point (plan §8.3).
@@ -523,6 +562,7 @@ export function AiChatPage({
             ) : undefined
           }
           isSubmitting={isSubmitting}
+          liveMessageId={liveMessageId}
           messages={messages}
           modeSkillNames={modeSkillNames}
           skillLabelForName={(name) =>
@@ -595,6 +635,9 @@ export function AiChatPage({
             onModeChange={(mode) => {
               modeTouchedRef.current = true;
               setSelectedModeSkill(mode.skillName);
+            }}
+            onGoalModeSubmit={(armed) => {
+              pendingGoalModeRef.current = armed;
             }}
             onSelectedSkillsChange={setSelectedTaskSkills}
             onSubmit={handleComposerSubmit}

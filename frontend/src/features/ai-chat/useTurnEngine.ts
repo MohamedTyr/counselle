@@ -85,6 +85,12 @@ export type SubmitMessageOptions = {
    * on which control the student happened to press.
    */
   essayContext?: EssayTurnContext | null;
+  /** Set only by an explicit `/goal` slash-command selection (goal-mode plan
+   * §5.5), never derived from `text`. Applies to this one send only -- the
+   * caller must not pass `true` again on a later, unrelated submitMessage
+   * call. Ignored for a clarify continuation (the engine derives that
+   * itself; see `runTurn`'s `isClarifyContinuation`). */
+  goalMode?: boolean;
 };
 
 export type SubmitClarifyResponseOptions = {
@@ -521,6 +527,7 @@ export function useTurnEngine({
       executionResponseMode: ResponseMode,
       replaceMessageId?: string,
       clarifySubmission?: ClarifySubmission,
+      goalMode?: boolean,
     ) => {
       const controller = beginTurnAbort();
       const committedSourceConfig = sourceConfigRef.current;
@@ -561,6 +568,7 @@ export function useTurnEngine({
               clarifySubmission?.origin === "widget"
                 ? clarifySubmission.response
                 : undefined,
+            goalMode: isClarifyContinuation ? undefined : goalMode,
             signal: controller.signal,
           }),
           initialUserMessageId: tempUserMessageId,
@@ -646,6 +654,7 @@ export function useTurnEngine({
       executionResponseMode: ResponseMode,
       replaceMessageId?: string,
       clarifySubmission?: ClarifySubmission,
+      goalMode?: boolean,
     ): Promise<StartedTurn> => {
       if (liveTurnRef.current !== null) {
         throw new Error("A turn is already running.");
@@ -701,6 +710,7 @@ export function useTurnEngine({
         executionResponseMode,
         replaceMessageId,
         clarifySubmission,
+        goalMode,
       );
       return {
         sessionId: activeSessionId,
@@ -781,6 +791,7 @@ export function useTurnEngine({
       replaceMessageId,
       clarifyReplyTo,
       essayContext,
+      goalMode,
     }: SubmitMessageOptions): Promise<SubmitMessageResult> => {
       if (essayContext !== undefined) {
         essayContextRef.current = essayContext;
@@ -880,6 +891,7 @@ export function useTurnEngine({
           executionResponseMode,
           replaceMessageId,
           clarifySubmission,
+          goalMode,
         );
         return { ok: true, sessionId: started.sessionId };
       } catch (error) {
@@ -895,8 +907,8 @@ export function useTurnEngine({
               // bubble from the original attempt is already in
               // persistedMessages, so re-calling startSend here would
               // append a second one. Reuses the same executionResponseMode
-              // captured for this whole submitMessage call -- never a
-              // fresher selector read.
+              // (and goalMode) captured for this whole submitMessage call --
+              // never a fresher selector read.
               await runTurn(
                 activeSessionId,
                 replaceMessageId ??
@@ -907,6 +919,7 @@ export function useTurnEngine({
                 executionResponseMode,
                 replaceMessageId,
                 clarifySubmission,
+                goalMode,
               );
               return { ok: true, sessionId: activeSessionId };
             } catch (retryError) {
