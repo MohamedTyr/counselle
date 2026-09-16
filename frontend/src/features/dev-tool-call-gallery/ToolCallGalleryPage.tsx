@@ -4,9 +4,15 @@ import {
   PlanChecklist,
   ToolStepBeat,
 } from "@/features/ai-chat/components/AgentRunView";
+import { GoalHeader } from "@/features/ai-chat/components/GoalHeader";
+import { GoalVerdictCard } from "@/features/ai-chat/components/GoalVerdictCard";
 import { cn } from "@/lib/utils";
 
-import { TOOL_CALL_FIXTURES, TOOL_CALL_GROUPS } from "./tool-call-fixtures";
+import {
+  GOAL_MODE_FIXTURES,
+  TOOL_CALL_FIXTURES,
+  TOOL_CALL_GROUPS,
+} from "./tool-call-fixtures";
 
 type Scope = "reads" | "writes" | "all";
 type Viewport = "wide" | "narrow";
@@ -48,6 +54,35 @@ function FixturePreview({
             No visible output — historical overflow receipts are suppressed.
           </p>
         )}
+      </div>
+    </div>
+  );
+}
+
+function GoalFixturePreview({
+  fixture,
+}: {
+  fixture: (typeof GOAL_MODE_FIXTURES)[number];
+}) {
+  return (
+    <div className="grid gap-3 border-b border-[var(--edge)] py-5 last:border-b-0 md:grid-cols-[148px_minmax(0,1fr)]">
+      <div className="min-w-0 pt-1">
+        <code className="block truncate text-[11px] text-[var(--ink-secondary)]">
+          {fixture.id}
+        </code>
+        <span className="mt-1 block text-[11px] text-muted-foreground">
+          {fixture.label}
+        </span>
+      </div>
+      <div className="min-w-0">
+        <GoalHeader
+          detail={fixture.detail}
+          isInterrupted={fixture.isInterrupted}
+        />
+        {fixture.detail.status !== null &&
+          fixture.detail.criteria.length > 0 && (
+            <GoalVerdictCard detail={fixture.detail} />
+          )}
       </div>
     </div>
   );
@@ -153,6 +188,20 @@ export function ToolCallGalleryPage() {
               </section>
             );
           })}
+
+          <section className="mb-12">
+            <div className="flex items-baseline justify-between border-b pb-3">
+              <h2 className="text-sm font-medium">Goal mode</h2>
+              <span className="text-xs tabular-nums text-muted-foreground">
+                {GOAL_MODE_FIXTURES.length}
+              </span>
+            </div>
+            <div>
+              {GOAL_MODE_FIXTURES.map((fixture) => (
+                <GoalFixturePreview fixture={fixture} key={fixture.id} />
+              ))}
+            </div>
+          </section>
         </div>
       </div>
     </main>

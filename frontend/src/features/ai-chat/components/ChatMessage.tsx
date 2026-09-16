@@ -26,12 +26,19 @@ import {
   ThinkingBeat,
   ToolStepBeat,
 } from "./AgentRunView";
-import { isLiveStatus, latestPlanStep } from "./activity-trace-helpers";
+import {
+  isInterruptedGoal,
+  isLiveStatus,
+  latestGoalStep,
+  latestPlanStep,
+} from "./activity-trace-helpers";
 import { CitationRenderer } from "./CitationRenderer";
 import { ClarifyBundle } from "./clarify/ClarifyBundle";
 import { isLegacyClarifySpec } from "./clarify/clarify-format";
 import type { ClarifyWidgetAnswer } from "./clarify/types";
 import { ClarifyWidget } from "./ClarifyWidget";
+import { GoalHeader } from "./GoalHeader";
+import { GoalVerdictCard } from "./GoalVerdictCard";
 import { MessageSources, type MessageSourcesPayload } from "./MessageSources";
 import { VizBlock } from "./VizBlock";
 import type { ClarifyDraftController } from "../useClarifyDraft";
@@ -58,6 +65,11 @@ export type ChatMessageProps = {
   isLatestMessage?: boolean;
   skillLabelForName?: (name: string) => string | undefined;
   modeSkillNames?: readonly string[];
+  /** The `messageId` of the turn this client is actively streaming, when the
+   *  caller knows it — threaded to `AssistantBody` for the goal-mode crash
+   *  rule (`isInterruptedGoal`, plans/goal-mode-plan.md §5.3). Omitted
+   *  callers get a same-message `turnStatus` fallback. */
+  liveMessageId?: string | null;
 };
 
 const COPY_FEEDBACK_MS = 1500;
@@ -209,14 +221,28 @@ function SegmentBeat({
           </MessageContent>
         </Message>
       );
-    case "tool":
-      return segment.step.kind === "write_plan" ? null : (
+    case "tool": {
+      // `write_plan` renders only through the pinned `PlanChecklist`. A
+      // `goal` step's `criteria`/`final` phases likewise render only
+      // through the pinned `GoalHeader`/`GoalVerdictCard` — only its
+      // `check` phase is an in-stream beat (plans/goal-mode-plan.md §5.4).
+      if (segment.step.kind === "write_plan") {
+        return null;
+      }
+      if (
+        segment.step.kind === "goal" &&
+        segment.step.detail?.goal?.phase !== "check"
+      ) {
+        return null;
+      }
+      return (
         <ToolStepBeat
           isLiveSegment={isLiveSegment}
           onOpenEssay={onOpenEssay}
           step={segment.step}
         />
       );
+    }
     case "answer":
       return segment.text.length === 0 ? null : (
         <div>
@@ -248,6 +274,7 @@ function SegmentBeat({
 
 function AssistantBody({
   clarifyDraft,
+  liveMessageId,
   message,
   onClarifyAnswer,
   onOpenCitation,
@@ -260,6 +287,11 @@ function AssistantBody({
   onOpenCitation?: (focus: SourceFocus) => void;
   onOpenEssay?: (essayId: string) => void;
   clarifyFrozen: boolean;
+  /** The `messageId` of the turn this client is actively streaming, when
+   *  known — see `isInterruptedGoal`. `undefined` (the caller hasn't wired
+   *  it) falls back to a same-message heuristic below; explicit `null`
+   *  means "no live turn at all." */
+  liveMessageId?: string | null;
 }) {
   const showEmptyLiveThinking =
     message.segments.length === 0 &&
@@ -273,6 +305,21 @@ function AssistantBody({
       )
     : -1;
   const planStep = latestPlanStep(message.segments);
+  const goalStep = latestGoalStep(message.segments);
+  const goalDetail = goalStep?.detail?.goal ?? null;
+  // §5.3's crash rule wants the actual live-turn id from the caller. Until
+  // that's threaded all the way from `useTurnEngine`, fall back to "this
+  // message is live iff its own turnStatus is genuinely streaming" — unlike
+  // the `isLiveStatus`/"idle" ambiguity the plan warns about, `"streaming"`
+  // specifically is never the value a crashed replay lands on (see
+  // `isInterruptedGoal`'s doc comment).
+  const effectiveLiveMessageId =
+    liveMessageId !== undefined
+      ? liveMessageId
+      : message.turnStatus === "streaming"
+        ? message.messageId
+        : null;
+  const isGoalInterrupted = isInterruptedGoal(message, effectiveLiveMessageId);
   const schoolDomains = useMemo(
     () => schoolDomainsFromBlocks(message.blocks),
     [message],
@@ -280,6 +327,9 @@ function AssistantBody({
 
   return (
     <>
+      {goalDetail !== null && (
+        <GoalHeader detail={goalDetail} isInterrupted={isGoalInterrupted} />
+      )}
       {planStep !== null && (
         <PlanChecklist isLive={hasLiveSegment} step={planStep} />
       )}
@@ -314,6 +364,18 @@ function AssistantBody({
           {message.streamError.message}
         </p>
       )}
+      {/* A genuine `phase: "final"` step is the only source of a non-null
+          `status` — the crash path never produces one, so this can key
+          directly off `goalDetail.status` with no separate settled/
+          interrupted check (plans/goal-mode-plan.md §5.2 point 7). */}
+      {/* `stopped_check_failed` with no criteria means derivation failed
+          before anything ran (§5.2 point 3b) — the header's explanatory
+          copy already says everything there is to say, so no card. */}
+      {goalDetail !== null &&
+        goalDetail.status !== null &&
+        goalDetail.criteria.length > 0 && (
+          <GoalVerdictCard detail={goalDetail} />
+        )}
       {message.clarify !== undefined &&
         isLegacyClarifySpec(message.clarify) && (
           <ClarifyWidget
@@ -340,6 +402,7 @@ function ChatMessageComponent({
   isLatestMessage = false,
   skillLabelForName,
   modeSkillNames = [],
+  liveMessageId,
 }: ChatMessageProps) {
   if (message.kind === "user") {
     const skills = filterModeSkillNames(message.skills ?? [], modeSkillNames);
@@ -385,6 +448,7 @@ function ChatMessageComponent({
           clarifyFrozen={
             !(isLatestMessage && message.turnStatus === "awaiting_input")
           }
+          liveMessageId={liveMessageId}
           message={message}
           onClarifyAnswer={onClarifyAnswer}
           onOpenCitation={onOpenCitation}
