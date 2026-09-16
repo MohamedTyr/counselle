@@ -99,7 +99,7 @@ describe("SchoolChancesPanel", () => {
   });
 
   test("keeps off-grid saved values exact while leaving that explorer lane empty", async () => {
-    render(
+    const { container } = render(
       <SchoolChancesPanel
         data={schoolChancesFactFixtures.full}
         metricParam="gpa"
@@ -107,7 +107,14 @@ describe("SchoolChancesPanel", () => {
       />,
     );
 
-    expect(await screen.findByText("You 3.825")).toBeVisible();
+    // The "You " label prefix died with academic-comparison-marks.tsx /
+    // GpaComparisonMarkers.tsx (P1 shape rewrite) — the pill now shows only
+    // the raw value.
+    await waitFor(() =>
+      expect(
+        container.querySelector('[data-slot="you-mark"][data-variant="you"]'),
+      ).toHaveTextContent("3.825"),
+    );
     expect(screen.queryByRole("slider", { name: "Explore GPA" })).toBeNull();
     expect(
       screen.getByText(
@@ -390,14 +397,18 @@ describe("SchoolChancesPanel", () => {
     ).toBe(CHANCES_TRUTH_FOOTER);
   });
 
+  // The `marker` column below used to be the old "You 3.82" callout label
+  // (academic-comparison-marks.tsx / GpaComparisonMarkers.tsx); the pill now
+  // shows only the raw value, so `marker` is just `value` again — kept as
+  // its own column so the table still documents intent per row.
   test.each([
-    ["gpa", "GPA scenario", "3.82", "You 3.82"],
-    ["sat", "Math scenario", "760", "You 760"],
-    ["act", "ACT composite scenario", "33", "You 33"],
+    ["gpa", "GPA scenario", "3.82", "3.82"],
+    ["sat", "Math scenario", "760", "760"],
+    ["act", "ACT composite scenario", "33", "33"],
   ] as const)(
     "does not create a second scenario surface when %s equals the saved profile",
     async (metric, inputName, value, marker) => {
-      render(
+      const { container } = render(
         <SchoolChancesPanel
           data={schoolChancesFactFixtures.full}
           metricParam={metric}
@@ -409,7 +420,12 @@ describe("SchoolChancesPanel", () => {
       fireEvent.input(input, { target: { value } });
       fireEvent.blur(input);
 
-      expect(screen.getAllByText(marker)).toHaveLength(1);
+      const matchingMarks = () =>
+        [...container.querySelectorAll('[data-slot="you-mark"]')].filter(
+          (mark) => mark.textContent === marker,
+        );
+      await waitFor(() => expect(matchingMarks()).toHaveLength(1));
+      expect(matchingMarks()[0]).toHaveAttribute("data-variant", "you");
       expect(screen.queryByText(/Your profile/)).toBeNull();
       expect(
         document.querySelector("[data-slot=school-chances-scenario-position]"),

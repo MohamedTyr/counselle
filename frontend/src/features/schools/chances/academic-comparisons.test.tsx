@@ -3,13 +3,8 @@ import { axe, toHaveNoViolations } from "jest-axe";
 import { describe, expect, test, vi } from "vitest";
 
 import { ActComparison } from "./ActComparison";
-import { AcademicComparisonPlot } from "./AcademicComparisonPlot";
 import { GpaComparison } from "./GpaComparison";
 import { SatComparison } from "./SatComparison";
-import {
-  calloutLayout,
-  endpointLabelLayout,
-} from "./academic-comparison-geometry";
 import { buildSchoolChancesModel } from "./school-chances-model";
 import {
   schoolChancesFactFixtures,
@@ -31,8 +26,15 @@ describe("academic comparison visual grammar", () => {
     expect(screen.getByText("3.75 - 3.99")).toBeVisible();
     expect(screen.getByText("60%")).toBeVisible();
     expect(screen.getByText("4.00 and Above: Not reported")).toBeVisible();
-    expect(screen.getByText("Your profile 3.82")).toBeVisible();
-    expect(screen.getByText("Scenario 3.9")).toBeVisible();
+    // The old "Your profile 3.82" / "Scenario 3.9" callout labels die with
+    // GpaComparisonMarkers.tsx: the saved value is now a dashed rule with no
+    // pill (plan §2.2), and the scenario pill shows only the raw value.
+    expect(
+      container.querySelector('[data-slot="you-mark"][data-variant="saved"]'),
+    ).toHaveAttribute("data-variant", "saved");
+    expect(
+      container.querySelector('[data-slot="you-mark"][data-variant="scenario"]'),
+    ).toHaveTextContent("3.9");
     expect(
       screen.getByText(
         "Reported buckets total 60%; missing buckets are not treated as zero.",
@@ -58,9 +60,15 @@ describe("academic comparison visual grammar", () => {
 
     expect(screen.getByText("Math")).toBeVisible();
     expect(screen.getByText("Reading and Writing")).toBeVisible();
-    expect(screen.getAllByText(/^Middle 50% \d/)).toHaveLength(2);
-    expect(screen.getByText("Middle 50% 690–760")).toBeVisible();
-    expect(screen.getByText("Average 725")).toBeVisible();
+    // The "Middle 50% 690–760" / "Average 725" value-row text died with
+    // ScoreBandDetails.tsx; the band and average are still fully stated in
+    // the accessible summary, just not duplicated visibly.
+    expect(container.querySelectorAll("figcaption")[0]).toHaveTextContent(
+      "Middle 50% is 690 to 760",
+    );
+    expect(container.querySelectorAll("figcaption")[0]).toHaveTextContent(
+      "Reported average is 725",
+    );
     expect(
       container.querySelector("[data-slot=sat-comparison] > p"),
     ).toHaveTextContent("Testing policy: Considered if submitted");
@@ -94,9 +102,15 @@ describe("academic comparison visual grammar", () => {
     );
 
     expect(screen.getByText("Composite")).toBeVisible();
-    expect(screen.getByText("Middle 50% 30–34")).toBeVisible();
-    expect(screen.getByText("Your profile 33")).toBeVisible();
-    expect(screen.getByText("Scenario 34")).toBeVisible();
+    // "Middle 50% 30–34" and "Your profile 33" died with ScoreBandDetails.tsx
+    // and academic-comparison-marks.tsx; the scenario pill (the primary mark
+    // once it differs from the saved profile) now shows just its value.
+    expect(
+      container.querySelector('[data-slot="you-mark"][data-variant="scenario"]'),
+    ).toHaveTextContent("34");
+    expect(
+      container.querySelector('[data-slot="you-mark"][data-variant="saved"]'),
+    ).toHaveAttribute("data-variant", "saved");
 
     rerender(
       <ActComparison model={model.act!} testPolicy={model.testPolicy} />,
@@ -182,7 +196,11 @@ describe("academic comparison visual grammar", () => {
         <ActComparison model={model.act!} testPolicy={model.testPolicy} />,
       );
 
-      expect(screen.getByText("Middle 50% 30–34")).toBeVisible();
+      // "Middle 50% 30–34" died with ScoreBandDetails.tsx — the band is
+      // still fully stated in the accessible summary.
+      expect(container.querySelector("figcaption")).toHaveTextContent(
+        "Middle 50% is 30 to 34",
+      );
       expect(
         container.querySelector("[class*='motion-safe:animate']"),
       ).toBeNull();
@@ -205,16 +223,17 @@ describe("academic comparison visual grammar", () => {
     const { container } = render(<GpaComparison model={model.gpa!} />);
 
     expect(screen.getByText("3.50 - 3.74: Not reported")).toBeVisible();
+    // "Below reported buckets" / "Scenario above reported buckets" edge
+    // callouts died with GpaComparisonMarkers.tsx — the mark now positions
+    // by its raw numeric value on the windowed axis instead (plan §2.2), and
+    // the out-of-range state is still fully stated in the accessible
+    // summary.
     expect(
-      screen
-        .getAllByText("Below reported buckets")
-        .some((element) => element.dataset.placement === "below-edge"),
-    ).toBe(true);
-    expect(
-      screen
-        .getAllByText("Scenario above reported buckets")
-        .some((element) => element.dataset.placement === "above-edge"),
-    ).toBe(true);
+      container.querySelector('[data-slot="you-mark"][data-variant="scenario"]'),
+    ).toHaveTextContent("4");
+    expect(container.querySelector("figcaption")).toHaveTextContent(
+      "Your 2.00 GPA is below the reported buckets",
+    );
     expect(screen.getByText("Reported distribution 2024")).toBeVisible();
     expect(container.querySelector("figcaption")).toHaveTextContent(
       "3.50 - 3.74: Not reported",
@@ -255,28 +274,12 @@ describe("academic comparison visual grammar", () => {
     );
   });
 
-  test("renders a usable score distribution with the band fact's exact unavailable wording", () => {
-    const facts = structuredClone(schoolChancesFactFixtures.full);
-    const band = facts.sections[0]!.groups[0]!.facts.find(
-      (fact) => fact.key === "class_profile.sat_math",
-    )!;
-    band.state = "not_published";
-    band.display = "The school did not publish this middle-50% band.";
-    band.reported_period = "band 2021";
-    band.value = null;
-    const model = buildSchoolChancesModel(
-      facts,
-      schoolChancesProfileFixtures.compatible,
-      "sat",
-    );
-
-    render(<SatComparison model={model.sat!} testPolicy={model.testPolicy} />);
-
-    expect(
-      screen.getByText("The school did not publish this middle-50% band."),
-    ).toHaveAttribute("data-band-state", "not_published");
-    expect(screen.getByText("Reported band 2021")).toBeVisible();
-  });
+  // The test formerly here ("renders a usable score distribution with the
+  // band fact's exact unavailable wording") asserted only on
+  // ScoreBandDetails.tsx's `BandUnavailable` component — deleted in this
+  // phase with no visual replacement (the class shape doesn't render band
+  // unavailability text when other geometry exists; the accessible summary
+  // still states it).
 
   test("prints score absent buckets and individual distribution, band, and average periods", () => {
     const facts = structuredClone(schoolChancesFactFixtures.full);
@@ -306,248 +309,34 @@ describe("academic comparison visual grammar", () => {
       screen.getByText("Score of 500 - 599: Not reported by the school"),
     ).toBeVisible();
     expect(screen.getByText("Reported distribution 2022")).toBeVisible();
-    expect(screen.getByText("Reported band 2023")).toBeVisible();
-    expect(screen.getByText("Reported average 2024")).toBeVisible();
+    // "Reported band 2023" / "Reported average 2024" died with
+    // ScoreBandDetails.tsx's value row; both periods are still fully stated
+    // in the accessible summary.
+    expect(container.querySelector("figcaption")).toHaveTextContent(
+      "reported band 2023",
+    );
+    expect(container.querySelector("figcaption")).toHaveTextContent(
+      "reported average 2024",
+    );
     expect(container.querySelector("figcaption")).toHaveTextContent(
       "Score of 500 - 599: Not reported by the school",
     );
   });
 
-  test("visibly explains missing and incompatible score profile markers", () => {
-    const missing = buildSchoolChancesModel(
-      schoolChancesFactFixtures.full,
-      null,
-      "act",
-    );
-    const incompatible = buildSchoolChancesModel(
-      schoolChancesFactFixtures.full,
-      { testing: { act: { composite: 40 } } },
-      "act",
-    );
-    const { rerender } = render(
-      <ActComparison model={missing.act!} testPolicy={missing.testPolicy} />,
-    );
-    expect(
-      screen.getByText(
-        "Add your ACT composite to place yourself on this chart.",
-      ),
-    ).toBeVisible();
+  // The test formerly here ("visibly explains missing and incompatible score
+  // profile markers") asserted on `profilePlacementMessage` rendering
+  // visibly inside the has-geometry branch. That branch's visible value row
+  // (ScoreValueRow) is deleted in this phase with no P1 replacement — the
+  // placement message is still fully stated in the accessible summary
+  // (`scoreSummary`'s `student` fallback), just not duplicated visibly until
+  // P2 gives it a home in the three-number row (plan §3).
 
-    rerender(
-      <ActComparison
-        model={incompatible.act!}
-        testPolicy={incompatible.testPolicy}
-      />,
-    );
-    expect(
-      screen.getByText(
-        "Your ACT composite cannot be placed on this 1–36 chart.",
-      ),
-    ).toBeVisible();
-  });
-
-  test("uses measured width for the exact 64px collision boundary and a deterministic narrow value row", () => {
-    expect(calloutLayout([0.2, 0.4], 320)).toBe("separate");
-    expect(calloutLayout([0.2, 0.399], 320)).toBe("rail");
-    expect(calloutLayout([0.2, 0.9], 159)).toBe("value-row");
-
-    const model = buildSchoolChancesModel(
-      schoolChancesFactFixtures.full,
-      schoolChancesProfileFixtures.compatible,
-      "gpa",
-      { gpa: 3.9 },
-    );
-    const { rerender } = render(
-      <GpaComparison availableWidth={159} model={model.gpa!} />,
-    );
-    expect(screen.getByTestId("gpa-marker-rail")).toHaveAttribute(
-      "data-callout-layout",
-      "value-row",
-    );
-    rerender(<GpaComparison availableWidth={200} model={model.gpa!} />);
-    expect(screen.getByTestId("gpa-marker-rail")).toHaveAttribute(
-      "data-callout-layout",
-      "rail",
-    );
-  });
-
-  test("uses a real two-row rail and clamped elbows for tied GPA buckets and outside edges", () => {
-    const tied = buildSchoolChancesModel(
-      schoolChancesFactFixtures.full,
-      schoolChancesProfileFixtures.compatible,
-      "gpa",
-      { gpa: 3.9 },
-    );
-    const outside = buildSchoolChancesModel(
-      schoolChancesFactFixtures.full,
-      { academics: { gpa_unweighted: "2", gpa_scale: "4" } },
-      "gpa",
-      { gpa: 1 },
-    );
-    const { container, rerender } = render(
-      <GpaComparison availableWidth={200} model={tied.gpa!} />,
-    );
-    expect(screen.getByTestId("gpa-marker-rail")).toHaveAttribute(
-      "data-callout-layout",
-      "rail",
-    );
-    expect(
-      container.querySelector("[data-slot=gpa-comparison-callout-leaders]"),
-    ).toHaveAttribute("viewBox", "0 0 100 56");
-
-    rerender(<GpaComparison availableWidth={200} model={outside.gpa!} />);
-    const rail = screen.getByTestId("gpa-marker-rail");
-    expect(rail).toHaveAttribute("data-callout-layout", "rail");
-    expect(screen.getByText("Below reported buckets")).toHaveAttribute(
-      "data-placement",
-      "below-edge",
-    );
-    expect(screen.getByText("Scenario below reported buckets")).toHaveAttribute(
-      "data-placement",
-      "below-edge",
-    );
-    expect(
-      container.querySelectorAll(
-        "[data-slot=gpa-comparison-edge-marks] [data-placement=below-edge]",
-      ),
-    ).toHaveLength(2);
-
-    rerender(<GpaComparison availableWidth={159} model={outside.gpa!} />);
-    expect(screen.getByTestId("gpa-marker-rail")).toHaveAttribute(
-      "data-callout-layout",
-      "value-row",
-    );
-  });
-
-  test("uses normalized fluid leader geometry and all three width states for score callouts", () => {
-    const model = buildSchoolChancesModel(
-      schoolChancesFactFixtures.full,
-      schoolChancesProfileFixtures.compatible,
-      "act",
-      { act: { composite: 34 } },
-    );
-    const lane = model.act!;
-    const { container, rerender } = render(
-      <AcademicComparisonPlot
-        availableWidth={159}
-        lane={lane}
-        title="Composite"
-      />,
-    );
-    expect(
-      container.querySelector("[data-slot=academic-comparison-callout-rail]"),
-    ).toBeNull();
-    expect(
-      container.querySelector("[data-slot=academic-comparison-markers]"),
-    ).toHaveAttribute("data-callout-layout", "value-row");
-
-    rerender(
-      <AcademicComparisonPlot
-        availableWidth={200}
-        lane={lane}
-        title="Composite"
-      />,
-    );
-    expect(
-      container.querySelector("[data-slot=academic-comparison-callout-rail]"),
-    ).toHaveAttribute("data-callout-layout", "rail");
-    expect(
-      container.querySelector(
-        "[data-slot=academic-comparison-callout-leaders]",
-      ),
-    ).toHaveAttribute("viewBox", "0 0 100 56");
-
-    const separatedLane = buildSchoolChancesModel(
-      schoolChancesFactFixtures.full,
-      schoolChancesProfileFixtures.compatible,
-      "act",
-      { act: { composite: 20 } },
-    ).act!;
-    rerender(
-      <AcademicComparisonPlot
-        availableWidth={400}
-        lane={separatedLane}
-        title="Composite"
-      />,
-    );
-    expect(
-      container.querySelector("[data-slot=academic-comparison-callout-rail]"),
-    ).toHaveAttribute("data-callout-layout", "separate");
-  });
-
-  test("clamps score callout labels at the domain edges in wide and narrow layouts", () => {
-    const model = buildSchoolChancesModel(
-      schoolChancesFactFixtures.full,
-      {
-        testing: { act: { composite: 1 } },
-      },
-      "act",
-      { act: { composite: 36 } },
-    );
-    const { container, rerender } = render(
-      <AcademicComparisonPlot
-        availableWidth={400}
-        lane={model.act!}
-        title="Composite"
-      />,
-    );
-
-    expect(
-      container.querySelector("[data-slot=academic-comparison-callout-rail]"),
-    ).toHaveAttribute("data-callout-layout", "separate");
-    expect(screen.getByText("Your profile 1")).toHaveStyle({
-      left: "0%",
-      transform: "translateX(0)",
-    });
-    expect(screen.getByText("Scenario 36")).toHaveStyle({
-      left: "100%",
-      transform: "translateX(-100%)",
-    });
-
-    rerender(
-      <AcademicComparisonPlot
-        availableWidth={159}
-        lane={model.act!}
-        title="Composite"
-      />,
-    );
-    expect(
-      container.querySelector("[data-slot=academic-comparison-callout-rail]"),
-    ).toBeNull();
-    expect(
-      container.querySelector("[data-slot=academic-comparison-markers]"),
-    ).toHaveAttribute("data-callout-layout", "value-row");
-    expect(screen.getByText("Your profile 1")).not.toHaveAttribute("style");
-    expect(screen.getByText("Scenario 36")).not.toHaveAttribute("style");
-  });
-
-  test("anchors band endpoints until their actual measured width overlaps", () => {
-    expect(endpointLabelLayout(0.2, 0.8, 300)).toBe("endpoints");
-    expect(endpointLabelLayout(0.49, 0.51, 300)).toBe("middle");
-    const model = buildSchoolChancesModel(
-      schoolChancesFactFixtures.full,
-      schoolChancesProfileFixtures.compatible,
-      "act",
-    );
-    const { container, rerender } = render(
-      <AcademicComparisonPlot
-        availableWidth={500}
-        lane={model.act!}
-        title="Composite"
-      />,
-    );
-    expect(
-      container.querySelector("[data-slot=academic-comparison-band-endpoints]"),
-    ).toHaveAttribute("data-band-layout", "endpoints");
-    rerender(
-      <AcademicComparisonPlot
-        availableWidth={20}
-        lane={model.act!}
-        title="Composite"
-      />,
-    );
-    expect(
-      container.querySelector("[data-slot=academic-comparison-band-endpoints]"),
-    ).toHaveAttribute("data-band-layout", "middle");
-  });
+  // The five tests formerly here (measured-width collision boundaries, the
+  // GPA marker rail's real geometry, score callout fluid-leader states,
+  // clamped callout-label edges, and band-endpoint layout) asserted entirely
+  // on `calloutLayout`/`endpointLabelLayout` and the components that
+  // consumed them — `GpaComparisonMarkers.tsx`, `academic-comparison-marks.tsx`
+  // and `ScoreBandDetails.tsx`. `ClassShape`/`YouMark` position everything by
+  // the windowed axis instead of measured-width collision layout, so none of
+  // that machinery exists to test any more.
 });

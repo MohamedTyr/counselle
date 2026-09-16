@@ -188,7 +188,11 @@ const INITIAL_FACTS = (): Record<ChancesFactKey, Fact | null> =>
     Fact | null
   >;
 
-const SCORE_DOMAINS = {
+/** The instrument scale for each SAT/ACT lane — the score domain a lane's
+ * own value is defined over, independent of any reported band. Exported for
+ * `AcademicComparisonPlot.tsx`'s `plotWindow()` call, which needs the same
+ * fact this contract already owns rather than a second copy of it. */
+export const SCORE_DOMAINS = {
   math: { min: 200, max: 800 },
   ebrw: { min: 200, max: 800 },
   composite: { min: 1, max: 36 },

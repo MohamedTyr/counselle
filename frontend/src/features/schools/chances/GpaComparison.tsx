@@ -1,33 +1,26 @@
-import { Bar, BarChart, ReferenceLine, XAxis, YAxis } from "recharts";
-
-import { ChartContainer } from "@/components/ui/chart";
 import { ChartFigure } from "@/features/schools/facts/charts/chart-shell";
 import { cn } from "@/lib/utils";
 
 import {
-  calloutLayout,
-  useMeasuredPlotWidth,
-} from "./academic-comparison-geometry";
-import { GpaEdgeTicks, GpaMarkerRail } from "./GpaComparisonMarkers";
+  AxisEndpointLabels,
+  AxisOnly,
+  ClassShape,
+  CLASS_SHAPE_HEIGHT,
+  YOU_MARK_PILL_CLEARANCE,
+} from "./ClassShape";
+import { YouMark } from "./YouMark";
+import { plotWindow } from "./academic-comparison-geometry";
 import type { GpaModel } from "./school-chances-model";
 
-const CHART_CONFIG = {
-  reported: {
-    label: "Reported entering-class distribution",
-    color: "var(--school-chances-mark)",
-  },
-} as const;
+/** GPA has one fixed instrument scale — the 4.0 scale this whole tab is
+ * scoped to (school-chances-model.ts's `gpaProfile` rejects anything else). */
+const GPA_DOMAIN = { min: 0, max: 4 };
 
 export function GpaComparison({
   model,
-  availableWidth,
 }: {
   model: GpaModel;
-  /** Deterministic measurement seam for visual tests. */
-  availableWidth?: number;
 }): React.ReactElement {
-  const [plotRef, measuredWidth] =
-    useMeasuredPlotWidth<HTMLDivElement>(availableWidth);
   const distribution = model.distribution;
   const changed =
     model.scenario !== null && model.scenario.value !== model.profile.value;
@@ -36,62 +29,45 @@ export function GpaComparison({
     changed && model.scenario ? scenarioMarkerLabel(model) : null;
   const summary = gpaSummary(model, profileMarker, scenarioMarker);
 
-  if (!distribution || model.distributionState.state !== "school_value") {
+  if (!distribution || !model.distributionState.usable) {
     return <GpaFallback model={model} summary={summary} />;
   }
 
-  const data = distribution.buckets.map((bucket) => ({
-    label: bucket.label,
-    /* A reported zero gets a visible tick; an absent bucket stays a gap. */
-    plotPct: bucket.pct === null ? 0 : bucket.pct === 0 ? 0.5 : bucket.pct,
-  }));
-  const callouts = gpaCallouts(
-    distribution.buckets.map((bucket) => bucket.label),
-    profileMarker,
-    scenarioMarker,
-    model,
+  const window = plotWindow(
+    "gpa",
+    GPA_DOMAIN,
+    drawnValues(distribution),
+    model.scenario?.value ?? model.profile.value ?? null,
   );
-  const layout = calloutLayout(
-    callouts.map((callout) => callout.position),
-    measuredWidth,
-  );
+  const markers = gpaMarkers(model);
+
   return (
     <ChartFigure summary={summary}>
-      <div
-        className={cn("flex flex-col gap-3")}
-        data-slot="gpa-comparison"
-        ref={plotRef}
-      >
-        <div className={cn("relative")} data-slot="gpa-comparison-plot">
-          <GpaMarkerRail callouts={callouts} layout={layout} />
-          <div className={cn("relative")}>
-            <ChartContainer
-              className={cn("h-44 min-h-44 w-full")}
-              config={CHART_CONFIG}
-              data-slot="gpa-comparison-chart"
-            >
-              <BarChart
-                data={data}
-                margin={{ top: 20, right: 0, bottom: 0, left: 0 }}
-              >
-                <XAxis dataKey="label" hide />
-                <YAxis domain={[0, 100]} hide />
-                <Bar
-                  dataKey="plotPct"
-                  fill="var(--school-chances-mark)"
-                  isAnimationActive={false}
-                  radius={[2, 2, 0, 0]}
-                />
-                <GpaChartMarker
-                  model={model}
-                  variant={changed ? "profile" : "you"}
-                />
-                <GpaChartMarker model={model} variant="scenario" />
-              </BarChart>
-            </ChartContainer>
-            <GpaEdgeTicks callouts={callouts} />
+      <div className={cn("flex flex-col gap-3")} data-slot="gpa-comparison">
+        {/* FIX 4: reserves the room `YouMark`'s pill escapes into above the
+         * plot box, so it lands in empty space instead of the heading
+         * above. The plot box itself keeps its exact stepped height. */}
+        <div style={{ paddingTop: YOU_MARK_PILL_CLEARANCE }}>
+          <div className={cn("relative")} style={{ height: CLASS_SHAPE_HEIGHT.stepped }}>
+            <ClassShape
+              band={null}
+              distribution={distribution}
+              distributionUsable={model.distributionState.usable}
+              metric="gpa"
+              window={window}
+            />
+            {markers.map((marker) => (
+              <YouMark
+                display={marker.display}
+                key={marker.variant}
+                value={marker.value}
+                variant={marker.variant}
+                window={window}
+              />
+            ))}
           </div>
         </div>
+        <AxisEndpointLabels format={(value) => value.toFixed(2)} window={window} />
         <div
           className={cn("grid gap-2 sm:grid-cols-3")}
           data-slot="gpa-comparison-buckets"
@@ -145,34 +121,43 @@ export function GpaComparison({
   );
 }
 
-function GpaChartMarker({
-  model,
-  variant,
-}: {
-  model: GpaModel;
-  variant: "profile" | "scenario" | "you";
-}): React.ReactElement | null {
-  const comparison =
-    variant === "scenario"
-      ? model.scenario?.comparison
-      : model.profile.comparison;
-  /* Out-of-span values are callouts at a true plot edge, never bucket centres. */
-  if (
-    comparison?.state === "below_reported_buckets" ||
-    comparison?.state === "above_reported_buckets"
-  )
-    return null;
-  const category = comparison?.label;
-  if (!category) return null;
-  return (
-    <ReferenceLine
-      ifOverflow="extendDomain"
-      stroke="var(--school-chances-profile-outline)"
-      strokeDasharray={variant === "profile" ? "3 2" : undefined}
-      strokeWidth={variant === "profile" ? 2 : 3}
-      x={category}
-    />
-  );
+type GpaPlotMarker = {
+  value: number;
+  display: string;
+  variant: "you" | "scenario" | "saved";
+};
+
+/**
+ * Positions the student's mark directly by its numeric GPA value on the
+ * continuous windowed axis — simpler than, and a strict improvement on, the
+ * old bucket-label lookup this replaces: it places a value even when the
+ * value falls outside every reported bucket, which the old system could only
+ * render as an edge callout.
+ */
+function gpaMarkers(model: GpaModel): GpaPlotMarker[] {
+  const profile = model.profile.value;
+  const scenario = model.scenario?.value ?? null;
+  if (scenario !== null && scenario !== profile) {
+    return [
+      ...(profile === null
+        ? []
+        : [{ value: profile, display: model.profile.display ?? String(profile), variant: "saved" as const }]),
+      { value: scenario, display: String(scenario), variant: "scenario" as const },
+    ];
+  }
+  return profile === null
+    ? []
+    : [{ value: profile, display: model.profile.display ?? String(profile), variant: "you" as const }];
+}
+
+function drawnValues(distribution: NonNullable<GpaModel["distribution"]>): number[] {
+  const values: number[] = [];
+  for (const bucket of distribution.buckets) {
+    if (bucket.pct === null || bucket.range === null) continue;
+    if (Number.isFinite(bucket.range.lo)) values.push(bucket.range.lo);
+    if (Number.isFinite(bucket.range.hi)) values.push(bucket.range.hi);
+  }
+  return values;
 }
 
 function GpaFallback({
@@ -191,6 +176,7 @@ function GpaFallback({
         className={cn("flex flex-col gap-1")}
         data-slot="gpa-comparison-unavailable"
       >
+        <AxisOnly />
         <p
           className={cn("text-sm text-[var(--school-fact-absent)]")}
           data-school-state={model.distributionState.state}
@@ -260,7 +246,11 @@ function gpaSummary(
     Math.abs(model.distribution.sumsTo - 100) > 0.5
       ? ` Reported buckets total ${model.distribution.sumsTo}%; missing buckets are not treated as zero.`
       : "";
-  return `GPA comparison. ${placement} ${scenario ? `${scenario}.` : ""} Profile comparison: ${model.profile.comparison?.state ?? model.profile.state}. Reported buckets: ${buckets}.${model.distribution?.reportedPeriod ? ` Reported distribution period: ${model.distribution.reportedPeriod}.` : ""}${total}${average}${distributionCaveat}`;
+  // FIX 5: same mitigation as the score lanes' `scoreSummary` — the windowed
+  // axis is only permissible because the accessible summary always states
+  // the real, uncropped instrument scale. Additive.
+  const fullScale = ` On the ${GPA_DOMAIN.min}–${GPA_DOMAIN.max} GPA scale.`;
+  return `GPA comparison. ${placement} ${scenario ? `${scenario}.` : ""} Profile comparison: ${model.profile.comparison?.state ?? model.profile.state}. Reported buckets: ${buckets}.${model.distribution?.reportedPeriod ? ` Reported distribution period: ${model.distribution.reportedPeriod}.` : ""}${total}${average}${distributionCaveat}${fullScale}`;
 }
 
 function gpaProfileMessage(model: GpaModel): string | null {
@@ -270,13 +260,6 @@ function gpaProfileMessage(model: GpaModel): string | null {
     return "Your GPA uses a different scale and cannot be placed on this 4.0-scale chart.";
   return null;
 }
-
-export type GpaCallout = {
-  label: string;
-  position: number;
-  placement: "below-edge" | "above-edge" | undefined;
-  variant: "profile" | "scenario" | "you";
-};
 
 function profileMarkerLabel(model: GpaModel, changed: boolean): string | null {
   if (
@@ -303,50 +286,4 @@ function scenarioMarkerLabel(model: GpaModel): string | null {
   if (model.scenario.comparison?.state === "above_reported_buckets")
     return "Scenario above reported buckets";
   return `Scenario ${model.scenario.value}`;
-}
-
-function gpaCallouts(
-  bucketLabels: string[],
-  profile: string | null,
-  scenario: string | null,
-  model: GpaModel,
-): GpaCallout[] {
-  const make = (
-    label: string | null,
-    comparison: GpaModel["profile"]["comparison"],
-    variant: GpaCallout["variant"],
-  ): GpaCallout | null => {
-    if (!label || !comparison) return null;
-    const placement = edgePlacement(label);
-    if (placement === "below-edge")
-      return { label, position: 0, placement, variant };
-    if (placement === "above-edge")
-      return { label, position: 1, placement, variant };
-    const index = bucketLabels.indexOf(comparison.label ?? "");
-    return index < 0
-      ? null
-      : {
-          label,
-          position: (index + 0.5) / bucketLabels.length,
-          placement,
-          variant,
-        };
-  };
-  return [
-    make(
-      profile,
-      model.profile.comparison,
-      profile?.startsWith("You ") ? "you" : "profile",
-    ),
-    make(scenario, model.scenario?.comparison ?? null, "scenario"),
-  ].filter((value): value is GpaCallout => value !== null);
-}
-
-function edgePlacement(label: string): "below-edge" | "above-edge" | undefined {
-  const normalized = label.toLowerCase();
-  return normalized.includes("below reported buckets")
-    ? "below-edge"
-    : normalized.includes("above reported buckets")
-      ? "above-edge"
-      : undefined;
 }

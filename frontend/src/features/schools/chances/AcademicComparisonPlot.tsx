@@ -1,57 +1,58 @@
-import { ComposedChart, XAxis, YAxis } from "recharts";
-
-import { ChartContainer } from "@/components/ui/chart";
 import { ChartFigure } from "@/features/schools/facts/charts/chart-shell";
 import { cn } from "@/lib/utils";
 
 import {
-  calloutLayout,
-  scoreDomain,
-  scorePosition,
-  useMeasuredPlotWidth,
-  type CalloutLayout,
-} from "./academic-comparison-geometry";
-import {
-  ScorePlotMarks,
-  type ScorePlotMarker,
-} from "./academic-comparison-marks";
+  AxisEndpointLabels,
+  ClassShape,
+  CLASS_SHAPE_HEIGHT,
+  selectClassShapeKind,
+  YOU_MARK_PILL_CLEARANCE,
+} from "./ClassShape";
+import { YouMark } from "./YouMark";
+import { plotWindow, type PlotWindowMetric } from "./academic-comparison-geometry";
 import { ScoreBreakdown } from "./ScoreBreakdown";
-import { BandUnavailable, ScoreBandEndpoints } from "./ScoreBandDetails";
 import {
   partialDistributionCaveat,
   profilePlacementMessage,
   schoolFactDisplay,
 } from "./score-plot-copy";
-import type { ScalarModel, ScoreLaneModel } from "./school-chances-model";
+import {
+  SCORE_DOMAINS,
+  type ScalarModel,
+  type ScoreLaneModel,
+} from "./school-chances-model";
 
 type AcademicComparisonPlotProps = {
   lane: ScoreLaneModel;
   title: string;
   testPolicy?: ScalarModel;
-  /** Deterministic measurement seam for visual tests. */
-  availableWidth?: number;
 };
-
-const CHART_CONFIG = {
-  band: { label: "Reported middle 50%", color: "var(--school-chances-band)" },
-  mark: { label: "Reported distribution", color: "var(--school-chances-mark)" },
-} as const;
-const POINT = [{ position: 0.5 }];
 
 export function AcademicComparisonPlot({
   lane,
   title,
   testPolicy,
-  availableWidth,
 }: AcademicComparisonPlotProps): React.ReactElement {
-  const [plotRef, measuredWidth] =
-    useMeasuredPlotWidth<HTMLDivElement>(availableWidth);
   const markers = scoreMarkers(lane);
-  const layout = markerLayout(markers, lane, measuredWidth);
   const summary = scoreSummary(title, lane, markers, testPolicy);
 
   if (!hasScoreGeometry(lane))
     return <UnavailableScorePlot lane={lane} summary={summary} title={title} />;
+
+  const domain = SCORE_DOMAINS[lane.key];
+  const metric: PlotWindowMetric = lane.key === "composite" ? "act" : "sat";
+  const window = plotWindow(
+    metric,
+    domain,
+    drawnValues(lane),
+    lane.scenario?.value ?? lane.profile.value ?? null,
+  );
+  const kind = selectClassShapeKind({
+    distributionUsable: lane.distributionState.usable,
+    band: lane.band,
+    average: lane.average ? { value: Number(lane.average.value) } : null,
+  });
+  const plotHeight = kind ? CLASS_SHAPE_HEIGHT[kind] : CLASS_SHAPE_HEIGHT.rail;
 
   return (
     <section
@@ -65,189 +66,64 @@ export function AcademicComparisonPlot({
         {title}
       </h3>
       <ChartFigure summary={summary}>
-        <div
-          className={cn("flex flex-col gap-2")}
-          data-slot="academic-comparison-plot"
-          ref={plotRef}
-        >
-          <div
-            className={cn("flex items-baseline justify-end gap-3")}
-            data-slot="academic-comparison-heading"
-          >
-            <span
-              className={cn(
-                "text-xs text-[var(--school-fact-caveat)] tabular-nums",
-              )}
-            >
-              {scoreDomain(lane).min}–{scoreDomain(lane).max} scale
-            </span>
+        <div className={cn("flex flex-col gap-2")} data-slot="academic-comparison-plot">
+          {/* FIX 4: reserves the room `YouMark`'s pill escapes into above the
+           * plot box, so it lands in empty space instead of the heading
+           * above. The plot box itself keeps its exact `plotHeight`. */}
+          <div style={{ paddingTop: YOU_MARK_PILL_CLEARANCE }}>
+            <div className={cn("relative")} style={{ height: plotHeight }}>
+              <ClassShape
+                average={lane.average ? { value: Number(lane.average.value) } : null}
+                band={lane.band}
+                distribution={lane.distribution}
+                distributionUsable={lane.distributionState.usable}
+                metric={metric}
+                window={window}
+              />
+              {markers.map((marker) => (
+                <YouMark
+                  display={String(marker.value)}
+                  key={`${marker.variant}-${marker.value}`}
+                  value={marker.value}
+                  variant={marker.variant}
+                  window={window}
+                />
+              ))}
+            </div>
           </div>
-          <ScoreCalloutRail lane={lane} layout={layout} markers={markers} />
-          <ChartContainer
-            className={cn("h-32 min-h-32 w-full sm:h-28 sm:min-h-28")}
-            config={CHART_CONFIG}
-            data-slot="academic-comparison-chart"
-          >
-            <ComposedChart
-              data={POINT}
-              margin={{ top: 8, right: 0, bottom: 8, left: 0 }}
-            >
-              <XAxis dataKey="position" domain={[0, 1]} hide type="number" />
-              <YAxis domain={[0, 100]} hide type="number" />
-              <ScorePlotMarks lane={lane} markers={markers} />
-            </ComposedChart>
-          </ChartContainer>
-          <ScoreValueRow
-            lane={lane}
-            layout={layout}
-            markers={markers}
-            plotWidth={measuredWidth}
-          />
+          <AxisEndpointLabels window={window} />
           <ScoreBreakdown lane={lane} />
+          {/* Visible restatement of what `ChartFigure`'s sr-only summary
+           * already says — DESIGN.md §15.5 requires an absent or
+           * incompatible value to state its absence on screen, not only to
+           * a screen reader. Mirrors `GpaComparison.tsx`'s
+           * `gpaProfileMessage` treatment so the two paths stay symmetric. */}
+          {lane.band === null ? (
+            <p
+              className={cn("text-xs text-[var(--school-fact-absent)]")}
+              data-band-state={lane.bandState.state}
+            >
+              {lane.bandState.display ?? "Middle 50% unavailable"}
+            </p>
+          ) : null}
+          {lane.band?.reportedPeriod ? (
+            <p className={cn("text-xs text-[var(--school-fact-caveat)]")}>
+              Reported band {lane.band.reportedPeriod}
+            </p>
+          ) : null}
+          {lane.average?.reportedPeriod ? (
+            <p className={cn("text-xs text-[var(--school-fact-caveat)]")}>
+              Reported average {lane.average.reportedPeriod}
+            </p>
+          ) : null}
+          {profilePlacementMessage(lane) ? (
+            <p className={cn("text-xs text-[var(--school-fact-caveat)]")}>
+              {profilePlacementMessage(lane)}
+            </p>
+          ) : null}
         </div>
       </ChartFigure>
     </section>
-  );
-}
-
-function ScoreCalloutRail({
-  lane,
-  layout,
-  markers,
-}: {
-  lane: ScoreLaneModel;
-  layout: CalloutLayout;
-  markers: ScorePlotMarker[];
-}): React.ReactElement | null {
-  if (!markers.length || layout === "value-row") return null;
-  const domain = scoreDomain(lane);
-  return (
-    <div
-      className={cn("relative h-14")}
-      data-callout-layout={layout}
-      data-slot="academic-comparison-callout-rail"
-    >
-      <svg
-        aria-hidden="true"
-        className={cn("absolute inset-0 h-full w-full")}
-        data-slot="academic-comparison-callout-leaders"
-        preserveAspectRatio="none"
-        viewBox="0 0 100 56"
-      >
-        {layout === "rail"
-          ? markers.map((marker, index) => {
-              const left =
-                scorePosition(marker.value, domain.min, domain.max) * 100;
-              const y = index === 0 ? 14 : 38;
-              return (
-                <path
-                  d={`M 50 ${y} H ${left} V 56`}
-                  fill="none"
-                  key={`${marker.variant}-${marker.value}`}
-                  stroke="var(--school-chances-profile-outline)"
-                  strokeWidth="1"
-                />
-              );
-            })
-          : null}
-      </svg>
-      {markers.map((marker, index) => {
-        const left = scorePosition(marker.value, domain.min, domain.max) * 100;
-        return (
-          <span
-            className={cn(
-              "absolute text-xs font-medium tabular-nums",
-              layout === "rail" &&
-                (index === 0 ? "left-1/2 top-0" : "left-1/2 top-6"),
-              layout === "rail" && "-translate-x-1/2",
-            )}
-            key={`${marker.variant}-${marker.value}`}
-            style={
-              layout === "separate" ? scoreCalloutStyle(left / 100) : undefined
-            }
-          >
-            {marker.label} {marker.value}
-          </span>
-        );
-      })}
-    </div>
-  );
-}
-
-function scoreCalloutStyle(position: number): React.CSSProperties {
-  if (position <= 0) return { left: "0%", transform: "translateX(0)" };
-  if (position >= 1) return { left: "100%", transform: "translateX(-100%)" };
-  return { left: `${position * 100}%`, transform: "translateX(-50%)" };
-}
-
-function ScoreValueRow({
-  lane,
-  layout,
-  markers,
-  plotWidth,
-}: {
-  lane: ScoreLaneModel;
-  layout: CalloutLayout;
-  markers: ScorePlotMarker[];
-  plotWidth: number;
-}): React.ReactElement {
-  const placement = profilePlacementMessage(lane);
-  return (
-    <div
-      className={cn(
-        "grid gap-1 text-xs text-[var(--school-fact-caveat)] sm:grid-cols-[minmax(0,1fr)_auto]",
-      )}
-      data-slot="academic-comparison-values"
-    >
-      <div
-        className={cn(
-          "flex flex-wrap items-center gap-x-3 gap-y-1 tabular-nums",
-        )}
-        data-slot="academic-comparison-keyed-values"
-      >
-        <span>{scoreDomain(lane).min}</span>
-        {lane.band ? (
-          <ScoreBandEndpoints lane={lane} plotWidth={plotWidth} />
-        ) : (
-          <BandUnavailable lane={lane} />
-        )}
-        {lane.bandState.reportedPeriod ? (
-          <span>Reported {lane.bandState.reportedPeriod}</span>
-        ) : null}
-        <span>{scoreDomain(lane).max}</span>
-        {lane.average ? (
-          <>
-            <span>Average {lane.average.display}</span>
-            {lane.average.reportedPeriod ? (
-              <span>Reported {lane.average.reportedPeriod}</span>
-            ) : null}
-          </>
-        ) : null}
-      </div>
-      {layout === "value-row" ? (
-        <div
-          className={cn("flex flex-wrap gap-x-3 gap-y-1 tabular-nums")}
-          data-callout-layout={layout}
-          data-slot="academic-comparison-markers"
-        >
-          {markers.map((marker) => (
-            <span key={`${marker.variant}-${marker.value}`}>
-              {marker.label} {marker.value}
-            </span>
-          ))}
-        </div>
-      ) : (
-        <div
-          className={cn("hidden text-xs tabular-nums")}
-          data-callout-layout="value-row"
-          data-slot="academic-comparison-markers"
-          data-value={markers
-            .map((marker) => `${marker.label} ${marker.value}`)
-            .join(" · ")}
-        />
-      )}
-      {placement ? <p className={cn("sm:col-span-2")}>{placement}</p> : null}
-    </div>
   );
 }
 
@@ -292,7 +168,7 @@ function UnavailableScorePlot({
               className={cn("text-xs text-[var(--school-fact-absent)]")}
               data-band-state={lane.bandState.state}
             >
-              <BandUnavailable lane={lane} />
+              {lane.bandState.display ?? "Middle 50% unavailable"}
             </p>
           ) : null}
           {showBandStatus && lane.bandState.reportedPeriod ? (
@@ -312,25 +188,43 @@ function UnavailableScorePlot({
   );
 }
 
+type ScorePlotMarker = {
+  value: number;
+  variant: "you" | "scenario" | "saved";
+};
+
+/**
+ * The marks to draw over the shape: the saved profile alone when there is no
+ * differing scenario, or the scenario as the primary mark plus the saved
+ * value as a dashed reference when there is (plan §2.2) — three marks on the
+ * plot at most, down from five.
+ */
 function scoreMarkers(lane: ScoreLaneModel): ScorePlotMarker[] {
   const profile = lane.profile.value;
   const scenario = lane.scenario?.value ?? null;
-  if (scenario !== null && scenario !== profile)
+  if (scenario !== null && scenario !== profile) {
     return [
-      ...(profile === null
-        ? []
-        : [
-            {
-              label: "Your profile",
-              value: profile,
-              variant: "profile" as const,
-            },
-          ]),
-      { label: "Scenario", value: scenario, variant: "scenario" },
+      ...(profile === null ? [] : [{ value: profile, variant: "saved" as const }]),
+      { value: scenario, variant: "scenario" as const },
     ];
-  return profile === null
-    ? []
-    : [{ label: "You", value: profile, variant: "you" }];
+  }
+  return profile === null ? [] : [{ value: profile, variant: "you" as const }];
+}
+
+/** Every value the shape actually draws, folded into the axis window. */
+function drawnValues(lane: ScoreLaneModel): number[] {
+  const values: number[] = [];
+  if (lane.distributionState.usable && lane.distribution) {
+    for (const bucket of lane.distribution.buckets) {
+      if (bucket.pct === null || bucket.range === null) continue;
+      if (Number.isFinite(bucket.range.lo)) values.push(bucket.range.lo);
+      if (Number.isFinite(bucket.range.hi)) values.push(bucket.range.hi);
+    }
+  }
+  if (lane.band) values.push(lane.band.p25, lane.band.p75);
+  if (lane.average) values.push(Number(lane.average.value));
+  if (lane.profile.value !== null) values.push(lane.profile.value);
+  return values;
 }
 
 function scoreSummary(
@@ -358,7 +252,7 @@ function scoreSummary(
     ? `Reported average is ${lane.average.display}${lane.average.reportedPeriod ? ` (reported ${lane.average.reportedPeriod})` : ""}.`
     : "No reported average.";
   const student = markers.length
-    ? markers.map((marker) => `${marker.label} ${marker.value}.`).join(" ")
+    ? markers.map((marker) => `${markerLabel(marker)} ${marker.value}.`).join(" ")
     : (profilePlacementMessage(lane) ?? "No student score is plotted.");
   const period = lane.distribution?.reportedPeriod
     ? ` Reported distribution period: ${lane.distribution.reportedPeriod}.`
@@ -377,24 +271,24 @@ function scoreSummary(
   const comparison = lane.profile.comparison
     ? ` Profile comparison: ${lane.profile.comparison.state}.`
     : "";
-  return `${title}. ${band} ${average} ${student}${comparison} Reported breakdown: ${distribution}.${period}${partialCaveat}${distributionCaveat}${policy}`;
+  // FIX 5: the axis is windowed to the data (plan §2.4), and the mitigation
+  // that permits that crop is that the accessible summary always states the
+  // real, uncropped instrument scale — additive, never a replacement for
+  // anything above.
+  const domain = SCORE_DOMAINS[lane.key];
+  const instrument = lane.key === "composite" ? "ACT" : "SAT";
+  const fullScale = ` On the ${domain.min}–${domain.max} ${instrument} scale.`;
+  return `${title}. ${band} ${average} ${student}${comparison} Reported breakdown: ${distribution}.${period}${partialCaveat}${distributionCaveat}${policy}${fullScale}`;
+}
+
+function markerLabel(marker: ScorePlotMarker): string {
+  if (marker.variant === "scenario") return "Scenario";
+  if (marker.variant === "saved") return "Your profile";
+  return "You";
 }
 
 function hasScoreGeometry(lane: ScoreLaneModel): boolean {
   return (
     lane.band !== null || lane.average !== null || lane.distributionState.usable
-  );
-}
-function markerLayout(
-  markers: ScorePlotMarker[],
-  lane: ScoreLaneModel,
-  plotWidth: number,
-): CalloutLayout {
-  const domain = scoreDomain(lane);
-  return calloutLayout(
-    markers.map((marker) =>
-      scorePosition(marker.value, domain.min, domain.max),
-    ),
-    plotWidth,
   );
 }

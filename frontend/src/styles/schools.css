@@ -36,7 +36,6 @@
    * Institutional distributions and bands stay neutral. Brand colour has one
    * meaning here: the student's profile or local scenario position. */
   --school-chances-panel-surface: var(--school-facts-panel-surface);
-  --school-chances-mark: var(--ink-secondary);
   --school-chances-track: var(--school-chart-track);
   --school-chances-band: var(--ink-faint);
   --school-chances-divider: var(--hairline);
@@ -44,13 +43,19 @@
   --school-chances-scenario: var(--brand);
 
   /* ---- academic comparison v2 (school-chances-minimal-redesign §2.3) ----
-   * Institutional class data is a wash, not a solid — --school-chances-mark
-   * above (full-strength --ink-secondary) is retired by this redesign but
-   * kept live until its remaining consumers (academic-comparison-marks.tsx,
-   * AcademicComparisonPlot.tsx, GpaComparison.tsx) are deleted — the first is
-   * a P1 deletion, the latter two are only rewritten in P2. --*-you is
+   * Institutional class data is a wash, not a solid. --school-chances-mark
+   * (full-strength --ink-secondary) is retired: this P1 deletion removed its
+   * last three consumers (academic-comparison-marks.tsx,
+   * AcademicComparisonPlot.tsx, GpaComparison.tsx) in one pass rather than
+   * the two-phase removal this comment originally expected. --*-you is
    * the student's own mark and the only full-contrast object on the plot;
    * --*-scenario (lime-500) is the hypothetical, never the real score.
+   *
+   * --school-chances-track, --school-chances-band and
+   * --school-chances-profile-outline are ALSO now zero-consumer dead tokens
+   * as of this same deletion (their only callers were the same three files),
+   * but retiring them was outside this pass's authorization — see the P1
+   * report for school-chances-redesign.
    *
    * The class silhouette is the data this plot exists to show, so it is not
    * exempt from WCAG 1.4.11: the fill stays a 14% decorative wash and the
@@ -203,30 +208,13 @@
    */
 }
 
-/* Plot widths use an explicit container query rather than runtime DOM
- * measurement. At extreme zoom the callouts join their persistent value row. */
-[data-slot="academic-comparison-plot"] {
-  container-type: inline-size;
-}
-
-[data-slot="gpa-comparison-markers"] [data-placement="below-edge"] {
-  margin-right: auto;
-}
-
-[data-slot="gpa-comparison-markers"] [data-placement="above-edge"] {
-  margin-left: auto;
-}
-
-@container (width < 160px) {
-  [data-slot="academic-comparison-callout-rail"] {
-    display: none;
-  }
-
-  [data-slot="academic-comparison-markers"][data-callout-layout] {
-    display: block !important;
-  }
-
-  [data-slot="academic-comparison-markers"][data-value]::before {
-    content: attr(data-value);
-  }
-}
+/*
+ * The callout-rail / marker-collision rules that used to live here
+ * (`[data-slot="academic-comparison-plot"] { container-type: inline-size }`,
+ * the GPA below/above-edge margins, the `@container (width < 160px)`
+ * value-row collapse) targeted DOM that died with `academic-comparison-marks.tsx`,
+ * `GpaComparisonMarkers.tsx` and `ScoreBandDetails.tsx` in the P1 shape
+ * rewrite (school-chances-minimal-redesign). `ClassShape`/`YouMark` position
+ * everything by the windowed axis instead of measured-width collision
+ * layout, so there is nothing left for these selectors to match.
+ */

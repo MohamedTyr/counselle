@@ -35,6 +35,24 @@ export const PLOT_WINDOW_TICK: Record<PlotWindowMetric, number> = {
   act: 1,
 };
 
+/**
+ * Bucket-label precision — the smallest gap between two adjacent reported
+ * bucket labels ("3.50 - 3.74" → "3.75 - 3.99" is 0.01 GPA; SAT and ACT
+ * labels are whole numbers, so their gap is 1). Deliberately distinct from
+ * `PLOT_WINDOW_TICK` above, which is the *axis* grid each metric snaps to —
+ * for GPA that's a full 0.25-wide bucket, four times the label seam it
+ * would need to absorb. `steppedAreaData` (`ClassShape.tsx`) uses this, not
+ * the axis tick, to decide whether two buckets are "touching" (same
+ * reporting seam, no invented 0% canyon) versus a genuine reported gap
+ * (which must still drop to zero). SAT and ACT happen to share a value with
+ * their own axis tick; GPA does not.
+ */
+export const PLOT_LABEL_PRECISION: Record<PlotWindowMetric, number> = {
+  gpa: 0.01,
+  sat: 1,
+  act: 1,
+};
+
 /** The span is padded by this fraction of its own width on each side. */
 const WINDOW_PADDING_FRACTION = 0.12;
 /** The window is never narrower than this fraction of the instrument scale. */
@@ -142,46 +160,6 @@ export function plotWindow(
   return snappedHi > snappedLo
     ? { lo: snappedLo, hi: snappedHi }
     : { lo: domainLo, hi: domainHi };
-}
-
-export const CALLOUT_MIN_SEPARATION_PX = 64;
-export const CALLOUT_VALUE_ROW_WIDTH_PX = 160;
-/** Endpoint labels have a fixed `w-6` footprint, so this is real geometry. */
-export const BAND_ENDPOINT_LABEL_WIDTH_PX = 24;
-
-export type CalloutLayout = "separate" | "rail" | "value-row";
-
-/**
- * Pure collision policy shared by score and GPA marks. It deliberately takes
- * the plot width from the layout contract; it never samples a DOM rectangle.
- */
-export function calloutLayout(
-  positions: readonly number[],
-  plotWidth: number,
-): CalloutLayout {
-  if (positions.length < 2) return "separate";
-  if (plotWidth < CALLOUT_VALUE_ROW_WIDTH_PX) return "value-row";
-  return Math.abs(positions[0]! - positions[1]!) * plotWidth <
-    CALLOUT_MIN_SEPARATION_PX
-    ? "rail"
-    : "separate";
-}
-
-export type EndpointLabelLayout = "endpoints" | "middle";
-
-/**
- * The p25 label starts at its mark and the p75 label ends at its mark. Their
- * fixed 24px boxes overlap only when the actual measured space says they do.
- */
-export function endpointLabelLayout(
-  p25Position: number,
-  p75Position: number,
-  plotWidth: number,
-): EndpointLabelLayout {
-  return (p75Position - p25Position) * plotWidth <
-    BAND_ENDPOINT_LABEL_WIDTH_PX * 2
-    ? "middle"
-    : "endpoints";
 }
 
 /** Measures the plot container itself; callers never infer width from marks. */
