@@ -62,6 +62,17 @@ def _require_vertex_prefix(model_setting: str) -> None:
         )
 
 
+def goal_agent_model_setting(settings: Settings) -> str:
+    """Resolve the model setting for the goal-mode agent's own iterations
+    (plans/goal-mode-plan.md §2.10, D15). Empty ``settings.goal_model`` falls
+    back to ``settings.model_cheap`` — the SAME ADR 0011 seam as
+    :func:`goal_judge_model_setting`/:func:`goal_criteria_model_setting`, so
+    all three goal-mode model knobs are resolved in one place rather than
+    inline in ``app/agent_node.py``.
+    """
+    return settings.goal_model or settings.model_cheap
+
+
 def goal_judge_model_setting(settings: Settings) -> str:
     """Resolve the model setting for the goal-mode judge call (plans/goal-mode-plan.md
     §3, D15). Empty ``settings.model_goal_judge`` falls back to ``settings.model_cheap``

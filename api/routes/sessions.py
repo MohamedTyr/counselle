@@ -114,6 +114,11 @@ class MessageBody(BaseModel):
     # way ``source_config`` is, flattened to scalars below the route.
     surface: Any = None
     essay_context: Any = None
+    # Harness mode (plans/goal-mode-plan.md D10): the run keeps working across
+    # multiple model rounds, gated by an independent judge, until the frozen
+    # criteria are met or a budget stops it. Distinct from response_mode
+    # (quick|think) and from a skill — omitted or falsy is an ordinary turn.
+    goal_mode: Any = None
 
 
 class SteerBody(BaseModel):
@@ -389,6 +394,7 @@ async def post_message(
             or body.source_config is not None
             or body.replace_message_id is not None
             or body.response_mode is not None
+            or body.goal_mode
         ):
             return _clarify_malformed(
                 trace_id, "Clarification answers can't change turn settings."
@@ -486,6 +492,9 @@ async def post_message(
     if parsed_surface is None:
         return _invalid_request(trace_id, "Invalid essay panel request.")  # type: ignore[return-value]
     surface, essay_id, essay_selection = parsed_surface
+    if body.goal_mode is not None and not isinstance(body.goal_mode, bool):
+        return _invalid_request(trace_id, "Invalid goal_mode.")  # type: ignore[return-value]
+    goal_mode = bool(body.goal_mode)
     # Plan §7.2: the session row's own essay_id is authoritative for which essay
     # this thread belongs to. Without this, a client bug (a stale session id held
     # across an essay-panel route change) would silently queue essay A's
@@ -532,6 +541,7 @@ async def post_message(
             surface=surface,
             essay_id=essay_id,
             essay_selection=essay_selection,
+            goal_mode=goal_mode,
         )
     except StreamActive:
         return _error_json(  # type: ignore[return-value]

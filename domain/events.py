@@ -11,6 +11,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from domain.clarification import ClarifyResponseV2, ClarifySpecV2
 from domain.envelope import Citation, EvidenceItem
+from domain.goal import GoalStatus
 from domain.mutation_receipts import WorkspaceMutationReceipt
 from domain.specs import ClarifySpec, ParsedRenderSpec
 
@@ -46,9 +47,57 @@ StepKind = Literal[
     "workspace",
     "memory",
     "compaction",
+    "goal",
 ]
 StepTier = Literal["official", "community"]
 DoneStatus = Literal["complete", "awaiting_input", "cancelled"]
+
+#: Which round of a goal run this beat reports on (plans/goal-mode-plan.md
+#: §2.6) — the discriminator the frontend suppresses/renders on.
+GoalPhase = Literal["criteria", "check", "final"]
+
+
+class GoalCriterionView(BaseModel):
+    """One frozen criterion's current judged state, on the wire (§2.6, C9/C10).
+
+    ``met``/``checked`` are already code-corrected
+    (:func:`domain.goal.compute_checked`) before this is built — never the
+    judge's raw claim.
+    """
+
+    id: str
+    text: str
+    met: bool | None = None  # None = not yet judged
+    checked: bool = False  # False = never attempted (C9 "not checked")
+    reason: str | None = None
+    evidence_step_ids: tuple[str, ...] = ()  # C10 — validated in code
+
+
+class GoalStepDetail(BaseModel):
+    """The code-owned ledger + criteria state for one `kind:"goal"` beat
+    (§2.6). Never model-authored: every field here is computed by
+    `app/goal_loop.py`, not emitted by the agent itself.
+    """
+
+    phase: GoalPhase
+    statement: str
+    status: GoalStatus | None = None  # populated on phase="final" only
+    iteration: int
+    max_iterations: int
+    criteria: list[GoalCriterionView] = Field(default_factory=list)
+    critique: str | None = None
+    met_count: int = 0
+    total_count: int = 0
+    unchecked_count: int = 0
+    not_checked_note: str = ""  # C11 — required at the wire boundary, never omitted
+    # Code-owned ledger (§2.5/§2.10). Never model-authored.
+    requests_used: int = 0
+    requests_limit: int = 0
+    tokens_used: int = 0
+    tokens_limit: int = 0
+    est_cost_usd: float | None = None
+    cost_limit_usd: float | None = None
+    elapsed_s: float = 0.0
 
 
 class Event(BaseModel):
@@ -154,6 +203,8 @@ class StepDetail(BaseModel):
     #: current corrupted receipt (marker present, mutation missing/invalid)
     #: from pre-feature history (marker absent) — never conflate the two.
     mutation_contract: Literal[1] | None = None
+    #: Goal-mode ledger/criteria payload (§2.6) — `kind:"goal"` steps only.
+    goal: GoalStepDetail | None = None
 
 
 class StepSource(BaseModel):

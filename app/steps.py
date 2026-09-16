@@ -980,6 +980,21 @@ class EmissionRouter:
         elif isinstance(event, FunctionToolResultEvent):
             self._finish_step(event)
 
+    def begin_iteration(self) -> None:
+        """Goal mode (plan §2.2/C7): reset exactly the six per-iteration-
+        transient fields; carry everything else — most importantly `_counter`
+        (monotonic step_ids), which is what keeps `app/records.py`'s
+        in-place-replace-on-repeated-id behavior from silently overwriting
+        an earlier iteration's steps (D7's zero-diff promise there depends on
+        this). `_open` needs no reset: `close()` already cleared it.
+        """
+        self._closed = False
+        self.final_answer_started = False
+        self._final_candidate = False
+        self._text_buf = ""
+        self._thinking_buf = ""
+        self._narration_streamed_len = 0
+
     def close(self, reason: CloseReason) -> None:
         """Terminal closure: flush buffers, close every still-open step.
 

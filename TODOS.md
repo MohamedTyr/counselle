@@ -777,3 +777,39 @@ follow-up in the same phase; this entry is closed on the backend side.
   `_write_mode`, `_load_turn_essay`), `app/workspace/agent_tools_shared.py` (`ToolCtx`),
   `config/assets/prompts/essay_partner.md` § "You only work on this essay".
 - *(Logged 2026-09-08, found while correcting the applied-vs-proposed prose.)*
+
+## `app/agent_node.py` is over its 800-line cap; the plan's own C6 stop condition tripped
+- **What:** the file is now ~1,847 lines. C6 (`plans/goal-mode-plan.md`) revised Phase 3's
+  budget upward from a fictional "~40-line extraction" to an honest "~150-250 net new lines
+  across `app/agent_node.py` and `app/steps.py`, including the iteration lifecycle in C7" —
+  and this batch's review found actual net growth from Phase 3 running roughly +485 lines
+  against that stated 150-250, well past what C6 itself expected. The plan is explicit that
+  splitting this file is its own branch, not something to fold into a fix batch, so nothing
+  here attempts it.
+- **The concrete split a reviewer proposed**, to do in that follow-up branch:
+  - `app/goal_loop_runner.py` — `_run_goal_loop`, `_goal_step`, `_update_goal_ledger_totals`
+    (and its `_usage_tokens`/`_price_usage_delta` pricing helpers), `_goal_wrapup_prompt`.
+  - `app/agent_iteration.py` — `_run_once`, `_RunOnceResult`, the steer helpers
+    (`_emit_injected_steers`, `_record_uninjected_steers`, `record_replayable_snapshot`).
+  - `app/final_content_writer.py` — the viz placer/writer (`_FinalContentPlacementWriter`
+    and friends).
+  - `app/compaction_beat.py` — `_CompactionBeat`, `_make_compaction_beat_emitter`.
+- **Context:** `app/agent_node.py`; `plans/goal-mode-plan.md` §5.3 correction C6.
+- *(Logged from the goal-mode Phase 3 review-fix batch, 2026-09-16.)*
+
+## Non-goal tool-budget path: the viz card now renders after the budget message, not before
+- **What:** when an ordinary (non-goal) turn hits its tool budget, the student now sees the
+  "I hit my tool budget" message before any viz card the turn had staged, rather than after.
+  This fell out of Phase 3 consolidating `flush_final()` down to the single terminal call
+  described in `_run_once`'s docstring (`app/agent_node.py`) — previously turn-terminal
+  flushing could happen at more than one point, and this ordering was one of the side effects
+  of collapsing that to one call.
+- **Why it's recorded rather than fixed:** a reviewer confirmed the new ordering is
+  architecturally correct — `flush_final()` is genuinely turn-terminal and firing it earlier
+  would reintroduce the multiple-terminal-flush hazard the consolidation removed. This is an
+  intentional, user-visible product change (message-then-card instead of card-then-message on
+  the tool-budget path), not a bug, and it should be acknowledged as an accepted change rather
+  than left as an unexplained diff in a test assertion.
+- **Context:** `app/agent_node.py` (`_run_once`'s docstring, `_TOOL_BUDGET_MESSAGE`,
+  `flush_final`).
+- *(Logged from the goal-mode Phase 3 review-fix batch, 2026-09-16.)*

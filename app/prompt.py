@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from datetime import UTC
 
 from app.asset_format import render_slots
@@ -9,6 +10,7 @@ from app.workspace import essay_markdown
 from app.workspace.models import Essay
 from config.settings import load_prompt, load_yaml_asset
 from counselle_db.catalog import CatalogSnapshot
+from domain.goal import GoalCriterion
 from domain.specs import SourceConfig
 
 _DATA_SLOTS = (
@@ -24,6 +26,7 @@ _DATA_SLOTS = (
 _PROMPT_SLOTS = ("temporal_context", "student_context", "data_picture", "subreddit_menu")
 _SOURCE_AVAILABILITY_SLOTS = ("web_status", "edu_status", "reddit_status")
 _ESSAY_PROMPT_SLOTS = ("temporal_context", "student_context", "essay_context")
+_GOAL_MODE_SLOTS = ("goal_statement", "criteria_block")
 
 #: Fills the ``essay_context`` slot when the turn's essay could not be loaded
 #: (an unauthenticated harness run, or an essay deleted mid-session). The model
@@ -142,6 +145,22 @@ def render_essay_context(essay: Essay, *, selection: str | None, max_chars: int)
     )
 
 
+def render_goal_mode(statement: str, criteria: Sequence[GoalCriterion]) -> str:
+    """The goal-mode instructions block (D12/C2/§2.9) — joined into the
+    agent's ``instructions`` alongside the counselor prompt, computed once at
+    ``Agent(...)`` construction. Carries the goal statement and frozen
+    criteria verbatim; ``instructions`` lives outside ``messages`` so no
+    compaction strategy can touch it.
+    """
+    criteria_block = "\n".join(f"- [{c.id}] {c.text}" for c in criteria)
+    return render_slots(
+        load_prompt("goal_mode"),
+        _GOAL_MODE_SLOTS,
+        goal_statement=statement,
+        criteria_block=criteria_block,
+    )
+
+
 def render_source_availability(source_config: SourceConfig) -> str:
     """Render the per-turn external-tool mount contract from a versioned asset."""
     status = {True: "enabled and mounted", False: "disabled and not mounted"}
@@ -167,4 +186,7 @@ def validate_prompt_assets() -> None:
         load_prompt("source_availability"),
         _SOURCE_AVAILABILITY_SLOTS,
         **dict.fromkeys(_SOURCE_AVAILABILITY_SLOTS, "probe"),
+    )
+    render_slots(
+        load_prompt("goal_mode"), _GOAL_MODE_SLOTS, **dict.fromkeys(_GOAL_MODE_SLOTS, "probe")
     )

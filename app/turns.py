@@ -252,6 +252,11 @@ class _Turn:
     surface: Surface = Surface.CHAT
     essay_id: str | None = None
     essay_selection: str | None = None
+    # Harness mode (plans/goal-mode-plan.md D10): drives goal budgets/timeout
+    # selection in _drive and the separate goal_max_concurrent_turns ceiling.
+    # Always False for an A2 continuation (start_continuation never accepts
+    # it) — a goal turn is never resumable as a clarify continuation (C8).
+    goal_mode: bool = False
     task: asyncio.Task[None] | None = None
     trace_id: str = ""
     ids: dict[str, Any] | None = None  # {message_id, user_message_id} from meta
@@ -364,6 +369,7 @@ class TurnRegistry:
         surface: Surface = Surface.CHAT,
         essay_id: str | None = None,
         essay_selection: str | None = None,
+        goal_mode: bool = False,
     ) -> AsyncIterator[tuple[Event, int]]:
         """Claim the session, spawn the detached turn, return an attach handle.
 
@@ -415,6 +421,15 @@ class TurnRegistry:
         max_turns = self._settings.max_concurrent_turns
         if len(self._turns) >= max_turns:
             raise TooManyTurns(session_id)
+        if goal_mode:
+            # A tighter, separate ceiling (§2.12/R10): a goal turn can hold a
+            # slot and a disproportionate share of the shared stream-buffer
+            # byte pool for up to goal_turn_timeout_s. Filtered count over the
+            # same dict, inside the same synchronous claim window — no
+            # maintained counter needed at n <= max_concurrent_turns.
+            goal_turns = sum(1 for t in self._turns.values() if t.goal_mode)
+            if goal_turns >= self._settings.goal_max_concurrent_turns:
+                raise TooManyTurns(session_id)
         buffer = _RingBuffer(
             self._settings.agent_stream_buffer_size,
             on_charge=self._charge_bytes,
@@ -429,6 +444,7 @@ class TurnRegistry:
             surface=surface,
             essay_id=essay_id,
             essay_selection=essay_selection,
+            goal_mode=goal_mode,
         )
         handle_store = getattr(self._deps, "run_handles", None)
         if handle_store is not None:
@@ -540,6 +556,15 @@ class TurnRegistry:
         Call immediately after :meth:`accept_clarification` succeeds — the
         durable A1-answered + ContinuationIntent write has already landed;
         this only spawns A2's task and buffer.
+
+        C8/D13: a goal turn is never resumable as a clarify continuation.
+        This method structurally cannot start one — it accepts no
+        ``goal_mode`` parameter, and the ``_Turn`` it spawns always has
+        ``goal_mode=False`` (the dataclass default) — belt-and-braces on top
+        of the real guarantee: ``accept_clarification`` only reaches here for
+        a record with ``status == "awaiting_input"``, which a goal turn can
+        never produce (``output_type=[str]`` makes ``ClarifyDraftV2``
+        structurally impossible on that turn).
         """
         if session_id in self._turns:
             raise StreamActive(session_id)
@@ -759,7 +784,13 @@ class TurnRegistry:
 
     async def _drive(self, turn: _Turn, source_config: SourceConfig | None) -> None:
         start_mono = time.monotonic()
-        timeout_s = self._settings.agent_turn_timeout_s
+        # D14/§2.10: a goal turn runs under a longer watchdog than an ordinary
+        # turn (90 min vs 60), since it works across many model rounds.
+        timeout_s = (
+            self._settings.goal_turn_timeout_s
+            if turn.goal_mode
+            else self._settings.agent_turn_timeout_s
+        )
         handle_store = getattr(self._deps, "run_handles", None)
         try:
             try:
@@ -777,6 +808,8 @@ class TurnRegistry:
                         run_kwargs["surface"] = turn.surface
                         run_kwargs["essay_id"] = turn.essay_id
                         run_kwargs["essay_selection"] = turn.essay_selection
+                    if turn.goal_mode:
+                        run_kwargs["goal_mode"] = True
                     events = cast(
                         "AsyncGenerator[Event, None]",
                         self._run_turn(
@@ -837,7 +870,14 @@ class TurnRegistry:
         error/timeout route through the SAME terminal-persistence owner).
         """
         start_mono = time.monotonic()
-        timeout_s = self._settings.agent_turn_timeout_s
+        # C8: an A2 continuation is never a goal turn (turn.goal_mode is
+        # always False here) — same timeout-selection shape as _drive, for
+        # the day something upstream of this changes.
+        timeout_s = (
+            self._settings.goal_turn_timeout_s
+            if turn.goal_mode
+            else self._settings.agent_turn_timeout_s
+        )
         handle_store = getattr(self._deps, "run_handles", None)
         try:
             try:

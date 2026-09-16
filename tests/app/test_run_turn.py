@@ -3280,14 +3280,15 @@ async def test_budget_after_final_partial_preserves_visible_viz_and_prose(
     assert _text(events).count("tool budget") == 1
     values = await _state_values(rig, session_id)
     record = values["turn_records"][-1]
-    assert [part["type"] for part in record["parts"]] == ["text", "viz", "text"]
+    # Goal-mode Phase 3 (plans/goal-mode-plan.md §6.0/S7): `flush_final()` is
+    # no longer called inside the per-iteration budget-exceeded path — it is
+    # genuinely turn-terminal (a spike-confirmed correction to the plan's own
+    # C7 text) and now runs exactly once, after the budget delta is written,
+    # not before it. The staged viz card therefore flushes AFTER both text
+    # deltas (which merge into one "text" part) rather than between them.
+    assert [part["type"] for part in record["parts"]] == ["text", "viz"]
     assert prose_of(record["parts"]) == _text(events)
-    assert [segment["kind"] for segment in record["segments"]] == [
-        "step",
-        "delta",
-        "viz",
-        "delta",
-    ]
+    assert [segment["kind"] for segment in record["segments"]] == ["step", "delta", "viz"]
     assert len(values["viz_emitted"]) == 1
 
 

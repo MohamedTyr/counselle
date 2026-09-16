@@ -512,6 +512,12 @@ class Settings(BaseSettings):
     # memory-exhaustion guard (over the cap → 503). Per-user caps + rate
     # limiting are B4; this is only the process-wide ceiling.
     max_concurrent_turns: int = 50
+    # A goal turn can hold a slot (and a disproportionate share of the shared
+    # stream_buffer_bytes pool) for up to goal_turn_timeout_s — far longer
+    # than an ordinary turn. A separate, tighter ceiling on how many may run
+    # at once, checked alongside max_concurrent_turns in the same synchronous
+    # claim window (plans/goal-mode-plan.md §2.12, R10).
+    goal_max_concurrent_turns: int = 5
     # Per-turn consumer ceiling: how many streams may attach to one turn's
     # ring buffer at once (over the cap → 429). A cheap abuse guard.
     max_consumers_per_turn: int = 8

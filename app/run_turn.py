@@ -615,6 +615,10 @@ async def run_continuation_turn(
         # record-building branch) — None for widget origin, U2's exact text
         # for reply origin. Never the server-rendered model_input_text.
         "record_user_text": prepared.record_user_text if prepared.project_user else None,
+        # C8/D13: an A2 continuation is never a goal turn — TurnRegistry's
+        # start_continuation accepts no goal_mode parameter, so this is
+        # always False, always explicit (same shape as run_turn's own key).
+        "goal_mode": False,
     }
     if prepared.inherited_surface is not Surface.CHAT:
         # A2 inherits A1's surface (plans/essay-ai-panel.md Part 1 §1) — same
@@ -790,6 +794,7 @@ async def run_turn(
     surface: Surface = Surface.CHAT,
     essay_id: str | None = None,
     essay_selection: str | None = None,
+    goal_mode: bool = False,
 ) -> AsyncIterator[Event]:
     """Run one counselor turn on ``thread_id = session_id``, yielding wire events."""
     settings = getattr(deps, "settings", None) or get_settings()
@@ -885,6 +890,11 @@ async def run_turn(
         # string directly; it rides turn_ids purely for record/audit fidelity.
         "response_mode": selection.response_mode.value,
         "model": selection.model_setting,
+        # D10: the harness mode this turn runs under (plans/goal-mode-plan.md
+        # §2.4) — read by the agent node to select the goal budgets/prompt/
+        # output_type. Always present (unlike surface below) so an absent key
+        # never silently means "goal" on a malformed checkpoint read.
+        "goal_mode": goal_mode,
     }
     if surface is not Surface.CHAT:
         # Flat msgpack-plain scalars (plan Part 0 C2) — the nested wire

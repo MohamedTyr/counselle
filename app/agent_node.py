@@ -48,29 +48,46 @@ from langgraph.errors import GraphInterrupt
 from pydantic_ai import Agent, Tool
 from pydantic_ai.exceptions import UsageLimitExceeded
 from pydantic_ai.messages import (
+    FunctionToolResultEvent,
     ModelMessage,
     ModelMessagesTypeAdapter,
     ModelRequest,
     ModelResponse,
+    RetryPromptPart,
     TextPart,
     UserPromptPart,
 )
 from pydantic_ai.models import Model
 from pydantic_ai.tools import RunContext
-from pydantic_ai.usage import UsageLimits
+from pydantic_ai.usage import RunUsage, UsageLimits
 from pydantic_ai_harness.experimental.compaction import ClearToolResults
 from pydantic_graph import End
 
 from app import viz as viz_mod
 from app.clarification import ask_student_output_type, build_pending_clarification
-from app.model_selection import counselor_model_selection
+from app.goal_judge import derive_criteria, judge_goal
+from app.goal_loop import (
+    GoalDecision,
+    GoalLoopController,
+    build_goal_step_detail,
+    goal_limits_from_settings,
+    phase_label,
+    status_reason,
+)
+from app.model_selection import (
+    counselor_model_selection,
+    goal_agent_model_setting,
+    goal_criteria_model_setting,
+    goal_judge_model_setting,
+)
 from app.model_selection import model_name_from_setting as model_name_from_setting
-from app.plan_tool import PlanReminder, PlanState, make_write_plan_tool
+from app.plan_tool import PlanReminder, PlanState, make_write_plan_tool, render_plan
 from app.prompt import (
     ESSAY_CONTEXT_UNAVAILABLE,
     build_essay_system_prompt,
     build_system_prompt,
     render_essay_context,
+    render_goal_mode,
     render_source_availability,
 )
 from app.pydantic_iter_nodes import CallToolsNode, ModelRequestNode
@@ -94,6 +111,7 @@ from app.tool_middleware import ToolMiddlewareContext, process_tool_result
 from app.tool_overflow import ToolResultStore
 from app.toolset import GATEABLE_TOOLS, build_db_tools, build_tools, make_tool_deps
 from app.turn_persistence import partial_messages, resolve_offset
+from app.usage import estimate_cost
 from app.viz_placement import StreamingVizMarkerStripper
 from app.workspace.agent_tools import build_workspace_tools
 from app.workspace.agent_tools_shared import WriteMode
@@ -101,7 +119,8 @@ from app.workspace.models import Essay, WorkspaceNotFoundError
 from app.workspace.service_essays import get_essay
 from config.settings import get_settings, load_yaml_asset
 from domain.clarification import ClarifyDraftV2
-from domain.events import StepData, UsageData, ev_step
+from domain.events import GoalPhase, StepData, StepDetail, UsageData, ev_step
+from domain.goal import GoalCriterion, GoalLedger, GoalStatus, GoalVerdict
 from domain.response_mode import ResponseMode
 from domain.specs import ColumnInput, SourceConfig, VizRowInput
 from domain.surface import Surface
@@ -124,15 +143,6 @@ def _close_router_safely(router: EmissionRouter, reason: CloseReason) -> None:
         router.close(reason)
     except Exception:
         logger.warning("router.close(%r) raised — continuing", reason, exc_info=True)
-
-
-def _close_router_and_flush_final_safely(
-    router: EmissionRouter,
-    final_writer: _FinalContentPlacementWriter,
-    reason: CloseReason,
-) -> None:
-    _close_router_safely(router, reason)
-    final_writer.flush_final()
 
 
 #: The clean cut-off message when the run hits a request/token budget.
@@ -398,11 +408,28 @@ class _StreamingVizMarkerPlacer:
         self,
         staged_specs: list[dict[str, Any]],
         writer: Callable[[dict[str, Any]], None],
+        *,
+        emitted_indexes: set[int] | None = None,
     ) -> None:
         self._staged_specs = staged_specs
         self._writer = writer
         self._pending = ""
-        self._emitted_indexes: set[int] = set()
+        # Goal mode (C7 + spike S7 correction): carried forward across a
+        # per-iteration rebuild so a card already shown is never re-emitted,
+        # and a marker fragment split across the boundary is never dropped.
+        self._emitted_indexes: set[int] = set(emitted_indexes) if emitted_indexes else set()
+
+    @property
+    def emitted_indexes(self) -> set[int]:
+        return self._emitted_indexes
+
+    @property
+    def pending(self) -> str:
+        return self._pending
+
+    @pending.setter
+    def pending(self, value: str) -> None:
+        self._pending = value
 
     def feed(self, text: str) -> None:
         if not text:
@@ -496,6 +523,26 @@ class _FinalContentPlacementWriter:
         if self._final_started or self._flushed:
             return
         self._final_started = True
+
+    def begin_iteration(self) -> None:
+        """Goal mode only (C7): reset the two one-way latches and rebuild the
+        two stateful nested parsers for the new iteration.
+
+        The writer itself is mutated in place, never rebound — ``EmissionRouter``
+        holds bound methods on this exact instance (``write``/``start_final``).
+        Both ``emitted_indexes`` (C7) AND ``pending`` (spike S7 correction) are
+        carried forward: ``_staged_specs`` is never cleared, and a viz marker
+        split across the iteration boundary must not leak a literal ``]]``
+        into the next iteration's answer text.
+        """
+        self._final_started = False
+        self._flushed = False
+        old_pending = self._placer.pending
+        self._placer = _StreamingVizMarkerPlacer(
+            self._staged_specs, self._writer, emitted_indexes=self._placer.emitted_indexes
+        )
+        self._placer.pending = old_pending
+        self._stripper = StreamingVizMarkerStripper()
 
     def write(self, chunk: dict[str, Any]) -> None:
         if chunk.get("type") == "delta":
@@ -851,6 +898,498 @@ def _make_compaction_beat_emitter(writer: Callable[[dict[str, Any]], None]) -> C
     return _emit
 
 
+def _goal_step(
+    *,
+    phase: GoalPhase,
+    statement: str,
+    criteria: Any,
+    verdict: GoalVerdict | None,
+    checked_by_id: dict[str, bool],
+    ledger: GoalLedger,
+    limits: Any,
+    not_checked_note: str,
+    requests_limit: int = 0,
+    tokens_limit: int = 0,
+    status: GoalStatus | None = None,
+) -> StepData:
+    """One `kind:"goal"` beat (§2.6) — a single ``end`` event, no ``start``:
+    like the compaction beat, the fact it reports is already complete by the
+    time it is known. Step ids are distinct per phase/iteration (§2.6's
+    step-id discipline) so `build_segments` never merges two rounds into one.
+    """
+    detail = build_goal_step_detail(
+        phase=phase,
+        statement=statement,
+        criteria=criteria,
+        verdict=verdict,
+        checked_by_id=checked_by_id,
+        ledger=ledger,
+        limits=limits,
+        not_checked_note=not_checked_note,
+        requests_limit=requests_limit,
+        tokens_limit=tokens_limit,
+        status=status,
+    )
+    return StepData(
+        step_id=f"goal-{phase}-{ledger.iteration}",
+        status="end",
+        kind="goal",
+        label=phase_label(phase),
+        tier=None,
+        detail=StepDetail(goal=detail),
+    )
+
+
+@dataclass
+class _RunOnceResult:
+    result: Any  # AgentRunResult[str | ClarifyDraftV2] | None — None on budget
+    hit_budget: bool
+    completion_fallback: str | None
+    # HIGH-4: True when any tool call this iteration returned an error/retry
+    # (detected via the same `StepMapper.result_is_error` check the step
+    # receipt uses) — wires `domain.goal.decide_terminal_status`'s
+    # `consecutive_tool_errors` counter, which nothing previously incremented.
+    had_tool_error: bool = False
+
+
+async def _run_once(
+    agent: Agent[TurnDeps, str | ClarifyDraftV2],
+    prompt: str,
+    history: list[ModelMessage] | None,
+    *,
+    turn_deps: TurnDeps,
+    usage: RunUsage | None,
+    limits: UsageLimits,
+    router: EmissionRouter,
+    final_writer: _FinalContentPlacementWriter,
+    recording_writer: Callable[[dict[str, Any]], None],
+    writer: Callable[[dict[str, Any]], None],
+    emissions: list[Emission],
+    handle: RunHandle | None,
+    parked_store: Any,
+    parked_session_id: str,
+    message_id: str,
+    parked_user_id: str | None,
+    registry: SourceRegistry,
+) -> _RunOnceResult:
+    """One ``agent.iter()`` pass (C7): begins/closes the per-iteration
+    emitters, streams events through *router*, and reports the outcome.
+
+    Deliberately never calls ``final_writer.flush_final()`` on any path
+    (spike correction, plans/goal-mode-plan.md §6.0/S7): that call is
+    genuinely turn-terminal (fallback-dumps every unplaced staged viz card
+    and discards — never carries forward — an in-flight marker fragment), so
+    it may run only ONCE, after the true last iteration (including any
+    §2.7 wrap-up), never at a non-terminal iteration boundary. The caller
+    owns that single call, in a ``finally`` around the whole run (single call
+    for an ordinary turn; after the loop + wrap-up for a goal turn) — the
+    same shape as the ``_record_uninjected_steers`` extraction below.
+    """
+    router.begin_iteration()
+    final_writer.begin_iteration()
+    result: Any = None
+    hit_budget = False
+    completion_fallback: str | None = None
+    had_tool_error = False
+    try:
+        async with (
+            agent,
+            agent.iter(
+                prompt,
+                message_history=history,
+                deps=turn_deps,
+                usage=usage,
+                usage_limits=limits,
+            ) as run,
+        ):
+            node = run.next_node
+            while not isinstance(node, End):
+                _emit_injected_steers(run, handle, recording_writer)
+                if Agent.is_model_request_node(node):
+                    model_node: ModelRequestNode[Any, str | ClarifyDraftV2] = node
+                    async with model_node.stream(run.ctx) as stream:
+                        async for model_event in stream:
+                            router.handle(model_event)
+                    _emit_injected_steers(run, handle, recording_writer)
+                    node = await run.next(model_node)
+                    if isinstance(node, End):
+                        record_replayable_snapshot(run, handle, emissions_len=len(emissions))
+                elif Agent.is_call_tools_node(node):
+                    tool_node: CallToolsNode[Any, str | ClarifyDraftV2] = node
+                    async with tool_node.stream(run.ctx) as stream:
+                        async for tool_event in stream:
+                            router.handle(tool_event)
+                            if isinstance(tool_event, FunctionToolResultEvent):
+                                content = (
+                                    None
+                                    if isinstance(tool_event.part, RetryPromptPart)
+                                    else getattr(tool_event.part, "content", None)
+                                )
+                                if StepMapper.result_is_error(tool_event.part, content):
+                                    had_tool_error = True
+                    record_replayable_snapshot(run, handle, emissions_len=len(emissions))
+                    _emit_injected_steers(run, handle, recording_writer)
+                    node = await run.next(tool_node)
+                    record_replayable_snapshot(run, handle, emissions_len=len(emissions))
+                else:
+                    _emit_injected_steers(run, handle, recording_writer)
+                    node = await run.next(node)
+            result = run.result
+    except UsageLimitExceeded:
+        _close_router_safely(router, "budget")
+        hit_budget = True
+        writer({"type": "delta", "text": _TOOL_BUDGET_MESSAGE})
+    except asyncio.CancelledError:
+        _close_router_safely(router, "interrupt")
+        raise
+    except GraphInterrupt:
+        _close_router_safely(router, "interrupt")
+        if parked_store is not None:
+            parked_store.park(parked_session_id, message_id, parked_user_id, registry)
+        raise
+    except Exception:
+        _close_router_safely(router, "error")
+        if parked_store is not None:
+            parked_store.clear(parked_session_id, message_id, parked_user_id)
+        raise
+    else:
+        # Deliberately NOT guarded: a close() failure on the happy path is a
+        # real turn failure (the final flush/steps never reached the student).
+        router.close("complete")
+        if result is not None and isinstance(result.output, ClarifyDraftV2):
+            # ask_student output: the model never streamed final-answer prose
+            # (the question IS the output), so final_writer never saw a
+            # natural start_final() call. Force it here so any render_viz
+            # staged before the question still flushes deterministically —
+            # and deliberately bypass _empty_resolve_completion below: a
+            # clarification result must never synthesize a false delta.
+            final_writer.start_final()
+        else:
+            completion_fallback = _empty_resolve_completion(emissions)
+            if completion_fallback:
+                writer({"type": "delta", "text": completion_fallback})
+    return _RunOnceResult(
+        result=result,
+        hit_budget=hit_budget,
+        completion_fallback=completion_fallback,
+        had_tool_error=had_tool_error,
+    )
+
+
+def _usage_tokens(usage: RunUsage) -> tuple[int, int]:
+    """``(input_tokens, output_tokens)`` snapshot of a shared ``RunUsage`` at
+    one point in time — the unit HIGH-2's per-slice pricing diffs between."""
+    return (usage.input_tokens or 0, usage.output_tokens or 0)
+
+
+def _price_usage_delta(
+    before: tuple[int, int], after: tuple[int, int], model_setting: str, settings: Any
+) -> float:
+    """Price the token delta between two ``_usage_tokens`` snapshots at
+    *model_setting*'s own rate (HIGH-2).
+
+    ``shared_usage`` aggregates the agent's own iterations AND the
+    ``judge_goal``/``derive_criteria`` calls onto one ``RunUsage`` (D6).
+    Pricing that cumulative total at a single model's rate silently prices
+    judge/criteria spend at the agent's rate — the moment
+    ``model_goal_judge``/``model_goal_criteria`` diverge from the agent's
+    tier (a documented, live owner option), the ledger understates what the
+    run actually cost. Each slice is priced at its own model, in dollars;
+    only the resulting dollar amounts are ever summed, never the token
+    counts.
+    """
+    input_delta = max(0, after[0] - before[0])
+    output_delta = max(0, after[1] - before[1])
+    cost = estimate_cost(model_setting, input_delta, output_delta, settings.model_prices)
+    return cost if cost is not None else 0.0
+
+
+def _update_goal_ledger_totals(ledger: GoalLedger, usage: RunUsage) -> None:
+    """Refresh the ledger's aggregate request/token counts from the shared
+    ``RunUsage`` (D6) — the only source `controller.decide` and the "check"/
+    "final" steps read those two fields from. Cost is priced separately, per
+    call, at each call's own model rate (HIGH-2's `_price_usage_delta`), and
+    is never recomputed from this aggregate."""
+    ledger.requests_used = usage.requests
+    ledger.tokens_used = (usage.input_tokens or 0) + (usage.output_tokens or 0)
+
+
+def _goal_wrapup_prompt(
+    status: GoalStatus,
+    verdict: GoalVerdict | None,
+    criteria: tuple[GoalCriterion, ...],
+    not_checked_note: str,
+) -> str:
+    """§2.7's wrap-up prompt: states the stop reason, what was accomplished,
+    what remains, what was never checked, and what to do next — never
+    "achieved" (C3), and this run never calls any tool."""
+    met_ids = {c.criterion_id for c in verdict.criteria if c.met} if verdict is not None else set()
+    unmet = [c.text for c in criteria if c.id not in met_ids]
+    lines = [
+        "<goal-wrapup>",
+        f"This run is ending: {status_reason(status)}",
+        "Write ONE final answer to the student, in plain prose, that:",
+        "1. Says plainly the run stopped before everything was done.",
+        "2. Names specifically what WAS accomplished.",
+        "3. Names which of the criteria below remain unmet.",
+        "4. Says what was never checked at all.",
+        "5. Says what the student (or a follow-up request) should do next.",
+        "You have no tools this round — do not attempt to call one. Never say "
+        "the goal was achieved.",
+        f"Scope note: {not_checked_note}",
+    ]
+    if unmet:
+        lines.append("Still outstanding: " + "; ".join(unmet))
+    lines.append("</goal-wrapup>")
+    return "\n".join(lines)
+
+
+async def _run_goal_loop(
+    agent: Agent[TurnDeps, str | ClarifyDraftV2],
+    statement: str,
+    history: list[ModelMessage] | None,
+    *,
+    criteria: tuple[GoalCriterion, ...],
+    not_checked_note: str,
+    limits: UsageLimits,
+    goal_limits: Any,
+    settings: Any,
+    model_setting: str,
+    model_settings: Any,
+    instructions: str,
+    plan_state: PlanState,
+    injected_model_factory: Callable[[], Model] | None,
+    shared_usage: RunUsage,
+    run_once_kwargs: dict[str, Any],
+    initial_cost_usd: float = 0.0,
+) -> tuple[Any, str | None]:
+    """The goal iteration loop (§2.1, §2.5): repeat `_run_once` + the judge
+    until :class:`GoalLoopController` says stop, then (unless achieved) a
+    §2.7 wrap-up on a second, tool-less Agent. Emits the "check" step every
+    round and the "final" step exactly once, at the true end — including on
+    a cancellation, so a cancelled goal turn's ledger still reaches the
+    student (via the stream, before `CancelledError` propagates; the turn
+    record itself is never built on this path, same as an ordinary turn).
+
+    *initial_cost_usd* is the already-priced cost of any `derive_criteria`
+    spend the caller made against `shared_usage` before this loop started
+    (HIGH-2) — the ledger's running dollar total picks up from there rather
+    than re-pricing that spend at the agent's rate.
+    """
+    controller = GoalLoopController(statement=statement, criteria=criteria, limits=goal_limits)
+    ledger = GoalLedger()
+    ledger.cost_usd = initial_cost_usd
+    # HIGH-2: the token-count snapshot the next `_price_usage_delta` call
+    # diffs against — advanced after every priced slice (agent iteration,
+    # judge call, or wrap-up), never rewound.
+    usage_snapshot = _usage_tokens(shared_usage)
+    judge_model_setting = goal_judge_model_setting(settings)
+    prompt = statement
+    iter_history = history
+    result: Any = None
+    completion_fallback: str | None = None
+    verdict: GoalVerdict | None = None
+    checked_by_id: dict[str, bool] = {}
+    cited_step_ids: frozenset[str] = frozenset()
+    decision = GoalDecision(False, None, "")
+    writer = run_once_kwargs["writer"]
+    try:
+        while True:
+            ledger.iteration += 1
+            outcome = await _run_once(
+                agent, prompt, iter_history, usage=shared_usage, limits=limits, **run_once_kwargs
+            )
+            result = outcome.result
+            completion_fallback = outcome.completion_fallback
+            _update_goal_ledger_totals(ledger, shared_usage)
+            agent_snapshot = _usage_tokens(shared_usage)
+            agent_slice_cost = _price_usage_delta(
+                usage_snapshot, agent_snapshot, model_setting, settings
+            )
+            ledger.cost_usd += agent_slice_cost
+            usage_snapshot = agent_snapshot
+            # HIGH-4: wires `goal_max_consecutive_tool_errors` — nothing
+            # previously incremented this counter, so `domain.goal`'s
+            # `partial` branch was dead.
+            ledger.consecutive_tool_errors = (
+                ledger.consecutive_tool_errors + 1 if outcome.had_tool_error else 0
+            )
+            if outcome.hit_budget:
+                decision = GoalDecision(True, "stopped_budget", status_reason("stopped_budget"))
+                break
+            if result is not None:
+                iter_history = result.all_messages()
+            final_text = (
+                result.output if result is not None and isinstance(result.output, str) else ""
+            )
+            receipts = [
+                StepData.model_validate(payload)
+                for kind, payload in run_once_kwargs["emissions"]
+                if kind == "step" and isinstance(payload, dict) and payload.get("kind") != "goal"
+            ]
+            judged = await judge_goal(
+                statement=statement,
+                criteria=criteria,
+                receipts=receipts,
+                final_text=final_text,
+                prior_cited_step_ids=cited_step_ids,
+                settings=settings,
+                usage=shared_usage,
+            )
+            if judged is None:
+                verdict, checked_by_id = None, {}
+            else:
+                verdict, checked_by_id = judged
+                cited_step_ids = frozenset(
+                    sid for c in verdict.criteria for sid in c.evidence_step_ids
+                )
+            _update_goal_ledger_totals(ledger, shared_usage)
+            judge_snapshot = _usage_tokens(shared_usage)
+            judge_slice_cost = _price_usage_delta(
+                usage_snapshot, judge_snapshot, judge_model_setting, settings
+            )
+            ledger.cost_usd += judge_slice_cost
+            usage_snapshot = judge_snapshot
+            # MEDIUM-2: project from THIS round's actual cost, not a lifetime
+            # mean — per-iteration cost trends upward across a run (each
+            # round re-sends accumulated history), so an average dragged
+            # down by cheap early rounds under-projects the next, pricier one.
+            controller.avg_cost_per_iteration = agent_slice_cost + judge_slice_cost
+            writer(
+                {
+                    "type": "step",
+                    "data": ev_step(
+                        _goal_step(
+                            phase="check",
+                            statement=statement,
+                            criteria=criteria,
+                            verdict=verdict,
+                            checked_by_id=checked_by_id,
+                            ledger=ledger,
+                            limits=goal_limits,
+                            not_checked_note=not_checked_note,
+                            requests_limit=settings.goal_max_model_requests,
+                            tokens_limit=settings.goal_max_total_tokens,
+                        )
+                    ).data,
+                }
+            )
+            plan_signature = render_plan(plan_state.items)
+            decision = controller.decide(
+                verdict=verdict, ledger=ledger, plan_signature=plan_signature
+            )
+            if decision.stop:
+                break
+            # HIGH-1: `decide_terminal_status` returns "stopped_check_failed"
+            # unconditionally when `verdict is None` (domain/goal.py), so
+            # `decision.stop` is always True on that path and the loop has
+            # already broken above — a fresh verdict is guaranteed here.
+            assert verdict is not None
+            prompt = controller.nudge_text(verdict)
+
+        goal_status: GoalStatus = decision.status or "stopped_budget"
+        if goal_status != "achieved":
+            # §2.7: a SECOND, tool-less Agent — `Agent.iter`'s `toolsets=` is
+            # additive, never a way to disable mounted tools, so "no tool
+            # calls" is made structural by simply never passing `tools=` here.
+            wrapup_agent: Agent[TurnDeps, str] = Agent(
+                injected_model_factory()
+                if injected_model_factory is not None
+                else default_model_factory(settings, model_setting),
+                instructions=instructions,
+                deps_type=TurnDeps,
+                model_settings=model_settings,
+                output_type=[str],
+                end_strategy="early",
+            )
+            wrapup_limits = UsageLimits(
+                request_limit=settings.goal_max_model_requests,
+                # MEDIUM-3: no token ceiling on the wrap-up. The main loop
+                # and the wrap-up would otherwise share one token backstop
+                # (`goal_max_total_tokens`), so a run stopped by that
+                # backstop left the wrap-up's own call immediately
+                # re-raising `UsageLimitExceeded` — replacing the goal-aware
+                # explanation with the generic tool-budget message on
+                # exactly the run where an honest Partial mattered most. The
+                # wrap-up is a single tool-less call already bounded by its
+                # own request limit, so no token ceiling is needed here.
+                total_tokens_limit=None,
+            )
+            wrapup_prompt = _goal_wrapup_prompt(goal_status, verdict, criteria, not_checked_note)
+            wrapup_outcome = await _run_once(
+                wrapup_agent,
+                wrapup_prompt,
+                iter_history,
+                usage=shared_usage,
+                limits=wrapup_limits,
+                **run_once_kwargs,
+            )
+            result = wrapup_outcome.result
+            completion_fallback = wrapup_outcome.completion_fallback
+            _update_goal_ledger_totals(ledger, shared_usage)
+            wrapup_snapshot = _usage_tokens(shared_usage)
+            ledger.cost_usd += _price_usage_delta(
+                usage_snapshot, wrapup_snapshot, model_setting, settings
+            )
+            usage_snapshot = wrapup_snapshot
+    except asyncio.CancelledError:
+        # §2.8: the ledger/last verdict must reach the student BEFORE this
+        # propagates — streamed now, since the turn record is never built on
+        # a cancelled turn (same as an ordinary turn's cancel path). Covers
+        # cancellation during the main loop AND during the wrap-up run above.
+        # Best-effort: whichever call the cancellation interrupted (agent,
+        # judge, or wrap-up) is priced at the agent's rate, since which one
+        # was in flight isn't known here — a rare race, and the ledger is
+        # documented as a soft estimate regardless.
+        _update_goal_ledger_totals(ledger, shared_usage)
+        ledger.cost_usd += _price_usage_delta(
+            usage_snapshot, _usage_tokens(shared_usage), model_setting, settings
+        )
+        writer(
+            {
+                "type": "step",
+                "data": ev_step(
+                    _goal_step(
+                        phase="final",
+                        statement=statement,
+                        criteria=criteria,
+                        verdict=verdict,
+                        checked_by_id=checked_by_id,
+                        ledger=ledger,
+                        limits=goal_limits,
+                        not_checked_note=not_checked_note,
+                        requests_limit=settings.goal_max_model_requests,
+                        tokens_limit=settings.goal_max_total_tokens,
+                        status="stopped_user",
+                    )
+                ).data,
+            }
+        )
+        raise
+
+    writer(
+        {
+            "type": "step",
+            "data": ev_step(
+                _goal_step(
+                    phase="final",
+                    statement=statement,
+                    criteria=criteria,
+                    verdict=verdict,
+                    checked_by_id=checked_by_id,
+                    ledger=ledger,
+                    limits=goal_limits,
+                    not_checked_note=not_checked_note,
+                    requests_limit=settings.goal_max_model_requests,
+                    tokens_limit=settings.goal_max_total_tokens,
+                    status=goal_status,
+                )
+            ).data,
+        }
+    )
+    return result, completion_fallback
+
+
 async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
     """One agent turn: rebuild from state, run the agent, return the delta."""
     settings = getattr(deps, "settings", None) or get_settings()
@@ -859,6 +1398,9 @@ async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
 
     # --- rebuild per-turn objects from state (replay-safe, module docstring) ---
     ids = _turn_ids(state)
+    # D10: the harness mode this turn runs under (plans/goal-mode-plan.md
+    # §2.4) — absent/malformed reads as an ordinary turn, never as goal mode.
+    goal_mode = bool(ids.get("goal_mode"))
     parked_session_id = str(ids.get("session_id") or "")
     message_id = str(ids["message_id"])
     parked_user_id = str(ids["user_id"]) if ids.get("user_id") is not None else None
@@ -915,9 +1457,13 @@ async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
         )
     extra_tools.append(_make_read_tool_result_tool(overflow_store))
     extra_tools.append(_make_load_skill_tool(tool_overflow))
-    if not _forbid_plan_request(user_text) and (
-        requested_narration is None or _explicit_plan_request(user_text)
+    if goal_mode or (
+        not _forbid_plan_request(user_text)
+        and (requested_narration is None or _explicit_plan_request(user_text))
     ):
+        # C1: a goal turn always mounts write_plan, bypassing BOTH clauses of
+        # the ordinary suppression gate — the run narrates its own plan
+        # regardless of what this turn's text says about narration/planning.
         extra_tools.insert(0, Tool(make_write_plan_tool(plan_state), takes_ctx=False))
     # Workspace tools (ADR 0013: unmounted, not hidden) — only exist this turn
     # when the turn carries an authenticated user AND the app pool + workspace
@@ -955,6 +1501,13 @@ async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
     # turn_ids, so meta/turn_ids/usage/model-invoked can never diverge.
     response_mode = _response_mode_from_ids(ids)
     selection = counselor_model_selection(response_mode, settings)
+    # D15: a goal turn runs on the cheap tier by default, not the counselor
+    # tier re-resolved above — a real quality/cost tradeoff, made explicit
+    # rather than inherited. `goal_model` empty falls back to `model_cheap`,
+    # the same "" => model_cheap seam `app/model_selection.py` already uses
+    # for the judge/criteria calls. Read only for a goal turn — never touched
+    # on an ordinary turn, so a minimal test double need not carry the knob.
+    goal_model_setting = goal_agent_model_setting(settings) if goal_mode else ""
     injected_model_factory = getattr(deps, "model_factory", None)
     # Native Gemini thought output → `thinking` events, requested only for
     # Think (subject to thinking_stream); non-Google models ignore the
@@ -999,21 +1552,82 @@ async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
         )
     )
     selected_instructions = render_selected_skills(ids["selected_skills"])
+    # D6: one shared RunUsage for the WHOLE turn — the agent's own iterations
+    # AND (goal mode only) the criteria/judge calls — so every dollar spent
+    # on this turn counts against one ledger (never invisible to it). Named
+    # distinctly from the `usage`/`UsageData` wire-shape variable below, which
+    # this feeds at the end of the run.
+    shared_usage = RunUsage()
+    goal_limits = goal_limits_from_settings(settings) if goal_mode else None
+    goal_criteria: tuple[GoalCriterion, ...] = ()
+    goal_not_checked_note = ""
+    goal_instructions = ""
+    goal_initial_cost_usd = 0.0
+    if goal_mode:
+        assert goal_limits is not None  # narrows for mypy; true whenever goal_mode
+        # D12/C2: derived and frozen ONCE, before the agent is constructed —
+        # never rebuilt per iteration. A derivation failure is this turn's
+        # only honest option: fail the turn rather than run ungoverned.
+        criteria_usage_before = _usage_tokens(shared_usage)
+        goal_criteria, goal_not_checked_note = await derive_criteria(
+            user_text, settings=settings, usage=shared_usage
+        )
+        # HIGH-2: `derive_criteria` spends against `shared_usage` before the
+        # loop (and its ledger) exists — priced here, at its own model's
+        # rate, and handed to `_run_goal_loop` as the ledger's starting
+        # dollar total rather than folded into the agent-priced total later.
+        goal_initial_cost_usd = _price_usage_delta(
+            criteria_usage_before,
+            _usage_tokens(shared_usage),
+            goal_criteria_model_setting(settings),
+            settings,
+        )
+        goal_instructions = render_goal_mode(user_text, goal_criteria)
+        writer(
+            {
+                "type": "step",
+                "data": ev_step(
+                    _goal_step(
+                        phase="criteria",
+                        statement=user_text,
+                        criteria=goal_criteria,
+                        verdict=None,
+                        checked_by_id={},
+                        ledger=GoalLedger(),
+                        limits=goal_limits,
+                        not_checked_note=goal_not_checked_note,
+                        requests_limit=settings.goal_max_model_requests,
+                        tokens_limit=settings.goal_max_total_tokens,
+                    )
+                ).data,
+            }
+        )
     instructions = "\n\n".join(
-        part for part in (base_instructions, source_instructions, selected_instructions) if part
+        part
+        for part in (
+            base_instructions,
+            source_instructions,
+            selected_instructions,
+            goal_instructions,
+        )
+        if part
     )
     # Phase 3 (plan architecture decision §5): a continuation turn (A2) is
     # identified by `turn_ids["continuation_of"]` (set by
     # app/run_turn.py's run_continuation_turn) and restricts to a text-only
     # output — ask_student is not merely unlikely to be re-emitted, it is not
     # in the advertised schema at all, so a second clarification round stays
-    # impossible even if the model ignores the prompt.
+    # impossible even if the model ignores the prompt. C8/D13: a goal turn is
+    # the same restriction for the same reason — it can never park on a
+    # clarify either.
     is_continuation = ids.get("continuation_of") is not None
-    output_type: list[Any] = [str] if is_continuation else ask_student_output_type()
+    output_type: list[Any] = [str] if (is_continuation or goal_mode) else ask_student_output_type()
     agent: Agent[TurnDeps, str | ClarifyDraftV2] = Agent(
         injected_model_factory()
         if injected_model_factory is not None
-        else default_model_factory(settings, selection.model_setting),
+        else default_model_factory(
+            settings, goal_model_setting if goal_mode else selection.model_setting
+        ),
         instructions=instructions,
         deps_type=TurnDeps,
         tools=tools,
@@ -1042,9 +1656,19 @@ async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
         # unstated library default.
         end_strategy="early",
     )
-    limits = UsageLimits(
-        request_limit=settings.agent_max_model_requests,
-        total_tokens_limit=settings.agent_max_total_tokens,
+    limits = (
+        UsageLimits(
+            # §2.7: a reserve is held back so the wrap-up (a second, tool-less
+            # Agent run over the SAME shared usage) always has room.
+            request_limit=settings.goal_max_model_requests
+            - settings.goal_wrapup_reserve_requests,
+            total_tokens_limit=settings.goal_max_total_tokens,
+        )
+        if goal_mode
+        else UsageLimits(
+            request_limit=settings.agent_max_model_requests,
+            total_tokens_limit=settings.agent_max_total_tokens,
+        )
     )
 
     # --- the emission router (steps/thinking/delta — ARCHITECTURE §27.1–27.2) ---
@@ -1058,8 +1682,10 @@ async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
         on_final_start=final_writer.start_final,
     )
 
-    # --- the run; only UsageLimitExceeded is handled locally. GraphInterrupt
-    #     still flies for legacy/lower-level callers, after open steps close. ---
+    # --- the run. GraphInterrupt still flies for legacy/lower-level callers,
+    #     after open steps close. `_run_once` (C7) owns the per-iteration
+    #     begin/close lifecycle; this function owns how many times it runs
+    #     and the one true-terminal `flush_final()` (spike correction, §6.0). ---
     messages_out = state["messages"]
     usage = UsageData(input_tokens=0, output_tokens=0, tool_calls=0)
     handle = None
@@ -1067,84 +1693,59 @@ async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
     handle_store = getattr(deps, "run_handles", None)
     if handle_store is not None and session_id is not None:
         handle = handle_store.get(str(session_id))
-    result = None
+    result: Any = None
     completion_fallback: str | None = None
+    turn_deps = TurnDeps(registry=registry, tool_overflow=tool_overflow, surface=surface)
+    run_once_kwargs: dict[str, Any] = dict(
+        turn_deps=turn_deps,
+        router=router,
+        final_writer=final_writer,
+        recording_writer=recording_writer,
+        writer=writer,
+        emissions=emissions,
+        handle=handle,
+        parked_store=parked_store,
+        parked_session_id=parked_session_id,
+        message_id=message_id,
+        parked_user_id=parked_user_id,
+        registry=registry,
+    )
     try:
         if requested_narration:
             recording_writer({"type": "narration", "text": requested_narration})
-        # `async with agent` enters the MCP toolset for the run (notes §2 lifecycle).
-        async with (
-            agent,
-            agent.iter(
-                user_text,
-                message_history=history or None,
-                deps=TurnDeps(registry=registry, tool_overflow=tool_overflow, surface=surface),
-                usage_limits=limits,
-            ) as run,
-        ):
-            node = run.next_node
-            while not isinstance(node, End):
-                _emit_injected_steers(run, handle, recording_writer)
-                if Agent.is_model_request_node(node):
-                    model_node: ModelRequestNode[Any, str | ClarifyDraftV2] = node
-                    async with model_node.stream(run.ctx) as stream:
-                        async for model_event in stream:
-                            router.handle(model_event)
-                    _emit_injected_steers(run, handle, recording_writer)
-                    node = await run.next(model_node)
-                    if isinstance(node, End):
-                        record_replayable_snapshot(run, handle, emissions_len=len(emissions))
-                elif Agent.is_call_tools_node(node):
-                    tool_node: CallToolsNode[Any, str | ClarifyDraftV2] = node
-                    async with tool_node.stream(run.ctx) as stream:
-                        async for tool_event in stream:
-                            router.handle(tool_event)
-                    record_replayable_snapshot(run, handle, emissions_len=len(emissions))
-                    _emit_injected_steers(run, handle, recording_writer)
-                    node = await run.next(tool_node)
-                    record_replayable_snapshot(run, handle, emissions_len=len(emissions))
-                else:
-                    _emit_injected_steers(run, handle, recording_writer)
-                    node = await run.next(node)
-            result = run.result
-            _record_uninjected_steers(handle, emissions)
-    except UsageLimitExceeded:
-        _close_router_and_flush_final_safely(router, final_writer, "budget")
-        writer({"type": "delta", "text": _TOOL_BUDGET_MESSAGE})
-        final_writer.flush_final()
-    except asyncio.CancelledError:
-        _close_router_and_flush_final_safely(router, final_writer, "interrupt")
-        raise
-    except GraphInterrupt:
-        _close_router_and_flush_final_safely(router, final_writer, "interrupt")
-        if parked_store is not None:
-            parked_store.park(parked_session_id, message_id, parked_user_id, registry)
-        raise
-    except Exception:
-        _close_router_and_flush_final_safely(router, final_writer, "error")
-        if parked_store is not None:
-            parked_store.clear(parked_session_id, message_id, parked_user_id)
-        raise
-    else:
-        # Deliberately NOT guarded: a close() failure on the happy path is a
-        # real turn failure (the final flush/steps never reached the student).
-        router.close("complete")
-        if result is not None and isinstance(result.output, ClarifyDraftV2):
-            # ask_student output: the model never streamed final-answer prose
-            # (the question IS the output), so final_writer never saw a
-            # natural start_final() call. Force it here so any render_viz
-            # staged before the question still flushes deterministically
-            # (plan Phase 2: never lose staged visible work merely because the
-            # run ended in a question) — and deliberately bypass
-            # _empty_resolve_completion below: a clarification result must
-            # never synthesize a false final-answer delta.
-            final_writer.start_final()
-            final_writer.flush_final()
+        if not goal_mode:
+            outcome = await _run_once(
+                agent, user_text, history or None, usage=None, limits=limits, **run_once_kwargs
+            )
+            result = None if outcome.hit_budget else outcome.result
+            completion_fallback = outcome.completion_fallback
         else:
-            final_writer.flush_final()
-            completion_fallback = _empty_resolve_completion(emissions)
-            if completion_fallback:
-                writer({"type": "delta", "text": completion_fallback})
+            assert goal_limits is not None
+            result, completion_fallback = await _run_goal_loop(
+                agent,
+                user_text,
+                history or None,
+                criteria=goal_criteria,
+                not_checked_note=goal_not_checked_note,
+                limits=limits,
+                goal_limits=goal_limits,
+                settings=settings,
+                model_setting=goal_model_setting,
+                model_settings=model_settings,
+                instructions=instructions,
+                plan_state=plan_state,
+                injected_model_factory=injected_model_factory,
+                shared_usage=shared_usage,
+                run_once_kwargs=run_once_kwargs,
+                initial_cost_usd=goal_initial_cost_usd,
+            )
+    finally:
+        # THE one true-terminal call (spike S7 correction): fires exactly
+        # once, after the single ordinary iteration or after the goal loop's
+        # last iteration and any §2.7 wrap-up — on every exit path, including
+        # a re-raised cancellation/interrupt/error, so a staged viz card or
+        # an in-flight marker fragment is never silently lost.
+        final_writer.flush_final()
 
     # Both a normal answer and the handled tool-budget answer are terminal.
     if parked_store is not None:
