@@ -813,3 +813,64 @@ follow-up in the same phase; this entry is closed on the backend side.
 - **Context:** `app/agent_node.py` (`_run_once`'s docstring, `_TOOL_BUDGET_MESSAGE`,
   `flush_final`).
 - *(Logged from the goal-mode Phase 3 review-fix batch, 2026-09-16.)*
+
+## Goal mode (Part 8 non-goals) — deferred by the plan itself, not by omission
+- **What:** `plans/goal-mode-plan.md` Part 8 records a list of non-goals for `/goal`
+  Phases 0–5, all deliberate and none accidental:
+  - **Sub-agents / delegation** and **durable, crash-proof goal runs** — both are now
+    reachable via `pydantic-ai-harness==0.4.0`'s `experimental/subagents` and
+    `experimental/step_persistence` without a PydanticAI 2.x upgrade (a correction to
+    `specs/agent-mode/plan/agent-mode-architecture-plan.md`'s assumption that 2.x was
+    required), but neither is built. A crash mid-run still loses the run today, same as
+    any turn.
+  - **A goals list page / `counselle.goal_runs` table.** No new table shipped (D8) —
+    a goal run is only visible in its own chat message.
+  - **Bulk undo of a goal run.** The plan's own §6.8 (Phase 8) sketches this as a
+    follow-up on its own branch; not started.
+  - **Re-deriving criteria after a steer.** A mid-run steer redirects *how* the agent
+    works, never *what* it is judged against — criteria are frozen at goal start.
+  - **Clarify inside a goal run.** Structurally impossible by construction
+    (`output_type=[str]`, D13) — genuine ambiguity becomes a stated assumption on the
+    criterion instead of a question.
+  - **A domain-specific `summary_prompt`** for the compaction summarizing tier (e.g.
+    preserving school names/UNITIDs/deadlines/citation markers verbatim). Deferred until
+    real goal-run traces exist to tune against — the shipped default summary prompt
+    (`## Intent`/`## Key decisions`/`## Artifacts`/`## Current state`/`## Next
+    steps`/`## Open questions`) is unmodified.
+  - **Merging the two composers, splitting `app/agent_node.py`.** The line-budget entry
+    above (`app/agent_node.py is over its 800-line cap`) already tracks the split
+    proposal; this is the same debt, not a new one.
+  - **An output validator.** Not deferred — **forbidden** (D5; see ADR 0041, `AGENTS.md`
+    "No output validator was added and none may be").
+- **Four Part 9 owner decisions were never made**, and were shipped at the plan's stated
+  `Settings` defaults instead: (a) whether to add a one-time approval gate before a goal
+  run's first tool call (shipped unattended); (b) which model tier judges (shipped on
+  `model_cheap`, contrary to the MT-Bench literature the plan cites, though the measured
+  adversarial eval result — 6/6 correct — did not reproduce that literature's failure
+  mode); (d) a cost ceiling per student per month, as opposed to per run (not set); (e)
+  the agent's own model tier for goal turns (shipped on `model_cheap` rather than the
+  counselor tier — a real quality-for-cost trade on the student-facing work itself).
+  Each is a `Settings` knob, so none of this requires a code change to revisit.
+- **Phase 7 — the plan's own kill-gate — has not run.** No real student's raw goal
+  statement has been tested against the shipped system. The plan states plainly that if
+  most real statements decompose into vacuous or out-of-scope criteria, the right answer
+  is a cheap, read-only "what's incomplete across my workspace" pass instead of more
+  judge tuning — this has not been decided either way.
+- **No real-browser verification.** Neither the plan's §7.4 live acceptance script nor
+  the Phase 5 gate's dev-gallery check (nine `GoalStatus` fixtures at 1440px/390px) ran
+  in an actual browser during this work; everything on the frontend is verified at the
+  jsdom/unit level only.
+- **The judge eval's TPR=1.000 is one clean run, not demonstrated stability.** A
+  confirmation re-run under the same pinned settings (`temperature=0.0`) was launched to
+  rule out a lucky draw and did not finish before the measuring session ended — see
+  `evals/goal_judge/REPORT-20260916T160355Z.md`'s own closing section. Re-run the gate at
+  least once more before treating the number as stable.
+- **The §2.10 budget defaults are a projection, not a measurement** — the loop did not
+  exist yet when the cost spike that produced `goal_max_cost_usd`/`goal_max_model_requests`
+  and the rest of that table ran (Phase 0's S8). Re-derive them against a real run's
+  logged spend once Phase 7 produces one.
+- **Context:** `plans/goal-mode-plan.md` Part 8 (non-goals) and Part 9 (open owner
+  decisions); `docs/adr/0041-goal-mode.md` Consequences; `docs/ARCHITECTURE.md` §42.7.
+- *(Logged from the goal-mode Phase 6 documentation pass, 2026-09-16. `plans/goal-mode-plan.md`
+  stays in `plans/` — it graduates to `specs/goal-mode/` only after owner acceptance, per
+  the planning-workflow rule; it was NOT moved as part of this entry.)*

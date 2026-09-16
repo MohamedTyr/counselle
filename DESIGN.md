@@ -1111,6 +1111,38 @@ that drove it.
 - Character budget: `empty` → `--ink-faint`, `ok` → muted, `near` (≥90%) → warning,
   `over` → danger + `font-medium`.
 
+**Goal mode** (`domain/goal.py::GoalStatus`, six terminal states plus a running and an
+interrupted state — engineering-complete, product-unvalidated; see
+`docs/ARCHITECTURE.md` §42, ADR 0041) uses exactly **three** of the five variants —
+**no `error`/`destructive` anywhere in this mapping**, because a goal run stopping short
+is never rendered as the run having failed:
+
+| Status | Headline | Badge |
+|---|---|---|
+| running (no terminal step yet) | `Working` | `secondary` |
+| `achieved` | `Achieved` | `success` |
+| `partial` | `Partial — <reason>` | `warning` |
+| `stopped_budget` | `Partial — budget reached` | `warning` |
+| `stopped_no_progress` | `Stopped — no progress` | `warning` |
+| `stopped_user` | `Stopped — you stopped it` | `secondary` |
+| `stopped_check_failed` | `Stopped — couldn't check` | `warning` |
+| no `phase="final"` step reached (crash/interrupt) | `Stopped — interrupted` | `secondary` |
+
+`GoalHeader` and `GoalVerdictCard` render from the same `detail.goal.status` field so the
+two never contradict each other (the defect this table fixes: revision 1's header had
+only a "Working" row, so a settled **Achieved** card could sit under a header still
+reading "Working" forever). The last row is the crash rule: a hard process kill can never
+run "emit the final step before exiting," so a goal message that is not the client's
+actively-streaming turn and whose latest `goal` step has `status == null` renders
+**Stopped — interrupted** rather than a frozen "Working" — a derivation from what the
+frontend already knows, not a new backend signal. `warning` covers four structurally
+different stop reasons (`partial`, `stopped_budget`, `stopped_no_progress`,
+`stopped_check_failed`); the badge alone does not distinguish which — the headline text
+and the per-criterion breakdown do that work. This is the plan's own mapping
+(`plans/goal-mode-plan.md` §5.3): it never proposed a fourth variant, which is fortunate,
+since §14.1's five-variant contract has no `info` role to reach for and none will be
+added.
+
 ### 14.3 Status is never colour alone
 
 Every status badge contains the **word**. Where severity matters, add a **glyph**:
