@@ -18,8 +18,28 @@ export function gpaInterpretation(
   model: GpaModel,
   gpaScale?: string | null,
 ): string {
-  if (model.profile.state === "missing_profile_value")
-    return "Add your unweighted GPA to place yourself on this chart.";
+  if (model.profile.state === "missing_profile_value") {
+    /* Whole-plan close-out review, GPA wording consolidation: this used to
+     * read "Add your unweighted GPA to place yourself on this chart." —
+     * `GpaComparison.tsx`'s own caption for the same fact said "on a 4.0
+     * scale" too, and duplicated it. The caption is now suppressed
+     * whenever this verdict fires (it always does for a missing GPA), so
+     * this sentence — the one that survives — carries the richer of the
+     * two wordings rather than the thinner one. */
+    const absence =
+      "Add your unweighted GPA on a 4.0 scale to place yourself on this chart.";
+    /* Defect 2 fix (whole-plan close-out review): the plot stays
+     * interactive for a missing value (only `incompatible_profile_value`
+     * disables it), so a student with nothing saved can still scrub a
+     * scenario — plan §5 says the verdict updates live for that too. Show
+     * both facts, never one instead of the other: the hypothetical the
+     * student is exploring, and the plain statement that nothing is saved
+     * yet. Dropping the absence sentence here would be exactly the
+     * "papers over" defect the guard above already exists to prevent. */
+    return model.scenario
+      ? `${gpaScenarioInterpretation(model.scenario)} ${absence}`
+      : absence;
+  }
   if (model.profile.state === "incompatible_profile_value") {
     if (gpaScale) {
       return `Your GPA is saved on a ${gpaScale} scale, so it cannot be placed on this 4.0-scale chart.`;
@@ -74,8 +94,16 @@ function scoreSubject(key: ScoreLaneModel["key"]): string {
 
 export function scoreInterpretation(lane: ScoreLaneModel): string {
   const subject = scoreSubject(lane.key);
-  if (lane.profile.state === "missing_profile_value")
-    return `Add your ${subject} to place yourself on this chart.`;
+  if (lane.profile.state === "missing_profile_value") {
+    const absence = `Add your ${subject} to place yourself on this chart.`;
+    /* Defect 2 fix — same "both facts, same screen" contract as
+     * `gpaInterpretation` above: a missing value keeps the plot
+     * interactive, so a scrubbed scenario must describe the hypothetical
+     * without ever dropping the absence disclosure. */
+    return lane.scenario
+      ? `${scoreScenarioInterpretation(subject, lane.scenario)} ${absence}`
+      : absence;
+  }
   if (lane.profile.state === "incompatible_profile_value")
     return `Your ${subject} cannot be placed on this chart.`;
   if (lane.scenario) return scoreScenarioInterpretation(subject, lane.scenario);
@@ -113,15 +141,34 @@ function scoreScenarioInterpretation(
  * in the same place relative to the band, otherwise two short sentences
  * (fix brief) rather than one that has to hedge two different verbs at
  * once.
+ *
+ * Whole-plan close-out review, defect 2: also carries each lane's own
+ * absence disclosure when that lane has no saved value — the same
+ * "both facts, same screen" contract `scoreInterpretation` applies to a
+ * single lane, extended here so two simultaneous drags can't drop one
+ * lane's absence just because the other lane happens to be saved.
  */
 function bothScoreScenarioInterpretation(
-  math: NonNullable<ScoreLaneModel["scenario"]>,
-  ebrw: NonNullable<ScoreLaneModel["scenario"]>,
+  math: ScoreLaneModel,
+  ebrw: ScoreLaneModel,
+  mathScenario: NonNullable<ScoreLaneModel["scenario"]>,
+  ebrwScenario: NonNullable<ScoreLaneModel["scenario"]>,
 ): string {
-  if (math.comparison && ebrw.comparison && math.comparison.state === ebrw.comparison.state) {
-    return `A hypothetical SAT Math score of ${math.value} and Reading and Writing score of ${ebrw.value} would both sit ${bandVerb(math.comparison.state)} the reported middle 50%.`;
-  }
-  return `${scoreScenarioInterpretation(scoreSubject("math"), math)} ${scoreScenarioInterpretation(scoreSubject("ebrw"), ebrw)}`;
+  const sentence =
+    mathScenario.comparison &&
+    ebrwScenario.comparison &&
+    mathScenario.comparison.state === ebrwScenario.comparison.state
+      ? `A hypothetical SAT Math score of ${mathScenario.value} and Reading and Writing score of ${ebrwScenario.value} would both sit ${bandVerb(mathScenario.comparison.state)} the reported middle 50%.`
+      : `${scoreScenarioInterpretation(scoreSubject("math"), mathScenario)} ${scoreScenarioInterpretation(scoreSubject("ebrw"), ebrwScenario)}`;
+  const absences = [
+    math.profile.state === "missing_profile_value"
+      ? `Add your ${scoreSubject("math")} to place yourself on this chart.`
+      : null,
+    ebrw.profile.state === "missing_profile_value"
+      ? `Add your ${scoreSubject("ebrw")} to place yourself on this chart.`
+      : null,
+  ].filter((text): text is string => text !== null);
+  return [sentence, ...absences].join(" ");
 }
 
 type SatInterpretationModel = {
@@ -151,9 +198,15 @@ function satInterpretation(sat: SatInterpretationModel): string {
   const [math, ebrw] = sat.lanes;
   /* Same guard-mirroring rationale as `gpaNumberCells`'s `activeGpaScenario`
    * (SchoolChancesPanel.tsx): a lane's scenario only counts as "active" for
-   * this sentence once `scoreInterpretation`'s own profile-absence guards
-   * for that lane have already passed — otherwise a lane the verdict would
-   * still be reporting as absent could get counted as active here. */
+   * this — the two-lane and single-lane "which saved lane are we actively
+   * dragging" branches of `satVerdict` — once `scoreInterpretation`'s own
+   * `state === "value"` case is the one in play for that lane. A
+   * `missing_profile_value` lane's scenario is handled by `satVerdict`'s
+   * own both-missing branch below, which calls `scoreInterpretation`
+   * directly rather than routing through this gate — that function is what
+   * carries the "both facts, same screen" hypothetical-plus-absence
+   * contract (defect 2), so it must run on the lane's true state, not a
+   * pre-narrowed one. */
   const mathScenario = math!.profile.state === "value" ? math!.scenario : null;
   const ebrwScenario = ebrw!.profile.state === "value" ? ebrw!.scenario : null;
   const sentence = satVerdict(math!, ebrw!, mathScenario, ebrwScenario);
@@ -171,18 +224,36 @@ function satVerdict(
   /* Defect 2 fix: both lanes actively scrubbed at once must both be
    * described — see `bothScoreScenarioInterpretation` above. */
   if (mathScenario && ebrwScenario)
-    return bothScoreScenarioInterpretation(mathScenario, ebrwScenario);
-  /* Whichever lane has an active scenario is the one the student is
-   * actually dragging right now — describe that one live, rather than
-   * always favoring math's static comparison while an ebrw drag goes
-   * unreflected in the verdict (plan §5). */
-  const scenarioLane = math.scenario ? math : ebrw.scenario ? ebrw : null;
+    return bothScoreScenarioInterpretation(math, ebrw, mathScenario, ebrwScenario);
+  /* Whole-plan close-out review, defect 1 fix: this read the raw
+   * `math.scenario` / `ebrw.scenario` fields instead of the gated
+   * `mathScenario` / `ebrwScenario` parameters already computed above by
+   * `satInterpretation` — so scrubbing a lane with no saved value (which
+   * stays interactive; only `incompatible_profile_value` disables it)
+   * could pick that lane here even though its scenario is not "active" by
+   * this gate, silently erasing the other, saved lane's correct,
+   * still-current verdict. Use the same gated values the two-lane branch
+   * above already uses. */
+  const scenarioLane = mathScenario ? math : ebrwScenario ? ebrw : null;
   if (scenarioLane) return scoreInterpretation(scenarioLane);
   if (
     math.profile.state === "missing_profile_value" &&
     ebrw.profile.state === "missing_profile_value"
-  )
+  ) {
+    /* Whole-plan close-out review, defect 2 fix: both lanes have no saved
+     * value, so neither is "active" by the value-only gate above — but the
+     * plot stays interactive for a missing value, and §5 says the verdict
+     * updates live for it same as GPA/ACT. Read the lanes' own (ungated)
+     * scenarios here and let `scoreInterpretation`/
+     * `bothScoreScenarioInterpretation` supply the hypothetical-plus-
+     * absence sentence; only fall back to the plain absence line when
+     * neither lane has been scrubbed yet. */
+    if (math.scenario && ebrw.scenario)
+      return bothScoreScenarioInterpretation(math, ebrw, math.scenario, ebrw.scenario);
+    if (math.scenario) return scoreInterpretation(math);
+    if (ebrw.scenario) return scoreInterpretation(ebrw);
     return "Add your SAT section scores to place yourself on these charts.";
+  }
   return scoreInterpretation(math.profile.state === "value" ? math : ebrw);
 }
 

@@ -31,6 +31,7 @@ import {
   scenarioSetCopy,
 } from "./school-chances-copy";
 import {
+  absenceCoveredByVerdict,
   isSumsToMaterial,
   NOT_AVAILABLE,
   partialDistributionSummaryText,
@@ -120,6 +121,7 @@ export function AcademicComparisonPlot({
     return (
       <UnavailableScorePlot
         lane={lane}
+        metric={metric}
         summary={summary}
         title={title}
         valueSlot={valueSlot}
@@ -178,6 +180,21 @@ export function AcademicComparisonPlot({
       : lane.key === "math"
         ? "SAT Math"
         : "SAT Reading and Writing";
+  /* Defect fix (school-chances-minimal-redesign close-out): whether the
+   * verdict sentence above this lane already states its own absence —
+   * missing or incompatible — see `absenceCoveredByVerdict`'s own doc for
+   * exactly which cases that covers. `siblingMissing` only matters for
+   * SAT's missing-value branch, where the verdict's own coverage depends
+   * on the other lane's saved state too;
+   * `profile` already carries both lanes' raw saved values here (the same
+   * plumbing `profileValue` reads for this lane's own saved/scenario
+   * marks), so no new prop from the SAT/ACT callers is needed. */
+  const siblingKey = lane.key === "math" ? "ebrw" : lane.key === "ebrw" ? "math" : null;
+  const siblingMissing =
+    metric === "sat" && siblingKey !== null
+      ? profileValue(metric, siblingKey, profile) === null
+      : false;
+  const suppressPlacementCaption = absenceCoveredByVerdict(metric, lane, siblingMissing);
 
   return (
     <section
@@ -311,7 +328,7 @@ export function AcademicComparisonPlot({
               {partialDistributionSummaryText(sumsTo)}
             </p>
           ) : null}
-          {profilePlacementMessage(lane) ? (
+          {!suppressPlacementCaption && profilePlacementMessage(lane) ? (
             <p className={cn("text-xs text-[var(--school-fact-caveat)]")}>
               {profilePlacementMessage(lane)}
             </p>
@@ -324,10 +341,11 @@ export function AcademicComparisonPlot({
 
 function UnavailableScorePlot({
   lane,
+  metric,
   title,
   summary,
   valueSlot,
-}: Pick<AcademicComparisonPlotProps, "lane" | "title" | "valueSlot"> & {
+}: Pick<AcademicComparisonPlotProps, "lane" | "metric" | "title" | "valueSlot"> & {
   summary: string;
 }): React.ReactElement {
   /* FIX 2: ACT is the sole lane with its own number row, which already
@@ -390,7 +408,14 @@ function UnavailableScorePlot({
               Reported {lane.bandState.reportedPeriod}
             </p>
           ) : null}
-          {profilePlacementMessage(lane) ? (
+          {/* No `ScrubbablePlot` renders without geometry, so this lane
+           * never carries an active scenario here — `siblingMissing` can
+           * only matter to `absenceCoveredByVerdict`'s SAT branch once
+           * `lane.scenario` is set, so a fixed `false` is exactly as
+           * correct as computing it and costs no extra prop from the
+           * do-not-touch SAT/ACT callers. */}
+          {!absenceCoveredByVerdict(metric, lane, false) &&
+          profilePlacementMessage(lane) ? (
             <p className={cn("text-xs text-[var(--school-fact-caveat)]")}>
               {profilePlacementMessage(lane)}
             </p>

@@ -74,6 +74,19 @@ async function typeExactValue(slider: HTMLElement, value: string) {
   fireEvent.keyDown(input, { key: "Enter" });
 }
 
+/** The verdict sentence (`school-chances-copy.ts`'s `metricInterpretation`)
+ * scoped to its own span — for a lane with no saved value, a per-lane plot
+ * caption (`score-plot-copy.ts`'s `profilePlacementMessage`, a banned file
+ * for this task) can render the identical absence clause beside the chart,
+ * so an unscoped `getByText` on that exact string is ambiguous. */
+const VERDICT_SELECTOR = { selector: '[data-slot="school-chances-interpretation-text"]' };
+function findVerdict(text: string | RegExp) {
+  return screen.findByText(text, VERDICT_SELECTOR);
+}
+function queryVerdict(text: string | RegExp) {
+  return screen.queryByText(text, VERDICT_SELECTOR);
+}
+
 describe("SchoolChancesPanel", () => {
   test("uses the deterministic comparable default, preserves other search params, and renders the one flat frame", async () => {
     renderPanel("tab=chances&from=school-list&metric=not-a-metric");
@@ -881,7 +894,7 @@ describe("SchoolChancesPanel", () => {
       ).toBeVisible();
     });
 
-    test("a scenario never papers over the absence message for a student with no saved GPA", async () => {
+    test("a scenario never papers over the absence message for a student with no saved GPA — it now shows both", async () => {
       render(
         <SchoolChancesPanel
           data={schoolChancesFactFixtures.full}
@@ -892,20 +905,22 @@ describe("SchoolChancesPanel", () => {
       const slider = await screen.findByRole("slider", { name: "GPA" });
       expect(
         screen.getByText(
-          "Add your unweighted GPA to place yourself on this chart.",
+          "Add your unweighted GPA on a 4.0 scale to place yourself on this chart.",
         ),
       ).toBeVisible();
 
       await typeExactValue(slider, "3.60");
 
-      // Honesty guard (fix brief): the absence wording still wins even
-      // though a scenario is now active on the plot itself.
+      // Whole-plan close-out review, defect 2: the plot stays interactive
+      // for a missing value, and plan §5 says the verdict updates live —
+      // so the hypothetical must now be described. Honesty guard (still
+      // enforced, stronger contract): the absence wording must never be
+      // dropped to make room for it — both facts render in one sentence.
       expect(
-        screen.getByText(
-          "Add your unweighted GPA to place yourself on this chart.",
+        await screen.findByText(
+          "If your GPA were 3.60, it would sit in the 3.50 - 3.74 reported band. Add your unweighted GPA on a 4.0 scale to place yourself on this chart.",
         ),
       ).toBeVisible();
-      expect(screen.queryByText(/^If your GPA were/)).toBeNull();
     });
 
     test("dragging the ACT scenario away from the saved value describes the hypothetical", async () => {
@@ -976,6 +991,398 @@ describe("SchoolChancesPanel", () => {
           "A hypothetical SAT Math score of 750 would be within the reported middle 50%. A hypothetical SAT Reading and Writing score of 800 would be above the reported middle 50%. Your SAT 1500 shown for context.",
         ),
       ).toBeVisible();
+    });
+  });
+
+  describe("whole-plan close-out review fixes", () => {
+    test("defect 1: scrubbing an unsaved Math lane does not erase the correct, still-current Reading and Writing verdict", async () => {
+      render(
+        <SchoolChancesPanel
+          data={schoolChancesFactFixtures.full}
+          metricParam="sat"
+          profile={{ testing: { sat: { ebrw: 740 } } }}
+        />,
+      );
+      // At rest: only Reading and Writing is saved, so the verdict
+      // describes that lane.
+      expect(
+        await findVerdict("Your SAT Reading and Writing score is within the reported middle 50%."),
+      ).toBeVisible();
+
+      // The Math lane has no saved value but stays interactive — only
+      // `incompatible_profile_value` disables the plot. Scrubbing it must
+      // not silently drop the still-correct EBRW sentence.
+      const mathSlider = await screen.findByRole("slider", { name: "SAT Math" });
+      await typeExactValue(mathSlider, "750");
+
+      expect(
+        await findVerdict("Your SAT Reading and Writing score is within the reported middle 50%."),
+      ).toBeVisible();
+    });
+
+    test("defect 2: scrubbing ACT with no saved composite describes the hypothetical and still states the absence", async () => {
+      render(
+        <SchoolChancesPanel
+          data={schoolChancesFactFixtures.full}
+          metricParam="act"
+          profile={null}
+        />,
+      );
+      const slider = await screen.findByRole("slider", { name: "ACT composite" });
+      expect(
+        await findVerdict("Add your ACT composite to place yourself on this chart."),
+      ).toBeVisible();
+
+      await typeExactValue(slider, "29");
+
+      expect(
+        await findVerdict(
+          /^A hypothetical ACT composite of 29 would be (within|below|above) the reported middle 50%\. Add your ACT composite to place yourself on this chart\.$/,
+        ),
+      ).toBeVisible();
+    });
+
+    test("defect 2: scrubbing an SAT lane with neither section saved describes that lane's hypothetical and still states the section absence", async () => {
+      render(
+        <SchoolChancesPanel
+          data={schoolChancesFactFixtures.full}
+          metricParam="sat"
+          profile={null}
+        />,
+      );
+      expect(
+        await findVerdict("Add your SAT section scores to place yourself on these charts."),
+      ).toBeVisible();
+
+      const mathSlider = await screen.findByRole("slider", { name: "SAT Math" });
+      await typeExactValue(mathSlider, "750");
+
+      expect(
+        await findVerdict(
+          "A hypothetical SAT Math score of 750 would be within the reported middle 50%. Add your SAT Math score to place yourself on this chart.",
+        ),
+      ).toBeVisible();
+    });
+
+    test("defect 2: scrubbing both SAT lanes with neither saved describes both hypotheticals and states both absences", async () => {
+      render(
+        <SchoolChancesPanel
+          data={schoolChancesFactFixtures.full}
+          metricParam="sat"
+          profile={null}
+        />,
+      );
+      const mathSlider = await screen.findByRole("slider", { name: "SAT Math" });
+      const ebrwSlider = await screen.findByRole("slider", {
+        name: "SAT Reading and Writing",
+      });
+      await typeExactValue(mathSlider, "750");
+      await typeExactValue(ebrwSlider, "800");
+
+      expect(
+        await findVerdict(
+          "A hypothetical SAT Math score of 750 would be within the reported middle 50%. A hypothetical SAT Reading and Writing score of 800 would be above the reported middle 50%. Add your SAT Math score to place yourself on this chart. Add your SAT Reading and Writing score to place yourself on this chart.",
+        ),
+      ).toBeVisible();
+    });
+
+    test("no scenario set: GPA, SAT, and ACT absence copy is byte-identical to the pre-fix wording, except GPA's now-consolidated wording", async () => {
+      const { unmount } = render(
+        <SchoolChancesPanel
+          data={schoolChancesFactFixtures.full}
+          metricParam="gpa"
+          profile={null}
+        />,
+      );
+      // Duplication-close-out fix: GPA's caption below the plot
+      // (`GpaComparison.tsx`'s `gpaProfileMessage`) used to restate this
+      // same absence with the added "on a 4.0 scale" detail the verdict
+      // itself didn't carry. The caption is now suppressed for a missing
+      // GPA (this verdict always states it), so the surviving sentence
+      // carries the richer wording instead of losing that detail.
+      expect(
+        await findVerdict(
+          "Add your unweighted GPA on a 4.0 scale to place yourself on this chart.",
+        ),
+      ).toBeVisible();
+      unmount();
+
+      const { unmount: unmountAct } = render(
+        <SchoolChancesPanel
+          data={schoolChancesFactFixtures.full}
+          metricParam="act"
+          profile={null}
+        />,
+      );
+      expect(
+        await findVerdict("Add your ACT composite to place yourself on this chart."),
+      ).toBeVisible();
+      unmountAct();
+
+      render(
+        <SchoolChancesPanel
+          data={schoolChancesFactFixtures.full}
+          metricParam="sat"
+          profile={null}
+        />,
+      );
+      expect(
+        await findVerdict("Add your SAT section scores to place yourself on these charts."),
+      ).toBeVisible();
+    });
+  });
+
+  describe("close-out: duplicated absence text (plan §0's original defect, reopened by the live-verdict fix)", () => {
+    /** Counts elements whose ENTIRE text is exactly `phrase` — the default,
+     * exact `getByText` match. A lane's own missing-value caption
+     * (`score-plot-copy.ts`'s `profilePlacementMessage` /
+     * `GpaComparison.tsx`'s `gpaProfileMessage`) is always a standalone
+     * `<p>` containing nothing but this phrase, so it matches exactly. The
+     * verdict sentence, once a hypothetical or a sibling lane's own
+     * absence is folded into it, is a longer sentence with this phrase as
+     * only a substring — an exact match never counts it, so this
+     * genuinely isolates "is the caption still rendered", independent of
+     * whatever the verdict says. */
+    function queryCaptions(phrase: string) {
+      return screen.queryAllByText(phrase);
+    }
+
+    test("GPA: a missing saved value states its absence exactly once on screen, and once in the accessible summary", async () => {
+      const { container } = render(
+        <SchoolChancesPanel
+          data={schoolChancesFactFixtures.full}
+          metricParam="gpa"
+          profile={null}
+        />,
+      );
+      const absence =
+        "Add your unweighted GPA on a 4.0 scale to place yourself on this chart.";
+
+      // Exactly one visible statement — the verdict. The old caption below
+      // the plot (`gpaProfileMessage`) is suppressed now that the verdict
+      // always carries this fact for a missing GPA.
+      expect(await screen.findByText(absence)).toBeVisible();
+      expect(queryCaptions(absence)).toHaveLength(1);
+
+      // The accessible summary is a separate channel (`ChartFigure`'s
+      // sr-only figcaption) and must still carry the same fact — parity,
+      // not suppression.
+      expect(container.querySelector("figcaption")).toHaveTextContent(absence);
+    });
+
+    test("ACT: a missing saved value states its absence exactly once on screen, and once in the accessible summary", async () => {
+      const { container } = render(
+        <SchoolChancesPanel
+          data={schoolChancesFactFixtures.full}
+          metricParam="act"
+          profile={null}
+        />,
+      );
+      const absence = "Add your ACT composite to place yourself on this chart.";
+
+      expect(await findVerdict(absence)).toBeVisible();
+      expect(queryCaptions(absence)).toHaveLength(1);
+      expect(container.querySelector("figcaption")).toHaveTextContent(absence);
+    });
+
+    test("SAT, one section saved and one missing, neither scrubbed: the verdict never mentions the missing section, so its caption is the only place stating it — not suppressed", async () => {
+      // `partial` saves only Math (730); EBRW has no saved value. At rest
+      // (no scrub), `satVerdict` describes the saved Math lane only — it
+      // never states the EBRW absence anywhere else, so EBRW's caption is
+      // load-bearing here and must NOT be suppressed.
+      render(
+        <SchoolChancesPanel
+          data={schoolChancesFactFixtures.full}
+          metricParam="sat"
+          profile={schoolChancesProfileFixtures.partial}
+        />,
+      );
+      const ebrwAbsence =
+        "Add your SAT Reading and Writing score to place yourself on this chart.";
+
+      expect(await screen.findByText("Math")).toBeVisible();
+      expect(queryCaptions(ebrwAbsence)).toHaveLength(1);
+      // EBRW's own accessible summary (not Math's — each lane carries its
+      // own figcaption) states the same fact for parity.
+      const ebrwFigure = screen
+        .getByRole("heading", { name: "Reading and Writing" })
+        .closest("section")!;
+      expect(ebrwFigure.querySelector("figcaption")).toHaveTextContent(ebrwAbsence);
+      // The verdict itself never says this — confirms the caption is the
+      // sole visible statement, not a duplicate of it.
+      expect(queryVerdict(ebrwAbsence)).toBeNull();
+    });
+
+    test("SAT, neither section saved, neither scrubbed: the generic combined verdict doesn't name either section, so both captions remain — not a duplicate of a section-specific fact", async () => {
+      render(
+        <SchoolChancesPanel
+          data={schoolChancesFactFixtures.full}
+          metricParam="sat"
+          profile={null}
+        />,
+      );
+      const mathAbsence = "Add your SAT Math score to place yourself on this chart.";
+      const ebrwAbsence =
+        "Add your SAT Reading and Writing score to place yourself on this chart.";
+
+      expect(queryCaptions(mathAbsence)).toHaveLength(1);
+      expect(queryCaptions(ebrwAbsence)).toHaveLength(1);
+    });
+
+    test("SAT, neither section saved, only Math scrubbed: Math's caption is suppressed (the verdict now states it), EBRW's caption stays (the verdict never mentions EBRW)", async () => {
+      render(
+        <SchoolChancesPanel
+          data={schoolChancesFactFixtures.full}
+          metricParam="sat"
+          profile={null}
+        />,
+      );
+      const mathSlider = await screen.findByRole("slider", { name: "SAT Math" });
+      await typeExactValue(mathSlider, "750");
+
+      const mathAbsence = "Add your SAT Math score to place yourself on this chart.";
+      const ebrwAbsence =
+        "Add your SAT Reading and Writing score to place yourself on this chart.";
+
+      // Math's absence is now folded into the verdict's hypothetical
+      // sentence (covered by the "defect 2" test above) — its standalone
+      // caption must be gone, not a second copy.
+      expect(queryCaptions(mathAbsence)).toHaveLength(0);
+      // EBRW is still unscrubbed and unmentioned by the verdict — its own
+      // caption remains the sole statement of that fact.
+      expect(queryCaptions(ebrwAbsence)).toHaveLength(1);
+    });
+
+    test("worst case — SAT, neither section saved, BOTH scrubbed: each section's absence states exactly once, inside the verdict, with neither lane's caption rendered", async () => {
+      render(
+        <SchoolChancesPanel
+          data={schoolChancesFactFixtures.full}
+          metricParam="sat"
+          profile={null}
+        />,
+      );
+      const mathSlider = await screen.findByRole("slider", { name: "SAT Math" });
+      const ebrwSlider = await screen.findByRole("slider", {
+        name: "SAT Reading and Writing",
+      });
+      await typeExactValue(mathSlider, "750");
+      await typeExactValue(ebrwSlider, "800");
+
+      const mathAbsence = "Add your SAT Math score to place yourself on this chart.";
+      const ebrwAbsence =
+        "Add your SAT Reading and Writing score to place yourself on this chart.";
+
+      // Before the fix this compounded to 4 statements of these 2 facts
+      // (each stated once in the verdict, once more in each lane's own
+      // caption). Now: zero standalone captions...
+      expect(queryCaptions(mathAbsence)).toHaveLength(0);
+      expect(queryCaptions(ebrwAbsence)).toHaveLength(0);
+      // ...and the verdict — one sentence — states both exactly once.
+      const verdict = await findVerdict(
+        "A hypothetical SAT Math score of 750 would be within the reported middle 50%. A hypothetical SAT Reading and Writing score of 800 would be above the reported middle 50%. Add your SAT Math score to place yourself on this chart. Add your SAT Reading and Writing score to place yourself on this chart.",
+      );
+      expect(verdict).toBeVisible();
+      // Unrelated, pre-existing, untouched behavior worth naming so this
+      // isn't mistaken for a gap this fix introduced: once a lane is
+      // actively scrubbed, `scoreSummary`'s own accessible-summary text
+      // reports the scenario mark ("Scenario 750.") in place of the
+      // placement message — that swap predates this fix and is orthogonal
+      // to it, so it is not asserted here.
+    });
+  });
+
+  describe("close-out: duplicated absence text for an INCOMPATIBLE saved value (plan §0's original defect, missed by the missing-value-only fix above)", () => {
+    /** Same exact-match isolation as the missing-value describe block
+     * above — a lane's own caption is always a standalone `<p>` containing
+     * nothing but this phrase, so an exact match never also counts the
+     * longer verdict sentence a hypothetical or sibling absence might be
+     * folded into. */
+    function queryCaptions(phrase: string) {
+      return screen.queryAllByText(phrase);
+    }
+
+    test("GPA on a 5.0 scale: the 'cannot be placed' fact states exactly once on screen (verdict), and once in the accessible summary", async () => {
+      const { container } = render(
+        <SchoolChancesPanel
+          data={schoolChancesFactFixtures.full}
+          metricParam="gpa"
+          profile={schoolChancesProfileFixtures.incompatible}
+        />,
+      );
+      const verdictText =
+        "Your GPA is saved on a 5.0 scale, so it cannot be placed on this 4.0-scale chart.";
+      const captionText =
+        "Your GPA uses a different scale and cannot be placed on this 4.0-scale chart.";
+
+      // The verdict states it once, in its own wording.
+      expect(await findVerdict(verdictText)).toBeVisible();
+      // The plot's own caption — a second, differently-worded restatement
+      // of the identical fact — must be gone now, not a duplicate.
+      expect(queryCaptions(captionText)).toHaveLength(0);
+
+      // The accessible summary is a separate channel and must still carry
+      // the fact — parity, not suppression.
+      expect(container.querySelector("figcaption")).toHaveTextContent(captionText);
+    });
+
+    test("GPA on a 5.0 scale with no usable distribution: the fallback panel doesn't restate it either", async () => {
+      const facts = structuredClone(schoolChancesFactFixtures.full);
+      const distribution = facts.sections[0]!.groups[0]!.facts.find(
+        (fact) => fact.key === "class_profile.gpa_distribution",
+      )!;
+      distribution.state = "not_reported";
+      distribution.value = null;
+
+      render(
+        <SchoolChancesPanel
+          data={facts}
+          metricParam="gpa"
+          profile={schoolChancesProfileFixtures.incompatible}
+        />,
+      );
+      const verdictText =
+        "Your GPA is saved on a 5.0 scale, so it cannot be placed on this 4.0-scale chart.";
+      const captionText =
+        "Your GPA uses a different scale and cannot be placed on this 4.0-scale chart.";
+
+      expect(await findVerdict(verdictText)).toBeVisible();
+      expect(queryCaptions(captionText)).toHaveLength(0);
+    });
+
+    test("ACT composite outside 1-36: the 'cannot be placed' fact states exactly once on screen (verdict), and once in the accessible summary", async () => {
+      const { container } = render(
+        <SchoolChancesPanel
+          data={schoolChancesFactFixtures.full}
+          metricParam="act"
+          profile={{ testing: { act: { composite: 99 } } }}
+        />,
+      );
+      const verdictText = "Your ACT composite cannot be placed on this chart.";
+      const captionText = "Your ACT composite cannot be placed on this 1–36 chart.";
+
+      expect(await findVerdict(verdictText)).toBeVisible();
+      expect(queryCaptions(captionText)).toHaveLength(0);
+      expect(container.querySelector("figcaption")).toHaveTextContent(captionText);
+    });
+
+    test("SAT: an incompatible saved section next to a saved, in-range sibling still states its own 'cannot be placed' fact once — the verdict describes the sibling instead, so this lane's caption stays load-bearing", async () => {
+      // Math is out of the 200-800 domain (incompatible); EBRW is a normal
+      // saved value. `satVerdict`'s fallback picks the "value" lane
+      // (EBRW) for the verdict, so it never mentions Math's incompatible
+      // state anywhere else — Math's own caption remains the sole visible
+      // statement of that fact and must NOT be suppressed (never zero).
+      render(
+        <SchoolChancesPanel
+          data={schoolChancesFactFixtures.full}
+          metricParam="sat"
+          profile={{ testing: { sat: { math: 900, ebrw: 740 } } }}
+        />,
+      );
+      const mathCaption = "Your SAT Math score cannot be placed on this 200–800 chart.";
+
+      expect(await screen.findByText("Math")).toBeVisible();
+      expect(queryCaptions(mathCaption)).toHaveLength(1);
+      expect(queryVerdict(mathCaption)).toBeNull();
     });
   });
 

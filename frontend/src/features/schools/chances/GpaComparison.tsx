@@ -153,11 +153,21 @@ export function GpaComparison({
          * (plan §6). Its reported period moves to the "Reported band"
          * number cell in SchoolChancesPanel.tsx, printed only when it
          * diverges from the rest of this screen. */}
-        {gpaProfileMessage(model) ? (
-          <p className={cn("text-xs text-[var(--school-fact-caveat)]")}>
-            {gpaProfileMessage(model)}
-          </p>
-        ) : null}
+        {/* Whole-plan close-out review: a missing OR incompatible GPA is
+         * always stated by the verdict sentence above this plot
+         * (`gpaInterpretation` is unconditional for both states) — this
+         * caption's own text (`gpaProfileMessage`, which only ever returns
+         * non-null for those same two states) would always be a second,
+         * redundant statement of the same fact, so the paragraph is
+         * removed rather than guarded. The missing case was suppressed
+         * first; a close-out audit found the same "stated twice, in two
+         * vocabularies" defect still live for the incompatible-scale case
+         * (verdict: "Your GPA is saved on a 5.0 scale, so it cannot be
+         * placed…"; caption: "Your GPA uses a different scale and cannot
+         * be placed…") and closed it the same way. `gpaProfileMessage`
+         * itself is untouched — `gpaSummary`'s accessible-summary fallback
+         * below still reads it, and must keep carrying both absence texts
+         * for a viewer with no geometry at all to compare against. */}
         {isSumsToMaterial(distribution.sumsTo) ? (
           <p className={cn("text-xs text-[var(--school-fact-caveat)]")}>
             {partialDistributionSummaryText(distribution.sumsTo)}
@@ -246,12 +256,13 @@ function GpaFallback({
               model.distributionState.reportedPeriod}
           </p>
         ) : null}
-        {model.profile.state === "incompatible_profile_value" ? (
-          <p className={cn("text-xs text-[var(--school-fact-caveat)]")}>
-            Your GPA uses a different scale and cannot be placed on this
-            4.0-scale chart.
-          </p>
-        ) : null}
+        {/* Whole-plan close-out review: this fallback (no usable
+         * distribution to compare against) used to restate an incompatible
+         * saved scale here too, even though `gpaInterpretation` already
+         * states it unconditionally in the verdict sentence above this
+         * figure — the same "stated twice, in two vocabularies" defect
+         * fixed for the has-distribution path in `GpaComparison` above,
+         * closed here the same way by dropping the redundant restatement. */}
       </div>
     </ChartFigure>
   );
