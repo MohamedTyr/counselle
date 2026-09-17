@@ -60,10 +60,12 @@
    * The class silhouette is the data this plot exists to show, so it is not
    * exempt from WCAG 1.4.11: the fill stays a 14% decorative wash and the
    * EDGE carries the required 3:1 graphical-object contrast instead (a
-   * filled shape satisfies 1.4.11 via its boundary). 71% is the lowest
-   * whole-percent mix of --ink-faint that clears 3:1 against the panel
-   * surface (measures 3.03:1) — kept at the floor, not a comfortable
-   * margin, so the edge stays visually subordinate to --*-you (9.69:1). */
+   * filled shape satisfies 1.4.11 via its boundary). 70% measures 2.99:1
+   * against the panel surface and fails; 71% is the lowest whole-percent
+   * mix of --ink-faint that clears 3:1 (measures 3.03:1) — kept at that
+   * floor, not a comfortable margin, so the edge stays visually subordinate
+   * to --*-you (9.69:1). The corridor tops out around 72% (3.10:1), past
+   * which the edge stops reading as subordinate to --*-you. */
   --school-chances-class-fill: color-mix(
     in oklch,
     var(--ink-faint) 14%,

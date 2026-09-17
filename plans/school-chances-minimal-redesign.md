@@ -311,3 +311,33 @@ Per AGENTS.md: no reflexive tests, honesty-critical paths tested hard.
 ## 11. Out of scope — unchanged
 
 No new backend, endpoint, facts mapping, migration or model call. No admission probability, odds, percentage or confidence. No Reach/Target/Safety. No activities. No persistence from the scenario control. `school-chances-model.ts`, `school-chances-contract.ts` and the five-state absence grammar are untouched: this is a rendering change over the same honest model.
+
+---
+
+## 12. Divergence note (post-implementation)
+
+Appended, not a rewrite of the sections above — those record what was planned; this records what actually shipped and where it differs, per the repo's `plans/` vs `specs/` convention (a plan is a historical record; a changed decision gets recorded as an addition).
+
+1. **No dark mode.** §8's P5 gate lists "light and dark" and contrast "in both themes" as verification steps. This app has no dark theme: there is no `data-theme` attribute setter, no `ThemeProvider`, and no toggle anywhere in `frontend/src`. A `grep` for `data-theme`, `.dark`, `darkMode`, and `prefers-color-scheme` across `src/**/*.{ts,tsx,css}` turns up exactly one hit — `src/components/ui/chart.tsx`'s shadcn-shipped `.dark [data-chart=...]` CSS rule, which is inert boilerplate from the chart primitive itself, not a wired theme system. The dark half of the P5 gate is dropped as inapplicable to this codebase, not skipped as unverified work.
+
+2. **`--school-chances-mark` retirement moved from P0 to P1.** §8 states P0 ("geometry and tokens") retires the token. In the shipped sequencing it was retired in P1 once `ClassShape.tsx`/`YouMark.tsx` replaced its last consumers (`academic-comparison-marks.tsx`, `GpaComparisonMarkers.tsx`) — P0 introduced the new tokens and left the old mark token alone until the code reading it was actually deleted, rather than dangling an unused-but-still-referenced token for a phase.
+
+3. **SAT grid breakpoint: `md:`, not `sm:`.** §4's prose names both `sm:grid-cols-2` and "≥768px" for the two-lane SAT row. Tailwind's `sm` breakpoint is 640px, not 768px — the two values in §4 conflict. The implementation (`SatComparison.tsx`) uses `md:grid-cols-2`, following the stated pixel value (768px) over the literal class name written in the plan.
+
+4. **SAT lane height exceeds the 108px/88px spec.** §4 specifies a 108px lane with an 88px rail. `ClassShape.tsx`'s `CLASS_SHAPE_HEIGHT` gives every lane with a distribution the shared 132px stepped-area height (`CLASS_SHAPE_HEIGHT.stepped`), so a SAT lane that has a distribution is taller than §4's number — there is no distribution-less 108px/88px SAT lane variant. The panel's overall height target was still met because the two SAT lanes sit side by side (`md:grid-cols-2`): the panel's total height is driven by one lane's height, not the sum of two stacked lanes, so the per-lane overshoot doesn't compound into the panel-level number.
+
+5. **Measured panel heights, before → after, against target (P5, real browser, 1280px):**
+
+   | Screen | Before | After | Target | Notes |
+   |---|---|---|---|---|
+   | GPA | 786px | 471.64px | ≈470px | On target |
+   | ACT | 766px | 443.64px | ≈430px | On target |
+   | SAT (`full-sat` fixture) | 1,340px | 494.78px | ≈520px | Under target |
+   | SAT (`reported-periods` fixture) | — | 542.78px | ≈520px | ~23px over target |
+
+   The `reported-periods` fixture's overshoot is not layout bloat — it comes from genuinely divergent per-field reporting-period caveat text (§6's "a per-field period that differs still prints" exception), which is exactly the kind of honesty-preserving line this redesign chose to keep visible rather than trim further.
+
+6. **Carry-forward debt, recorded rather than hidden:**
+   - Three dead CSS custom properties left behind: `--school-chances-track`, `--school-chances-band`, `--school-chances-profile-outline`. Their consumers were deleted across P1–P3 but the token declarations themselves were not swept.
+   - `ScrubbablePlot.tsx` is ~854 lines, over this repo's 800-line file guideline (`AGENTS.md`).
+   - Two empirically-calibrated constants in `ScrubbablePlot.tsx` — `RESET_DRAG_EXTRA_GAP_PX = 22` and `RESET_PILL_RELEASE_SETTLE_MS = 250` — are measured against `YouMark.tsx`'s pill grab-scale and release-tween duration. If either of those `YouMark.tsx` values changes, both constants need re-measuring; they are not derived algebraically from the pill's own transform. The cleaner root fix, not done here, is making the pill's grab scale not shift its own left edge in the first place — that would let both constants be deleted rather than re-measured.
