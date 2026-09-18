@@ -196,7 +196,6 @@ _SECTIONS_SOURCE: list[dict[str, Any]] = [
             {
                 "id": "test-detail",
                 "title": "Test scores in detail",
-                "foot_ref": "BAND_CAPTION",
                 "facts": [
                     "class_profile.sat_math_p25",
                     "class_profile.sat_math_p75",

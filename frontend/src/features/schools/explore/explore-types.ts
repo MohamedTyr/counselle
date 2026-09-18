@@ -37,7 +37,7 @@ export type {
 export type NumericRange = { min: number | null; max: number | null };
 
 /*
- * The personalization strip. Load-bearing: it picks which tuition row and
+ * The Explore preview strip. Load-bearing: it picks which tuition row and
  * which score band every card shows, so it lives in the results header at
  * the point of consequence rather than in settings. `scoreFit` (in
  * ExploreFilters, not here) is the only thing that FILTERS -- these three

@@ -20,33 +20,6 @@ SizeBucket = Literal["lt2k", "2k-10k", "10k-25k", "gt25k"]
 ScoreFit = Literal["any", "at_or_above_p25", "inside_band", "at_or_above_p75"]
 ExclusionReason = Literal["missing", "not_reported"]
 FitCategory = Literal["Reach", "Target", "Safety", "Unknown"]
-FitBasis = Literal["school_rate", "personalized", "missing_admit_rate"]
-FitEvidenceLevel = Literal["baseline_only", "one_comparison", "two_comparisons"]
-FitFactor = Literal["academic", "testing"]
-FitSignalSource = Literal["gpa_distribution", "class_rank", "sat", "act", "sat_and_act"]
-FitAssessment = Literal["strong", "weak"]
-UnavailableReason = Literal[
-    "profile_gpa_missing",
-    "profile_gpa_invalid",
-    "gpa_scale_incompatible",
-    "gpa_distribution_unavailable",
-    "gpa_distribution_stale",
-    "gpa_distribution_invalid",
-    "profile_rank_unavailable",
-    "rank_disabled",
-    "rank_distribution_unavailable",
-    "rank_distribution_stale",
-    "rank_distribution_invalid",
-    "profile_test_missing",
-    "test_score_invalid",
-    "incomplete_sat_comparison",
-    "test_band_unavailable",
-    "test_band_stale",
-    "test_band_invalid",
-    "test_policy_not_required_or_unknown",
-]
-FitCaveat = Literal["entering_class_benchmark_not_cutoff", "stale_optional_facts"]
-SuggestedProfileField = Literal["gpa", "class_rank", "test_scores"]
 
 # plan §5.3's `RangeKey` union, minus the columns Phase 1's explore
 # projection never populates (net price, out-of-state %, admit rate by home
@@ -135,45 +108,16 @@ class ExploreQuery(BaseModel):
     page_size: int | None = Field(default=None, ge=1)
 
 
-class FitSignal(FrozenModel):
-    """One non-neutral comparison applied by the server-owned calculator."""
-
-    factor: FitFactor
-    source: FitSignalSource
-    assessment: FitAssessment
-
-
-class UnavailableFactor(FrozenModel):
-    """One bounded reason an otherwise useful factor was skipped."""
-
-    factor: FitFactor
-    reason: UnavailableReason
-
-
 class FitEstimate(FrozenModel):
-    """Public, non-probabilistic result of ``admissions-fit-v1``.
+    """The card's admit-rate planning category and the rate behind it.
 
-    This deliberately mirrors the domain result with JSON literals rather
-    than exposing the domain DTO or its internal category-selection index.
+    ``admit_rate`` is the validated percentage the category was derived
+    from -- the card prints this number, not the raw column, so the badge
+    and the figure beside it can never disagree.
     """
 
     category: FitCategory
-    baseline_category: FitCategory
-    baseline_admit_rate: float | None
-    basis: FitBasis
-    evidence_level: FitEvidenceLevel
-    signals: tuple[FitSignal, ...]
-    unavailable: tuple[UnavailableFactor, ...]
-    caveats: tuple[FitCaveat, ...]
-    algorithm_version: Literal["admissions-fit-v1"]
-
-
-class FitProfileSummary(FrozenModel):
-    """Safe page-level Profile capability summary; never raw profile data."""
-
-    has_academic_candidate: bool
-    has_complete_test_candidate: bool
-    suggested_profile_fields: tuple[SuggestedProfileField, ...]
+    admit_rate: float | None
 
 
 class ExploreSchoolCard(FrozenModel):
@@ -226,19 +170,15 @@ class ExploreResponse(FrozenModel):
     page_size: int
     total: int
     total_is_capped: bool
-    browsable_total: int
-    catalog_total: int
     exclusions: tuple[Exclusion, ...]
     sorted_null_tail: NullTail | None
     control_counts: dict[Control, int]
     narrowest: Narrowest | None
     filter_options: FilterOptions
     facts_observed_from: str | None
-    band_caption: str
     entrance_difficulty_note: str
     majors_match_note: str
     religious_affiliation_note: str
-    fit_profile_summary: FitProfileSummary
 
 
 class MajorOption(FrozenModel):

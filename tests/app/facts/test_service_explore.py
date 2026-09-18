@@ -7,41 +7,23 @@ enforces, and the shared-URL sort/region-label parsing fallbacks.
 from __future__ import annotations
 
 import json
-from datetime import UTC, datetime
 from decimal import Decimal
 from types import SimpleNamespace
 from typing import Any, cast
 
 import pytest
-from structlog.testing import capture_logs
 
 from adapters.facts_store import EXPLORE_COLUMNS
-from app.facts.explore_models import (
-    ExploreQuery,
-    FitEstimate,
-    FitProfileSummary,
-    FitSignal,
-    UnavailableFactor,
-)
+from app.facts.explore_models import ExploreQuery
 from app.facts.service_explore import (
     METRIC_LABELS,
     _build_clauses,
     _combine,
-    _fit_profile_summary,
     _resolve_sort,
     _split_region_label,
     run_explore,
 )
-from app.workspace.models import Academics, Profile, SatScore
-from app.workspace.models import Testing as ProfileTesting
 from counselle_db import service as _db_service
-from counselle_db.admissions_fit_evidence import (
-    admissions_fit_batch_read_receipt,
-    record_admissions_fit_batch_read_receipt,
-    reset_admissions_fit_batch_read_receipt,
-)
-from counselle_db.models import FactValueRow
-from domain.admissions_fit import StudentFitInputs
 
 
 def test_metric_labels_are_noun_phrases_of_at_most_four_words_no_trailing_period() -> None:
@@ -136,6 +118,15 @@ class _FakeCatalog:
     never touches it directly -- so a placeholder is enough."""
 
 
+def _fake_explore(main_row: dict[str, Any]) -> Any:
+    """Answer the page statement with one row and every ancillary one empty."""
+
+    async def explore(catalog: Any, statements: list[Any]) -> list[tuple[dict[str, Any], ...]]:
+        return [(main_row,), *[() for _ in statements[1:]]]
+
+    return explore
+
+
 async def test_explore_wire_payload_serializes_numeric_columns_as_json_numbers(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -174,24 +165,9 @@ async def test_explore_wire_payload_serializes_numeric_columns_as_json_numbers(
         undergraduates=1200,
     )
 
-    async def fake_fit_executor(
-        catalog: Any, statement: tuple[str, list[Any]], *, max_page_size: int
-    ) -> tuple[tuple[dict[str, Any], ...], dict[int, tuple[object, ...]]]:
-        return (main_row,), {1: ()}
+    monkeypatch.setattr(_db_service, "explore", _fake_explore(main_row))
 
-    async def fake_explore(catalog: Any, statements: list[Any]) -> list[list[dict[str, Any]]]:
-        results: list[list[dict[str, Any]]] = []
-        for i, _ in enumerate(statements):
-            if i in (0, 1):
-                results.append([{"n": 1}])
-            else:
-                results.append([])
-        return results
-
-    monkeypatch.setattr(_db_service, "explore_with_admissions_fit_facts", fake_fit_executor)
-    monkeypatch.setattr(_db_service, "explore", fake_explore)
-
-    response = await run_explore(_FakeCatalog(), ExploreQuery(), _fake_settings(), Profile())  # type: ignore[arg-type]
+    response = await run_explore(_FakeCatalog(), ExploreQuery(), _fake_settings())  # type: ignore[arg-type]
     payload = json.loads(response.model_dump_json())
     fields = payload["schools"][0]["fields"]
 
@@ -202,490 +178,39 @@ async def test_explore_wire_payload_serializes_numeric_columns_as_json_numbers(
     assert isinstance(fields["undergraduates"], int)
 
 
-def test_fit_wire_models_serialize_every_closed_enum_value() -> None:
-    """The API vocabulary is exhaustive and never leaks domain internals."""
-    estimate = FitEstimate(
-        category="Safety",
-        baseline_category="Reach",
-        baseline_admit_rate=52.5,
-        basis="personalized",
-        evidence_level="two_comparisons",
-        signals=(
-            FitSignal(factor="academic", source="gpa_distribution", assessment="strong"),
-            FitSignal(factor="testing", source="sat_and_act", assessment="weak"),
-        ),
-        unavailable=(
-            UnavailableFactor(factor="academic", reason="profile_gpa_missing"),
-            UnavailableFactor(factor="testing", reason="test_band_stale"),
-        ),
-        caveats=("entering_class_benchmark_not_cutoff", "stale_optional_facts"),
-        algorithm_version="admissions-fit-v1",
-    )
-    summary = FitProfileSummary(
-        has_academic_candidate=True,
-        has_complete_test_candidate=False,
-        suggested_profile_fields=("test_scores",),
-    )
-
-    payload = json.loads(estimate.model_dump_json())
-    assert payload == {
-        "category": "Safety",
-        "baseline_category": "Reach",
-        "baseline_admit_rate": 52.5,
-        "basis": "personalized",
-        "evidence_level": "two_comparisons",
-        "signals": [
-            {"factor": "academic", "source": "gpa_distribution", "assessment": "strong"},
-            {"factor": "testing", "source": "sat_and_act", "assessment": "weak"},
-        ],
-        "unavailable": [
-            {"factor": "academic", "reason": "profile_gpa_missing"},
-            {"factor": "testing", "reason": "test_band_stale"},
-        ],
-        "caveats": ["entering_class_benchmark_not_cutoff", "stale_optional_facts"],
-        "algorithm_version": "admissions-fit-v1",
-    }
-    assert json.loads(summary.model_dump_json())["suggested_profile_fields"] == ["test_scores"]
-
-
 @pytest.mark.parametrize(
-    "student",
-    (
-        StudentFitInputs(sat_math=Decimal("801"), sat_ebrw=Decimal("700")),
-        StudentFitInputs(sat_math=Decimal("700"), sat_ebrw=Decimal("199")),
-        StudentFitInputs(act_composite=Decimal("37")),
-        StudentFitInputs(act_composite=Decimal("1.5")),
-    ),
+    ("admit_rate", "category"),
+    [
+        (Decimal("4.5"), "Reach"),
+        (Decimal("30"), "Target"),
+        (Decimal("72"), "Safety"),
+        (None, "Unknown"),
+        # A column that is out of range is not evidence, and classifies nothing.
+        (Decimal("140"), "Unknown"),
+    ],
 )
-def test_fit_profile_summary_does_not_hide_invalid_persisted_test_scores(
-    student: StudentFitInputs,
+async def test_every_card_is_classified_by_its_admit_rate_alone(
+    monkeypatch: pytest.MonkeyPatch, admit_rate: object, category: str
 ) -> None:
-    summary = _fit_profile_summary(student)
-
-    assert summary.has_complete_test_candidate is False
-    assert "test_scores" in summary.suggested_profile_fields
-
-
-def test_fit_wire_contract_exposes_each_closed_enum_and_no_internal_index() -> None:
-    schema = FitEstimate.model_json_schema()
-    props = schema["properties"]
-    assert props["category"]["enum"] == ["Reach", "Target", "Safety", "Unknown"]
-    assert props["baseline_category"]["enum"] == ["Reach", "Target", "Safety", "Unknown"]
-    assert props["basis"]["enum"] == [
-        "school_rate",
-        "personalized",
-        "missing_admit_rate",
-    ]
-    assert props["evidence_level"]["enum"] == [
-        "baseline_only",
-        "one_comparison",
-        "two_comparisons",
-    ]
-    assert props["caveats"]["items"]["enum"] == [
-        "entering_class_benchmark_not_cutoff",
-        "stale_optional_facts",
-    ]
-    unavailable = schema["$defs"]["UnavailableFactor"]["properties"]["reason"]["enum"]
-    assert unavailable == [
-        "profile_gpa_missing",
-        "profile_gpa_invalid",
-        "gpa_scale_incompatible",
-        "gpa_distribution_unavailable",
-        "gpa_distribution_stale",
-        "gpa_distribution_invalid",
-        "profile_rank_unavailable",
-        "rank_disabled",
-        "rank_distribution_unavailable",
-        "rank_distribution_stale",
-        "rank_distribution_invalid",
-        "profile_test_missing",
-        "test_score_invalid",
-        "incomplete_sat_comparison",
-        "test_band_unavailable",
-        "test_band_stale",
-        "test_band_invalid",
-        "test_policy_not_required_or_unknown",
-    ]
-    assert "fit_index" not in props
-    assert "profile" not in props
-
-
-def _fit_main_row(*, school_id: int = 1, admit_rate: object = Decimal("52")) -> dict[str, Any]:
-    row: dict[str, Any] = dict.fromkeys(EXPLORE_COLUMNS)
-    row.update(
-        school_id=school_id,
+    """The card's whole estimate: one column in, one category out."""
+    main_row: dict[str, Any] = dict.fromkeys(EXPLORE_COLUMNS)
+    main_row.update(
+        school_id=1,
         name="Test University",
         city="Testville",
         state="CA",
         official_website="https://example.edu",
         facts_updated_at=None,
         total_count=1,
-        region="West",
         control="public",
-        hbcu=False,
-        tribal=False,
-        land_grant=False,
         admit_rate=admit_rate,
     )
-    return row
+    monkeypatch.setattr(_db_service, "explore", _fake_explore(main_row))
 
-
-def _malformed_gpa_fact() -> FactValueRow:
-    return FactValueRow(
-        fact_key="class_profile.gpa_distribution",
-        tab="admission",
-        section="getting-in",
-        label="GPA distribution",
-        value={"kind": "distribution", "value": {"scale": "not-gpa"}},
-        display="Malformed",
-        unit=None,
-        value_type="distribution",
-        value_num=None,
-        value_text=None,
-        value_bool=None,
-        value_date=None,
-        reported_period=None,
-        reported_period_year=None,
-        observed_at=datetime(2026, 9, 15, tzinfo=UTC),
-    )
-
-
-def _complete_gpa_distribution_fact() -> FactValueRow:
-    return FactValueRow(
-        fact_key="class_profile.gpa_distribution",
-        tab="admission",
-        section="getting-in",
-        label="GPA distribution",
-        value={
-            "kind": "distribution",
-            "value": {
-                "scale": "gpa",
-                "buckets": [
-                    {"label": "0.00 - 3.49", "lo": 0, "hi": 3.49, "pct": 10},
-                    {"label": "3.50 - 3.74", "lo": 3.5, "hi": 3.74, "pct": 15},
-                    {"label": "3.75 - 3.99", "lo": 3.75, "hi": 3.99, "pct": 50},
-                    {"label": "4.00 and Above", "lo": 4, "hi": None, "pct": 25},
-                ],
-                "omitted_buckets": [],
-                "sums_to": 100,
-            },
-        },
-        display="GPA distribution",
-        unit=None,
-        value_type="distribution",
-        value_num=None,
-        value_text=None,
-        value_bool=None,
-        value_date=None,
-        reported_period=None,
-        reported_period_year=None,
-        observed_at=datetime(2026, 9, 15, tzinfo=UTC),
-    )
-
-
-async def test_explore_uses_one_batch_and_saved_profile_not_url_assumptions(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Fit comes from the typed Profile supplied by the route, never URL scores."""
-    page_rows = (_fit_main_row(),)
-    captured: dict[str, object] = {}
-
-    async def fake_fit_executor(
-        catalog: Any, statement: tuple[str, list[Any]], *, max_page_size: int
-    ) -> tuple[tuple[dict[str, Any], ...], dict[int, tuple[object, ...]]]:
-        captured["statement"] = statement
-        captured["max_page_size"] = max_page_size
-        return page_rows, {1: ()}
-
-    async def fake_explore(
-        catalog: Any, statements: list[Any]
-    ) -> tuple[tuple[dict[str, Any], ...], ...]:
-        # The old main statement is no longer in the ancillary executor.
-        assert len(statements) == 6
-        return (
-            ({"n": 1},),
-            ({"n": 1},),
-            (),
-            (),
-            (),
-            (),
-        )
-
-    monkeypatch.setattr(_db_service, "explore_with_admissions_fit_facts", fake_fit_executor)
-    monkeypatch.setattr(_db_service, "explore", fake_explore)
-    profile = Profile(academics=Academics(gpa_unweighted=Decimal("3.8"), gpa_scale=Decimal("4.0")))
-    response = await run_explore(
-        cast(Any, _FakeCatalog()),
-        ExploreQuery(sat_math=800, sat_ebrw=800, act=36),
-        _fake_settings(),
-        profile,
-    )
-
-    # This is the effective page bound, not the broader configured maximum.
-    assert captured["max_page_size"] == 24
-    main_sql, _ = cast(tuple[str, list[Any]], captured["statement"])
-    assert "LIMIT 24 OFFSET 0" in main_sql
+    response = await run_explore(_FakeCatalog(), ExploreQuery(), _fake_settings())  # type: ignore[arg-type]
     fit = response.schools[0].fit
-    assert fit.category == "Safety"
-    assert fit.baseline_category == "Safety"
-    assert fit.basis == "school_rate"
-    assert fit.baseline_admit_rate == 52.0
-    assert response.fit_profile_summary.has_academic_candidate is True
-    assert response.fit_profile_summary.has_complete_test_candidate is False
 
-
-async def test_explore_missing_admit_rate_is_unknown_even_with_profile_and_facts(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    async def fake_fit_executor(
-        catalog: Any, statement: tuple[str, list[Any]], *, max_page_size: int
-    ) -> tuple[tuple[dict[str, Any], ...], dict[int, tuple[object, ...]]]:
-        return (_fit_main_row(admit_rate=None),), {1: ()}
-
-    async def fake_explore(
-        catalog: Any, statements: list[Any]
-    ) -> tuple[tuple[dict[str, Any], ...], ...]:
-        return (({"n": 1},), ({"n": 1},), (), (), (), ())
-
-    monkeypatch.setattr(_db_service, "explore_with_admissions_fit_facts", fake_fit_executor)
-    monkeypatch.setattr(_db_service, "explore", fake_explore)
-
-    response = await run_explore(
-        cast(Any, _FakeCatalog()),
-        ExploreQuery(),
-        _fake_settings(),
-        Profile(academics=Academics(gpa_unweighted=Decimal("4.0"), gpa_scale=Decimal("4.0"))),
-    )
-
-    fit = response.schools[0].fit
-    assert fit.category == "Unknown"
-    assert fit.baseline_category == "Unknown"
-    assert fit.basis == "missing_admit_rate"
-    assert fit.baseline_admit_rate is None
-    assert response.fit_profile_summary.has_academic_candidate is True
-    assert response.fit_profile_summary.suggested_profile_fields == ("class_rank", "test_scores")
-
-
-async def test_explore_malformed_optional_fact_degrades_only_that_signal(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    async def fake_fit_executor(
-        catalog: Any, statement: tuple[str, list[Any]], *, max_page_size: int
-    ) -> tuple[tuple[dict[str, Any], ...], dict[int, tuple[FactValueRow, ...]]]:
-        return (_fit_main_row(),), {1: (_malformed_gpa_fact(),)}
-
-    async def fake_explore(
-        catalog: Any, statements: list[Any]
-    ) -> tuple[tuple[dict[str, Any], ...], ...]:
-        return (({"n": 1},), ({"n": 1},), (), (), (), ())
-
-    monkeypatch.setattr(_db_service, "explore_with_admissions_fit_facts", fake_fit_executor)
-    monkeypatch.setattr(_db_service, "explore", fake_explore)
-
-    response = await run_explore(
-        cast(Any, _FakeCatalog()),
-        ExploreQuery(),
-        _fake_settings(),
-        Profile(academics=Academics(gpa_unweighted=Decimal("3.8"), gpa_scale=Decimal("4.0"))),
-    )
-
-    fit = response.schools[0].fit
-    assert fit.category == "Safety"
-    assert fit.basis == "school_rate"
-    assert fit.unavailable[0].reason == "gpa_distribution_invalid"
-
-
-async def test_explore_calculates_different_fit_from_each_saved_profile(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """The same school becomes a different server-calculated result per owner."""
-    page = (_fit_main_row(admit_rate=Decimal("45")),)
-
-    async def fake_fit_executor(
-        catalog: Any, statement: tuple[str, list[Any]], *, max_page_size: int
-    ) -> tuple[tuple[dict[str, Any], ...], dict[int, tuple[FactValueRow, ...]]]:
-        return page, {1: (_complete_gpa_distribution_fact(),)}
-
-    async def fake_explore(
-        catalog: Any, statements: list[Any]
-    ) -> tuple[tuple[dict[str, Any], ...], ...]:
-        return (({"n": 1},), ({"n": 1},), (), (), (), ())
-
-    monkeypatch.setattr(_db_service, "explore_with_admissions_fit_facts", fake_fit_executor)
-    monkeypatch.setattr(_db_service, "explore", fake_explore)
-    lower_profile = Profile(
-        academics=Academics(gpa_unweighted=Decimal("3.2"), gpa_scale=Decimal("4"))
-    )
-    higher_profile = Profile(
-        academics=Academics(gpa_unweighted=Decimal("4.0"), gpa_scale=Decimal("4"))
-    )
-
-    lower = await run_explore(
-        cast(Any, _FakeCatalog()), ExploreQuery(), _fake_settings(), lower_profile
-    )
-    higher = await run_explore(
-        cast(Any, _FakeCatalog()), ExploreQuery(), _fake_settings(), higher_profile
-    )
-
-    assert lower.schools[0].fit.category == "Target"
-    assert higher.schools[0].fit.category == "Safety"
-    assert lower.schools[0].fit.basis == higher.schools[0].fit.basis == "personalized"
-
-
-async def test_direct_explore_service_does_not_emit_request_observation(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """One request produces bounded aggregate counters, never applicant or school traces."""
-    page = (
-        _fit_main_row(school_id=1, admit_rate=Decimal("45")),
-        _fit_main_row(school_id=2, admit_rate=None),
-    )
-    clock_values = iter((100.0, 102.5))
-
-    async def fake_fit_executor(
-        catalog: Any, statement: tuple[str, list[Any]], *, max_page_size: int
-    ) -> tuple[tuple[dict[str, Any], ...], dict[int, tuple[FactValueRow, ...]]]:
-        del catalog, statement, max_page_size
-        record_admissions_fit_batch_read_receipt(
-            batch_query_latency_ms=7,
-            fact_row_drop_counts={"invalid_detail_row": 2},
-        )
-        return page, {1: (_complete_gpa_distribution_fact(),), 2: ()}
-
-    async def fake_explore(
-        catalog: Any, statements: list[Any]
-    ) -> tuple[tuple[dict[str, Any], ...], ...]:
-        del catalog
-        assert len(statements) == 6
-        return (({"n": 2},), ({"n": 2},), (), (), (), ())
-
-    monkeypatch.setattr(_db_service, "explore_with_admissions_fit_facts", fake_fit_executor)
-    monkeypatch.setattr(_db_service, "explore", fake_explore)
-    monkeypatch.setattr(
-        "counselle_db.admissions_fit_evidence._monotonic_clock", lambda: next(clock_values)
-    )
-    profile = Profile(
-        academics=Academics(
-            gpa_unweighted=Decimal("4.0"),
-            gpa_scale=Decimal("4.0"),
-            class_rank=19,
-            class_size=137,
-        ),
-        testing=ProfileTesting(sat=SatScore(math=731, ebrw=727)),
-    )
-
-    with capture_logs() as logs:
-        response = await run_explore(
-            cast(Any, _FakeCatalog()), ExploreQuery(), _fake_settings(), profile
-        )
-
-    # Request telemetry belongs to the authenticated route because it must
-    # cover the Profile SELECT as well as this pure assembly service.
-    assert logs == []
-    assert "admissions_fit_explore_observed" not in response.model_dump()
-
-
-async def test_explore_telemetry_aggregates_adapter_validation_even_when_rank_fallback_wins(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """A source-validation counter is independent of the card's final fallback."""
-
-    def rank_row(fact_key: str, value_num: int) -> FactValueRow:
-        return FactValueRow(
-            fact_key=fact_key,
-            tab="admission",
-            section="getting-in",
-            label="High School Class Rank",
-            value={"kind": "percent", "value": None},
-            display=f"{value_num}%",
-            unit="percent",
-            value_type="percent",
-            value_num=value_num,
-            value_text=None,
-            value_bool=None,
-            value_date=None,
-            reported_period=None,
-            reported_period_year=None,
-            observed_at=datetime(2026, 9, 15, tzinfo=UTC),
-        )
-
-    async def fake_fit_executor(
-        catalog: Any, statement: tuple[str, list[Any]], *, max_page_size: int
-    ) -> tuple[tuple[dict[str, Any], ...], dict[int, tuple[FactValueRow, ...]]]:
-        del catalog, statement, max_page_size
-        return (
-            (
-                _fit_main_row(school_id=1, admit_rate=Decimal("45")),
-                _fit_main_row(school_id=2, admit_rate=Decimal("45")),
-            ),
-            {
-                1: (
-                    _malformed_gpa_fact(),
-                    rank_row("class_profile.class_rank_top_tenth", 25),
-                    rank_row("class_profile.class_rank_top_quarter", 55),
-                    rank_row("class_profile.class_rank_top_half", 80),
-                ),
-                2: (
-                    _complete_gpa_distribution_fact(),
-                    rank_row("class_profile.class_rank_top_tenth", 95),
-                    rank_row("class_profile.class_rank_top_quarter", 50),
-                    rank_row("class_profile.class_rank_top_half", 80),
-                ),
-            },
-        )
-
-    async def fake_explore(
-        catalog: Any, statements: list[Any]
-    ) -> tuple[tuple[dict[str, Any], ...], ...]:
-        del catalog
-        assert len(statements) == 6
-        return (({"n": 2},), ({"n": 2},), (), (), (), ())
-
-    monkeypatch.setattr(_db_service, "explore_with_admissions_fit_facts", fake_fit_executor)
-    monkeypatch.setattr(_db_service, "explore", fake_explore)
-    profile = Profile(
-        academics=Academics(
-            gpa_unweighted=Decimal("4.0"),
-            gpa_scale=Decimal("4"),
-            class_rank=1,
-            class_size=100,
-            school_ranks=True,
-        )
-    )
-
-    reset_admissions_fit_batch_read_receipt()
-    with capture_logs() as logs:
-        response = await run_explore(
-            cast(Any, _FakeCatalog()), ExploreQuery(), _fake_settings(), profile
-        )
-
-    assert response.schools[0].fit.signals[0].source == "class_rank"
-    assert response.schools[1].fit.signals[0].source == "gpa_distribution"
-    assert logs == []
-    assert dict(admissions_fit_batch_read_receipt().validation_failure_counts) == {
-        "gpa_distribution_invalid": 1,
-        "rank_distribution_invalid": 1,
-    }
-
-
-async def test_direct_explore_service_rethrows_without_request_observation(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """A failed Explore emits one bounded failure metric and then re-raises."""
-    clock_values = iter((50.0, 51.0))
-
-    async def failing_fit_executor(
-        catalog: Any, statement: tuple[str, list[Any]], *, max_page_size: int
-    ) -> tuple[tuple[dict[str, Any], ...], dict[int, tuple[FactValueRow, ...]]]:
-        del catalog, statement, max_page_size
-        raise RuntimeError("school_id=90210 GPA=3.91")
-
-    monkeypatch.setattr(_db_service, "explore_with_admissions_fit_facts", failing_fit_executor)
-    monkeypatch.setattr(
-        "counselle_db.admissions_fit_evidence._monotonic_clock", lambda: next(clock_values)
-    )
-
-    with capture_logs() as logs, pytest.raises(RuntimeError, match="school_id=90210"):
-        await run_explore(cast(Any, _FakeCatalog()), ExploreQuery(), _fake_settings(), Profile())
-
-    assert logs == []
+    assert fit.category == category
+    # The rate travels with the category, so the card cannot print a number
+    # that disagrees with the badge beside it.
+    assert fit.admit_rate == (None if category == "Unknown" else float(cast(Decimal, admit_rate)))

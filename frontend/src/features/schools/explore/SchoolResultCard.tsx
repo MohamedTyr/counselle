@@ -157,8 +157,6 @@ export function SchoolResultCard({
   href,
   onList = false,
   isAdding = false,
-  isRefreshingEstimate = false,
-  bandCaptionId,
   onAdd,
 }: {
   school: ExploreSchoolCard;
@@ -168,8 +166,6 @@ export function SchoolResultCard({
   href: string | null;
   onList?: boolean;
   isAdding?: boolean;
-  isRefreshingEstimate?: boolean;
-  bandCaptionId: string | null;
   onAdd: (school: ExploreSchoolCard) => void;
 }) {
   const size = formatCompactCount(school.fields.undergraduates);
@@ -220,11 +216,9 @@ export function SchoolResultCard({
 
       <div className="mt-4">
         <VerdictBand
-          bandCaptionId={bandCaptionId}
           fields={school.fields}
           assumptions={assumptions}
           fit={school.fit}
-          isRefreshingEstimate={isRefreshingEstimate}
         />
       </div>
 

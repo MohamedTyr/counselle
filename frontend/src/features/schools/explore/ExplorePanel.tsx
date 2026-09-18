@@ -36,7 +36,6 @@ import type {
 } from "@/features/schools/explore/explore-types";
 import { SchoolResultCard } from "@/features/schools/explore/SchoolResultCard";
 import { SchoolResultCardSkeleton } from "@/features/schools/explore/SchoolResultCardSkeleton";
-import { hasScoreBand } from "@/features/schools/explore/band-preview";
 import { useExploreFilters } from "@/features/schools/explore/useExploreFilters";
 
 /*
@@ -48,7 +47,6 @@ import { useExploreFilters } from "@/features/schools/explore/useExploreFilters"
  * list onto the response for the on-list badge, and render.
  */
 
-const BAND_CAPTION_ID = "explore-band-caption";
 /** Stagger is capped so a large result set doesn't become a slideshow. */
 const STAGGER_CAP = 8;
 const STAGGER_STEP_MS = 30;
@@ -164,13 +162,6 @@ export function ExplorePanel() {
 
   const schools = data?.schools ?? [];
   const activeCount = useMemo(() => countActiveFilters(filters), [filters]);
-  const showBandCaption = schools.some((school) =>
-    hasScoreBand(school.fields, assumptions),
-  );
-  /** `keepPreviousData` keeps the layout stable. The context makes every
-   * card replace old personalized fit content until the matching response
-   * lands, including after a Profile mutation or `profile.updated` event. */
-  const isRefreshingEstimate = data !== undefined && explore.isFetching;
 
   /* Stagger the opening view and nothing else. Cards are keyed by unitid,
    * so a card that survives a filter change keeps its DOM node. */
@@ -269,21 +260,12 @@ export function ExplorePanel() {
         />
       ) : (
         <ExploreResultsHeader
-          bandCaption={data?.band_caption ?? ""}
-          bandCaptionId={BAND_CAPTION_ID}
-          browsableTotal={data?.browsable_total ?? 0}
-          catalogTotal={data?.catalog_total ?? 0}
           exclusions={data?.exclusions ?? []}
           factsObservedFrom={data?.facts_observed_from ?? null}
           onIncludeMissing={toggleIncludeMissing}
-          fitProfileSummary={
-            isRefreshingEstimate ? null : (data?.fit_profile_summary ?? null)
-          }
-          isRefreshingEstimate={isRefreshingEstimate}
           onAssumptionsChange={setAssumptions}
           onSortChange={setSort}
           assumptions={assumptions}
-          showBandCaption={showBandCaption}
           sort={sort}
           sortedNullTail={data?.sorted_null_tail ?? null}
           total={data?.total ?? 0}
@@ -318,10 +300,8 @@ export function ExplorePanel() {
                 }}
               >
                 <SchoolResultCard
-                  bandCaptionId={showBandCaption ? BAND_CAPTION_ID : null}
                   href={`/app/schools/${school.unitid}`}
                   isAdding={addingUnitid === school.unitid}
-                  isRefreshingEstimate={isRefreshingEstimate}
                   onAdd={handleAdd}
                   onList={applicationIdByUnitid.has(school.unitid)}
                   assumptions={assumptions}

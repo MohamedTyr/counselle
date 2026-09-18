@@ -4,7 +4,12 @@ import type { FilterOption } from "@/api/schools/explore";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Command, CommandGroup, CommandItem, CommandList } from "@/components/ui/command";
+import {
+  Command,
+  CommandGroup,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
 import { Popover, PopoverPopup, PopoverTrigger } from "@/components/ui/popover";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import {
@@ -31,7 +36,11 @@ import {
   rangeDescriptorByKey,
   testPolicyOptions,
 } from "@/features/schools/explore/explore-config";
-import { CheckboxRow, FilterGroupHeading, RangeFields } from "@/features/schools/explore/explore-controls";
+import {
+  CheckboxRow,
+  FilterGroupHeading,
+  RangeFields,
+} from "@/features/schools/explore/explore-controls";
 import { formatDeadlineDate } from "@/features/schools/explore/explore-format";
 import type {
   ExploreFilters,
@@ -112,18 +121,27 @@ function MoneyGroup({ filters, onChange, onRangeChange }: GroupProps) {
         checked={filters.noApplicationFee}
         id="filter-no-fee"
         label="No application fee"
-        onToggle={(next) => onChange((current) => ({ ...current, noApplicationFee: next }))}
+        onToggle={(next) =>
+          onChange((current) => ({ ...current, noApplicationFee: next }))
+        }
       />
     </section>
   );
 }
 
-function DeadlineBeforeControl({ filters, onChange }: Pick<GroupProps, "filters" | "onChange">) {
-  const selected = filters.deadlineBefore ? new Date(`${filters.deadlineBefore}T00:00:00`) : undefined;
+function DeadlineBeforeControl({
+  filters,
+  onChange,
+}: Pick<GroupProps, "filters" | "onChange">) {
+  const selected = filters.deadlineBefore
+    ? new Date(`${filters.deadlineBefore}T00:00:00`)
+    : undefined;
 
   return (
     <div className="flex flex-col gap-1.5">
-      <span className="text-xs text-[var(--ink-secondary)]">Deadline before</span>
+      <span className="text-xs text-[var(--ink-secondary)]">
+        Deadline before
+      </span>
       <Popover>
         <PopoverTrigger className="inline-flex h-8 w-fit items-center rounded-lg border border-input bg-background px-2.5 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-[var(--focus-ring)]">
           {formatDeadlineDate(filters.deadlineBefore) ?? "Any date"}
@@ -143,7 +161,9 @@ function DeadlineBeforeControl({ filters, onChange }: Pick<GroupProps, "filters"
             <div className="border-t px-2 py-2">
               <Button
                 className="w-full justify-center"
-                onClick={() => onChange((current) => ({ ...current, deadlineBefore: null }))}
+                onClick={() =>
+                  onChange((current) => ({ ...current, deadlineBefore: null }))
+                }
                 size="sm"
                 type="button"
                 variant="ghost"
@@ -166,26 +186,34 @@ function RoundsGroup({ filters, onChange }: GroupProps) {
         checked={filters.offersEarlyDecision}
         id="filter-ed"
         label="Offers Early Decision"
-        onToggle={(next) => onChange((current) => ({ ...current, offersEarlyDecision: next }))}
+        onToggle={(next) =>
+          onChange((current) => ({ ...current, offersEarlyDecision: next }))
+        }
       />
       <BoolRow
         checked={filters.offersEarlyAction}
         id="filter-ea"
         label="Offers Early Action"
-        onToggle={(next) => onChange((current) => ({ ...current, offersEarlyAction: next }))}
+        onToggle={(next) =>
+          onChange((current) => ({ ...current, offersEarlyAction: next }))
+        }
       />
       <BoolRow
         checked={filters.rollingAdmission}
         id="filter-rolling"
         label="Rolling admission"
-        onToggle={(next) => onChange((current) => ({ ...current, rollingAdmission: next }))}
+        onToggle={(next) =>
+          onChange((current) => ({ ...current, rollingAdmission: next }))
+        }
       />
       <DeadlineBeforeControl filters={filters} onChange={onChange} />
       <BoolRow
         checked={filters.includeRolling}
         id="filter-include-rolling"
         label="Also include rolling-admission schools"
-        onToggle={(next) => onChange((current) => ({ ...current, includeRolling: next }))}
+        onToggle={(next) =>
+          onChange((current) => ({ ...current, includeRolling: next }))
+        }
       />
     </section>
   );
@@ -209,7 +237,9 @@ function TestingGroup({
         value={filters.testPolicy}
       />
       <div className="flex flex-col gap-1.5">
-        <span className="text-xs text-[var(--ink-secondary)]">Entrance difficulty</span>
+        <span className="text-xs text-[var(--ink-secondary)]">
+          Entrance difficulty
+        </span>
         <Select
           onValueChange={(value) =>
             onChange((current) => ({
@@ -232,7 +262,9 @@ function TestingGroup({
           </SelectContent>
         </Select>
         {entranceDifficultyNote ? (
-          <p className="text-xs text-[var(--ink-muted)]">{entranceDifficultyNote}</p>
+          <p className="text-xs text-[var(--ink-muted)]">
+            {entranceDifficultyNote}
+          </p>
         ) : null}
       </div>
     </section>
@@ -277,7 +309,9 @@ function CampusGroup({
           onChange={(range) => onRangeChange("ratio", range)}
           range={filters.ranges.ratio}
         />
-        <p className="text-xs text-[var(--ink-muted)]">{rangeDescriptorByKey.ratio.description}</p>
+        <p className="text-xs text-[var(--ink-muted)]">
+          {rangeDescriptorByKey.ratio.description}
+        </p>
       </div>
       <RangeFields
         descriptor={rangeDescriptorByKey.housing}
@@ -286,10 +320,15 @@ function CampusGroup({
       />
       {campusSettingOptions.length > 0 ? (
         <div className="flex flex-col gap-2">
-          <span className="text-xs text-[var(--ink-secondary)]">Campus setting</span>
+          <span className="text-xs text-[var(--ink-secondary)]">
+            Campus setting
+          </span>
           <div className="flex flex-col gap-2.5">
             {campusSettingOptions.map((option) => (
-              <CheckboxRow htmlFor={`campus-${option.value}`} key={option.value}>
+              <CheckboxRow
+                htmlFor={`campus-${option.value}`}
+                key={option.value}
+              >
                 <Checkbox
                   checked={filters.campusSetting.includes(
                     option.value as ExploreFilters["campusSetting"][number],
@@ -301,7 +340,9 @@ function CampusGroup({
                       campusSetting: current.campusSetting.includes(
                         option.value as ExploreFilters["campusSetting"][number],
                       )
-                        ? current.campusSetting.filter((entry) => entry !== option.value)
+                        ? current.campusSetting.filter(
+                            (entry) => entry !== option.value,
+                          )
                         : [
                             ...current.campusSetting,
                             option.value as ExploreFilters["campusSetting"][number],
@@ -316,10 +357,15 @@ function CampusGroup({
         </div>
       ) : null}
       <div className="flex flex-col gap-1.5">
-        <span className="text-xs text-[var(--ink-secondary)]">Academic calendar</span>
+        <span className="text-xs text-[var(--ink-secondary)]">
+          Academic calendar
+        </span>
         <Select
           onValueChange={(value) =>
-            onChange((current) => ({ ...current, calendar: value === "any" ? null : String(value) }))
+            onChange((current) => ({
+              ...current,
+              calendar: value === "any" ? null : String(value),
+            }))
           }
           value={filters.calendar ?? "any"}
         >
@@ -355,7 +401,9 @@ function ReligiousAffiliationControl({
 
   return (
     <div className="flex flex-col gap-1.5">
-      <span className="text-xs text-[var(--ink-secondary)]">Religious affiliation</span>
+      <span className="text-xs text-[var(--ink-secondary)]">
+        Religious affiliation
+      </span>
       <Popover>
         <PopoverTrigger className="inline-flex h-8 w-full items-center justify-between rounded-lg border border-input bg-background px-2.5 text-start text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-[var(--focus-ring)]">
           <span className="truncate">{selectedLabel ?? "Any"}</span>
@@ -365,15 +413,26 @@ function ReligiousAffiliationControl({
             <CommandList>
               <CommandGroup>
                 <CommandItem
-                  onSelect={() => onChange((current) => ({ ...current, religiousAffiliation: null }))}
+                  onSelect={() =>
+                    onChange((current) => ({
+                      ...current,
+                      religiousAffiliation: null,
+                    }))
+                  }
                   value="any"
                 >
-                  <Checkbox checked={filters.religiousAffiliation === null} tabIndex={-1} />
+                  <Checkbox
+                    checked={filters.religiousAffiliation === null}
+                    tabIndex={-1}
+                  />
                   Any
                 </CommandItem>
                 <CommandItem
                   onSelect={() =>
-                    onChange((current) => ({ ...current, religiousAffiliation: "any_affiliated" }))
+                    onChange((current) => ({
+                      ...current,
+                      religiousAffiliation: "any_affiliated",
+                    }))
                   }
                   value="any_affiliated"
                 >
@@ -385,11 +444,17 @@ function ReligiousAffiliationControl({
                 </CommandItem>
                 <CommandItem
                   onSelect={() =>
-                    onChange((current) => ({ ...current, religiousAffiliation: "none_on_file" }))
+                    onChange((current) => ({
+                      ...current,
+                      religiousAffiliation: "none_on_file",
+                    }))
                   }
                   value="none_on_file"
                 >
-                  <Checkbox checked={filters.religiousAffiliation === "none_on_file"} tabIndex={-1} />
+                  <Checkbox
+                    checked={filters.religiousAffiliation === "none_on_file"}
+                    tabIndex={-1}
+                  />
                   No affiliation on file
                 </CommandItem>
               </CommandGroup>
@@ -398,7 +463,10 @@ function ReligiousAffiliationControl({
                   <CommandItem
                     key={option.value}
                     onSelect={() =>
-                      onChange((current) => ({ ...current, religiousAffiliation: option.value }))
+                      onChange((current) => ({
+                        ...current,
+                        religiousAffiliation: option.value,
+                      }))
                     }
                     value={option.value}
                   >
@@ -440,7 +508,9 @@ function BodyGroup({
       <SegmentedControl
         className="w-full"
         label="Coed or single-sex"
-        onValueChange={(value: Gender | "any") => onChange((current) => ({ ...current, gender: value }))}
+        onValueChange={(value: Gender | "any") =>
+          onChange((current) => ({ ...current, gender: value }))
+        }
         options={genderOptions}
         value={filters.gender}
       />
@@ -456,25 +526,33 @@ function BodyGroup({
           checked={filters.hbcu}
           id="filter-hbcu"
           label="Historically Black college or university"
-          onToggle={(next) => onChange((current) => ({ ...current, hbcu: next }))}
+          onToggle={(next) =>
+            onChange((current) => ({ ...current, hbcu: next }))
+          }
         />
         <BoolRow
           checked={filters.hsi}
           id="filter-hsi"
           label="Hispanic-serving institution"
-          onToggle={(next) => onChange((current) => ({ ...current, hsi: next }))}
+          onToggle={(next) =>
+            onChange((current) => ({ ...current, hsi: next }))
+          }
         />
         <BoolRow
           checked={filters.tribal}
           id="filter-tribal"
           label="Tribal college"
-          onToggle={(next) => onChange((current) => ({ ...current, tribal: next }))}
+          onToggle={(next) =>
+            onChange((current) => ({ ...current, tribal: next }))
+          }
         />
         <BoolRow
           checked={filters.landGrant}
           id="filter-land-grant"
           label="Land-grant institution"
-          onToggle={(next) => onChange((current) => ({ ...current, landGrant: next }))}
+          onToggle={(next) =>
+            onChange((current) => ({ ...current, landGrant: next }))
+          }
         />
       </div>
     </section>
@@ -489,22 +567,31 @@ function PanelGrid(
     entranceDifficultyNote: string | null;
   },
 ) {
-  const groups: Record<(typeof panelGroups)[number]["id"], () => ReactElement> = {
-    body: () => (
-      <BodyGroup
-        {...props}
-        religiousAffiliationNote={props.religiousAffiliationNote}
-        religiousAffiliationOptions={props.religiousAffiliationOptions}
-      />
-    ),
-    campus: () => <CampusGroup {...props} campusSettingOptions={props.campusSettingOptions} />,
-    money: () => <MoneyGroup {...props} />,
-    outcomes: () => <OutcomesGroup {...props} />,
-    rounds: () => <RoundsGroup {...props} />,
-    testing: () => (
-      <TestingGroup {...props} entranceDifficultyNote={props.entranceDifficultyNote} />
-    ),
-  };
+  const groups: Record<(typeof panelGroups)[number]["id"], () => ReactElement> =
+    {
+      body: () => (
+        <BodyGroup
+          {...props}
+          religiousAffiliationNote={props.religiousAffiliationNote}
+          religiousAffiliationOptions={props.religiousAffiliationOptions}
+        />
+      ),
+      campus: () => (
+        <CampusGroup
+          {...props}
+          campusSettingOptions={props.campusSettingOptions}
+        />
+      ),
+      money: () => <MoneyGroup {...props} />,
+      outcomes: () => <OutcomesGroup {...props} />,
+      rounds: () => <RoundsGroup {...props} />,
+      testing: () => (
+        <TestingGroup
+          {...props}
+          entranceDifficultyNote={props.entranceDifficultyNote}
+        />
+      ),
+    };
 
   return (
     <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
@@ -522,10 +609,18 @@ function PanelFooter({
 }: Pick<PanelProps, "activeCount" | "onClearAll"> & { onDone: () => void }) {
   return (
     <div className="flex items-center justify-end gap-3">
-      <span aria-live="polite" className="text-xs text-[var(--ink-muted)] tabular-nums">
+      <span
+        aria-live="polite"
+        className="text-xs text-[var(--ink-muted)] tabular-nums"
+      >
         {activeCount} active
       </span>
-      <Button disabled={activeCount === 0} onClick={onClearAll} size="sm" variant="ghost">
+      <Button
+        disabled={activeCount === 0}
+        onClick={onClearAll}
+        size="sm"
+        variant="ghost"
+      >
         Clear all
       </Button>
       <Button onClick={onDone} size="sm" variant="outline">
@@ -572,7 +667,9 @@ export function ExploreFilterPanel({
         <SheetPopup className="max-h-[86svh]" side="bottom">
           <SheetHeader>
             <SheetTitle>More filters</SheetTitle>
-            <SheetDescription>Narrow the catalog. The result count updates as you go.</SheetDescription>
+            <SheetDescription>
+              Narrow the catalog. The result count updates as you go.
+            </SheetDescription>
           </SheetHeader>
           <SheetPanel>
             <PanelGrid {...gridProps} />

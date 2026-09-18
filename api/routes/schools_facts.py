@@ -12,7 +12,6 @@ from __future__ import annotations
 from collections.abc import Awaitable, Callable
 from typing import Annotated
 
-import structlog
 from fastapi import APIRouter, Depends, Query, Request, Response
 
 from api.auth import current_active_user
@@ -22,12 +21,9 @@ from app.facts.explore_models import ExploreQuery, ExploreResponse, MajorsRespon
 from app.facts.response_models import SchoolFactsResponse
 from app.facts.service import get_school_facts
 from app.facts.service_explore import run_explore, run_majors
-from app.workspace.service_profile import read_profile_or_empty
-from counselle_db.admissions_fit_evidence import observe_admissions_fit_explore
 from counselle_db.models import ServiceError
 
 router = APIRouter(tags=["schools-facts"])
-logger = structlog.get_logger(__name__)
 
 
 async def map_facts_errors[T](call: Callable[[], Awaitable[T]]) -> T:
@@ -71,7 +67,6 @@ async def get_facts_route(
 
 
 @router.get("/schools/explore")
-@observe_admissions_fit_explore(logger)
 async def explore_route(
     request: Request,
     response: Response,
@@ -98,9 +93,8 @@ async def explore_route(
 ) -> ExploreResponse:
     catalog = request.app.state.runtime.deps.catalog
     settings = request.app.state.settings
-    profile = await read_profile_or_empty(request.app.state.runtime.app_pool, user_id=user.id)
-    response.headers["Cache-Control"] = "private, no-cache"
-    return await run_explore(catalog, query, settings, profile)
+    response.headers["Cache-Control"] = "private, max-age=60"
+    return await run_explore(catalog, query, settings)
 
 
 @router.get("/schools/majors")

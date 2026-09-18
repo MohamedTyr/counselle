@@ -1,11 +1,6 @@
 import { ChevronDown, Eye, UserRound } from "lucide-react";
-import { Link } from "react-router";
 
-import type {
-  Exclusion,
-  FitProfileSummary,
-  NullTail,
-} from "@/api/schools/explore";
+import type { Exclusion, NullTail } from "@/api/schools/explore";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -79,8 +74,7 @@ function ExploreAssumptionsChip({
     <Popover>
       {/* Load-bearing, so it lives at the point of consequence rather than
        * in settings: it picks which tuition row and which score band every
-       * card below is showing. It never carries the band caption itself
-       * (plan §5.3) -- that lives once, below, always mounted. */}
+       * card below is showing. */}
       <PopoverTrigger className={CHIP_CLASSNAME}>
         <UserRound aria-hidden="true" className="size-3.5 opacity-70" />
         <span>Explore preview: {summary}</span>
@@ -166,9 +160,8 @@ function ExploreAssumptionsChip({
           </NumberField>
 
           <p className="text-xs text-[var(--ink-muted)]">
-            These Explore filters and previews pick tuition rows, score bands,
-            and score filters. Your saved Profile can refine the estimate; these
-            values do not.
+            These pick which tuition row and score band each card shows, and
+            what the score filter compares against.
           </p>
         </div>
       </PopoverPopup>
@@ -221,75 +214,31 @@ function formatMonthYear(iso: string): string {
     : date.toLocaleDateString("en-US", { month: "long", year: "numeric" });
 }
 
-function FitProfileStatus({ summary }: { summary: FitProfileSummary | null }) {
-  if (summary === null) {
-    return null;
-  }
-
-  const hasComparisonCandidate =
-    summary.has_academic_candidate || summary.has_complete_test_candidate;
-
-  if (hasComparisonCandidate) {
-    return null;
-  }
-
-  return (
-    <p
-      className="text-xs text-[var(--ink-muted)]"
-      data-slot="explore-fit-profile-status"
-    >
-      Add GPA, class rank, or scores to your saved Profile to refine these
-      estimates.{" "}
-      <Link
-        className="rounded-sm font-medium text-[var(--ink-secondary)] underline decoration-[var(--edge-subtle)] underline-offset-2 outline-none hover:text-[var(--ink)] focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
-        to="/app/profile"
-      >
-        Open Profile
-      </Link>
-    </p>
-  );
-}
-
 export function ExploreResultsHeader({
   total,
   totalIsCapped,
-  browsableTotal,
-  catalogTotal,
   factsObservedFrom,
   assumptions,
-  fitProfileSummary,
   exclusions,
   sortedNullTail,
   sort,
   onAssumptionsChange,
   onSortChange,
   onIncludeMissing,
-  bandCaption,
-  showBandCaption,
-  bandCaptionId,
-  isRefreshingEstimate = false,
 }: {
   total: number;
   totalIsCapped: boolean;
-  browsableTotal: number;
-  catalogTotal: number;
   factsObservedFrom: string | null;
   assumptions: ExploreAssumptions;
-  fitProfileSummary: FitProfileSummary | null;
   exclusions: Exclusion[];
   sortedNullTail: NullTail | null;
   sort: { key: SortKey; direction: SortDirection };
   onAssumptionsChange: (assumptions: ExploreAssumptions) => void;
   onSortChange: (sort: { key: SortKey; direction: SortDirection }) => void;
   onIncludeMissing: (key: RangeKey) => void;
-  bandCaption: string;
-  showBandCaption: boolean;
-  bandCaptionId: string;
-  isRefreshingEstimate?: boolean;
 }) {
   const activeSort =
     sortOptions.find((option) => option.value === sort.key) ?? sortOptions[0];
-  const outsideCatalog = catalogTotal - browsableTotal;
   const resultCount = totalIsCapped
     ? `${total}+ schools`
     : `${total} ${total === 1 ? "school" : "schools"}`;
@@ -302,9 +251,7 @@ export function ExploreResultsHeader({
           className="text-sm font-medium tabular-nums"
           role="status"
         >
-          {isRefreshingEstimate
-            ? `Refreshing estimates… ${resultCount}`
-            : resultCount}
+          {resultCount}
         </p>
 
         <ExploreAssumptionsChip
@@ -348,29 +295,10 @@ export function ExploreResultsHeader({
         </DropdownMenu>
       </div>
 
-      <p className="text-xs text-[var(--ink-muted)]">
-        Browsing {browsableTotal} schools with collected facts.
-        {outsideCatalog > 0
-          ? ` ${outsideCatalog} more are in Counselle without collected facts — search for one by name.`
-          : ""}
-      </p>
-
-      <FitProfileStatus summary={fitProfileSummary} />
-
       {factsObservedFrom ? (
         <p className="text-xs text-[var(--ink-muted)]">
           Some of these values were last checked{" "}
           {formatMonthYear(factsObservedFrom)} and may be out of date.
-        </p>
-      ) : null}
-
-      {/* The wire's own band caption -- never a frontend literal (plan
-       * §5.3) -- rendered once here, never on a card and never inside
-       * ExploreAssumptionsChip's popover. Every VerdictBand showing a score
-       * band points its aria-describedby at this node's id. */}
-      {showBandCaption ? (
-        <p className="text-xs text-[var(--ink-muted)]" id={bandCaptionId}>
-          {bandCaption}
         </p>
       ) : null}
     </div>

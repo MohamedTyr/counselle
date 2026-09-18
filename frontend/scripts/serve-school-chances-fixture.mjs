@@ -5,17 +5,20 @@ const host = "127.0.0.1";
 const port = process.env.SCHOOL_CHANCES_FIXTURE_PORT ?? "4175";
 const origin = `http://${host}:${port}`;
 const routeUrl = `${origin}/dev/school-chances`;
-const lazyModuleUrl =
-  `${origin}/src/features/dev-school-chances/SchoolChancesGalleryPage.tsx`;
+const lazyModuleUrl = `${origin}/src/features/dev-school-chances/SchoolChancesGalleryPage.tsx`;
 const viteBin = path.resolve("node_modules/vite/bin/vite.js");
+const fixtureCacheDir = path.resolve(".vite-school-chances-fixture");
 const readinessTimeoutMs = 120_000;
 
 const child = spawn(
   process.execPath,
-  [viteBin, "--host", host, "--port", port],
+  [viteBin, "--host", host, "--port", port, "--strictPort"],
   {
     cwd: process.cwd(),
-    env: process.env,
+    env: {
+      ...process.env,
+      SCHOOL_CHANCES_FIXTURE_CACHE_DIR: fixtureCacheDir,
+    },
     stdio: "inherit",
   },
 );
@@ -25,6 +28,7 @@ let childError;
 const childExited = new Promise((resolve) => {
   child.once("error", (error) => {
     childError = error;
+    resolve({ error });
   });
   child.once("exit", (code, signal) => {
     childExit = { code, signal };
@@ -97,9 +101,12 @@ async function waitForHttp(url, description, validate) {
 
 async function main() {
   try {
-    await waitForHttp(routeUrl, "the chances fixture route", (body, response) =>
-      response.headers.get("content-type")?.includes("text/html") &&
-      body.includes("<title>"),
+    await waitForHttp(
+      routeUrl,
+      "the chances fixture route",
+      (body, response) =>
+        response.headers.get("content-type")?.includes("text/html") &&
+        body.includes("<title>"),
     );
     await waitForHttp(
       lazyModuleUrl,
@@ -118,7 +125,16 @@ async function main() {
     return;
   }
 
-  await childExited;
+  const termination = await childExited;
+  if (!stopping) {
+    const detail = childError
+      ? `: ${childError.message}`
+      : ` (code ${termination.code ?? "unknown"}${
+          termination.signal ? `, signal ${termination.signal}` : ""
+        })`;
+    console.error(`[school-chances-fixture] Vite exited unexpectedly${detail}`);
+    process.exitCode = 1;
+  }
 }
 
 await main();

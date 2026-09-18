@@ -1,6 +1,0 @@
-{
-  "provenance": {"origin": "local cds_library read-only sample on 2026-09-15", "sanitization": "school identity omitted; normalized public fact retained", "source_school_id": "redacted"},
-  "current_school_facts": [
-    {"fact_key": "class_profile.gpa_distribution", "tab": "admission", "section": "getting-in", "label": "Grade Point Average of Enrolled Freshmen (4.0 Scale)", "value": {"kind": "distribution", "value": {"scale": "gpa", "buckets": [{"label": "4.00 and Above", "absence": "not_reported"}, {"label": "3.75 - 3.99", "lo": 3.75, "hi": 3.99, "pct": 7.0}, {"label": "3.50 - 3.74", "lo": 3.5, "hi": 3.74, "pct": 9.0}, {"label": "3.25 - 3.49", "lo": 3.25, "hi": 3.49, "pct": 16.0}, {"label": "3.00 - 3.24", "lo": 3.0, "hi": 3.24, "pct": 13.0}, {"label": "2.50 - 2.99", "lo": 2.5, "hi": 2.99, "pct": 27.0}, {"label": "2.00 - 2.49", "lo": 2.0, "hi": 2.49, "pct": 18.0}], "omitted_buckets": [], "sums_to": 90.0}}, "display": "7 of 7 buckets reported", "unit": "percent", "value_type": "distribution", "value_num": null, "value_text": null, "value_bool": null, "value_date": null, "reported_period": null, "reported_period_year": null, "observed_at": "2026-09-07T23:14:29.778939Z"}
-  ]
-}

@@ -12,7 +12,9 @@ import {
 const UNITID = workspaceApplicationFixture.school_unitid;
 const PATH = `/app/schools/${UNITID}`;
 
-function factsFixture(overrides: Partial<SchoolFactsResponse> = {}): SchoolFactsResponse {
+function factsFixture(
+  overrides: Partial<SchoolFactsResponse> = {},
+): SchoolFactsResponse {
   return {
     identity: {
       unitid: UNITID,
@@ -28,7 +30,10 @@ function factsFixture(overrides: Partial<SchoolFactsResponse> = {}): SchoolFacts
     observed_at: "2026-06-01T00:00:00Z",
     is_stale: false,
     freshness_line: "Checked June 2026",
-    deadlines: { rows: [], foot: "Confirm on the school's site before you apply." },
+    deadlines: {
+      rows: [],
+      foot: "Confirm on the school's site before you apply.",
+    },
     sections: [],
     caveats: [],
     ...overrides,
@@ -241,7 +246,7 @@ describe("SchoolDetailRoute — facts fetch states", () => {
     expect(window.location.pathname).toBe(PATH);
   });
 
-  test("a 404 renders the \"we don't have this school\" Empty, never the error card", async () => {
+  test('a 404 renders the "we don\'t have this school" Empty, never the error card', async () => {
     renderApp(PATH, {
       fetchHandler: (input, init) => {
         if (String(input).includes(`/v1/schools/${UNITID}/facts`)) {

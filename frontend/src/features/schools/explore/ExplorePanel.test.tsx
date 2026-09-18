@@ -52,17 +52,7 @@ function school(category: FitCategory): ExploreSchoolCard {
   return {
     city: "Testville",
     fields,
-    fit: {
-      algorithm_version: "admissions-fit-v1",
-      baseline_admit_rate: category === "Reach" ? 15 : 65,
-      baseline_category: category,
-      basis: "school_rate",
-      category,
-      caveats: [],
-      evidence_level: "baseline_only",
-      signals: [],
-      unavailable: [],
-    },
+    fit: { admit_rate: category === "Reach" ? 15 : 65, category },
     name: "Fit Separation College",
     state: "MA",
     unitid: 451,
@@ -72,9 +62,6 @@ function school(category: FitCategory): ExploreSchoolCard {
 
 function exploreResponse(category: FitCategory): ExploreResponse {
   return {
-    band_caption: "",
-    browsable_total: 1,
-    catalog_total: 1,
     control_counts: { private: 1, private_for_profit: 0, public: 0 },
     entrance_difficulty_note: "",
     exclusions: [],
@@ -83,11 +70,6 @@ function exploreResponse(category: FitCategory): ExploreResponse {
       campus_setting: [],
       region: [],
       religious_affiliation: [],
-    },
-    fit_profile_summary: {
-      has_academic_candidate: true,
-      has_complete_test_candidate: true,
-      suggested_profile_fields: [],
     },
     majors_match_note: "",
     narrowest: null,

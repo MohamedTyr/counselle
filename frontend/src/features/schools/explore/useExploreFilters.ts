@@ -284,8 +284,8 @@ function writeFilters(
 
 export type ExploreState = {
   filters: ExploreFilters;
-  /** URL-local filters and institutional-band preview values. These are
-   * never the saved Profile used for the server-owned estimate. */
+  /** URL-local filters and institutional-band preview values. They pick
+   * what a card displays; nothing here reaches the server-owned band. */
   assumptions: ExploreAssumptions;
   sort: { key: SortKey; direction: SortDirection };
   page: number;

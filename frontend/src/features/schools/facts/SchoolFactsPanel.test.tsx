@@ -29,7 +29,9 @@ function identity(): SchoolFactsResponse["identity"] {
   };
 }
 
-function scalarFact(overrides: Partial<Fact> & Pick<Fact, "key" | "label">): Fact {
+function scalarFact(
+  overrides: Partial<Fact> & Pick<Fact, "key" | "label">,
+): Fact {
   return {
     tab: "admission",
     state: "value",
@@ -65,14 +67,19 @@ function section(
   };
 }
 
-function response(overrides: Partial<SchoolFactsResponse> = {}): SchoolFactsResponse {
+function response(
+  overrides: Partial<SchoolFactsResponse> = {},
+): SchoolFactsResponse {
   return {
     identity: identity(),
     has_collegedata: true,
     observed_at: "2026-06-01T00:00:00Z",
     is_stale: false,
     freshness_line: "Checked June 2026",
-    deadlines: { rows: [], foot: "Confirm on the school's site before you apply." },
+    deadlines: {
+      rows: [],
+      foot: "Confirm on the school's site before you apply.",
+    },
     sections: [section({ id: "getting-in", title: "Getting in" })],
     caveats: [],
     ...overrides,
@@ -103,7 +110,13 @@ describe("freshness", () => {
       response({
         is_stale: true,
         freshness_line: "Last checked January 2026 — this may be out of date",
-        caveats: [{ id: "stale_facts", text: "may be out of date", severity: "ordinary" }],
+        caveats: [
+          {
+            id: "stale_facts",
+            text: "may be out of date",
+            severity: "ordinary",
+          },
+        ],
       }),
     );
     expect(
@@ -121,10 +134,12 @@ describe("whole-page states", () => {
     expect(
       screen.getByText("No facts collected for Yale University"),
     ).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Ask Counselle" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Ask Counselle" }),
+    ).toBeInTheDocument();
   });
 
-  test("every section never_fetched renders \"haven't checked... yet\", not a failure line", () => {
+  test('every section never_fetched renders "haven\'t checked... yet", not a failure line', () => {
     renderPanel(
       response({
         sections: [
@@ -159,7 +174,9 @@ describe("whole-page states", () => {
       }),
     );
     expect(
-      screen.getByText("We couldn't read Yale University's pages on the last check"),
+      screen.getByText(
+        "We couldn't read Yale University's pages on the last check",
+      ),
     ).toBeInTheDocument();
   });
 
@@ -256,8 +273,7 @@ describe("section lines and period foot", () => {
 
 describe("no band-caption literal on the client", () => {
   test("the group's wire foot is rendered verbatim — this file authors no caption text", () => {
-    const caption =
-      "This band holds the middle half of the enrolled students who reported a score.";
+    const caption = "A wire-authored group foot, rendered verbatim.";
     renderPanel(
       response({
         sections: [
@@ -279,7 +295,13 @@ describe("no band-caption literal on the client", () => {
                     kind: "band",
                     display: "700-790",
                     unit: null,
-                    value: { p25: 700, p75: 790, min: 200, max: 800, submitted_percent: null },
+                    value: {
+                      p25: 700,
+                      p75: 790,
+                      min: 200,
+                      max: 800,
+                      submitted_percent: null,
+                    },
                     observed_at: "2026-06-01T00:00:00Z",
                     reported_period: null,
                     caveat_ids: [],

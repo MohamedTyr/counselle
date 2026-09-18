@@ -1,6 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import { axe, toHaveNoViolations } from "jest-axe";
 import { MemoryRouter } from "react-router";
 
@@ -9,7 +8,6 @@ import type {
   ExploreFields,
   ExploreSchoolCard,
   FitEstimate,
-  FitProfileSummary,
 } from "@/api/schools/explore";
 import { defaultFilters } from "@/features/schools/explore/explore-config";
 import { ExploreFilterBar } from "@/features/schools/explore/ExploreFilterBar";
@@ -22,19 +20,12 @@ import { SchoolResultCard } from "@/features/schools/explore/SchoolResultCard";
 expect.extend(toHaveNoViolations);
 
 /*
- * Honesty/a11y surfaces this feature is directly responsible for (plan §7
- * Phase 2 row): the band caption is a wire string mounted exactly once,
- * every card that shows a band points its own evidence line at that one
- * node, and no exclusion chip ever states an absence as "no {metric}".
+ * Honesty/a11y surfaces this feature is directly responsible for: no
+ * exclusion chip ever states an absence as "no {metric}", the results count
+ * is a live region, and the server fit category is never colour alone.
  * These earn their place (AGENTS.md: a test has to earn it) because they
- * are the specific clauses the plan calls out as hard gates, not routine
- * render checks.
+ * are hard gates, not routine render checks.
  */
-
-const BAND_CAPTION_ID = "explore-band-caption";
-const BAND_CAPTION_TEXT =
-  "This band holds the middle half of the enrolled students who reported a score. " +
-  "We don't know how many reported one — treat it as context, not a cutoff.";
 
 const baseFields: ExploreFields = {
   accepts_common_app: null,
@@ -103,17 +94,7 @@ const baseFields: ExploreFields = {
 
 function school(
   overrides: Partial<ExploreFields> = {},
-  fit: FitEstimate = {
-    algorithm_version: "admissions-fit-v1",
-    baseline_admit_rate: 30,
-    baseline_category: "Target",
-    basis: "school_rate",
-    category: "Target",
-    caveats: [],
-    evidence_level: "baseline_only",
-    signals: [],
-    unavailable: [],
-  },
+  fit: FitEstimate = { admit_rate: 30, category: "Target" },
 ): ExploreSchoolCard {
   return {
     city: "Testville",
@@ -133,244 +114,17 @@ const assumptions: ExploreAssumptions = {
   satMath: 700,
 };
 
-const savedProfileHasCandidates: FitProfileSummary = {
-  has_academic_candidate: true,
-  has_complete_test_candidate: false,
-  suggested_profile_fields: [],
-};
-
-describe("Explore Profile summary", () => {
-  it("does not claim that candidate Profile values affected every returned estimate", () => {
-    render(
-      <MemoryRouter>
-        <ExploreResultsHeader
-          bandCaption=""
-          bandCaptionId={BAND_CAPTION_ID}
-          browsableTotal={100}
-          catalogTotal={100}
-          exclusions={[]}
-          factsObservedFrom={null}
-          fitProfileSummary={savedProfileHasCandidates}
-          onIncludeMissing={() => {}}
-          onAssumptionsChange={() => {}}
-          onSortChange={() => {}}
-          assumptions={assumptions}
-          showBandCaption={false}
-          sort={{ direction: "asc", key: "name" }}
-          sortedNullTail={null}
-          total={1}
-          totalIsCapped={false}
-        />
-      </MemoryRouter>,
-    );
-
-    expect(
-      screen.queryByText(/powers these estimates/i),
-    ).not.toBeInTheDocument();
-  });
-
-  it("offers one Profile link only when the saved Profile has no comparison candidate", () => {
-    render(
-      <MemoryRouter>
-        <ExploreResultsHeader
-          bandCaption=""
-          bandCaptionId={BAND_CAPTION_ID}
-          browsableTotal={100}
-          catalogTotal={100}
-          exclusions={[]}
-          factsObservedFrom={null}
-          fitProfileSummary={{
-            has_academic_candidate: false,
-            has_complete_test_candidate: false,
-            suggested_profile_fields: ["gpa", "class_rank", "test_scores"],
-          }}
-          onIncludeMissing={() => {}}
-          onAssumptionsChange={() => {}}
-          onSortChange={() => {}}
-          assumptions={assumptions}
-          showBandCaption={false}
-          sort={{ direction: "asc", key: "name" }}
-          sortedNullTail={null}
-          total={1}
-          totalIsCapped={false}
-        />
-      </MemoryRouter>,
-    );
-
-    expect(screen.getByRole("link", { name: /profile/i })).toHaveAttribute(
-      "href",
-      "/app/profile",
-    );
-    expect(screen.getByRole("link", { name: "Open Profile" })).toHaveClass(
-      "focus-visible:ring-2",
-    );
-    expect(screen.getByRole("link", { name: "Open Profile" })).toHaveClass(
-      "focus-visible:ring-[var(--focus-ring)]",
-    );
-    expect(screen.getAllByText(/Add GPA, class rank, or scores/i)).toHaveLength(
-      1,
-    );
-  });
-
-  it("does not prompt a complete but neutral Profile", () => {
-    render(
-      <MemoryRouter>
-        <ExploreResultsHeader
-          bandCaption=""
-          bandCaptionId={BAND_CAPTION_ID}
-          browsableTotal={100}
-          catalogTotal={100}
-          exclusions={[]}
-          factsObservedFrom={null}
-          fitProfileSummary={{
-            has_academic_candidate: true,
-            has_complete_test_candidate: true,
-            suggested_profile_fields: [],
-          }}
-          onIncludeMissing={() => {}}
-          onAssumptionsChange={() => {}}
-          onSortChange={() => {}}
-          assumptions={assumptions}
-          showBandCaption={false}
-          sort={{ direction: "asc", key: "name" }}
-          sortedNullTail={null}
-          total={1}
-          totalIsCapped={false}
-        />
-      </MemoryRouter>,
-    );
-
-    expect(
-      screen.queryByTestId("explore-fit-profile-status"),
-    ).not.toBeInTheDocument();
-  });
-});
-
-describe("Explore band caption -- mounted once, resolvable by every card", () => {
-  it("renders the wire caption exactly once, and a card's evidence line resolves aria-describedby to it", () => {
-    render(
-      <MemoryRouter>
-        <ExploreResultsHeader
-          bandCaption={BAND_CAPTION_TEXT}
-          bandCaptionId={BAND_CAPTION_ID}
-          browsableTotal={100}
-          catalogTotal={100}
-          exclusions={[]}
-          factsObservedFrom={null}
-          fitProfileSummary={null}
-          onIncludeMissing={() => {}}
-          onAssumptionsChange={() => {}}
-          onSortChange={() => {}}
-          assumptions={assumptions}
-          showBandCaption
-          sort={{ direction: "asc", key: "name" }}
-          sortedNullTail={null}
-          total={1}
-          totalIsCapped={false}
-        />
-        <SchoolResultCard
-          bandCaptionId={BAND_CAPTION_ID}
-          href={null}
-          onAdd={() => {}}
-          assumptions={assumptions}
-          school={school()}
-        />
-      </MemoryRouter>,
-    );
-
-    // Exactly one node carries the caption text.
-    expect(screen.getAllByText(BAND_CAPTION_TEXT)).toHaveLength(1);
-
-    const captionNode = document.getElementById(BAND_CAPTION_ID);
-    expect(captionNode).not.toBeNull();
-    expect(captionNode).toHaveTextContent(BAND_CAPTION_TEXT);
-
-    // The card's evidence line -- the only element carrying the band text
-    // -- resolves its aria-describedby to that exact node.
-    const evidenceLine = screen.getByText("SAT Math 650–740").closest("p");
-    expect(evidenceLine).toHaveAttribute("aria-describedby", BAND_CAPTION_ID);
-    expect(
-      document.getElementById(evidenceLine!.getAttribute("aria-describedby")!),
-    ).toBe(captionNode);
-  });
-
-  it("never renders inside a popover -- the caption node sits in the header's own flow, not a hidden popup", () => {
-    render(
-      <MemoryRouter>
-        <ExploreResultsHeader
-          bandCaption={BAND_CAPTION_TEXT}
-          bandCaptionId={BAND_CAPTION_ID}
-          browsableTotal={100}
-          catalogTotal={100}
-          exclusions={[]}
-          factsObservedFrom={null}
-          fitProfileSummary={null}
-          onIncludeMissing={() => {}}
-          onAssumptionsChange={() => {}}
-          onSortChange={() => {}}
-          assumptions={assumptions}
-          showBandCaption
-          sort={{ direction: "asc", key: "name" }}
-          sortedNullTail={null}
-          total={1}
-          totalIsCapped={false}
-        />
-      </MemoryRouter>,
-    );
-
-    // Present on first paint with every popover closed -- no popup markup
-    // (Base UI portals popover content to `[data-slot=popover-popup]`) is
-    // an ancestor of the caption node.
-    const captionNode = document.getElementById(BAND_CAPTION_ID)!;
-    expect(captionNode.closest("[data-slot='popover-popup']")).toBeNull();
-  });
-
-  it("omits the caption node entirely when nothing on screen shows a band", () => {
-    render(
-      <MemoryRouter>
-        <ExploreResultsHeader
-          bandCaption={BAND_CAPTION_TEXT}
-          bandCaptionId={BAND_CAPTION_ID}
-          browsableTotal={100}
-          catalogTotal={100}
-          exclusions={[]}
-          factsObservedFrom={null}
-          fitProfileSummary={null}
-          onIncludeMissing={() => {}}
-          onAssumptionsChange={() => {}}
-          onSortChange={() => {}}
-          assumptions={assumptions}
-          showBandCaption={false}
-          sort={{ direction: "asc", key: "name" }}
-          sortedNullTail={null}
-          total={1}
-          totalIsCapped={false}
-        />
-      </MemoryRouter>,
-    );
-
-    expect(document.getElementById(BAND_CAPTION_ID)).toBeNull();
-    expect(screen.queryByText(BAND_CAPTION_TEXT)).not.toBeInTheDocument();
-  });
-});
-
 describe("Explore results count -- a live region, never colour alone", () => {
   it("exposes the results count as role=status with aria-live", () => {
     render(
       <MemoryRouter>
         <ExploreResultsHeader
-          bandCaption=""
-          bandCaptionId={BAND_CAPTION_ID}
-          browsableTotal={40}
-          catalogTotal={100}
           exclusions={[]}
           factsObservedFrom={null}
-          fitProfileSummary={null}
           onIncludeMissing={() => {}}
           onAssumptionsChange={() => {}}
           onSortChange={() => {}}
           assumptions={assumptions}
-          showBandCaption={false}
           sort={{ direction: "asc", key: "name" }}
           sortedNullTail={null}
           total={40}
@@ -388,18 +142,12 @@ describe("Explore results count -- a live region, never colour alone", () => {
     render(
       <MemoryRouter>
         <ExploreResultsHeader
-          bandCaption=""
-          bandCaptionId={BAND_CAPTION_ID}
-          browsableTotal={3_000}
-          catalogTotal={3_500}
           exclusions={[]}
           factsObservedFrom={null}
-          fitProfileSummary={null}
           onIncludeMissing={() => {}}
           onAssumptionsChange={() => {}}
           onSortChange={() => {}}
           assumptions={assumptions}
-          showBandCaption={false}
           sort={{ direction: "asc", key: "name" }}
           sortedNullTail={null}
           total={3_000}
@@ -427,18 +175,12 @@ describe("Exclusion chips -- wording chosen by reason, never 'no {metric}'", () 
     render(
       <MemoryRouter>
         <ExploreResultsHeader
-          bandCaption=""
-          bandCaptionId={BAND_CAPTION_ID}
-          browsableTotal={100}
-          catalogTotal={100}
           exclusions={[missing()]}
           factsObservedFrom={null}
-          fitProfileSummary={null}
           onIncludeMissing={() => {}}
           onAssumptionsChange={() => {}}
           onSortChange={() => {}}
           assumptions={assumptions}
-          showBandCaption={false}
           sort={{ direction: "asc", key: "name" }}
           sortedNullTail={null}
           total={88}
@@ -461,10 +203,6 @@ describe("Exclusion chips -- wording chosen by reason, never 'no {metric}'", () 
     render(
       <MemoryRouter>
         <ExploreResultsHeader
-          bandCaption=""
-          bandCaptionId={BAND_CAPTION_ID}
-          browsableTotal={100}
-          catalogTotal={100}
           exclusions={[
             missing({
               key: "gender",
@@ -473,12 +211,10 @@ describe("Exclusion chips -- wording chosen by reason, never 'no {metric}'", () 
             }),
           ]}
           factsObservedFrom={null}
-          fitProfileSummary={null}
           onIncludeMissing={() => {}}
           onAssumptionsChange={() => {}}
           onSortChange={() => {}}
           assumptions={assumptions}
-          showBandCaption={false}
           sort={{ direction: "asc", key: "name" }}
           sortedNullTail={null}
           total={88}
@@ -501,18 +237,12 @@ describe("Exclusion chips -- wording chosen by reason, never 'no {metric}'", () 
     render(
       <MemoryRouter>
         <ExploreResultsHeader
-          bandCaption=""
-          bandCaptionId={BAND_CAPTION_ID}
-          browsableTotal={100}
-          catalogTotal={100}
           exclusions={[]}
           factsObservedFrom={null}
-          fitProfileSummary={null}
           onIncludeMissing={() => {}}
           onAssumptionsChange={() => {}}
           onSortChange={() => {}}
           assumptions={assumptions}
-          showBandCaption={false}
           sort={{ direction: "asc", key: "admit" }}
           sortedNullTail={{ count: 5, metric_label: "admit rate" }}
           total={88}
@@ -533,7 +263,6 @@ describe("server fit -- status is never colour alone on the card", () => {
     render(
       <MemoryRouter>
         <SchoolResultCard
-          bandCaptionId={null}
           href={null}
           onAdd={() => {}}
           assumptions={assumptions}
@@ -545,72 +274,22 @@ describe("server fit -- status is never colour alone on the card", () => {
     expect(screen.getByRole("group", { name: /target/i })).toBeInTheDocument();
   });
 
-  it("keeps estimate refreshing as one polite header status, never a card live region", () => {
+  it("has no automatically-detectable violations on the results header and a card", async () => {
     const { container } = render(
       <MemoryRouter>
         <ExploreResultsHeader
-          bandCaption=""
-          bandCaptionId={BAND_CAPTION_ID}
-          browsableTotal={100}
-          catalogTotal={100}
           exclusions={[]}
           factsObservedFrom={null}
-          fitProfileSummary={null}
-          isRefreshingEstimate
           onIncludeMissing={() => {}}
           onAssumptionsChange={() => {}}
           onSortChange={() => {}}
           assumptions={assumptions}
-          showBandCaption={false}
           sort={{ direction: "asc", key: "name" }}
           sortedNullTail={null}
           total={1}
           totalIsCapped={false}
         />
         <SchoolResultCard
-          bandCaptionId={null}
-          href={null}
-          isRefreshingEstimate
-          onAdd={() => {}}
-          assumptions={assumptions}
-          school={school()}
-        />
-      </MemoryRouter>,
-    );
-
-    const refreshed = screen.getByRole("status");
-    expect(refreshed).toHaveAttribute("aria-live", "polite");
-    expect(refreshed).toHaveTextContent("Refreshing estimates… 1 school");
-    expect(container.querySelectorAll("[aria-live]")).toHaveLength(1);
-    expect(container.querySelectorAll("[role='status']")).toHaveLength(1);
-    expect(
-      container.querySelector("[data-slot='explore-fit-refresh']"),
-    ).not.toHaveAttribute("aria-live");
-  });
-
-  it("has no automatically-detectable violations for baseline and personalized fit states", async () => {
-    const baseline = render(
-      <MemoryRouter>
-        <ExploreResultsHeader
-          bandCaption=""
-          bandCaptionId={BAND_CAPTION_ID}
-          browsableTotal={100}
-          catalogTotal={100}
-          exclusions={[]}
-          factsObservedFrom={null}
-          fitProfileSummary={null}
-          onIncludeMissing={() => {}}
-          onAssumptionsChange={() => {}}
-          onSortChange={() => {}}
-          assumptions={assumptions}
-          showBandCaption={false}
-          sort={{ direction: "asc", key: "name" }}
-          sortedNullTail={null}
-          total={1}
-          totalIsCapped={false}
-        />
-        <SchoolResultCard
-          bandCaptionId={null}
           href={null}
           onAdd={() => {}}
           assumptions={assumptions}
@@ -619,68 +298,13 @@ describe("server fit -- status is never colour alone on the card", () => {
       </MemoryRouter>,
     );
 
-    expect(await axe(baseline.container)).toHaveNoViolations();
-    baseline.unmount();
-
-    const personalized = render(
-      <MemoryRouter>
-        <ExploreResultsHeader
-          bandCaption=""
-          bandCaptionId={BAND_CAPTION_ID}
-          browsableTotal={100}
-          catalogTotal={100}
-          exclusions={[]}
-          factsObservedFrom={null}
-          fitProfileSummary={null}
-          onIncludeMissing={() => {}}
-          onAssumptionsChange={() => {}}
-          onSortChange={() => {}}
-          assumptions={assumptions}
-          showBandCaption={false}
-          sort={{ direction: "asc", key: "name" }}
-          sortedNullTail={null}
-          total={1}
-          totalIsCapped={false}
-        />
-        <SchoolResultCard
-          bandCaptionId={null}
-          href={null}
-          onAdd={() => {}}
-          assumptions={assumptions}
-          school={school(
-            {},
-            {
-              algorithm_version: "admissions-fit-v1",
-              baseline_admit_rate: 30,
-              baseline_category: "Target",
-              basis: "personalized",
-              category: "Target",
-              caveats: [],
-              evidence_level: "one_comparison",
-              signals: [
-                {
-                  assessment: "strong",
-                  factor: "academic",
-                  source: "gpa_distribution",
-                },
-              ],
-              unavailable: [],
-            },
-          )}
-        />
-      </MemoryRouter>,
-    );
-
-    const user = userEvent.setup();
-    await user.click(
-      screen.getByRole("button", { name: "How this estimate was made" }),
-    );
     expect(
-      screen.getByRole("group", {
-        name: /fit: target.*admit rate: 30%.*entering-class benchmarks/i,
-      }),
+      screen.getByRole("group", { name: /admit rate: 30%\. Target\./i }),
     ).toBeInTheDocument();
-    expect(await axe(personalized.container)).toHaveNoViolations();
+    // The card states the category without a live region of its own: the
+    // results count is the page's only polite status.
+    expect(container.querySelectorAll("[aria-live]")).toHaveLength(1);
+    expect(await axe(container)).toHaveNoViolations();
   });
 });
 

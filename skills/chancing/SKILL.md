@@ -12,21 +12,19 @@ Source: `plans/research-counselor-judgment.md` (triage instinct; chances playboo
 
 ## Explore card estimate
 
-The Explore card's code-owned `admissions-fit-v1` estimate is not this skill's
-individualized chancing judgment and is never an admission probability. It is a
-conservative planning category anchored to the school's overall observed admit rate:
+The Explore card's code-owned band is not this skill's individualized chancing
+judgment and is never an admission probability. It is a planning category derived
+from the school's overall observed admit rate and nothing else:
 
 - below 20%: `Reach`;
 - 20% to below 50%: `Target`; and
 - 50% or above: `Safety`.
 
-It returns `Unknown` without a usable overall admit rate. When a saved Profile and
-current, comparable school facts exist, the card can make a small bounded adjustment;
-missing, stale, malformed, optional, or incomparable evidence changes nothing. Its
-GPA/rank/test comparisons describe enrolled entering-class benchmarks, not applicant
-cutoffs. Do not call its internal reasoning a percentage chance, a guarantee, or a
-full read of the student's application, and do not treat its category as an instruction
-to edit `Application.list_type`.
+It shows no band at all without a usable overall admit rate. Nothing about the
+student moves it — not the saved Profile, not scores the student typed into Explore —
+so never describe it as personalized, as a read of this student's application, or as
+a percentage chance. Do not treat its category as an instruction to edit
+`Application.list_type`.
 
 The conversational `sub-25%` rule below is deliberately broader advice for a full
 chancing discussion. It does not override the Explore card's exact `<20%` Reach guard.

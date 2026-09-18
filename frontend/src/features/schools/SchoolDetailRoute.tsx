@@ -289,7 +289,7 @@ function SchoolCrumbs({ name }: { name: string }) {
         <BreadcrumbSeparator />
         <BreadcrumbItem>
           {/* Truncates rather than wraps: the bar is a fixed 64px, and a
-            * two-line crumb would push the actions out of its centre. */}
+           * two-line crumb would push the actions out of its centre. */}
           <BreadcrumbPage className="truncate">{name}</BreadcrumbPage>
         </BreadcrumbItem>
       </BreadcrumbList>
@@ -427,8 +427,8 @@ function SchoolNotFound() {
         <EmptyHeader>
           <EmptyTitle>We don't have this school</EmptyTitle>
           <EmptyDescription>
-            Counselle doesn't have a school with that id. Search by name to
-            find it.
+            Counselle doesn't have a school with that id. Search by name to find
+            it.
           </EmptyDescription>
         </EmptyHeader>
         <EmptyContent>

@@ -1,5 +1,4 @@
 import { render, screen } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 
 import type {
@@ -82,17 +81,7 @@ const baseFields: ExploreFields = {
   yield_rate: null,
 };
 
-const baselineFit: FitEstimate = {
-  algorithm_version: "admissions-fit-v1",
-  baseline_admit_rate: 45,
-  baseline_category: "Target",
-  basis: "school_rate",
-  category: "Target",
-  caveats: [],
-  evidence_level: "baseline_only",
-  signals: [],
-  unavailable: [],
-};
+const baselineFit: FitEstimate = { admit_rate: 45, category: "Target" };
 
 function school(
   overrides: Partial<ExploreFields> = {},
@@ -118,17 +107,12 @@ const assumptions: ExploreAssumptions = {
 
 function renderCard(
   card: ExploreSchoolCard,
-  overrides: Partial<{
-    assumptions: ExploreAssumptions;
-    refreshing: boolean;
-  }> = {},
+  overrides: Partial<{ assumptions: ExploreAssumptions }> = {},
 ) {
   return render(
     <MemoryRouter>
       <SchoolResultCard
-        bandCaptionId={null}
         href={null}
-        isRefreshingEstimate={overrides.refreshing ?? false}
         onAdd={() => {}}
         assumptions={overrides.assumptions ?? assumptions}
         school={card}
@@ -154,13 +138,7 @@ describe("SchoolResultCard", () => {
           sat_math_p25: null,
           sat_math_p75: null,
         },
-        {
-          ...baselineFit,
-          baseline_admit_rate: null,
-          baseline_category: "Unknown",
-          basis: "missing_admit_rate",
-          category: "Unknown",
-        },
+        { admit_rate: null, category: "Unknown" },
       ),
     );
 
@@ -168,12 +146,8 @@ describe("SchoolResultCard", () => {
     expect(screen.getAllByText("not available")).toHaveLength(3);
     expect(screen.getByText(/admit rate not available/i)).toBeInTheDocument();
     expect(screen.getByText(/test range not available/)).toBeInTheDocument();
-    expect(screen.getByText("Not classified")).toBeInTheDocument();
-    expect(screen.queryByText("Unknown")).not.toBeInTheDocument();
     expect(
-      screen.getByRole("group", {
-        name: /fit: not classified.*admit rate: not available.*admit rate not available/i,
-      }),
+      screen.getByRole("group", { name: /admit rate: not available/i }),
     ).toBeInTheDocument();
     expect(screen.queryByText("0%")).not.toBeInTheDocument();
     expect(screen.queryByText("—")).not.toBeInTheDocument();
@@ -205,13 +179,10 @@ describe("SchoolResultCard", () => {
     expect(screen.getByText("out-of-state cost")).toBeInTheDocument();
   });
 
-  it("labels the institutional score band as an Explore-only preview", () => {
+  it("shows the school's own score band and never the student's score", () => {
     renderCard(school());
 
     expect(screen.getByText("SAT Math 700–780")).toBeInTheDocument();
-    expect(
-      screen.getByText("Explore preview — does not affect estimate"),
-    ).toBeInTheDocument();
     expect(screen.queryByText("you 740")).not.toBeInTheDocument();
   });
 
@@ -221,262 +192,36 @@ describe("SchoolResultCard", () => {
     });
 
     expect(screen.getByText("ACT 30–34")).toBeInTheDocument();
-    expect(
-      screen.getByText("Explore preview — does not affect estimate"),
-    ).toBeInTheDocument();
     expect(screen.queryByText(/^SAT/)).not.toBeInTheDocument();
   });
 
-  it("says it is not classified when there is no admit rate to classify on", () => {
+  it("shows the category the admit rate beside it implies, and nothing arguing for it", () => {
+    renderCard(school({ admit_rate: 45 }));
+
+    expect(screen.getByText("45%")).toBeInTheDocument();
+    expect(screen.getByText("Target")).toBeInTheDocument();
+    // There is no reasoning to disclose: the rate is the whole argument.
+    expect(screen.queryByRole("button", { name: /target/i })).toBeNull();
+    expect(
+      screen.getByRole("group", { name: /admit rate: 45%\. Target\./i }),
+    ).toBeInTheDocument();
+  });
+
+  it("claims no band at all when there is no admit rate to classify on", () => {
     renderCard(
-      school(
-        { admit_rate: null },
-        {
-          ...baselineFit,
-          baseline_admit_rate: null,
-          baseline_category: "Unknown",
-          category: "Unknown",
-          basis: "missing_admit_rate",
-        },
-      ),
+      school({ admit_rate: null }, { admit_rate: null, category: "Unknown" }),
     );
 
-    expect(screen.getByText("Not classified")).toBeInTheDocument();
-    expect(screen.queryByText("Unknown")).not.toBeInTheDocument();
-    expect(
-      screen.getByRole("group", { name: /fit: not classified/i }),
-    ).toBeInTheDocument();
-  });
-
-  it("renders and announces only the canonical fit baseline rate when the card field diverges", () => {
-    renderCard(
-      school(
-        { admit_rate: 8 },
-        {
-          ...baselineFit,
-          baseline_admit_rate: 33.3,
-          baseline_category: "Target",
-          basis: "personalized",
-          category: "Safety",
-          evidence_level: "one_comparison",
-          signals: [
-            {
-              assessment: "strong",
-              factor: "academic",
-              source: "gpa_distribution",
-            },
-          ],
-        },
-      ),
-    );
-
-    expect(screen.getByText("Safety")).toBeInTheDocument();
-    expect(screen.getByText("33.3%")).toBeInTheDocument();
-    expect(screen.queryByText("8%")).not.toBeInTheDocument();
-    expect(
-      screen.getByRole("group", {
-        name: /fit: safety.*admit rate: 33\.3%.*adjusted using your profile.*applied factors: academic.*entering-class benchmarks/i,
-      }),
-    ).toBeInTheDocument();
-  });
-
-  it("keeps deeper baseline factors compact while its basis remains visible", async () => {
-    const user = userEvent.setup();
-    renderCard(school());
-
-    const disclosure = screen.getByRole("button", {
-      name: "How this estimate was made",
-    });
-    const controls = disclosure.getAttribute("aria-controls");
-    const explanation = document.getElementById(controls ?? "");
-
-    expect(disclosure).toHaveAttribute("aria-expanded", "false");
-    expect(explanation).toHaveAttribute("hidden");
-    expect(screen.getByText("Based on school admit rate")).toBeVisible();
-    expect(screen.getAllByText("Based on school admit rate")).toHaveLength(1);
-    expect(disclosure).toHaveClass("min-h-6", "min-w-6");
-    expect(disclosure).toHaveClass("pointer-coarse:min-h-11");
-    expect(disclosure).toHaveClass("focus-visible:ring-2");
-    disclosure.focus();
-    await user.keyboard("{Enter}");
-
-    expect(disclosure).toHaveAttribute("aria-expanded", "true");
-    expect(explanation).not.toHaveAttribute("hidden");
-    expect(screen.getAllByText("Based on school admit rate")).toHaveLength(1);
-    expect(
-      screen.queryByText(/chance|probability|index/i),
-    ).not.toBeInTheDocument();
-  });
-
-  it("keeps the estimate disclosure above the stretched school link", () => {
-    render(
-      <MemoryRouter>
-        <SchoolResultCard
-          bandCaptionId={null}
-          href="/schools/1"
-          onAdd={() => {}}
-          assumptions={assumptions}
-          school={school()}
-        />
-      </MemoryRouter>,
-    );
-
-    const disclosure = screen.getByRole("button", {
-      name: "How this estimate was made",
-    });
-    const fitRegion = disclosure.closest('[role="group"]');
-
-    expect(screen.getByRole("link", { name: "Test University" })).toHaveClass(
-      "after:absolute",
-      "after:inset-0",
-    );
-    expect(fitRegion).toHaveClass("relative", "z-10");
-    expect(disclosure).toHaveClass("min-h-6", "min-w-6");
-    expect(disclosure).toHaveClass("pointer-coarse:min-h-11");
-  });
-
-  it("explains an unchanged personalized estimate and its entering-class caveat after expansion", async () => {
-    const user = userEvent.setup();
-    renderCard(
-      school(
-        {},
-        {
-          ...baselineFit,
-          basis: "personalized",
-          evidence_level: "two_comparisons",
-          signals: [
-            {
-              assessment: "strong",
-              factor: "academic",
-              source: "gpa_distribution",
-            },
-            { assessment: "strong", factor: "testing", source: "sat" },
-          ],
-        },
-      ),
-    );
-
-    expect(
-      screen.getByRole("group", {
-        name: /fit: target.*admit rate: 45%.*checked against your profile.*applied factors: academic, testing.*entering-class benchmarks/i,
-      }),
-    ).toBeInTheDocument();
-    expect(screen.getByText("Checked against your profile")).toBeVisible();
-    expect(screen.getAllByText("Checked against your profile")).toHaveLength(1);
-    await user.click(
-      screen.getByRole("button", { name: "How this estimate was made" }),
-    );
-
-    expect(
-      screen.getByText("Checked against your profile"),
-    ).toBeInTheDocument();
-    expect(screen.getByText(/GPA is in the upper part/i)).toBeInTheDocument();
-    expect(
-      screen.getByText(/SAT scores are in the upper part/i),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText(
-        /Entering-class benchmarks are context, not admission cutoffs or personal odds/i,
-      ),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("group", {
-        name: /checked against your profile.*entering-class benchmarks.*personal odds/i,
-      }),
-    ).toBeInTheDocument();
-  });
-
-  it("uses adjusted copy when personalization changes the server category", async () => {
-    const user = userEvent.setup();
-    renderCard(
-      school(
-        {},
-        {
-          ...baselineFit,
-          baseline_category: "Target",
-          basis: "personalized",
-          category: "Safety",
-          evidence_level: "one_comparison",
-          signals: [
-            { assessment: "strong", factor: "academic", source: "class_rank" },
-          ],
-        },
-      ),
-    );
-
-    await user.click(
-      screen.getByRole("button", { name: "How this estimate was made" }),
-    );
-
-    expect(screen.getByText("Adjusted using your profile")).toBeInTheDocument();
-    expect(
-      screen.getByText(/Class rank is in the upper part/i),
-    ).toBeInTheDocument();
-  });
-
-  it("caps explanations at two factors and preserves the unknown-policy possibility", async () => {
-    const user = userEvent.setup();
-    renderCard(
-      school(
-        {},
-        {
-          ...baselineFit,
-          basis: "personalized",
-          evidence_level: "two_comparisons",
-          signals: [
-            { assessment: "weak", factor: "academic", source: "class_rank" },
-            { assessment: "strong", factor: "testing", source: "sat_and_act" },
-            { assessment: "strong", factor: "testing", source: "act" },
-          ],
-          unavailable: [
-            {
-              factor: "testing",
-              reason: "test_policy_not_required_or_unknown",
-            },
-          ],
-        },
-      ),
-    );
-
-    await user.click(
-      screen.getByRole("button", { name: "How this estimate was made" }),
-    );
-
-    expect(screen.getAllByTestId("fit-applied-factor")).toHaveLength(2);
-    expect(
-      screen.getByText(
-        /testing policy is either not required or not confirmed in our data/i,
-      ),
-    ).toBeInTheDocument();
-    expect(
-      screen.queryByText(/test_policy_not_required_or_unknown/),
-    ).not.toBeInTheDocument();
-  });
-
-  it("suppresses a cached estimate until the matching personalized response arrives", () => {
-    renderCard(
-      school(
-        {},
-        {
-          ...baselineFit,
-          basis: "personalized",
-          category: "Safety",
-          evidence_level: "one_comparison",
-          signals: [
-            {
-              assessment: "strong",
-              factor: "academic",
-              source: "gpa_distribution",
-            },
-          ],
-        },
-      ),
-      { refreshing: true },
-    );
-
-    expect(screen.getByText("Refreshing estimate…")).toBeInTheDocument();
-    expect(screen.queryByText("Safety")).not.toBeInTheDocument();
-    expect(screen.queryByText("45%")).not.toBeInTheDocument();
+    expect(screen.getByText("Admit rate not available")).toBeInTheDocument();
+    for (const label of [
+      "Unknown",
+      "Not classified",
+      "Reach",
+      "Target",
+      "Safety",
+    ]) {
+      expect(screen.queryByText(label)).not.toBeInTheDocument();
+    }
   });
 
   it("renders the offered rounds and the regular deadline", () => {

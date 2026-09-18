@@ -9,18 +9,13 @@ executor, plan §6a). `run_explore`/`run_majors` are the two orchestrators
 
 from __future__ import annotations
 
-from collections import Counter
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from decimal import Decimal
-from typing import Any, cast
+from typing import Any
 
 from adapters.facts_store import EXPLORE_COLUMNS
-from app.facts.admissions_fit_inputs import (
-    school_fit_input_adaptation_from_facts,
-    student_fit_inputs_from_profile,
-)
 from app.facts.explore_models import (
     Control,
     Exclusion,
@@ -30,31 +25,17 @@ from app.facts.explore_models import (
     ExploreSchoolCard,
     FilterOption,
     FilterOptions,
-    FitAssessment,
     FitEstimate,
-    FitProfileSummary,
-    FitSignal,
     MajorOption,
     MajorsResponse,
     Narrowest,
     NullTail,
-    SuggestedProfileField,
-    UnavailableFactor,
 )
-from app.workspace.models import Profile
 from config.settings import Settings
 from counselle_db import service as db_service
-from counselle_db.admissions_fit_evidence import (
-    record_admissions_fit_validation_failure_counts,
-)
 from counselle_db.catalog import Catalog
-from domain.admissions_fit import FitEstimate as DomainFitEstimate
-from domain.admissions_fit import (
-    SchoolFactValidationFailure,
-    StudentFitInputs,
-    estimate_admissions_fit,
-)
-from domain.facts.state import BAND_CAPTION, ENTRANCE_DIFFICULTY_NOTE, MAJORS_MATCH_NOTE
+from domain.admissions_fit import estimate_admissions_fit
+from domain.facts.state import ENTRANCE_DIFFICULTY_NOTE, MAJORS_MATCH_NOTE
 
 __all__ = [
     "MAJORS_MATCH_NOTE",
@@ -504,87 +485,12 @@ def _wire_value(value: object) -> object:
     return float(value) if isinstance(value, Decimal) else value
 
 
-def _fit_wire_result(estimate: DomainFitEstimate) -> FitEstimate:
-    """Translate closed domain enums into the public Explore wire shape."""
+def _fit_estimate(admit_rate: object) -> FitEstimate:
+    """Classify one row and hand the wire the rate the category came from."""
+    estimate = estimate_admissions_fit(admit_rate)
     return FitEstimate(
         category=estimate.category.value,
-        baseline_category=estimate.baseline_category.value,
-        baseline_admit_rate=(
-            float(estimate.baseline_admit_rate)
-            if estimate.baseline_admit_rate is not None
-            else None
-        ),
-        basis=estimate.basis.value,
-        evidence_level=estimate.evidence_level.value,
-        signals=tuple(
-            FitSignal(
-                factor=signal.factor.value,
-                source=signal.source.value,
-                assessment=cast(FitAssessment, signal.assessment.value),
-            )
-            for signal in estimate.signals
-        ),
-        unavailable=tuple(
-            UnavailableFactor(factor=item.factor.value, reason=item.reason.value)
-            for item in estimate.unavailable
-        ),
-        caveats=tuple(caveat.value for caveat in estimate.caveats),
-        algorithm_version=estimate.algorithm_version,
-    )
-
-
-def _positive_whole(value: Decimal | None) -> bool:
-    return (
-        value is not None
-        and value.is_finite()
-        and value >= 1
-        and value == value.to_integral_value()
-    )
-
-
-def _valid_score(value: Decimal | None, minimum: Decimal, maximum: Decimal) -> bool:
-    """Mirror the calculator's persisted-score gate for the safe UI summary."""
-    return (
-        value is not None
-        and value.is_finite()
-        and minimum <= value <= maximum
-        and value == value.to_integral_value()
-    )
-
-
-def _fit_profile_summary(student: StudentFitInputs) -> FitProfileSummary:
-    """Return capability metadata, not raw profile values or card outcomes."""
-    has_gpa = (
-        student.gpa_unweighted is not None
-        and student.gpa_scale == Decimal("4")
-        and student.gpa_unweighted.is_finite()
-        and Decimal("0") <= student.gpa_unweighted <= Decimal("4")
-    )
-    has_rank = (
-        student.school_ranks is not False
-        and _positive_whole(student.class_rank)
-        and _positive_whole(student.class_size)
-        and student.class_rank is not None
-        and student.class_size is not None
-        and student.class_rank <= student.class_size
-    )
-    has_complete_sat = (
-        _valid_score(student.sat_math, Decimal("200"), Decimal("800"))
-        and _valid_score(student.sat_ebrw, Decimal("200"), Decimal("800"))
-    )
-    has_valid_act = _valid_score(student.act_composite, Decimal("1"), Decimal("36"))
-    has_test = has_complete_sat or has_valid_act
-    suggested: list[SuggestedProfileField] = []
-    if not has_gpa:
-        suggested.append("gpa")
-    if not has_rank:
-        suggested.append("class_rank")
-    if not has_test:
-        suggested.append("test_scores")
-    return FitProfileSummary(
-        has_academic_candidate=has_gpa or has_rank,
-        has_complete_test_candidate=has_test,
-        suggested_profile_fields=tuple(suggested),
+        admit_rate=float(estimate.admit_rate) if estimate.admit_rate is not None else None,
     )
 
 
@@ -592,11 +498,7 @@ async def run_explore(
     catalog: Catalog,
     query: ExploreQuery,
     settings: Settings,
-    profile: Profile,
 ) -> ExploreResponse:
-    # Every card in this response sees one staleness boundary, even if the
-    # page's ancillary accounting takes long enough to cross a day boundary.
-    request_now = datetime.now(UTC)
     clauses = _build_clauses(query)
     where, params = _combine(clauses)
     sort_key, direction = _resolve_sort(query.sort)
@@ -616,12 +518,6 @@ async def run_explore(
         f"WHERE {where} ORDER BY {sort_column} {direction} NULLS LAST, school_id ASC "
         f"LIMIT {int(page_size)} OFFSET {int(offset)}"
     )
-    browsable_sql = f"SELECT count(*) AS n FROM {_TABLE}"
-    # `cds_library.schools` is a base table -- `cds_library_reader` holds no
-    # grant on it (only the six reader views). `school_profiles` mirrors it
-    # 1:1 (plan §3.2) and is the catalog-total source everywhere else in
-    # this codebase (`counselle_db.catalog`'s own snapshot load).
-    catalog_sql = "SELECT count(*) AS n FROM cds_library.school_profiles"
     control_where, control_params = _combine(clauses, skip="control")
     control_sql = (
         f"SELECT control, count(*) AS n FROM {_TABLE} WHERE {control_where} GROUP BY control"
@@ -644,54 +540,28 @@ async def run_explore(
         _count_statement(*_combine(clauses, skip=c.key, null_check_for=c.key))
         for c in exclusion_eligible
     ]
-    ancillary_statements: list[tuple[str, list[Any]]] = [
-        (browsable_sql, []),
-        (catalog_sql, []),
+    # One transaction (`db_service.explore` owns the snapshot), so the page
+    # and every count/option derived from the same filter set agree.
+    statements: list[tuple[str, list[Any]]] = [
+        (main_sql, params),
         (control_sql, control_params),
         (region_options_sql, []),
         (campus_options_sql, []),
         (religious_options_sql, []),
         *exclusion_statements,
     ]
-    main_rows, facts_by_school = await db_service.explore_with_admissions_fit_facts(
-        catalog,
-        (main_sql, params),
-        max_page_size=page_size,
-    )
-    results = await db_service.explore(catalog, ancillary_statements)
     (
-        browsable_rows,
-        catalog_rows,
+        main_rows,
         control_rows,
         region_rows,
         campus_rows,
         religious_rows,
-    ) = results[:6]
-    exclusion_rows = results[6:]
+        *exclusion_rows,
+    ) = await db_service.explore(catalog, statements)
 
     total = main_rows[0]["total_count"] if main_rows else 0
     total_is_capped = total > settings.facts_explore_max_count
     total = min(total, settings.facts_explore_max_count)
-
-    student_inputs = student_fit_inputs_from_profile(profile)
-    adapted_inputs = tuple(
-        (
-            row,
-            school_fit_input_adaptation_from_facts(
-                admit_rate=row["admit_rate"],
-                facts=facts_by_school.get(row["school_id"], ()),
-                now=request_now,
-                stale_after_days=settings.facts_stale_days,
-            ),
-        )
-        for row in main_rows
-    )
-    validation_failure_counts: Counter[SchoolFactValidationFailure] = Counter()
-    for _, adaptation in adapted_inputs:
-        validation_failure_counts.update(adaptation.validation_failure_counts)
-    # This is the only request-level handoff to telemetry.  The response
-    # still contains only the existing fit wire model, never diagnostics.
-    record_admissions_fit_validation_failure_counts(validation_failure_counts)
 
     schools = tuple(
         ExploreSchoolCard(
@@ -701,16 +571,9 @@ async def run_explore(
             state=row["state"],
             website_url=row["official_website"],
             fields={col: _wire_value(row[col]) for col in EXPLORE_COLUMNS},
-            fit=_fit_wire_result(
-                estimate_admissions_fit(
-                    adaptation.inputs,
-                    student_inputs,
-                    now=request_now,
-                    stale_after_days=settings.facts_stale_days,
-                )
-            ),
+            fit=_fit_estimate(row["admit_rate"]),
         )
-        for row, adaptation in adapted_inputs
+        for row in main_rows
     )
     observed_dates = [
         row["facts_updated_at"] for row in main_rows if row["facts_updated_at"] is not None
@@ -772,8 +635,6 @@ async def run_explore(
         page_size=page_size,
         total=total,
         total_is_capped=total_is_capped,
-        browsable_total=browsable_rows[0]["n"],
-        catalog_total=catalog_rows[0]["n"],
         exclusions=exclusions,
         sorted_null_tail=sorted_null_tail,
         control_counts=control_counts,
@@ -789,11 +650,9 @@ async def run_explore(
             ),
         ),
         facts_observed_from=facts_observed_from,
-        band_caption=BAND_CAPTION,
         entrance_difficulty_note=ENTRANCE_DIFFICULTY_NOTE,
         majors_match_note=MAJORS_MATCH_NOTE,
         religious_affiliation_note=RELIGIOUS_AFFILIATION_NOTE,
-        fit_profile_summary=_fit_profile_summary(student_inputs),
     )
 
 

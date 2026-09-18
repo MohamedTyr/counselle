@@ -74,7 +74,6 @@ sections:
       tab: admission
   - id: test-detail
     title: Test scores in detail
-    foot_ref: BAND_CAPTION
     facts:
     - key: class_profile.sat_math_p25
       label: SAT Math 25th percentile

@@ -1,8 +1,0 @@
-{
-  "provenance": {"origin": "complete_required_school.json", "sanitization": "school identity omitted", "controlled_change": "only public rank-share percentages are made non-monotonic"},
-  "current_school_facts": [
-    {"fact_key": "class_profile.class_rank_top_tenth", "tab": "admission", "section": "getting-in", "label": "High School Class Rank", "value": {"kind": "percent", "value": null}, "display": "95%", "unit": "percent", "value_type": "percent", "value_num": 95, "value_text": null, "value_bool": null, "value_date": null, "reported_period": null, "reported_period_year": null, "observed_at": "2026-09-07T23:27:50.276885Z"},
-    {"fact_key": "class_profile.class_rank_top_quarter", "tab": "admission", "section": "getting-in", "label": "High School Class Rank", "value": {"kind": "percent", "value": null}, "display": "50%", "unit": "percent", "value_type": "percent", "value_num": 50, "value_text": null, "value_bool": null, "value_date": null, "reported_period": null, "reported_period_year": null, "observed_at": "2026-09-07T23:27:50.276885Z"},
-    {"fact_key": "class_profile.class_rank_top_half", "tab": "admission", "section": "getting-in", "label": "High School Class Rank", "value": {"kind": "percent", "value": null}, "display": "99%", "unit": "percent", "value_type": "percent", "value_num": 99, "value_text": null, "value_bool": null, "value_date": null, "reported_period": null, "reported_period_year": null, "observed_at": "2026-09-07T23:27:50.276885Z"}
-  ]
-}

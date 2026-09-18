@@ -7,8 +7,8 @@ type Band = {
   p75: number;
 };
 
-/** Which institutional score band a card previews. URL-local assumptions
- * choose the preview only; they are not saved-Profile estimator inputs. */
+/** Which institutional score band a card previews. The assumptions choose
+ * which band is shown, never what the card says about the school. */
 export function pickBand(
   fields: ExploreFields,
   assumptions: ExploreAssumptions,
@@ -43,12 +43,4 @@ export function pickBand(
   if (assumptions.satEbrw !== null && satEbrw) return satEbrw;
 
   return act ?? satMath ?? satEbrw;
-}
-
-/** Whether a card would show an institutional score-band preview. */
-export function hasScoreBand(
-  fields: ExploreFields,
-  assumptions: ExploreAssumptions,
-): boolean {
-  return pickBand(fields, assumptions) !== null;
 }

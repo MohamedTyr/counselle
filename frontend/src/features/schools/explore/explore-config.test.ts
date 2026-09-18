@@ -1,4 +1,7 @@
-import { controlOptions, testPolicyOptions } from "@/features/schools/explore/explore-config";
+import {
+  controlOptions,
+  testPolicyOptions,
+} from "@/features/schools/explore/explore-config";
 
 /*
  * Two closed-enum option lists the plan calls out by name as hard exit
@@ -15,7 +18,12 @@ describe("controlOptions", () => {
 
     expect(controlOptions).toHaveLength(4);
     expect(labels).not.toContain("Private");
-    expect(labels).toEqual(["Any", "Public", "Private (nonprofit)", "Private (for-profit)"]);
+    expect(labels).toEqual([
+      "Any",
+      "Public",
+      "Private (nonprofit)",
+      "Private (for-profit)",
+    ]);
   });
 
   it("names the three real values exactly the wire's Control union", () => {
@@ -30,11 +38,15 @@ describe("controlOptions", () => {
 
 describe("testPolicyOptions", () => {
   it("reads 'No policy on file' for the not_reported member, never 'not reported' or 'no test policy'", () => {
-    const notReported = testPolicyOptions.find((option) => option.value === "not_reported");
+    const notReported = testPolicyOptions.find(
+      (option) => option.value === "not_reported",
+    );
 
     expect(notReported?.label).toBe("No policy on file");
     expect(
-      testPolicyOptions.some((option) => /not reported|no test policy/i.test(option.label)),
+      testPolicyOptions.some((option) =>
+        /not reported|no test policy/i.test(option.label),
+      ),
     ).toBe(false);
   });
 });

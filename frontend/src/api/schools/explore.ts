@@ -15,9 +15,8 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query";
 
 import { useAuthUser } from "@/app/auth";
 import { requestJson } from "@/api/http/client";
-import { schoolsExploreQueryKey } from "@/api/schools/explore-query-key";
 
-export { schoolsExploreQueryKey } from "@/api/schools/explore-query-key";
+export const schoolsExploreQueryKey = ["schools", "explore"] as const;
 
 export type Control = "public" | "private" | "private_for_profit";
 export type TestPolicy =
@@ -29,67 +28,15 @@ export type ScoreFit =
   "any" | "at_or_above_p25" | "inside_band" | "at_or_above_p75";
 export type ExclusionReason = "missing" | "not_reported";
 export type FitCategory = "Reach" | "Target" | "Safety" | "Unknown";
-export type FitBasis = "school_rate" | "personalized" | "missing_admit_rate";
-export type FitEvidenceLevel =
-  "baseline_only" | "one_comparison" | "two_comparisons";
-export type FitFactor = "academic" | "testing";
-export type FitSignalSource =
-  "gpa_distribution" | "class_rank" | "sat" | "act" | "sat_and_act";
-export type FitAssessment = "strong" | "weak";
-export type FitUnavailableReason =
-  | "profile_gpa_missing"
-  | "profile_gpa_invalid"
-  | "gpa_scale_incompatible"
-  | "gpa_distribution_unavailable"
-  | "gpa_distribution_stale"
-  | "gpa_distribution_invalid"
-  | "profile_rank_unavailable"
-  | "rank_disabled"
-  | "rank_distribution_unavailable"
-  | "rank_distribution_stale"
-  | "rank_distribution_invalid"
-  | "profile_test_missing"
-  | "test_score_invalid"
-  | "incomplete_sat_comparison"
-  | "test_band_unavailable"
-  | "test_band_stale"
-  | "test_band_invalid"
-  | "test_policy_not_required_or_unknown";
-export type FitCaveat =
-  "entering_class_benchmark_not_cutoff" | "stale_optional_facts";
-export type SuggestedProfileField = "gpa" | "class_rank" | "test_scores";
 
-export type FitSignal = {
-  factor: FitFactor;
-  source: FitSignalSource;
-  assessment: FitAssessment;
-};
-
-export type UnavailableFactor = {
-  factor: FitFactor;
-  reason: FitUnavailableReason;
-};
-
-/** Server-owned category. It is a planning classification, never a client
- * calculation or a probability. */
+/** Server-owned, derived from the school's admit rate alone. It is a
+ * planning classification about the school, never a client calculation and
+ * never a probability for one student. `admit_rate` is the validated rate
+ * the category came from, so the badge and the figure beside it are the
+ * same number. */
 export type FitEstimate = {
   category: FitCategory;
-  baseline_category: FitCategory;
-  baseline_admit_rate: number | null;
-  basis: FitBasis;
-  evidence_level: FitEvidenceLevel;
-  signals: FitSignal[];
-  unavailable: UnavailableFactor[];
-  caveats: FitCaveat[];
-  algorithm_version: "admissions-fit-v1";
-};
-
-/** Safe capability summary for the saved Profile the server used. The raw
- * Profile never rides the Explore response. */
-export type FitProfileSummary = {
-  has_academic_candidate: boolean;
-  has_complete_test_candidate: boolean;
-  suggested_profile_fields: SuggestedProfileField[];
+  admit_rate: number | null;
 };
 
 /** `app/facts/explore_models.py::RangeKey` -- the columns Phase 1's
@@ -240,19 +187,15 @@ export type ExploreResponse = {
   page_size: number;
   total: number;
   total_is_capped: boolean;
-  browsable_total: number;
-  catalog_total: number;
   exclusions: Exclusion[];
   sorted_null_tail: NullTail | null;
   control_counts: Record<Control, number>;
   narrowest: Narrowest | null;
   filter_options: FilterOptions;
   facts_observed_from: string | null;
-  band_caption: string;
   entrance_difficulty_note: string;
   majors_match_note: string;
   religious_affiliation_note: string;
-  fit_profile_summary: FitProfileSummary;
 };
 
 export type MajorOption = {
@@ -428,10 +371,10 @@ export function getMajors(q: string): Promise<MajorsResponse> {
  * the first page only -- it is identical across pages for one filter set.
  */
 export function useExplore(query: ExploreQueryInput, pages: number) {
-  const owner = useAuthUser();
+  const isAuthenticated = useAuthUser() !== null;
 
   return useQuery({
-    queryKey: [...schoolsExploreQueryKey, owner?.id ?? null, query, pages],
+    queryKey: [...schoolsExploreQueryKey, query, pages],
     queryFn: async ({ signal }): Promise<ExploreResponse> => {
       const responses = await Promise.all(
         Array.from({ length: pages }, (_, index) =>
@@ -447,18 +390,12 @@ export function useExplore(query: ExploreQueryInput, pages: number) {
         schools: responses.flatMap((response) => response.schools),
       };
     },
-    enabled: owner !== null,
-    // Keep the grid stable for filter/page changes by one owner only. A
-    // previous owner's personalized response is never even a placeholder
-    // while the new owner's request is in flight.
-    placeholderData: (previousData, previousQuery) =>
-      previousQuery?.queryKey[2] === (owner?.id ?? null)
-        ? keepPreviousData(previousData)
-        : undefined,
-    staleTime: 0,
-    refetchOnMount: true,
-    refetchOnReconnect: true,
-    refetchOnWindowFocus: true,
+    // The endpoint is authenticated, but its answer is the school catalog --
+    // the same for every reader, so the cache is not owner-scoped.
+    enabled: isAuthenticated,
+    // Keeps the grid from blanking on a filter, sort, or page change.
+    placeholderData: keepPreviousData,
+    staleTime: 60_000,
   });
 }
 

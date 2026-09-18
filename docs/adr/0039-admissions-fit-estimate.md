@@ -1,6 +1,9 @@
 # ADR 0039 — Admissions-fit planning estimate on Explore cards
 
-**Status:** Proposed — implementation complete; owner acceptance pending.
+**Status:** Superseded by [ADR 0040](0040-admit-rate-only-estimate.md).
+
+This records the decision as it stood. The personalization it describes was
+removed: the Explore estimate is now the admit rate alone.
 
 ## Context
 
