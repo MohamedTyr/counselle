@@ -5,6 +5,7 @@ network, no LLM — targeted unit tests for the four behaviors §6.3 requires.
 from __future__ import annotations
 
 import asyncio
+import time
 from types import SimpleNamespace
 from typing import Any, cast
 
@@ -16,8 +17,7 @@ from pydantic_ai.usage import RunUsage, UsageLimits
 
 import app.agent_node as an
 from app.goal_judge import GoalCriteriaError
-from app.goal_loop import criterion_views
-from app.plan_tool import PlanState
+from app.goal_loop import GoalLoopController, criterion_views
 from app.records import build_segments
 from app.run_handle import RunHandle
 from app.sources import SourceRegistry
@@ -28,7 +28,7 @@ from domain.goal import CriterionVerdict, GoalCriterion, GoalLedger, GoalLimits,
 
 class _NoPriceSettings:
     """Just enough of Settings for `_update_goal_ledger_totals`/`estimate_cost`
-    and the `app.model_selection` goal-mode model seams (HIGH-2)."""
+    and the `app.model_selection` goal-mode model seams."""
 
     model_prices: dict[str, Any] = {}
     goal_max_model_requests = 90
@@ -41,7 +41,11 @@ class _NoPriceSettings:
 
 def _goal_limits() -> GoalLimits:
     return GoalLimits(
-        max_iterations=6, max_wall_clock_s=3600.0, max_cost_usd=3.0, max_consecutive_tool_errors=3
+        max_iterations=6,
+        max_wall_clock_s=3600.0,
+        max_cost_usd=3.0,
+        max_consecutive_tool_errors=3,
+        max_flat_checks=2,
     )
 
 
@@ -83,9 +87,7 @@ async def test_shared_run_usage_is_cumulative_across_iterations() -> None:
 
     result1 = await agent.run("hello", usage=usage)
     requests_after_1 = usage.requests
-    result2 = await agent.run(
-        "again", usage=usage, message_history=result1.all_messages()
-    )
+    result2 = await agent.run("again", usage=usage, message_history=result1.all_messages())
 
     assert requests_after_1 == 1
     # The shared object accumulates — never reset per call.
@@ -155,7 +157,6 @@ async def _drive_cancelled_goal_loop(
         model_setting="google-vertex:gemini-2.5-flash",
         model_settings=None,
         instructions="instructions",
-        plan_state=PlanState(),
         injected_model_factory=None,
         shared_usage=RunUsage(),
         run_once_kwargs=run_once_kwargs,
@@ -207,6 +208,153 @@ async def test_cancelled_goal_loop_streams_its_ledger_and_claims_only_a_real_sto
     # §2.8's actual payload still reaches the student on both causes.
     assert detail["total_count"] == 1
     assert detail["not_checked_note"]
+
+
+async def test_generic_exception_mid_run_streams_the_ledger_with_no_claimed_status(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A crash mid-loop (provider error, timeout, tool exception) is not one
+    of the six judged terminal states, so the final step it emits before
+    re-raising must carry no status — same honesty rule as an
+    un-attributed cancellation above, and the same reason the frontend's
+    crash rule renders it "Stopped — interrupted" rather than a fabricated
+    outcome.
+    """
+
+    async def fake_run_once(*args: Any, **kwargs: Any) -> Any:
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(an, "_run_once", fake_run_once)
+
+    emitted: list[dict[str, Any]] = []
+    run_once_kwargs: dict[str, Any] = dict(
+        turn_deps=None,
+        router=None,
+        final_writer=None,
+        recording_writer=lambda _c: None,
+        writer=emitted.append,
+        emissions=[],
+        handle=None,
+        parked_store=None,
+        parked_session_id="",
+        message_id="m1",
+        parked_user_id=None,
+        registry=None,
+    )
+    criteria = (GoalCriterion(id="c1", text="Every school has a deadline."),)
+
+    with pytest.raises(RuntimeError, match="boom"):
+        await an._run_goal_loop(
+            cast(Any, object()),
+            "Make sure every school has a deadline.",
+            None,
+            criteria=criteria,
+            not_checked_note="Application portals were not checked.",
+            limits=cast(Any, object()),
+            goal_limits=_goal_limits(),
+            settings=_NoPriceSettings(),
+            model_setting="google-vertex:gemini-2.5-flash",
+            model_settings=None,
+            instructions="instructions",
+            injected_model_factory=None,
+            shared_usage=RunUsage(),
+            run_once_kwargs=run_once_kwargs,
+        )
+
+    goal_steps = [
+        chunk["data"]
+        for chunk in emitted
+        if chunk.get("type") == "step" and chunk["data"].get("kind") == "goal"
+    ]
+    final_steps = [s for s in goal_steps if s["detail"]["goal"]["phase"] == "final"]
+    assert len(final_steps) == 1
+    detail = final_steps[0]["detail"]["goal"]
+    assert detail["status"] is None
+    assert detail["total_count"] == 1
+    assert detail["not_checked_note"]
+
+
+async def test_ask_student_pause_carries_this_segments_own_elapsed_time(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """An `ask_student` pause breaks out of the loop before `decide()` runs
+    that round, so without its own elapsed stamp the carried ledger would
+    report `elapsed_s: 0.0` regardless of how long the segment actually
+    ran. `started_monotonic`/`time.monotonic` are pinned so the expected
+    delta is exact, with no real sleep.
+    """
+    from domain.clarification import ClarifyDraftV2, ClarifyOptionDraft, ClarifyQuestionDraft
+
+    draft = ClarifyDraftV2(
+        questions=[
+            ClarifyQuestionDraft(
+                question="Which essay?",
+                selection="single",
+                options=[
+                    ClarifyOptionDraft(label="Common App"),
+                    ClarifyOptionDraft(label="UC"),
+                ],
+            )
+        ]
+    )
+
+    async def fake_run_once(*args: Any, **kwargs: Any) -> Any:
+        return an._RunOnceResult(
+            result=SimpleNamespace(output=draft, all_messages=lambda: []),
+            hit_budget=False,
+            completion_fallback=None,
+            had_tool_error=False,
+        )
+
+    monkeypatch.setattr(an, "_run_once", fake_run_once)
+    monkeypatch.setattr(time, "monotonic", lambda: 1_007.5)
+
+    criteria = (GoalCriterion(id="c1", text="The essay is revised."),)
+    controller = GoalLoopController(
+        statement="Revise my essay.",
+        criteria=criteria,
+        limits=_goal_limits(),
+        started_monotonic=1_000.0,
+    )
+    monkeypatch.setattr(
+        GoalLoopController,
+        "from_carry",
+        classmethod(lambda cls, *a, **k: (GoalLedger(), controller)),
+    )
+
+    emitted: list[dict[str, Any]] = []
+    run_once_kwargs: dict[str, Any] = dict(
+        turn_deps=None,
+        router=None,
+        final_writer=None,
+        recording_writer=lambda _c: None,
+        writer=emitted.append,
+        emissions=[],
+        handle=None,
+        parked_store=None,
+        parked_session_id="",
+        message_id="m1",
+        parked_user_id=None,
+        registry=None,
+    )
+    _result, _fallback, carried = await an._run_goal_loop(
+        cast(Any, object()),
+        "Revise my essay.",
+        None,
+        criteria=criteria,
+        not_checked_note="Nothing outside the workspace was checked.",
+        limits=cast(Any, object()),
+        goal_limits=_goal_limits(),
+        settings=_NoPriceSettings(),
+        model_setting="google-vertex:gemini-2.5-flash",
+        model_settings=None,
+        instructions="instructions",
+        injected_model_factory=None,
+        shared_usage=RunUsage(),
+        run_once_kwargs=run_once_kwargs,
+    )
+
+    assert carried["elapsed_s"] == pytest.approx(7.5)
 
 
 # ---------------------------------------------------------------------------
@@ -414,14 +562,14 @@ async def test_viz_marker_split_across_iteration_boundary_does_not_leak() -> Non
 
 
 # ---------------------------------------------------------------------------
-# 6. HIGH-2: the judge's spend is priced at its OWN model, not the agent's
+# 6. The judge's spend is priced at its OWN model, not the agent's
 # ---------------------------------------------------------------------------
 
 
 class _PricedSettings:
-    """Just enough of Settings to exercise HIGH-2's per-slice pricing: two
-    priced model tiers, one 100x the other, so a misattributed slice shows up
-    as a large, unmistakable difference rather than a rounding artifact."""
+    """Just enough of Settings to exercise the per-slice pricing: two priced
+    model tiers, one 100x the other, so a misattributed slice shows up as a
+    large, unmistakable difference rather than a rounding artifact."""
 
     def __init__(self, model_goal_judge: str) -> None:
         self.model_prices: dict[str, ModelPriceTier] = {
@@ -505,7 +653,6 @@ async def _run_goal_loop_to_achieved_and_get_cost(
         model_setting="google-vertex:cheap-model",
         model_settings=None,
         instructions="instructions",
-        plan_state=PlanState(),
         injected_model_factory=None,
         shared_usage=RunUsage(),
         run_once_kwargs=run_once_kwargs,
@@ -525,10 +672,10 @@ async def _run_goal_loop_to_achieved_and_get_cost(
 async def test_pricier_judge_tier_shows_up_as_higher_ledger_cost(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """HIGH-2: `_update_goal_ledger` used to price the ENTIRE shared usage
-    (agent iterations + judge/criteria calls, D6) at the agent's own model
-    rate. With the agent's spend held fixed (1000 in / 500 out) and the
-    judge's spend held fixed (2000 in / 200 out) across both runs, moving
+    """Cost is priced per slice (agent iterations, judge/criteria calls, D6)
+    at each call's own model rate, never the agent's rate for everything.
+    With the agent's spend held fixed (1000 in / 500 out) and the judge's
+    spend held fixed (2000 in / 200 out) across both runs, moving
     `model_goal_judge` to a 100x-pricier tier must raise the ledger's final
     `est_cost_usd` — the number shown to the student and checked against
     `goal_max_cost_usd` — even though the token counts never change.
@@ -551,18 +698,17 @@ async def test_pricier_judge_tier_shows_up_as_higher_ledger_cost(
 
 
 # ---------------------------------------------------------------------------
-# 7. HIGH-4: `partial` is reachable end to end (consecutive tool errors)
+# 7. `partial` is reachable end to end (consecutive tool errors)
 # ---------------------------------------------------------------------------
 
 
 async def test_partial_status_is_reachable_after_consecutive_tool_errors(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """HIGH-4: `domain.goal.decide_terminal_status` returns "partial" once
-    `ledger.consecutive_tool_errors >= limits.max_consecutive_tool_errors`,
-    but nothing previously incremented that counter — the branch was dead.
+    """`domain.goal.decide_terminal_status` returns "partial" once
+    `ledger.consecutive_tool_errors >= limits.max_consecutive_tool_errors`.
     `_run_once`'s `had_tool_error` flag (surfaced from its own tool-result
-    event walk, without touching `app/steps.py`) now wires it: one
+    event walk, without touching `app/steps.py`) wires that counter: one
     tool-erroring iteration against a limit of 1 must land `partial`.
     """
 
@@ -607,7 +753,11 @@ async def test_partial_status_is_reachable_after_consecutive_tool_errors(
         registry=None,
     )
     limits = GoalLimits(
-        max_iterations=6, max_wall_clock_s=3600.0, max_cost_usd=3.0, max_consecutive_tool_errors=1
+        max_iterations=6,
+        max_wall_clock_s=3600.0,
+        max_cost_usd=3.0,
+        max_consecutive_tool_errors=1,
+        max_flat_checks=2,
     )
     # The wrap-up (§2.7) always runs for a non-achieved status; give it a
     # harmless FunctionModel so building its Agent needs no real credentials
@@ -628,7 +778,6 @@ async def test_partial_status_is_reachable_after_consecutive_tool_errors(
         model_setting="google-vertex:gemini-2.5-flash",
         model_settings=None,
         instructions="instructions",
-        plan_state=PlanState(),
         injected_model_factory=lambda: wrapup_model,
         shared_usage=RunUsage(),
         run_once_kwargs=run_once_kwargs,
@@ -708,7 +857,7 @@ async def test_judge_failure_mid_run_lands_stopped_check_failed(
         lambda messages, info: ModelResponse(parts=[TextPart(content="wrap-up")])
     )
 
-    result, _fallback = await an._run_goal_loop(
+    result, _fallback, _carried = await an._run_goal_loop(
         cast(Any, object()),
         "Make sure every school has a deadline.",
         None,
@@ -720,7 +869,6 @@ async def test_judge_failure_mid_run_lands_stopped_check_failed(
         model_setting="google-vertex:cheap-model",
         model_settings=None,
         instructions="instructions",
-        plan_state=PlanState(),
         injected_model_factory=lambda: wrapup_model,
         shared_usage=RunUsage(),
         run_once_kwargs=run_once_kwargs,
@@ -782,6 +930,7 @@ class _NodeSettings(_NoPriceSettings):
     goal_max_wall_clock_s = 3600.0
     goal_max_cost_usd = 3.0
     goal_max_consecutive_tool_errors = 3
+    goal_stall_iterations = 2
     goal_wrapup_reserve_requests = 2
 
     @property
@@ -877,3 +1026,223 @@ async def test_criteria_derivation_failure_emits_stopped_check_failed_step(
     # The turn still completes as a turn — the specific card is the answer,
     # never a generic error banner stacked on top of it.
     assert delta["turn_records"][-1]["status"] == "complete"
+
+
+# ---------------------------------------------------------------------------
+# 10. A goal run pauses on ask_student: no check, no nudge, no wrap-up — the
+#     question is the turn's output and the run resumes with the answer.
+# ---------------------------------------------------------------------------
+
+
+async def test_ask_student_pauses_the_run_as_awaiting_input(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from domain.clarification import ClarifyDraftV2, ClarifyOptionDraft, ClarifyQuestionDraft
+
+    draft = ClarifyDraftV2(
+        questions=[
+            ClarifyQuestionDraft(
+                question="Which essay?",
+                selection="single",
+                options=[ClarifyOptionDraft(label="Common App"), ClarifyOptionDraft(label="UC")],
+            )
+        ]
+    )
+    run_once_calls = 0
+
+    async def fake_run_once(*args: Any, **kwargs: Any) -> Any:
+        nonlocal run_once_calls
+        run_once_calls += 1
+        return an._RunOnceResult(
+            result=SimpleNamespace(output=draft, all_messages=lambda: []),
+            hit_budget=False,
+            completion_fallback=None,
+            had_tool_error=False,
+        )
+
+    async def fake_judge_goal(**kwargs: Any) -> Any:
+        raise AssertionError("the judge must not run on a paused round")
+
+    monkeypatch.setattr(an, "_run_once", fake_run_once)
+    monkeypatch.setattr(an, "judge_goal", fake_judge_goal)
+
+    emitted: list[dict[str, Any]] = []
+    run_once_kwargs: dict[str, Any] = dict(
+        turn_deps=None,
+        router=None,
+        final_writer=None,
+        recording_writer=lambda _c: None,
+        writer=emitted.append,
+        emissions=[],
+        handle=None,
+        parked_store=None,
+        parked_session_id="",
+        message_id="m1",
+        parked_user_id=None,
+        registry=None,
+    )
+    result, _, _carried = await an._run_goal_loop(
+        cast(Any, object()),
+        "Revise my essay.",
+        None,
+        criteria=(GoalCriterion(id="c1", text="The essay is revised."),),
+        not_checked_note="Nothing outside the workspace was checked.",
+        limits=cast(Any, object()),
+        goal_limits=_goal_limits(),
+        settings=_NoPriceSettings(),
+        model_setting="google-vertex:gemini-2.5-flash",
+        model_settings=None,
+        instructions="instructions",
+        injected_model_factory=None,
+        shared_usage=RunUsage(),
+        run_once_kwargs=run_once_kwargs,
+    )
+
+    assert result.output is draft
+    assert run_once_calls == 1  # no wrap-up run either
+    goal_steps = [
+        chunk["data"]["detail"]["goal"]
+        for chunk in emitted
+        if chunk.get("type") == "step" and chunk["data"].get("kind") == "goal"
+    ]
+    assert [g["phase"] for g in goal_steps] == ["final"]
+    assert goal_steps[0]["status"] == "awaiting_input"
+    assert goal_steps[0]["criteria"][0]["checked"] is False
+
+
+# ---------------------------------------------------------------------------
+# 11. An `ask_student` pause must not reset a goal run's budgets — the
+#     ledger/stall state a resumed segment starts from must be the WHOLE
+#     goal's totals, never a fresh per-segment start.
+# ---------------------------------------------------------------------------
+
+
+def test_from_carry_round_trips_ledger_and_stall_state() -> None:
+    limits = _goal_limits()
+    criteria = (GoalCriterion(id="c1", text="Every school has a deadline."),)
+    ledger = GoalLedger(iteration=4, cost_usd=2.0, elapsed_s=100.0, consecutive_tool_errors=1)
+    controller = GoalLoopController(
+        statement="Make sure every school has a deadline.",
+        criteria=criteria,
+        limits=limits,
+        _prev_met=frozenset({"c1"}),
+        _flat_checks=1,
+    )
+
+    carried = controller.carry_state(ledger)
+    seeded_ledger, seeded_controller = GoalLoopController.from_carry(
+        "Make sure every school has a deadline.", criteria, limits, carried
+    )
+
+    assert seeded_ledger.iteration == 4
+    assert seeded_ledger.cost_usd == 2.0
+    assert seeded_ledger.consecutive_tool_errors == 1
+    # The active-elapsed carry lands on the controller too, so the NEXT
+    # `decide()` call adds this segment's own monotonic time on top of it
+    # rather than restarting the clock at zero.
+    assert seeded_controller.prior_elapsed_s == 100.0
+    round_tripped = seeded_controller.carry_state(seeded_ledger)
+    assert round_tripped["prev_met_ids"] == ["c1"]
+    assert round_tripped["flat_checks"] == 1
+
+
+def test_from_carry_of_none_is_a_fresh_pair() -> None:
+    limits = _goal_limits()
+    criteria = (GoalCriterion(id="c1", text="Every school has a deadline."),)
+    ledger, controller = GoalLoopController.from_carry("statement", criteria, limits, None)
+    assert ledger == GoalLedger()
+    assert controller.prior_elapsed_s == 0.0
+    fresh = controller.carry_state(ledger)
+    assert fresh["prev_met_ids"] is None
+    assert fresh["flat_checks"] == 0
+
+
+async def test_resumed_goal_loop_trips_budget_from_carried_iteration_count(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A resumed run seeded with `carried_state` already one iteration short
+    of `max_iterations` must trip `stopped_budget` on this segment's FIRST
+    round — proving the cap is judged against the whole goal, not reset by
+    the pause that preceded this segment."""
+    run_once_calls = 0
+
+    async def fake_run_once(*args: Any, **kwargs: Any) -> Any:
+        nonlocal run_once_calls
+        run_once_calls += 1
+        return an._RunOnceResult(
+            result=SimpleNamespace(output="still working on it", all_messages=lambda: []),
+            hit_budget=False,
+            completion_fallback=None,
+            had_tool_error=False,
+        )
+
+    async def fake_judge_goal(**kwargs: Any) -> Any:
+        verdict = GoalVerdict(
+            criteria=(CriterionVerdict(criterion_id="c1", met=False, reason="not yet"),),
+            critique="",
+        )
+        return verdict, {"c1": False}
+
+    monkeypatch.setattr(an, "_run_once", fake_run_once)
+    monkeypatch.setattr(an, "judge_goal", fake_judge_goal)
+
+    emitted: list[dict[str, Any]] = []
+    run_once_kwargs: dict[str, Any] = dict(
+        turn_deps=None,
+        router=None,
+        final_writer=None,
+        recording_writer=lambda _c: None,
+        writer=emitted.append,
+        emissions=[],
+        handle=None,
+        parked_store=None,
+        parked_session_id="",
+        message_id="m1",
+        parked_user_id=None,
+        registry=None,
+    )
+    wrapup_model = FunctionModel(
+        lambda messages, info: ModelResponse(parts=[TextPart(content="wrap-up")])
+    )
+    limits = _goal_limits()
+    carried_state = {
+        "iteration": limits.max_iterations - 1,
+        "cost_usd": 0.0,
+        "elapsed_s": 0.0,
+        "consecutive_tool_errors": 0,
+        "prev_met_ids": None,
+        "flat_checks": 0,
+    }
+
+    result, _fallback, carried_out = await an._run_goal_loop(
+        cast(Any, object()),
+        "Make sure every school has a deadline.",
+        None,
+        criteria=(GoalCriterion(id="c1", text="Every school has a deadline."),),
+        not_checked_note="Application portals were not checked.",
+        limits=cast(Any, object()),
+        goal_limits=limits,
+        settings=_NoPriceSettings(),
+        model_setting="google-vertex:gemini-2.5-flash",
+        model_settings=None,
+        instructions="instructions",
+        injected_model_factory=lambda: wrapup_model,
+        shared_usage=RunUsage(),
+        run_once_kwargs=run_once_kwargs,
+        resume_prompt="Here is my answer.",
+        carried_state=carried_state,
+    )
+
+    # One main round (trips the budget) + one wrap-up round — never the
+    # `max_iterations` rounds a fresh-start ledger would have allowed.
+    assert run_once_calls == 2
+    goal_steps = [
+        chunk["data"]["detail"]["goal"]
+        for chunk in emitted
+        if chunk.get("type") == "step" and chunk["data"].get("kind") == "goal"
+    ]
+    final_steps = [g for g in goal_steps if g["phase"] == "final"]
+    assert len(final_steps) == 1
+    assert final_steps[0]["status"] == "stopped_budget"
+    assert final_steps[0]["iteration"] == limits.max_iterations
+    assert carried_out["iteration"] == limits.max_iterations

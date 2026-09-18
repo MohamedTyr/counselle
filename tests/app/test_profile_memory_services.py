@@ -695,10 +695,7 @@ async def test_document_summary_uses_the_configured_non_google_cheap_model_and_e
 def test_summary_model_builds_an_authenticated_google_model_for_the_vertex_prefix(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """The production fallback (no ``model_factory`` override) must use the same
-    explicit Vertex Express Mode auth path as ``app.agent_node.default_model_factory``
-    — never the bare provider-prefixed string, which resolves to unusable ambient
-    credentials (see app/agent_node.py notes §1)."""
+    """The production fallback must use the shared explicit Vertex client."""
     # Importing app.agent_node pulls in app.toolset, which calls get_settings()
     # at module import time — supply the required fields so that succeeds here.
     monkeypatch.setenv("COUNSELLE_DB_RO_DSN", "postgresql://ro@localhost/pipeline")
@@ -729,7 +726,7 @@ def test_summary_model_builds_an_authenticated_google_model_for_the_vertex_prefi
         reset_config_caches()
 
 
-def test_summary_model_without_vertex_api_key_raises_before_any_model_call(
+def test_summary_model_without_vertex_api_key_uses_adc(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setenv("COUNSELLE_DB_RO_DSN", "postgresql://ro@localhost/pipeline")
@@ -743,10 +740,15 @@ def test_summary_model_without_vertex_api_key_raises_before_any_model_call(
         settings = SimpleNamespace(
             model_cheap="google-vertex:gemini-2.5-flash",
             vertex_api_key=None,
+            google_cloud_project="counselle-adc-test",
+            google_cloud_location="us-central1",
         )
 
-        with pytest.raises(RuntimeError, match="COUNSELLE_VERTEX_API_KEY"):
-            document_summary._summary_model(settings, None)
+        model = document_summary._summary_model(settings, None)
+
+        assert model._provider.client._api_client.api_key is None
+        assert model._provider.client._api_client.project == settings.google_cloud_project
+        assert model._provider.client._api_client.location == settings.google_cloud_location
     finally:
         reset_config_caches()
 

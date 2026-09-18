@@ -266,6 +266,35 @@ describe("useTurnEngine", () => {
     expect(onSendStart).toHaveBeenCalledTimes(1);
   });
 
+  test("a send that is not a goal run clears the goal flag a previous goal run set", async () => {
+    // The flag drives the live message's goal line. Left stale, the next
+    // ordinary turn — a regenerate, a retry, a plain message — would show a
+    // goal line for a run that is not one.
+    const transport = createTransport({
+      sendMessage: vi.fn(() =>
+        stream([meta("a1", "u1"), delta("final"), done()]),
+      ),
+    });
+    const { result } = renderEngine({ transport });
+
+    await act(async () => {
+      await result.current.submitMessage({
+        text: "Get my list ready.",
+        executionResponseMode: "quick",
+        goalMode: true,
+      });
+    });
+    expect(result.current.liveTurnIsGoal).toBe(true);
+
+    await act(async () => {
+      await result.current.submitMessage({
+        text: "Tell me about MIT.",
+        executionResponseMode: "quick",
+      });
+    });
+    expect(result.current.liveTurnIsGoal).toBe(false);
+  });
+
   test("pre-meta failure keeps text and does not create an assistant card", async () => {
     const transport = createTransport({
       sendMessage: vi.fn(() => streamThenThrow([], new Error("offline"))),
@@ -638,6 +667,42 @@ describe("useTurnEngine", () => {
       expect.objectContaining({
         text: "Edited question",
         replaceMessageId: "u1",
+      }),
+    );
+  });
+
+  test("a failed goal send retried via retryLastSend re-sends with goal mode", async () => {
+    const transport = createTransport({
+      sendMessage: vi
+        .fn()
+        .mockImplementationOnce(() => streamThenThrow([], new Error("offline")))
+        .mockReturnValueOnce(stream([meta("a1", "u1"), delta("working"), done()])),
+    });
+    const { result } = renderEngine({ transport });
+
+    await act(async () => {
+      await result.current.submitMessage({
+        text: "Finish my applications",
+        executionResponseMode: "quick",
+        goalMode: true,
+      });
+    });
+    expect(result.current.pendingText).toBe("Finish my applications");
+
+    await act(async () => {
+      result.current.retryLastSend();
+    });
+    await waitFor(() =>
+      expect(result.current.messages.at(-1)).toMatchObject({
+        messageId: "a1",
+        text: "working",
+      }),
+    );
+
+    expect(transport.sendMessage).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        text: "Finish my applications",
+        goalMode: true,
       }),
     );
   });

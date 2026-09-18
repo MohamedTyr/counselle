@@ -2,8 +2,9 @@
 
 **This dataset is SYNTHETIC, hand-constructed, and labeled by a human reviewer
 during Phase 2 of the goal-mode plan (`plans/goal-mode-plan.md` §3.8, §6.2) —
-it is NOT drawn from real goal runs.** The goal loop (`app/goal_loop.py`,
-Phase 3) does not exist yet, so no real goal-run traces exist to label. Every
+it is NOT drawn from real goal runs.** This set was built before the goal
+loop (`app/goal_loop.py`) existed and remains synthetic — no labeled
+real-trace examples have been added since. Every
 case in `cases.yaml` is a hand-built, plausible tool-receipt bundle grounded
 in this repo's actual `domain.mutation_receipts.WorkspaceMutationReceipt`
 shapes and `domain.events.StepData` wire type — not sampled from production.
@@ -17,11 +18,11 @@ actual run.
 
 ## What's here
 
-- `cases.yaml` — the judge eval: 32 hand-labeled cases, each a
+- `cases.yaml` — the judge eval: 42 hand-labeled cases, each a
   `(statement, criteria, receipts, final_text, prior_cited_step_ids)` bundle
   plus a per-criterion ground-truth `met` label. Split `train`/`dev`/`test`
   (dev/train are for prompt calibration only and are never scored; `test` is
-  scored once, per Hamel Husain's split discipline cited in the plan). Six
+  scored once, per Hamel Husain's split discipline cited in the plan). Nine
   cases are tagged `adversarial: true` — long, confident, padded `final_text`
   with little or no supporting receipt, always labeled `not_met` (the R2
   MT-Bench padding-attack case the plan calls out by name).

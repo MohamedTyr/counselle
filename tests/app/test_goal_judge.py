@@ -150,9 +150,7 @@ class TestDeriveCriteria:
         )
         assert len(criteria) == 2
         assert criteria[0] == GoalCriterion(id="c1", text="Every school has a deadline.")
-        assert criteria[1] == GoalCriterion(
-            id="c2", text="Every school has an application status."
-        )
+        assert criteria[1] == GoalCriterion(id="c2", text="Every school has an application status.")
         assert note == "Application portals were not checked."
 
     async def test_blank_note_after_strip_falls_back_to_default(
@@ -331,3 +329,45 @@ class TestJudgeGoal:
         assert verdict.criteria[0].met is True
         assert verdict.met is True
         assert checked_by_id["c1"] is True
+
+    @pytest.mark.parametrize(
+        ("final_text", "expected"),
+        [("Robots taught me patience. " * 5, True), ("   ", False)],
+    )
+    async def test_final_text_is_citable_only_when_the_round_produced_one(
+        self, monkeypatch: pytest.MonkeyPatch, final_text: str, expected: bool
+    ) -> None:
+        """An essay the student asked for and received in the reply is its
+        own proof — but citing `final-text` on a round that wrote nothing is
+        a fabricated citation and must never mark a criterion met."""
+
+        def model_fn(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+            return _tool_response(
+                info.output_tools,
+                criteria=[
+                    {
+                        "criterion_id": "c1",
+                        "met": True,
+                        "reason": "Your essay is there.",
+                        "evidence_step_ids": [goal_judge.FINAL_TEXT_EVIDENCE_ID],
+                    }
+                ],
+                critique="done",
+            )
+
+        monkeypatch.setattr(
+            goal_judge, "_vertex_model", lambda settings, model_setting: _stub_model(model_fn)
+        )
+        result = await judge_goal(
+            statement="write an essay about robots",
+            criteria=(GoalCriterion(id="c1", text="Your essay about robots is written."),),
+            receipts=[],
+            final_text=final_text,
+            prior_cited_step_ids=(),
+            settings=_settings(),
+            usage=RunUsage(),
+        )
+        assert result is not None
+        verdict, checked_by_id = result
+        assert checked_by_id["c1"] is expected
+        assert verdict.met is expected

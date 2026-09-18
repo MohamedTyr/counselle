@@ -150,8 +150,10 @@ describe("ChatMessages", () => {
       />,
     );
 
-    expect(screen.getByText("Working")).toBeInTheDocument();
-    expect(screen.queryByText("Stopped — interrupted")).not.toBeInTheDocument();
+    expect(
+      screen.getByText(/^(Starting|Working)$|still working$/),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Interrupted before it finished")).not.toBeInTheDocument();
   });
 
   test("a persisted idle goal run with no final step is interrupted (crash replay)", () => {
@@ -164,7 +166,21 @@ describe("ChatMessages", () => {
       />,
     );
 
-    expect(screen.getByText("Stopped — interrupted")).toBeInTheDocument();
+    expect(screen.getByText("Interrupted before it finished")).toBeInTheDocument();
+  });
+
+  test("a goal run the student stopped says so, never that it was interrupted", () => {
+    render(
+      <ChatMessages
+        isSubmitting={false}
+        liveMessageId={null}
+        messages={[goalAssistant("a1", "cancelled")]}
+        sessionId="s1"
+      />,
+    );
+
+    expect(screen.getByText("You stopped it")).toBeInTheDocument();
+    expect(screen.queryByText("Interrupted before it finished")).not.toBeInTheDocument();
   });
 
   test("a settled goal run with a final step is not interrupted", () => {
@@ -182,7 +198,7 @@ describe("ChatMessages", () => {
       />,
     );
 
-    expect(screen.getByText("Achieved")).toBeInTheDocument();
-    expect(screen.queryByText("Stopped — interrupted")).not.toBeInTheDocument();
+    expect(screen.getAllByText("All done").length).toBeGreaterThan(0);
+    expect(screen.queryByText("Interrupted before it finished")).not.toBeInTheDocument();
   });
 });

@@ -260,15 +260,18 @@ export type StepTier = "official" | "community" | null;
  * frontend suppresses/renders on. */
 export type GoalPhase = "criteria" | "check" | "final";
 
-/** THE single source of truth for the six terminal states, mirrored from
- * domain/goal.py's GoalStatus. Populated only on `phase: "final"`. */
+/** THE single source of truth for the terminal states, mirrored from
+ * domain/goal.py's GoalStatus. Populated only on `phase: "final"`.
+ * `awaiting_input` is a pause, not a verdict: the agent asked the student a
+ * question and the run resumes with their answer. */
 export type GoalStatus =
   | "achieved"
   | "partial"
   | "stopped_budget"
   | "stopped_no_progress"
   | "stopped_user"
-  | "stopped_check_failed";
+  | "stopped_check_failed"
+  | "awaiting_input";
 
 /** One frozen criterion's current judged state, already code-corrected
  * before it reaches the wire — never the judge's raw claim. */

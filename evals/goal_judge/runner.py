@@ -8,7 +8,7 @@ nothing). Also sanity-checks `criteria_examples.yaml`'s hand labels against a
 small rule-based §3.2 constraint checker.
 
 See README.md for what this dataset is (SYNTHETIC, hand-labeled) and is not
-(real goal-run traces — the goal loop does not exist yet).
+(real goal-run traces).
 
 Usage:
     uv run python -m evals.goal_judge.runner --dry-run   # no model calls
@@ -157,7 +157,8 @@ def build_step(r: dict[str, Any]) -> StepData:
     entry — proves every case parses into the actual wire/receipt types
     `app.goal_judge` consumes, not a look-alike stand-in."""
     if r["type"] == "summary":
-        detail = StepDetail(summary=r["summary"])
+        # `items` mirrors a real read tool's `workspace_items` preview.
+        detail = StepDetail(summary=r.get("summary"), workspace_items=r.get("items"))
     else:
         detail = StepDetail(mutation=_build_mutation(r))
     return StepData(
@@ -312,7 +313,9 @@ async def run_judge_eval(cases: list[JudgeCase]) -> None:
     tp = fp = tn = fn = unassessed = 0
     for case in cases:
         outcomes = await score_case(case)
-        for _criterion_id, (predicted, true) in outcomes.items():
+        for criterion_id, (predicted, true) in outcomes.items():
+            if predicted is not None and predicted != true:
+                print(f"MISMATCH {case.id} {criterion_id}: judged {predicted}, labelled {true}")
             if predicted is None:
                 # The judge never assessed this criterion (C9) — not a
                 # prediction of any kind, so it cannot be scored as a hit or

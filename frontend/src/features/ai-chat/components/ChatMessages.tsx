@@ -35,6 +35,9 @@ export type ChatMessagesProps = {
    *  "is this the live turn" by id instead of by a same-message heuristic.
    *  Omitting it leaves `ChatMessage`'s own fallback in place. */
   liveMessageId?: string | null;
+  /** Whether the live turn was sent as a `/goal` run — lets the live message
+   *  show its goal line before the backend emits the first `goal` step. */
+  liveTurnIsGoal?: boolean;
 };
 
 /**
@@ -58,6 +61,7 @@ export function ChatMessages({
   skillLabelForName,
   modeSkillNames = [],
   liveMessageId,
+  liveTurnIsGoal = false,
 }: ChatMessagesProps) {
   const {
     scrollableRef,
@@ -114,6 +118,7 @@ export function ChatMessages({
               key={message.messageId}
               isLatestMessage={index === latestMessageIndex}
               liveMessageId={liveMessageId}
+              liveTurnIsGoal={liveTurnIsGoal}
               clarifyDraft={
                 index === latestMessageIndex ? clarifyDraft : undefined
               }

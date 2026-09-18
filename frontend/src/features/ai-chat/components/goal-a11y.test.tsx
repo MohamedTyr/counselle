@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { axe, toHaveNoViolations } from "jest-axe";
 import { describe, expect, test } from "vitest";
 
@@ -64,7 +64,13 @@ describe("goal criterion honesty (C9)", () => {
   const guardFixture = GOAL_CRITERION_HONESTY_FIXTURE;
 
   test("a met:false, checked:false criterion renders as not checked, never as not met", () => {
-    render(<GoalHeader detail={guardFixture.detail} isInterrupted={guardFixture.isInterrupted} />);
+    // The goal line lists the criteria only while no verdict exists — once
+    // one does, the result below carries them (next test). An interrupted
+    // run is the no-verdict state where "not checked" is permanent.
+    render(
+      <GoalHeader detail={{ ...guardFixture.detail, status: null }} isInterrupted />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /done when/i }));
 
     // c3 (met:false, checked:false) and c4 (met:null, checked:false) both
     // read "not checked". Only c2 (met:false, checked:true) is a genuine
@@ -123,9 +129,29 @@ describe("goal criterion honesty (C9)", () => {
 
     render(<GoalCheckBeat step={step} />);
 
-    expect(
-      screen.getByText("Still outstanding: Every school has a note"),
-    ).toBeInTheDocument();
+    const outstanding = screen.getAllByRole("listitem");
+    expect(outstanding).toHaveLength(1);
+    expect(outstanding[0]).toHaveTextContent("Every school has a note");
+  });
+});
+
+/**
+ * Regression guard: a paused (`awaiting_input`) run resumes, so an
+ * unattempted criterion must still read "not yet checked" — the same as a
+ * running one — rather than the permanent "not checked" a genuinely
+ * terminal status gets.
+ */
+describe("goal criterion honesty while awaiting input", () => {
+  test("an unattempted criterion reads 'not yet checked' while paused on the student's answer", () => {
+    const fixture = GOAL_MODE_FIXTURES.find(
+      (item) => item.id === "goal-awaiting-input",
+    )!;
+
+    render(<GoalHeader detail={fixture.detail} />);
+    fireEvent.click(screen.getByRole("button", { name: /done when/i }));
+
+    expect(screen.getAllByText("not yet checked:").length).toBeGreaterThan(0);
+    expect(screen.queryByText("not checked:")).not.toBeInTheDocument();
   });
 });
 

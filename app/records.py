@@ -241,6 +241,7 @@ def build_turn_record(
     trigger_request_id: str | None = None,
     response_origin: Literal["widget", "reply"] | None = None,
     project_user: bool | None = None,
+    goal: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """One turn record (ship-plan §0.1 G2), msgpack-plain and self-contained.
 
@@ -316,19 +317,24 @@ def build_turn_record(
         "response_origin": response_origin,
         "project_user": project_user,
         "clarification_reply": bool(continuation_of and response_origin == "reply"),
+        # A goal run that paused on ask_student: the statement, frozen
+        # criteria and not-checked note the resumed run continues under, plus
+        # the receipts it inherited from runs before it. ``None`` for every
+        # other record.
+        "goal": goal,
     }
 
 
 def _is_v2_clarify(record: dict[str, Any]) -> bool:
     clarify = record.get("clarify")
-    return isinstance(clarify, dict) and isinstance(clarify.get("spec"), dict) and (
-        clarify["spec"].get("v") == 2
+    return (
+        isinstance(clarify, dict)
+        and isinstance(clarify.get("spec"), dict)
+        and (clarify["spec"].get("v") == 2)
     )
 
 
-def append_or_replace(
-    prior: list[dict[str, Any]], record: dict[str, Any]
-) -> list[dict[str, Any]]:
+def append_or_replace(prior: list[dict[str, Any]], record: dict[str, Any]) -> list[dict[str, Any]]:
     """The full new ``turn_records`` list for an overwrite-channel write.
 
     A clarify resume re-runs the parked turn under the same ``message_id``

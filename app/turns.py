@@ -254,8 +254,7 @@ class _Turn:
     essay_selection: str | None = None
     # Harness mode (plans/goal-mode-plan.md D10): drives goal budgets/timeout
     # selection in _drive and the separate goal_max_concurrent_turns ceiling.
-    # Always False for an A2 continuation (start_continuation never accepts
-    # it) — a goal turn is never resumable as a clarify continuation (C8).
+    # True for an A2 continuation exactly when it resumes a paused goal run.
     goal_mode: bool = False
     task: asyncio.Task[None] | None = None
     trace_id: str = ""
@@ -421,15 +420,7 @@ class TurnRegistry:
         max_turns = self._settings.max_concurrent_turns
         if len(self._turns) >= max_turns:
             raise TooManyTurns(session_id)
-        if goal_mode:
-            # A tighter, separate ceiling (§2.12/R10): a goal turn can hold a
-            # slot and a disproportionate share of the shared stream-buffer
-            # byte pool for up to goal_turn_timeout_s. Filtered count over the
-            # same dict, inside the same synchronous claim window — no
-            # maintained counter needed at n <= max_concurrent_turns.
-            goal_turns = sum(1 for t in self._turns.values() if t.goal_mode)
-            if goal_turns >= self._settings.goal_max_concurrent_turns:
-                raise TooManyTurns(session_id)
+        self._require_goal_slot(session_id, goal_mode)
         buffer = _RingBuffer(
             self._settings.agent_stream_buffer_size,
             on_charge=self._charge_bytes,
@@ -557,19 +548,16 @@ class TurnRegistry:
         durable A1-answered + ContinuationIntent write has already landed;
         this only spawns A2's task and buffer.
 
-        C8/D13: a goal turn is never resumable as a clarify continuation.
-        This method structurally cannot start one — it accepts no
-        ``goal_mode`` parameter, and the ``_Turn`` it spawns always has
-        ``goal_mode=False`` (the dataclass default) — belt-and-braces on top
-        of the real guarantee: ``accept_clarification`` only reaches here for
-        a record with ``status == "awaiting_input"``, which a goal turn can
-        never produce (``output_type=[str]`` makes ``ClarifyDraftV2``
-        structurally impossible on that turn).
+        A goal run that paused on ``ask_student`` resumes here as a goal
+        turn (``prepared.inherited_goal``), under the goal watchdog and the
+        goal concurrency ceiling, exactly as if it had been started fresh.
         """
+        goal_mode = prepared.inherited_goal is not None
         if session_id in self._turns:
             raise StreamActive(session_id)
         if len(self._turns) >= self._settings.max_concurrent_turns:
             raise TooManyTurns(session_id)
+        self._require_goal_slot(session_id, goal_mode)
         self._require_response_mode_available(response_mode)
         buffer = _RingBuffer(
             self._settings.agent_stream_buffer_size,
@@ -586,6 +574,7 @@ class TurnRegistry:
             response_mode_inherited=True,
             buffer=buffer,
             is_continuation=True,
+            goal_mode=goal_mode,
             continuation_of=prepared.root_message_id,
             project_user=prepared.project_user,
             response_origin=prepared.origin,
@@ -641,6 +630,19 @@ class TurnRegistry:
         if observed is not None:
             turn.buffer.append(observed)
         return user_message_id
+
+    def _require_goal_slot(self, session_id: str, goal_mode: bool) -> None:
+        """A tighter, separate ceiling for goal turns (§2.12/R10): one can
+        hold a slot and a disproportionate share of the shared stream-buffer
+        byte pool for up to goal_turn_timeout_s. Filtered count over the same
+        dict, inside the same synchronous claim window — no maintained
+        counter needed at n <= max_concurrent_turns.
+        """
+        if not goal_mode:
+            return
+        goal_turns = sum(1 for t in self._turns.values() if t.goal_mode)
+        if goal_turns >= self._settings.goal_max_concurrent_turns:
+            raise TooManyTurns(session_id)
 
     @staticmethod
     def _is_steerable(turn: _Turn | None) -> bool:
@@ -870,9 +872,6 @@ class TurnRegistry:
         error/timeout route through the SAME terminal-persistence owner).
         """
         start_mono = time.monotonic()
-        # C8: an A2 continuation is never a goal turn (turn.goal_mode is
-        # always False here) — same timeout-selection shape as _drive, for
-        # the day something upstream of this changes.
         timeout_s = (
             self._settings.goal_turn_timeout_s
             if turn.goal_mode

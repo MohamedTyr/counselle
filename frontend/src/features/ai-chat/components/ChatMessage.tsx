@@ -37,7 +37,7 @@ import { ClarifyBundle } from "./clarify/ClarifyBundle";
 import { isLegacyClarifySpec } from "./clarify/clarify-format";
 import type { ClarifyWidgetAnswer } from "./clarify/types";
 import { ClarifyWidget } from "./ClarifyWidget";
-import { GoalHeader } from "./GoalHeader";
+import { GoalHeader, GoalLinePending } from "./GoalHeader";
 import { GoalVerdictCard } from "./GoalVerdictCard";
 import { MessageSources, type MessageSourcesPayload } from "./MessageSources";
 import { VizBlock } from "./VizBlock";
@@ -70,6 +70,8 @@ export type ChatMessageProps = {
    *  rule (`isInterruptedGoal`, plans/goal-mode-plan.md §5.3). Omitted
    *  callers get a same-message `turnStatus` fallback. */
   liveMessageId?: string | null;
+  /** Whether the live turn was sent as a `/goal` run. */
+  liveTurnIsGoal?: boolean;
 };
 
 const COPY_FEEDBACK_MS = 1500;
@@ -275,6 +277,7 @@ function SegmentBeat({
 function AssistantBody({
   clarifyDraft,
   liveMessageId,
+  liveTurnIsGoal = false,
   message,
   onClarifyAnswer,
   onOpenCitation,
@@ -292,6 +295,7 @@ function AssistantBody({
    *  it) falls back to a same-message heuristic below; explicit `null`
    *  means "no live turn at all." */
   liveMessageId?: string | null;
+  liveTurnIsGoal?: boolean;
 }) {
   const showEmptyLiveThinking =
     message.segments.length === 0 &&
@@ -320,6 +324,14 @@ function AssistantBody({
         ? message.messageId
         : null;
   const isGoalInterrupted = isInterruptedGoal(message, effectiveLiveMessageId);
+  // A `/goal` turn spends its first seconds working out what "done" means,
+  // before any `goal` step exists. The page knows it sent a goal run, so the
+  // live message says so from the first frame instead of a generic start.
+  const isGoalPending =
+    liveTurnIsGoal &&
+    goalDetail === null &&
+    hasLiveSegment &&
+    message.messageId === effectiveLiveMessageId;
   const schoolDomains = useMemo(
     () => schoolDomainsFromBlocks(message.blocks),
     [message],
@@ -327,13 +339,19 @@ function AssistantBody({
 
   return (
     <>
-      {goalDetail !== null && (
-        <GoalHeader detail={goalDetail} isInterrupted={isGoalInterrupted} />
+      {goalDetail !== null ? (
+        <GoalHeader
+          detail={goalDetail}
+          isInterrupted={isGoalInterrupted}
+          stoppedByUser={message.turnStatus === "cancelled"}
+        />
+      ) : (
+        isGoalPending && <GoalLinePending />
       )}
       {planStep !== null && (
         <PlanChecklist isLive={hasLiveSegment} step={planStep} />
       )}
-      {showEmptyLiveThinking && <StartingRunBeat />}
+      {showEmptyLiveThinking && !isGoalPending && <StartingRunBeat />}
       {message.segments.map((segment, index) => (
         <SegmentBeat
           clarifyDraft={clarifyDraft}
@@ -354,7 +372,13 @@ function AssistantBody({
           sources={message.sources}
         />
       ))}
-      {message.turnStatus === "cancelled" && (
+      {/* Once a goal step exists on a cancelled message, `GoalHeader` is the
+          sole source of truth for how the run ended — it states a headline
+          for every case (status null via `wasStoppedByUser`, `stopped_user`,
+          or whatever other terminal status raced the cancel) — so this
+          generic notice only fires when there is no goal detail to say it
+          instead. */}
+      {message.turnStatus === "cancelled" && goalDetail === null && (
         <p className="not-prose text-sm text-muted-foreground italic">
           You stopped this response.
         </p>
@@ -371,8 +395,12 @@ function AssistantBody({
       {/* `stopped_check_failed` with no criteria means derivation failed
           before anything ran (§5.2 point 3b) — the header's explanatory
           copy already says everything there is to say, so no card. */}
+      {/* A paused run (`awaiting_input`) has no verdict to lay out: the
+          question below is what the student needs, and the criteria stay
+          in the header until the resumed run concludes. */}
       {goalDetail !== null &&
         goalDetail.status !== null &&
+        goalDetail.status !== "awaiting_input" &&
         goalDetail.criteria.length > 0 && (
           <GoalVerdictCard detail={goalDetail} />
         )}
@@ -403,6 +431,7 @@ function ChatMessageComponent({
   skillLabelForName,
   modeSkillNames = [],
   liveMessageId,
+  liveTurnIsGoal = false,
 }: ChatMessageProps) {
   if (message.kind === "user") {
     const skills = filterModeSkillNames(message.skills ?? [], modeSkillNames);
@@ -449,6 +478,7 @@ function ChatMessageComponent({
             !(isLatestMessage && message.turnStatus === "awaiting_input")
           }
           liveMessageId={liveMessageId}
+          liveTurnIsGoal={liveTurnIsGoal}
           message={message}
           onClarifyAnswer={onClarifyAnswer}
           onOpenCitation={onOpenCitation}

@@ -224,10 +224,16 @@ class Settings(BaseSettings):
     # model_cheap and a ~55k average context, 90 requests ~ 4.95M input +
     # ~72k output ~ $1.67 - about 44% headroom under the $3.00 cap for the
     # judge, criteria, and wrap-up calls. Re-derive whenever goal_model or
-    # the cap moves.
+    # the cap moves. Passed to pydantic-ai's own `UsageLimits` per SEGMENT
+    # (an `ask_student` pause starts a fresh `UsageLimits`, unlike cost/
+    # iterations/wall-clock, which carry across the pause via the ledger) —
+    # these two are the library's per-run safety stops, not the run's
+    # budget; the cost cap above is what a resumed run is actually judged
+    # against end to end.
     goal_max_total_tokens: int = Field(default=10_000_000, gt=0)  # backstop
     # ONLY, sized so cost genuinely binds first: $3.00 at model_cheap's
-    # $0.30/1M input is ~10M input-equivalent tokens.
+    # $0.30/1M input is ~10M input-equivalent tokens. Also per-segment, same
+    # reason as goal_max_model_requests above.
     goal_max_iterations: int = Field(default=6, gt=0)  # judge rounds
     goal_wrapup_reserve_requests: int = Field(default=3, ge=0)
     goal_max_wall_clock_s: float = Field(default=3600.0, gt=0)  # 60 min,
@@ -464,10 +470,9 @@ class Settings(BaseSettings):
     reddit_max_results: int = 12
 
     # --- GCP ---
-    # Auth: the pipeline's Vertex express-mode API key (genai.Client(vertexai=True,
-    # api_key=...)) — mirrored from the pipeline repo. Service-account auth via the
-    # standard GOOGLE_APPLICATION_CREDENTIALS var also works (documented in
-    # .env.example); the API key wins when both are set.
+    # Auth: an optional Vertex Express-mode API key. When it is unset, the Google
+    # SDK discovers Application Default Credentials (ADC) from the environment.
+    # The key takes precedence to preserve existing local-development setups.
     vertex_api_key: str | None = None
     google_cloud_project: str | None = None
     google_cloud_location: str = "us-central1"

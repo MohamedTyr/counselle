@@ -37,6 +37,15 @@ export function AiComposerRoute() {
   const [selectedTaskSkills, setSelectedTaskSkills] = useState<string[]>([]);
   const resolved = configQuery.config;
   const hasClearedDraftStateRef = useRef(false);
+  /**
+   * Set only by `AiComposer`'s `onGoalModeSubmit`, which fires immediately
+   * before `onSubmit` on every send and carries `true` only when the
+   * student explicitly selected `/goal` from the slash-command menu (never
+   * derived from typed text). `submit()` reads and clears this
+   * synchronously for the one send it belongs to, so a later, unrelated
+   * send never inherits a stale `true`.
+   */
+  const pendingGoalModeRef = useRef(false);
 
   useEffect(() => {
     if (hasClearedDraftStateRef.current) return;
@@ -82,6 +91,13 @@ export function AiComposerRoute() {
       return;
     }
 
+    // Read-then-clear, synchronously, before anything async: this send owns
+    // whatever value `onGoalModeSubmit` just set (or the default `false`
+    // when this call didn't come from a composer send). Clearing immediately
+    // means a later, unrelated send can never inherit it.
+    const goalMode = pendingGoalModeRef.current;
+    pendingGoalModeRef.current = false;
+
     const submittedSkills = mergeModeAndTaskSkills(
       selectedMode?.skillName,
       selectedTaskSkills,
@@ -90,6 +106,7 @@ export function AiComposerRoute() {
       submitted,
       sourceConfig,
       responseMode,
+      goalMode,
     );
     if (result.ok) {
       setValue("");
@@ -100,6 +117,7 @@ export function AiComposerRoute() {
             text: submitted,
             skills: submittedSkills,
             responseMode: result.responseMode,
+            goalMode: result.goalMode,
           },
         },
       });
@@ -131,6 +149,9 @@ export function AiComposerRoute() {
           onResponseModeChange={setResponseModeOverride}
           onSourceConfigChange={setSourceConfigOverride}
           onModeChange={(mode) => setSelectedModeSkill(mode.skillName)}
+          onGoalModeSubmit={(armed) => {
+            pendingGoalModeRef.current = armed;
+          }}
           onSubmit={() => {
             void submit();
           }}

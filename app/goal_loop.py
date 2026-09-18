@@ -12,11 +12,10 @@ second copy of the decision itself.
 from __future__ import annotations
 
 import time
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
-from app.plan_tool import PlanItem, render_plan
 from domain.events import GoalCriterionView, GoalPhase, GoalStepDetail
 from domain.goal import (
     GoalCriterion,
@@ -25,6 +24,7 @@ from domain.goal import (
     GoalStatus,
     GoalVerdict,
     decide_terminal_status,
+    flat_checks_after,
     is_stalled,
 )
 
@@ -40,7 +40,12 @@ _STATUS_REASON: dict[GoalStatus, str] = {
     "stopped_no_progress": "Stopped: no new progress across consecutive rounds.",
     "stopped_user": "Stopped: you asked Counselle to stop.",
     "stopped_check_failed": "Stopped: the independent check could not complete.",
+    "awaiting_input": "Paused: Counselle needs your answer to continue.",
 }
+
+#: Step kinds that describe how the agent worked rather than what it did —
+#: never sent to the judge as evidence, and never carried into a resumed run.
+NOT_GOAL_EVIDENCE_KINDS = frozenset({"goal", "write_plan", "compaction"})
 
 _PHASE_LABEL: dict[GoalPhase, str] = {
     "criteria": "Set goal criteria",
@@ -67,6 +72,7 @@ def goal_limits_from_settings(settings: Settings) -> GoalLimits:
         max_wall_clock_s=settings.goal_max_wall_clock_s,
         max_cost_usd=settings.goal_max_cost_usd,
         max_consecutive_tool_errors=settings.goal_max_consecutive_tool_errors,
+        max_flat_checks=settings.goal_stall_iterations,
     )
 
 
@@ -159,23 +165,36 @@ class GoalLoopController:
     limits: GoalLimits
     started_monotonic: float = field(default_factory=time.monotonic)
     avg_cost_per_iteration: float = 0.0
+    # Active seconds already spent in segments before this one — an
+    # `ask_student` pause must not let wall-clock time spent waiting for the
+    # student count against `max_wall_clock_s`, so this segment's own
+    # monotonic clock (`started_monotonic`) starts fresh and this is added on
+    # top of it, never the other way around.
+    prior_elapsed_s: float = 0.0
     _prev_met: frozenset[str] | None = field(default=None, repr=False)
-    _prev_plan_signature: str | None = field(default=None, repr=False)
+    _flat_checks: int = field(default=0, repr=False)
 
-    def plan_signature(self, plan_items: list[PlanItem]) -> str:
-        return render_plan(plan_items)
+    def stamp_elapsed(self, ledger: GoalLedger) -> None:
+        """Refresh *ledger*'s active-time total from this segment's own
+        monotonic clock. `decide()` calls this itself; an exit path that
+        ends a segment WITHOUT calling `decide()` this round — an
+        `ask_student` pause, a hard budget stop, a cancellation, a crash —
+        must call it directly, or the final step it emits reports a stale
+        elapsed time left over from the previous round's `decide()` call.
+        """
+        ledger.elapsed_s = self.prior_elapsed_s + (time.monotonic() - self.started_monotonic)
 
     def decide(
         self,
         *,
         verdict: GoalVerdict | None,
         ledger: GoalLedger,
-        plan_signature: str,
         cancelled: bool = False,
     ) -> GoalDecision:
-        ledger.elapsed_s = time.monotonic() - self.started_monotonic
+        self.stamp_elapsed(ledger)
         met_ids = frozenset(c.criterion_id for c in (verdict.criteria if verdict else ()) if c.met)
-        stalled = is_stalled(self._prev_met, met_ids, self._prev_plan_signature, plan_signature)
+        flat_checks = flat_checks_after(self._prev_met, met_ids, self._flat_checks)
+        stalled = is_stalled(flat_checks, self.limits)
         # D14: a PROJECTED-cost check, before another round is allowed to
         # spend — the only *hard*, library-enforced ceilings are requests/
         # tokens; this is the soft, before-you-spend cost guard.
@@ -192,9 +211,45 @@ class GoalLoopController:
         )
         if status is None:
             self._prev_met = met_ids
-            self._prev_plan_signature = plan_signature
+            self._flat_checks = flat_checks
             return GoalDecision(False, None, "")
         return GoalDecision(True, status, _STATUS_REASON[status])
+
+    def carry_state(self, ledger: GoalLedger) -> dict[str, Any]:
+        """What a pausing run persists onto the goal record so the next
+        segment resumes the same budgets and stall tracking (the inverse of
+        :meth:`from_carry`)."""
+        carried = ledger.to_carry()
+        carried["prev_met_ids"] = sorted(self._prev_met) if self._prev_met is not None else None
+        carried["flat_checks"] = self._flat_checks
+        return carried
+
+    @classmethod
+    def from_carry(
+        cls,
+        statement: str,
+        criteria: tuple[GoalCriterion, ...],
+        limits: GoalLimits,
+        carried: Mapping[str, Any] | None,
+    ) -> tuple[GoalLedger, GoalLoopController]:
+        """Rebuild the ledger + controller a resumed goal turn continues
+        from, seeded with the totals an ``ask_student`` pause carried
+        forward, so a resumed run is judged against the WHOLE goal's budget
+        and stall tracking, never a fresh one per segment. ``carried`` is a
+        prior segment's :meth:`carry_state`, or ``None`` for a goal run's
+        first segment, which seeds a completely fresh pair.
+        """
+        ledger = GoalLedger.from_carry(carried)
+        prev_met_ids = carried.get("prev_met_ids") if carried else None
+        controller = cls(
+            statement=statement,
+            criteria=criteria,
+            limits=limits,
+            prior_elapsed_s=ledger.elapsed_s,
+            _prev_met=frozenset(prev_met_ids) if prev_met_ids is not None else None,
+            _flat_checks=int(carried.get("flat_checks", 0)) if carried else 0,
+        )
+        return ledger, controller
 
     def nudge_text(self, verdict: GoalVerdict) -> str:
         """The next round's model prompt (§2.5) — carries the judge's
@@ -210,7 +265,9 @@ class GoalLoopController:
         if verdict.critique:
             lines.append(f"Judge note: {verdict.critique}")
         lines.append(
-            "Keep working on the outstanding criteria. Do not restate what is already done."
+            "Keep working on the outstanding criteria. Do not restate what is already done. "
+            "If you genuinely cannot continue without the student's answer, ask with "
+            "ask_student; the run pauses until they reply."
         )
         lines.append("</goal-check>")
         return "\n".join(lines)

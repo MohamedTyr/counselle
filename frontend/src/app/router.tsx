@@ -51,6 +51,14 @@ export function createAppRouter() {
             return { Component: module.SchoolChancesGalleryPage };
           },
         },
+        {
+          path: "/dev/hero-30",
+          lazy: async () => {
+            const module =
+              await import("@/features/dev-hero-30/Hero30PreviewPage");
+            return { Component: module.Hero30PreviewPage };
+          },
+        },
       ]
     : [];
 
@@ -62,7 +70,10 @@ export function createAppRouter() {
       children: [
         {
           index: true,
-          element: <Navigate replace to="/login" />,
+          lazy: async () => {
+            const module = await import("@/features/landing/LandingPage");
+            return { Component: module.LandingPage };
+          },
         },
         {
           path: "login",

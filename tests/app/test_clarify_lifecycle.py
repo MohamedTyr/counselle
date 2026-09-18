@@ -362,3 +362,61 @@ def test_claim_registry_release_is_idempotent_and_never_strands() -> None:
     claims.release("sess-2")
     claims.release("sess-2")  # second release is a no-op
     assert claims.phase("sess-2") is None
+
+
+# ---------------------------------------------------------------------------
+# A paused goal run resumes as a goal run
+# ---------------------------------------------------------------------------
+
+
+async def test_accept_carries_a_paused_goal_and_its_receipts_into_a2() -> None:
+    goal = {
+        "statement": "Add a task per school.",
+        "criteria": [{"id": "c1", "text": "Every school has a task."}],
+        "not_checked_note": "Portals were not checked.",
+        "prior_steps": [{"step_id": "old-s1", "status": "end", "kind": "workspace"}],
+    }
+    steps = [
+        {"step_id": "s1", "status": "end", "kind": "workspace"},
+        {"step_id": "goal-final-1", "status": "end", "kind": "goal"},
+        {"step_id": "s2", "status": "end", "kind": "write_plan"},
+    ]
+    graph = FakeGraph(_pending_values(goal=goal, steps=steps))
+    prepared = await accept_clarification(
+        graph, "sess-1", in_reply_to="a1-msg", composer_text="One per school, please."
+    )
+    assert prepared.inherited_goal is not None
+    assert prepared.inherited_goal["statement"] == goal["statement"]
+    assert prepared.inherited_goal["criteria"] == goal["criteria"]
+    assert [s["step_id"] for s in prepared.inherited_goal["prior_steps"]] == ["old-s1", "a1-msg-s1"]
+
+
+async def test_accept_keeps_an_errored_receipt_but_drops_a_start_frame() -> None:
+    """`app/records.py`'s own terminal-step definition is `status != "start"`
+    (`"end"` AND `"error"` both survive into a turn record) — `_inherited_goal`
+    must agree, so an errored tool call isn't silently dropped from the
+    judge's evidence across a pause."""
+    goal = {
+        "statement": "Add a task per school.",
+        "criteria": [{"id": "c1", "text": "Every school has a task."}],
+        "not_checked_note": "Portals were not checked.",
+        "prior_steps": [],
+    }
+    steps = [
+        {"step_id": "s1", "status": "start", "kind": "workspace"},
+        {"step_id": "s1", "status": "error", "kind": "workspace"},
+    ]
+    graph = FakeGraph(_pending_values(goal=goal, steps=steps))
+    prepared = await accept_clarification(
+        graph, "sess-1", in_reply_to="a1-msg", composer_text="One per school, please."
+    )
+    assert prepared.inherited_goal is not None
+    carried_ids = [s["step_id"] for s in prepared.inherited_goal["prior_steps"]]
+    assert carried_ids == ["a1-msg-s1"]
+
+
+async def test_accept_of_an_ordinary_clarify_inherits_no_goal() -> None:
+    prepared = await accept_clarification(
+        FakeGraph(_pending_values()), "sess-1", in_reply_to="a1-msg", composer_text="Fall."
+    )
+    assert prepared.inherited_goal is None

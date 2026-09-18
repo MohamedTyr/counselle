@@ -37,6 +37,9 @@ export type SlashCommandEntry = Readonly<{
   keyword: string;
   /** Human-facing label shown in the menu. */
   label: string;
+  /** What selecting it does, in one line — a command name alone does not
+   *  tell a student what will happen. */
+  hint: string;
 }>;
 
 /**
@@ -46,7 +49,12 @@ export type SlashCommandEntry = Readonly<{
  * categories, async catalog loading) is built ahead of that need.
  */
 export const SLASH_COMMANDS: readonly SlashCommandEntry[] = [
-  { id: "goal", keyword: "goal", label: "Goal mode" },
+  {
+    id: "goal",
+    keyword: "goal",
+    label: "Goal mode",
+    hint: "Keeps working until the goal is done, then checks it",
+  },
 ];
 
 /**

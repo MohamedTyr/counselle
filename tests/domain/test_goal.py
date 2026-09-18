@@ -20,6 +20,7 @@ from domain.goal import (
     GoalVerdict,
     compute_checked,
     decide_terminal_status,
+    flat_checks_after,
     is_stalled,
     validate_evidence_ids,
 )
@@ -31,6 +32,7 @@ def _limits(**overrides: object) -> GoalLimits:
         "max_wall_clock_s": 3600.0,
         "max_cost_usd": 3.0,
         "max_consecutive_tool_errors": 3,
+        "max_flat_checks": 2,
     }
     defaults.update(overrides)
     return GoalLimits(**defaults)  # type: ignore[arg-type]
@@ -179,20 +181,25 @@ class TestDecideTerminalStatus:
 
 
 class TestIsStalled:
-    def test_first_round_is_never_stalled(self) -> None:
-        assert is_stalled(None, frozenset({"c1"}), None, "plan-a") is False
+    """Stalling is judged from the check's results alone — the agent's plan,
+    or its absence, is never an input to stopping a run."""
 
-    def test_same_met_set_and_same_plan_is_stalled(self) -> None:
-        assert is_stalled(frozenset({"c1"}), frozenset({"c1"}), "plan-a", "plan-a") is True
+    def test_first_check_is_never_flat(self) -> None:
+        assert flat_checks_after(None, frozenset(), 0) == 0
 
-    def test_criteria_repeat_but_plan_changed_is_not_stalled(self) -> None:
-        """A repeated criteria set with a changing plan is still making
-        progress — requiring both conditions is what separates 'stuck' from
-        'still working a long criterion' (§2.5)."""
-        assert is_stalled(frozenset({"c1"}), frozenset({"c1"}), "plan-a", "plan-b") is False
+    def test_a_check_that_meets_nothing_new_counts_as_flat(self) -> None:
+        assert flat_checks_after(frozenset({"c1"}), frozenset({"c1"}), 0) == 1
+        assert flat_checks_after(frozenset({"c1"}), frozenset({"c1"}), 1) == 2
 
-    def test_different_met_set_same_plan_is_not_stalled(self) -> None:
-        assert is_stalled(frozenset({"c1"}), frozenset({"c1", "c2"}), "plan-a", "plan-a") is False
+    def test_a_newly_met_criterion_resets_the_count(self) -> None:
+        assert flat_checks_after(frozenset({"c1"}), frozenset({"c1", "c2"}), 1) == 0
+
+    def test_losing_a_criterion_is_not_progress(self) -> None:
+        assert flat_checks_after(frozenset({"c1", "c2"}), frozenset({"c1"}), 0) == 1
+
+    def test_stalled_only_once_the_limit_of_flat_checks_is_reached(self) -> None:
+        assert is_stalled(1, _limits(max_flat_checks=2)) is False
+        assert is_stalled(2, _limits(max_flat_checks=2)) is True
 
 
 class TestGoalVerdictMetIsDerived:
@@ -318,3 +325,32 @@ class TestEvidenceBoundingNeverStarvesPriorCitations:
         )
         assert checked is False
         assert met is False
+
+
+class TestGoalLedgerCarry:
+    """An `ask_student` pause must carry a goal run's cumulative totals
+    forward, so a resumed segment is judged against the whole goal's budget
+    rather than a fresh one."""
+
+    def test_to_carry_round_trips_through_from_carry(self) -> None:
+        ledger = GoalLedger(
+            requests_used=9,
+            tokens_used=12_345,
+            cost_usd=1.25,
+            elapsed_s=42.5,
+            iteration=3,
+            consecutive_tool_errors=1,
+        )
+        restored = GoalLedger.from_carry(ledger.to_carry())
+        assert restored.iteration == 3
+        assert restored.cost_usd == 1.25
+        assert restored.elapsed_s == 42.5
+        assert restored.consecutive_tool_errors == 1
+        # Never carried: each segment recomputes these from its own turn's
+        # RunUsage, which carries no cross-turn meaning.
+        assert restored.requests_used == 0
+        assert restored.tokens_used == 0
+
+    def test_from_carry_of_none_is_a_fresh_ledger(self) -> None:
+        assert GoalLedger.from_carry(None) == GoalLedger()
+        assert GoalLedger.from_carry({}) == GoalLedger()

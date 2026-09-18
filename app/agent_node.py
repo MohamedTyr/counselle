@@ -37,7 +37,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import re
-from collections.abc import Callable
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import date
 from typing import TYPE_CHECKING, Any, cast
@@ -71,6 +71,7 @@ from app import viz as viz_mod
 from app.clarification import ask_student_output_type, build_pending_clarification
 from app.goal_judge import GoalCriteriaError, derive_criteria, judge_goal
 from app.goal_loop import (
+    NOT_GOAL_EVIDENCE_KINDS,
     GoalDecision,
     GoalLoopController,
     build_goal_step_detail,
@@ -85,7 +86,7 @@ from app.model_selection import (
     goal_judge_model_setting,
 )
 from app.model_selection import model_name_from_setting as model_name_from_setting
-from app.plan_tool import PlanReminder, PlanState, make_write_plan_tool, render_plan
+from app.plan_tool import PlanReminder, PlanState, make_write_plan_tool
 from app.prompt import (
     ESSAY_CONTEXT_UNAVAILABLE,
     build_essay_system_prompt,
@@ -275,7 +276,7 @@ class TurnDeps:
 
 
 def default_model_factory(settings: Any, model_setting: str) -> Model:
-    """The real Gemini on Vertex Express Mode (notes §1 — the ONLY working auth path).
+    """The real Gemini on Vertex, authenticated with an Express key or ADC.
 
     ``model_setting`` is the already-resolved per-turn setting (Quick's
     ``settings.model_counselor`` or Think's ``settings.model_counselor_think`` —
@@ -297,23 +298,12 @@ def default_model_factory(settings: Any, model_setting: str) -> Model:
     top). The SDK's ``retry_args`` filters by exception/status so a genuine
     400/401/403 still raises immediately.
     """
-    from google import genai
-    from google.genai import types
     from pydantic_ai.models.google import GoogleModel
     from pydantic_ai.providers.google_cloud import GoogleCloudProvider
 
-    if not settings.vertex_api_key:
-        raise RuntimeError(
-            "COUNSELLE_VERTEX_API_KEY is not set — the counselor model cannot "
-            "authenticate (Vertex Express Mode key required)."
-        )
-    client = genai.Client(
-        vertexai=True,
-        api_key=settings.vertex_api_key,
-        http_options=types.HttpOptions(
-            retry_options=types.HttpRetryOptions(attempts=settings.agent_model_retry_attempts),
-        ),
-    )
+    from app.vertex import build_vertex_client
+
+    client = build_vertex_client(settings, retry_attempts=settings.agent_model_retry_attempts)
     return GoogleModel(
         model_name_from_setting(model_setting),
         provider=GoogleCloudProvider(client=client),
@@ -1066,10 +1056,10 @@ class _RunOnceResult:
     result: Any  # AgentRunResult[str | ClarifyDraftV2] | None — None on budget
     hit_budget: bool
     completion_fallback: str | None
-    # HIGH-4: True when any tool call this iteration returned an error/retry
+    # True when any tool call this iteration returned an error/retry
     # (detected via the same `StepMapper.result_is_error` check the step
     # receipt uses) — wires `domain.goal.decide_terminal_status`'s
-    # `consecutive_tool_errors` counter, which nothing previously incremented.
+    # `consecutive_tool_errors` counter.
     had_tool_error: bool = False
 
 
@@ -1199,7 +1189,8 @@ async def _run_once(
 
 def _usage_tokens(usage: RunUsage) -> tuple[int, int]:
     """``(input_tokens, output_tokens)`` snapshot of a shared ``RunUsage`` at
-    one point in time — the unit HIGH-2's per-slice pricing diffs between."""
+    one point in time — the unit `_price_usage_delta`'s per-slice pricing
+    diffs between."""
     return (usage.input_tokens or 0, usage.output_tokens or 0)
 
 
@@ -1207,7 +1198,7 @@ def _price_usage_delta(
     before: tuple[int, int], after: tuple[int, int], model_setting: str, settings: Any
 ) -> float:
     """Price the token delta between two ``_usage_tokens`` snapshots at
-    *model_setting*'s own rate (HIGH-2).
+    *model_setting*'s own rate.
 
     ``shared_usage`` aggregates the agent's own iterations AND the
     ``judge_goal``/``derive_criteria`` calls onto one ``RunUsage`` (D6).
@@ -1229,8 +1220,8 @@ def _update_goal_ledger_totals(ledger: GoalLedger, usage: RunUsage) -> None:
     """Refresh the ledger's aggregate request/token counts from the shared
     ``RunUsage`` (D6) — the only source `controller.decide` and the "check"/
     "final" steps read those two fields from. Cost is priced separately, per
-    call, at each call's own model rate (HIGH-2's `_price_usage_delta`), and
-    is never recomputed from this aggregate."""
+    call, at each call's own model rate (`_price_usage_delta`), and is never
+    recomputed from this aggregate."""
     ledger.requests_used = usage.requests
     ledger.tokens_used = (usage.input_tokens or 0) + (usage.output_tokens or 0)
 
@@ -1240,6 +1231,7 @@ def _goal_wrapup_prompt(
     verdict: GoalVerdict | None,
     criteria: tuple[GoalCriterion, ...],
     not_checked_note: str,
+    today: date | None = None,
 ) -> str:
     """§2.7's wrap-up prompt: states the stop reason, what was accomplished,
     what remains, what was never checked, and what to do next — never
@@ -1265,6 +1257,61 @@ def _goal_wrapup_prompt(
     return "\n".join(lines)
 
 
+def _emit_goal_final_step(
+    writer: Callable[[dict[str, Any]], None],
+    *,
+    controller: GoalLoopController,
+    ledger: GoalLedger,
+    usage_snapshot: tuple[int, int],
+    shared_usage: RunUsage,
+    model_setting: str,
+    settings: Any,
+    statement: str,
+    criteria: tuple[GoalCriterion, ...],
+    verdict: GoalVerdict | None,
+    checked_by_id: dict[str, bool],
+    goal_limits: Any,
+    not_checked_note: str,
+    status: GoalStatus | None,
+) -> None:
+    """The one "final" goal step an abnormally-ending segment ever gets —
+    shared by the cancel path and the generic-exception path so both stamp
+    the ledger's active time, price the last usage slice, and stream the
+    same beat the same way, whichever exit hit. Best-effort: whichever call
+    was interrupted (agent, judge, or wrap-up) is priced at the agent's
+    rate, since which one was in flight isn't knowable here — a rare race,
+    and the ledger is documented as a soft estimate regardless.
+    """
+    controller.stamp_elapsed(ledger)
+    _update_goal_ledger_totals(ledger, shared_usage)
+    ledger.cost_usd += _price_usage_delta(
+        usage_snapshot, _usage_tokens(shared_usage), model_setting, settings
+    )
+    writer(
+        {
+            "type": "step",
+            "data": ev_step(
+                _goal_step(
+                    phase="final",
+                    statement=statement,
+                    criteria=criteria,
+                    verdict=verdict,
+                    checked_by_id=checked_by_id,
+                    ledger=ledger,
+                    limits=goal_limits,
+                    not_checked_note=not_checked_note,
+                    requests_limit=settings.goal_max_model_requests,
+                    tokens_limit=settings.goal_max_total_tokens,
+                    status=status,
+                )
+            ).data,
+        }
+    )
+
+
+# Steps the goal check never sees. It judges what the run produced; how the
+# agent organised its own work (its plan) and the run's housekeeping are not
+# evidence of anything the student asked for.
 async def _run_goal_loop(
     agent: Agent[TurnDeps, str | ClarifyDraftV2],
     statement: str,
@@ -1272,40 +1319,66 @@ async def _run_goal_loop(
     *,
     criteria: tuple[GoalCriterion, ...],
     not_checked_note: str,
+    today: date | None = None,
     limits: UsageLimits,
     goal_limits: Any,
     settings: Any,
     model_setting: str,
     model_settings: Any,
     instructions: str,
-    plan_state: PlanState,
     injected_model_factory: Callable[[], Model] | None,
     shared_usage: RunUsage,
     run_once_kwargs: dict[str, Any],
     initial_cost_usd: float = 0.0,
-) -> tuple[Any, str | None]:
+    prior_receipts: Sequence[StepData] = (),
+    resume_prompt: str | None = None,
+    carried_state: Mapping[str, Any] | None = None,
+) -> tuple[Any, str | None, dict[str, Any]]:
     """The goal iteration loop (§2.1, §2.5): repeat `_run_once` + the judge
-    until :class:`GoalLoopController` says stop, then (unless achieved) a
-    §2.7 wrap-up on a second, tool-less Agent. Emits the "check" step every
-    round and the "final" step exactly once, at the true end — including on
-    a cancellation, so a cancelled goal turn's ledger still reaches the
-    student (via the stream, before `CancelledError` propagates; the turn
-    record itself is never built on this path, same as an ordinary turn).
+    until :class:`~app.goal_loop.GoalLoopController` says stop, then (unless
+    achieved) a §2.7 wrap-up on a second, tool-less Agent. Emits the "check"
+    step every round and, on a clean stop, the "final" step exactly once, at
+    the true end. A cancellation or an unhandled exception (a provider
+    error, a timeout, a tool crash) instead emits a status-less final step
+    via :func:`_emit_goal_final_step` before propagating, so the ledger and
+    last verdict still reach the student on the stream (the turn record
+    itself is never built on either path, same as an ordinary turn's
+    cancel/error path) — an exception carries no judged terminal state, so
+    it is never claimed as one; the frontend's crash rule (`isInterruptedGoal`,
+    §5.3) renders the status-less step as "Stopped — interrupted".
 
     *initial_cost_usd* is the already-priced cost of any `derive_criteria`
-    spend the caller made against `shared_usage` before this loop started
-    (HIGH-2) — the ledger's running dollar total picks up from there rather
-    than re-pricing that spend at the agent's rate.
+    spend the caller made against `shared_usage` before this loop started —
+    the ledger's running dollar total picks up from there rather than
+    re-pricing that spend at the agent's rate.
+
+    A resumed run — a goal run that paused on ``ask_student`` and is now
+    continuing with the student's answer — passes that answer as
+    *resume_prompt* (the first round's prompt, in place of the statement),
+    the paused run's tool receipts as *prior_receipts* (which the judge sees
+    alongside this turn's own so work done before the question is not
+    re-proven from scratch), and its ledger/stall totals as *carried_state* —
+    so this segment's budgets and stall tracking pick up where the paused
+    one left off rather than resetting.
+
+    Returns ``(result, completion_fallback, carried_state)`` — the third
+    element is this segment's own totals in the same shape *carried_state*
+    takes, for the caller to persist when the run pauses again.
+
+    An ``ask_student`` output ends the loop at once with ``awaiting_input``:
+    no check, no nudge, no wrap-up — the question is the turn's output, and
+    the run resumes as a clarify continuation carrying the same criteria.
     """
-    controller = GoalLoopController(statement=statement, criteria=criteria, limits=goal_limits)
-    ledger = GoalLedger()
-    ledger.cost_usd = initial_cost_usd
-    # HIGH-2: the token-count snapshot the next `_price_usage_delta` call
-    # diffs against — advanced after every priced slice (agent iteration,
-    # judge call, or wrap-up), never rewound.
+    ledger, controller = GoalLoopController.from_carry(
+        statement, criteria, goal_limits, carried_state
+    )
+    ledger.cost_usd += initial_cost_usd
+    # The token-count snapshot the next `_price_usage_delta` call diffs
+    # against — advanced after every priced slice (agent iteration, judge
+    # call, or wrap-up), never rewound.
     usage_snapshot = _usage_tokens(shared_usage)
     judge_model_setting = goal_judge_model_setting(settings)
-    prompt = statement
+    prompt = resume_prompt if resume_prompt is not None else statement
     iter_history = history
     result: Any = None
     completion_fallback: str | None = None
@@ -1329,14 +1402,25 @@ async def _run_goal_loop(
             )
             ledger.cost_usd += agent_slice_cost
             usage_snapshot = agent_snapshot
-            # HIGH-4: wires `goal_max_consecutive_tool_errors` — nothing
-            # previously incremented this counter, so `domain.goal`'s
-            # `partial` branch was dead.
+            # Wires `goal_max_consecutive_tool_errors`: this is the only
+            # place that increments the counter `domain.goal`'s `partial`
+            # branch reads.
             ledger.consecutive_tool_errors = (
                 ledger.consecutive_tool_errors + 1 if outcome.had_tool_error else 0
             )
             if outcome.hit_budget:
+                # Breaks before `decide()` runs this round, so this segment's
+                # active time would otherwise carry the PREVIOUS round's
+                # stamp — stamp it here so the final step below reports this
+                # round's own elapsed time.
+                controller.stamp_elapsed(ledger)
                 decision = GoalDecision(True, "stopped_budget", status_reason("stopped_budget"))
+                break
+            if result is not None and isinstance(result.output, ClarifyDraftV2):
+                # Same reason as `hit_budget` above: a pause also breaks
+                # before `decide()` runs this round.
+                controller.stamp_elapsed(ledger)
+                decision = GoalDecision(True, "awaiting_input", status_reason("awaiting_input"))
                 break
             if result is not None:
                 iter_history = result.all_messages()
@@ -1346,8 +1430,12 @@ async def _run_goal_loop(
             receipts = [
                 StepData.model_validate(payload)
                 for kind, payload in run_once_kwargs["emissions"]
-                if kind == "step" and isinstance(payload, dict) and payload.get("kind") != "goal"
+                if kind == "step"
+                and isinstance(payload, dict)
+                and payload.get("status") != "start"
+                and payload.get("kind") not in NOT_GOAL_EVIDENCE_KINDS
             ]
+            receipts = [*prior_receipts, *receipts]
             judged = await judge_goal(
                 statement=statement,
                 criteria=criteria,
@@ -1356,6 +1444,7 @@ async def _run_goal_loop(
                 prior_cited_step_ids=cited_step_ids,
                 settings=settings,
                 usage=shared_usage,
+                today=today,
             )
             if judged is None:
                 verdict, checked_by_id = None, {}
@@ -1371,10 +1460,10 @@ async def _run_goal_loop(
             )
             ledger.cost_usd += judge_slice_cost
             usage_snapshot = judge_snapshot
-            # MEDIUM-2: project from THIS round's actual cost, not a lifetime
-            # mean — per-iteration cost trends upward across a run (each
-            # round re-sends accumulated history), so an average dragged
-            # down by cheap early rounds under-projects the next, pricier one.
+            # Project from THIS round's actual cost, not a lifetime mean —
+            # per-iteration cost trends upward across a run (each round
+            # re-sends accumulated history), so an average dragged down by
+            # cheap early rounds under-projects the next, pricier one.
             controller.avg_cost_per_iteration = agent_slice_cost + judge_slice_cost
             writer(
                 {
@@ -1395,13 +1484,10 @@ async def _run_goal_loop(
                     ).data,
                 }
             )
-            plan_signature = render_plan(plan_state.items)
-            decision = controller.decide(
-                verdict=verdict, ledger=ledger, plan_signature=plan_signature
-            )
+            decision = controller.decide(verdict=verdict, ledger=ledger)
             if decision.stop:
                 break
-            # HIGH-1: `decide_terminal_status` returns "stopped_check_failed"
+            # `decide_terminal_status` returns "stopped_check_failed"
             # unconditionally when `verdict is None` (domain/goal.py), so
             # `decision.stop` is always True on that path and the loop has
             # already broken above — a fresh verdict is guaranteed here.
@@ -1409,7 +1495,7 @@ async def _run_goal_loop(
             prompt = controller.nudge_text(verdict)
 
         goal_status: GoalStatus = decision.status or "stopped_budget"
-        if goal_status != "achieved":
+        if goal_status not in ("achieved", "awaiting_input"):
             # §2.7: a SECOND, tool-less Agent — `Agent.iter`'s `toolsets=` is
             # additive, never a way to disable mounted tools, so "no tool
             # calls" is made structural by simply never passing `tools=` here.
@@ -1425,8 +1511,8 @@ async def _run_goal_loop(
             )
             wrapup_limits = UsageLimits(
                 request_limit=settings.goal_max_model_requests,
-                # MEDIUM-3: no token ceiling on the wrap-up. The main loop
-                # and the wrap-up would otherwise share one token backstop
+                # No token ceiling on the wrap-up. The main loop and the
+                # wrap-up would otherwise share one token backstop
                 # (`goal_max_total_tokens`), so a run stopped by that
                 # backstop left the wrap-up's own call immediately
                 # re-raising `UsageLimitExceeded` — replacing the goal-aware
@@ -1458,10 +1544,6 @@ async def _run_goal_loop(
         # propagates — streamed now, since the turn record is never built on
         # a cancelled turn (same as an ordinary turn's cancel path). Covers
         # cancellation during the main loop AND during the wrap-up run above.
-        # Best-effort: whichever call the cancellation interrupted (agent,
-        # judge, or wrap-up) is priced at the agent's rate, since which one
-        # was in flight isn't known here — a rare race, and the ledger is
-        # documented as a soft estimate regardless.
         #
         # `CancelledError` arrives here from several causes `app/turns.py`
         # keeps apart and the exception itself cannot carry: the student
@@ -1474,10 +1556,7 @@ async def _run_goal_loop(
         # absent handle, or a future termination path that knows nothing
         # about the flag all fall back to claiming nothing, never to telling
         # a student who was redeployed out from under them that they stopped
-        # it themselves. A status-less final step still keeps the ledger and
-        # the last verdict (§2.8's whole point), and the frontend's crash
-        # rule (`isInterruptedGoal`, §5.3) renders it "Stopped —
-        # interrupted".
+        # it themselves.
         cancel_status: GoalStatus | None = None
         if getattr(run_once_kwargs.get("handle"), "cancelled_by_user", False):
             # Through the controller, so the terminal state is still decided
@@ -1485,56 +1564,67 @@ async def _run_goal_loop(
             cancel_status = controller.decide(
                 verdict=verdict,
                 ledger=ledger,
-                plan_signature=render_plan(plan_state.items),
                 cancelled=True,
             ).status
-        _update_goal_ledger_totals(ledger, shared_usage)
-        ledger.cost_usd += _price_usage_delta(
-            usage_snapshot, _usage_tokens(shared_usage), model_setting, settings
+        _emit_goal_final_step(
+            writer,
+            controller=controller,
+            ledger=ledger,
+            usage_snapshot=usage_snapshot,
+            shared_usage=shared_usage,
+            model_setting=model_setting,
+            settings=settings,
+            statement=statement,
+            criteria=criteria,
+            verdict=verdict,
+            checked_by_id=checked_by_id,
+            goal_limits=goal_limits,
+            not_checked_note=not_checked_note,
+            status=cancel_status,
         )
-        writer(
-            {
-                "type": "step",
-                "data": ev_step(
-                    _goal_step(
-                        phase="final",
-                        statement=statement,
-                        criteria=criteria,
-                        verdict=verdict,
-                        checked_by_id=checked_by_id,
-                        ledger=ledger,
-                        limits=goal_limits,
-                        not_checked_note=not_checked_note,
-                        requests_limit=settings.goal_max_model_requests,
-                        tokens_limit=settings.goal_max_total_tokens,
-                        status=cancel_status,
-                    )
-                ).data,
-            }
+        raise
+    except Exception:
+        # A crash mid-run (a provider error, a timeout, an unhandled tool
+        # exception) is not one of the six judged terminal states — no
+        # criterion was assessed against it, so none is claimed. The final
+        # step below carries no status; the frontend's crash rule
+        # (`isInterruptedGoal`, §5.3) renders that the same way it renders a
+        # cancellation with no claimed status: "Stopped — interrupted".
+        _emit_goal_final_step(
+            writer,
+            controller=controller,
+            ledger=ledger,
+            usage_snapshot=usage_snapshot,
+            shared_usage=shared_usage,
+            model_setting=model_setting,
+            settings=settings,
+            statement=statement,
+            criteria=criteria,
+            verdict=verdict,
+            checked_by_id=checked_by_id,
+            goal_limits=goal_limits,
+            not_checked_note=not_checked_note,
+            status=None,
         )
         raise
 
-    writer(
-        {
-            "type": "step",
-            "data": ev_step(
-                _goal_step(
-                    phase="final",
-                    statement=statement,
-                    criteria=criteria,
-                    verdict=verdict,
-                    checked_by_id=checked_by_id,
-                    ledger=ledger,
-                    limits=goal_limits,
-                    not_checked_note=not_checked_note,
-                    requests_limit=settings.goal_max_model_requests,
-                    tokens_limit=settings.goal_max_total_tokens,
-                    status=goal_status,
-                )
-            ).data,
-        }
+    _emit_goal_final_step(
+        writer,
+        controller=controller,
+        ledger=ledger,
+        usage_snapshot=usage_snapshot,
+        shared_usage=shared_usage,
+        model_setting=model_setting,
+        settings=settings,
+        statement=statement,
+        criteria=criteria,
+        verdict=verdict,
+        checked_by_id=checked_by_id,
+        goal_limits=goal_limits,
+        not_checked_note=not_checked_note,
+        status=goal_status,
     )
-    return result, completion_fallback
+    return result, completion_fallback, controller.carry_state(ledger)
 
 
 async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
@@ -1657,20 +1747,16 @@ async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
     goal_model_setting = goal_agent_model_setting(settings) if goal_mode else ""
     injected_model_factory = getattr(deps, "model_factory", None)
     # Native Gemini thought output → `thinking` events, requested only for
-    # Think (subject to thinking_stream); non-Google models ignore the
-    # google_* key. Always explicit about thinking_level — never rely on a
-    # provider default that can differ by model or change over time.
+    # Think (subject to thinking_stream). Gemini 2.5 accepts a numeric budget,
+    # while Gemini 3 accepts a named level; model_selection owns that protocol
+    # distinction so a valid selected model never receives the other family's
+    # rejected field.
     from pydantic_ai.models.google import GoogleModelSettings
 
+    from app.model_selection import google_thinking_config
+
     model_settings = GoogleModelSettings(
-        google_thinking_config={
-            # google-genai's ThinkingConfigDict types this against its own
-            # ThinkingLevel enum; pydantic-ai's own internals cast a bare
-            # level string the same way (models/google.py) — the plain
-            # "MINIMAL"/"HIGH" string is what the wire actually accepts.
-            "thinking_level": cast(Any, selection.thinking_level),
-            "include_thoughts": selection.include_thoughts,
-        }
+        google_thinking_config=cast(Any, google_thinking_config(selection))
     )
     student_context = state.get("student_context") or STUDENT_CONTEXT_UNAUTHENTICATED
     if surface is Surface.ESSAY:
@@ -1711,6 +1797,20 @@ async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
     goal_instructions = ""
     goal_initial_cost_usd = 0.0
     goal_criteria_failed = False
+    goal_statement = user_text
+    goal_prior_receipts: list[StepData] = []
+    inherited_goal = ids.get("goal") if goal_mode else None
+    if isinstance(inherited_goal, dict):
+        # A resumed run (the student answered the question the run paused
+        # on): the statement, criteria and note are the ones frozen at goal
+        # start, never re-derived — the answer changes what the agent does,
+        # not what it is judged against.
+        goal_statement = str(inherited_goal["statement"])
+        goal_criteria = tuple(GoalCriterion.model_validate(c) for c in inherited_goal["criteria"])
+        goal_not_checked_note = str(inherited_goal["not_checked_note"])
+        goal_prior_receipts = [
+            StepData.model_validate(step) for step in inherited_goal.get("prior_steps") or []
+        ]
     if goal_mode:
         assert goal_limits is not None  # narrows for mypy; true whenever goal_mode
         # D12/C2: derived and frozen ONCE, before the agent is constructed —
@@ -1718,9 +1818,10 @@ async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
         # only honest option: fail the turn rather than run ungoverned.
         criteria_usage_before = _usage_tokens(shared_usage)
         try:
-            goal_criteria, goal_not_checked_note = await derive_criteria(
-                user_text, settings=settings, usage=shared_usage
-            )
+            if not isinstance(inherited_goal, dict):
+                goal_criteria, goal_not_checked_note = await derive_criteria(
+                    user_text, settings=settings, usage=shared_usage, today=today
+                )
         except GoalCriteriaError:
             # §5.2 point 3b: derivation giving out is the SAME fact as the
             # judge giving out mid-run (C12), so it lands on the same
@@ -1731,7 +1832,7 @@ async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
             # wrong on our side" banner with no goal card at all.
             logger.warning("goal criteria derivation failed", exc_info=True)
             goal_criteria_failed = True
-        # HIGH-2: `derive_criteria` spends against `shared_usage` before the
+        # `derive_criteria` spends against `shared_usage` before the
         # loop (and its ledger) exists — priced here, at its own model's
         # rate, and handed to `_run_goal_loop` as the ledger's starting
         # dollar total rather than folded into the agent-priced total later.
@@ -1748,14 +1849,14 @@ async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
         _update_goal_ledger_totals(criteria_ledger, shared_usage)
         criteria_ledger.cost_usd = goal_initial_cost_usd
         if not goal_criteria_failed:
-            goal_instructions = render_goal_mode(user_text, goal_criteria)
+            goal_instructions = render_goal_mode(goal_statement, goal_criteria, today)
         writer(
             {
                 "type": "step",
                 "data": ev_step(
                     _goal_step(
                         phase="final" if goal_criteria_failed else "criteria",
-                        statement=user_text,
+                        statement=goal_statement,
                         criteria=goal_criteria,
                         verdict=None,
                         checked_by_id={},
@@ -1784,11 +1885,13 @@ async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
     # app/run_turn.py's run_continuation_turn) and restricts to a text-only
     # output — ask_student is not merely unlikely to be re-emitted, it is not
     # in the advertised schema at all, so a second clarification round stays
-    # impossible even if the model ignores the prompt. C8/D13: a goal turn is
-    # the same restriction for the same reason — it can never park on a
-    # clarify either.
+    # impossible even if the model ignores the prompt. A goal turn is the
+    # exception: it may pause on ask_student as often as it genuinely needs
+    # the student's answer, and each resumed run is itself a goal turn.
     is_continuation = ids.get("continuation_of") is not None
-    output_type: list[Any] = [str] if (is_continuation or goal_mode) else ask_student_output_type()
+    output_type: list[Any] = (
+        [str] if (is_continuation and not goal_mode) else ask_student_output_type()
+    )
     agent: Agent[TurnDeps, str | ClarifyDraftV2] = Agent(
         injected_model_factory()
         if injected_model_factory is not None
@@ -1822,8 +1925,7 @@ async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
         UsageLimits(
             # §2.7: a reserve is held back so the wrap-up (a second, tool-less
             # Agent run over the SAME shared usage) always has room.
-            request_limit=settings.goal_max_model_requests
-            - settings.goal_wrapup_reserve_requests,
+            request_limit=settings.goal_max_model_requests - settings.goal_wrapup_reserve_requests,
             total_tokens_limit=settings.goal_max_total_tokens,
         )
         if goal_mode
@@ -1857,6 +1959,7 @@ async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
         handle = handle_store.get(str(session_id))
     result: Any = None
     completion_fallback: str | None = None
+    goal_carried_state: dict[str, Any] | None = None
     turn_deps = TurnDeps(registry=registry, tool_overflow=tool_overflow, surface=surface)
     run_once_kwargs: dict[str, Any] = dict(
         turn_deps=turn_deps,
@@ -1891,23 +1994,28 @@ async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
             completion_fallback = outcome.completion_fallback
         else:
             assert goal_limits is not None
-            result, completion_fallback = await _run_goal_loop(
+            result, completion_fallback, goal_carried_state = await _run_goal_loop(
                 agent,
-                user_text,
+                goal_statement,
                 history or None,
                 criteria=goal_criteria,
                 not_checked_note=goal_not_checked_note,
+                today=today,
                 limits=limits,
                 goal_limits=goal_limits,
                 settings=settings,
                 model_setting=goal_model_setting,
                 model_settings=model_settings,
                 instructions=instructions,
-                plan_state=plan_state,
                 injected_model_factory=injected_model_factory,
                 shared_usage=shared_usage,
                 run_once_kwargs=run_once_kwargs,
                 initial_cost_usd=goal_initial_cost_usd,
+                prior_receipts=goal_prior_receipts,
+                resume_prompt=user_text if isinstance(inherited_goal, dict) else None,
+                carried_state=inherited_goal.get("ledger")
+                if isinstance(inherited_goal, dict)
+                else None,
             )
     finally:
         # THE one true-terminal call (spike S7 correction): fires exactly
@@ -1949,9 +2057,7 @@ async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
     # with a legitimate second round): overrides any legacy resume clarify
     # metadata computed above, since a fresh clarification always wins.
     clarify_draft: ClarifyDraftV2 | None = (
-        result.output
-        if result is not None and isinstance(result.output, ClarifyDraftV2)
-        else None
+        result.output if result is not None and isinstance(result.output, ClarifyDraftV2) else None
     )
     is_clarify_result = clarify_draft is not None
     if clarify_draft is not None:
@@ -2018,6 +2124,20 @@ async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
         trigger_request_id=ids.get("trigger_request_id") if continuation_of is not None else None,
         response_origin=ids.get("response_origin") if continuation_of is not None else None,
         project_user=ids.get("project_user") if continuation_of is not None else None,
+        goal=(
+            {
+                "statement": goal_statement,
+                "criteria": [c.model_dump(mode="json") for c in goal_criteria],
+                "not_checked_note": goal_not_checked_note,
+                "prior_steps": [s.model_dump(mode="json") for s in goal_prior_receipts],
+                # This segment's ledger/stall totals, so the next resume's
+                # budgets and stall tracking pick up where this one left
+                # off rather than starting over.
+                "ledger": goal_carried_state,
+            }
+            if goal_mode and is_clarify_result
+            else None
+        ),
     )
 
     emitted_viz = [payload for kind, payload in emissions if kind == "viz"]

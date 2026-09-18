@@ -116,13 +116,29 @@ and no compaction strategy can touch it — verified live in the plan's Phase 0 
 `preserve_first_user_message=True` stays on as defence in depth, but it is no longer the
 guarantee.
 
-**D13 — a goal turn does not mount `ask_student`.** `output_type=[str]`, the same as an
-existing continuation turn, so a goal run can never emit a `ClarifyDraftV2` and park
-itself on a second HTTP turn — which would silently reintroduce the multi-message seam
-D1 rejects. Genuine ambiguity becomes a stated assumption recorded against the
-criterion, not a question. `start_continuation` also rejects a goal turn as
-belt-and-braces (structurally unreachable given `output_type=[str]`, but the rejection
-means a future change to `output_type` can't silently resurrect the path).
+**D13 — a goal turn may pause on `ask_student`, and only on that.** *(Reversed
+2026-09-18; the original decision was the opposite — `output_type=[str]`, so a goal run
+could never park itself — and it produced exactly the failure it was meant to avoid: an
+agent that genuinely needed the student's answer asked in prose, the check found the
+goal unmet, and the loop sent it back to work without the answer, over and over.)* A
+goal turn mounts `ask_student` like an ordinary turn. An `ask_student` output ends the
+loop at once with a seventh status, `awaiting_input` — no check, no nudge, no wrap-up —
+and the turn parks as any clarification does. The record carries the goal (statement,
+frozen criteria, not-checked note, and the receipts of every run before it), so
+`accept_clarification` hands the continuation an `inherited_goal` and the continuation
+is itself a goal turn: same instructions, same criteria never re-derived, the student's
+answer as its first prompt, the inherited receipts in the judge's evidence, the goal
+watchdog and concurrency ceiling. The ledger and stall tracking carry across the pause
+too — iteration count, cost, active elapsed time, consecutive tool errors, and the
+previously-met criterion ids all seed the resumed segment (`app/goal_loop.py`'s
+`GoalLoopController.from_carry`/`carry_state`), so the whole run is judged against one budget; time
+spent waiting for the student's answer does not count toward the wall-clock limit, and
+only the per-run request/token `UsageLimits` are scoped fresh per segment. A resumed run
+may pause again. The prompt still says
+to assume where any reasonable reading serves the student and to ask only when the work
+depends on something only they know; and `awaiting_input` is the one status
+`decide_terminal_status` never returns — it is the agent's own explicit pause, not a
+judgment about the goal.
 
 **D14 — cost is the primary budget, checked as a projection before each iteration**,
 not only after the fact via the library's token/request limits. Token and request caps
@@ -176,8 +192,7 @@ Two further honesty corrections are structural, not prompt-level, and belong bes
 ## ADR 0013 posture
 
 ADR 0013's rule is "unmounted, not hidden" — gating happens in code at tool-construction
-time, never in the prompt. Goal mode adds no exception to this: `output_type=[str]`
-(D13) is a construction-time choice, the judge and criteria agents are separate,
+time, never in the prompt. Goal mode adds no exception to this: the judge and criteria agents are separate,
 tool-less-or-narrowly-tooled `Agent` instances built explicitly for their one call, and
 the wrap-up run (§2.7 of the plan) uses a second, genuinely tool-less `Agent` rather than
 an empty `toolsets=` argument — the plan's first draft got this wrong too:
@@ -259,7 +274,8 @@ reversible without a code change:
 
 **No real-browser verification happened.** The plan's §7.4 acceptance script calls for a
 real-browser run of the full loop; Phase 5's own gate calls for the dev tool-call
-gallery's nine goal-status fixtures rendered at 1440px and 390px. Neither happened — no
+gallery's goal-status fixtures — one per `GoalStatus` value, plus loading/running/
+interrupted — rendered at 1440px and 390px. Neither happened — no
 browser was available during this work. Everything on the frontend side is verified at
 the jsdom/unit-test level only.
 

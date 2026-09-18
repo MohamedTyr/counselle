@@ -1,6 +1,6 @@
 # Counselle — System Architecture
 
-> The complete architecture for Counselle, in two parts. **Part I (§1–25)** is the **agent service** — the honesty-first agent behind a versioned API. **Part II (§26–41)** is the **full-stack app** built on top of it — auth, chat management, the work-visibility protocol extensions, the React frontend, the student profile/document/memory stores, first-run onboarding, the facts store and crawl, and the Explore admissions-fit estimate. Companion docs: `specs/` (PRDs & plans), `docs/DATABASE_GUIDE.md` (the data contract), `docs/adr/` (one decision each), `docs/research/` (the stack survey).
+> The complete architecture for Counselle, in two parts. **Part I (§1–25)** is the **agent service** — the honesty-first agent behind a versioned API. **Part II (§26–41)** is the **full-stack app** built on top of it — auth, chat management, the work-visibility protocol extensions, the React frontend, the student profile/document/memory stores, first-run onboarding, the facts store and crawl, and the Explore admit-rate estimate. Companion docs: `specs/` (PRDs & plans), `docs/DATABASE_GUIDE.md` (the data contract), `docs/adr/` (one decision each), `docs/research/` (the stack survey).
 >
 > **This document describes the target architecture — how Counselle is designed and built, not what has shipped to date.** A few subsystems below are designed but not yet wired (e.g. the deep-research subagent, §13). For the current build status — what's implemented vs. pending, and the deployment state — see `CLAUDE.md`; it is the single source of progress truth.
 
@@ -53,7 +53,7 @@
 38. [The CDS extraction pipeline & admin surface (parked)](#38-the-cds-extraction-pipeline--admin-surface-parked)
 39. [The essay surface & the suggestion lifecycle](#39-the-essay-surface--the-suggestion-lifecycle)
 40. [The CollegeData facts crawl pipeline & admin surface](#40-the-collegedata-facts-crawl-pipeline--admin-surface)
-41. [Admissions-fit Explore estimate](#41-admissions-fit-explore-estimate)
+41. [The Explore admit-rate estimate](#41-the-explore-admit-rate-estimate)
 
 ---
 
@@ -333,10 +333,10 @@ sources (`web` / `edu` / `reddit`) keep their own tier and provenance, unchanged
 
 **No admission probability or composite score is synthesized.** Distributions
 (GPA/SAT/ACT bands, selection factors, class sizes, ethnicity) are stored
-structured for future analysis. The Explore admissions-fit card (§41) is the
-explicit bounded exception: it computes only the versioned Reach/Target/Safety/
-Unknown planning category described there, never a probability, ranking number,
-or exposed internal score.
+structured for future analysis. The Explore admit-rate card (§41) is the
+explicit bounded exception: it reads the school's own admit rate into a
+Reach/Target/Safety/Unknown planning band, never a probability, ranking number,
+or composite score.
 
 **There is no RAG anywhere in this path.** Facts are read straight through
 the six typed views above — never embedded, chunked, or retrieved by
@@ -550,17 +550,9 @@ Cheap on day one, brutal to retrofit:
 - **Health** — `GET /v1/health` checks process/database reachability and the checkpointer. There is no MCP child supervisor to report on any more — the DB path is fully in-process (ADR 0038). Turn-registry and limiter counters remain best-effort process state.
 - Metrics/dashboards are a platform-phase concern; the structured logs are designed so that adding them is aggregation, not re-instrumentation.
 
-The admissions-fit Explore path (§41) adds one aggregate, non-identifying
-structured event per request, `admissions_fit_explore_observed`, on both success
-and failure. Its fields are exactly `outcome`, `basis_counts`,
-`category_counts`, `applied_signal_counts`, `unavailable_reason_counts`,
-`validation_failure_counts`, `fact_row_drop_counts`,
-`batch_query_latency_ms`, and `total_explore_latency_ms`. Source-validation
-diagnostics are recorded before estimate assembly and remain visible in this
-aggregate even when a valid fallback (for example rank replacing an invalid GPA
-distribution) supplies the applied academic signal. No school-row identifiers,
-user identifiers, GPA, rank, class size, SAT/ACT student scores, Profile JSON,
-or per-row fit trace is emitted.
+The Explore admit-rate path (§41) has no telemetry seam of its own: it is
+one column read through the shared `explore` executor and a pure function over
+it.
 
 ---
 
@@ -1257,6 +1249,24 @@ route, a documents area, and a "What Counselle remembers" list with
 per-note delete — built from existing design-system primitives, no new
 component patterns.
 
+**School-detail composition:** `SchoolDetailRoute` owns the single
+`GET /v1/schools/{unitid}/facts` read and supplies its typed response to the
+About and Compare tabs inside one `PageContainer(width="panel")`. The Compare
+tab is not mounted on an initial About visit; its `TabsPanel` mounts lazily when
+the student selects Compare, and only then does `SchoolChancesPanel` start the
+established `useProfile()` query. Returning to Compare keeps the mounted panel
+and its cached Profile read. This ordering avoids a Profile request merely from
+opening About while keeping the route's school facts response shared by both
+views.
+
+Compare is a read-only comparison surface: metric selection and the local Explore
+scenario controls issue no Profile PATCH, application mutation, estimator call,
+or feature-owned persistence. The Profile GET retains the existing workspace
+contract and may lazily initialize an empty Profile row; that implementation
+detail is stated rather than hidden behind a false claim that every HTTP read is
+physically write-free. Missing or incompatible Profile/fact values remain
+explicitly unavailable in the UI.
+
 ---
 
 ## 37. Onboarding
@@ -1768,40 +1778,30 @@ do not eliminate (ADR 0038, Risk R0) — not a resolved question.
 
 ---
 
-## 41. Admissions-fit Explore estimate
+## 41. The Explore admit-rate estimate
 
-Explore cards use the server-owned, pure `domain/admissions_fit` calculator. It is a
-versioned, conservative planning heuristic—not an individualized admission probability
-and not a score derived from an outcome corpus. The canonical `school_explore.admit_rate`
-is sovereign: `<20%` is Reach, `<50%` is Target, and `≥50%` is Safety; no usable rate
-is Unknown. Academic and required-test comparisons can make only a bounded local
-adjustment, and the sub-20% Reach floor cannot be upgraded. The internal adjusted index
-never leaves the domain layer or reaches the browser.
+Explore cards carry one server-owned category derived from one column. The
+whole rule is `domain/admissions_fit.py`: `school_explore.admit_rate` `<20%` is
+Reach, `<50%` is Target, `≥50%` is Safety; a rate that is absent, non-numeric,
+or outside `[0,100]` is Unknown, and an Unknown card shows no band at all.
+Nothing about the student is an input — not the saved Profile, not the URL's
+score assumptions, not the facts store's entering-class comparables — so the
+category is a base-rate statement about the school and never a prediction
+about the reader (ADR 0040, superseding ADR 0039's personalized heuristic).
 
-The route makes two separate read-only database reads with intentionally different
-responsibilities. It first uses the `counselle` application pool for a select-only,
-authenticated saved-Profile read—never creating, locking, or logging a Profile. It then
-uses the `cds_library_reader` pool to read the Explore page and one page-wide fixed-key
-facts batch in an explicit `REPEATABLE READ, READ ONLY` transaction. `app/facts` adapts
-only the eleven allowlisted facts and comparable saved-Profile fields into immutable
-domain DTOs; the calculator knows neither HTTP, asyncpg, React nor workspace models.
-Missing, malformed, incompatible, future, or stale optional evidence has exactly zero
-influence. GPA requires an unweighted 4.0-scale complete distribution (rank is a
-fallback), testing never synthesizes SAT totals, and testing changes require a current
-normalized `required` policy.
+The route reads only the `cds_library_reader` pool: the Explore page statement
+and its ancillary counts/options go through the one `counselle_db.service.explore`
+executor. There is no saved-Profile read, no per-page facts batch, and no
+telemetry seam on this path.
 
-The typed `fit` response is personalized only to the authenticated saved Profile. It is
-private and revalidating; local Profile changes and external `profile.updated` events
-invalidate active Explore data, and the UI suppresses stale personalized detail while a
-matching response is loading. The category never writes, infers, or replaces the
-student's separate `Application.list_type` organization field. Runtime observability is
-one aggregate, non-identifying `admissions_fit_explore_observed` event per Explore
-request—`outcome`, `basis_counts`, `category_counts`, `applied_signal_counts`,
-`unavailable_reason_counts`, `validation_failure_counts`, `fact_row_drop_counts`,
-`batch_query_latency_ms`, and `total_explore_latency_ms`. Source-validation
-diagnostics survive safe fallbacks and are included in the aggregate. No school-row
-identifiers, user identifiers, GPA, ranks, class size, SAT/ACT student scores, full
-Profiles, or per-user fit traces are logged.
+The wire result is `{category, admit_rate}`. `admit_rate` is the validated rate
+the category came from, so the card cannot print a figure that disagrees with
+the badge beside it. Because no part of the response depends on who is asking,
+it is cached per query rather than per reader, and a Profile write does not
+invalidate it. The card renders the rate, the band, and nothing arguing for
+either — with the adjustment gone there is no reasoning left to disclose. The
+category never writes, infers, or replaces the student's separate
+`Application.list_type` organization field.
 
 ## 42. Goal mode: an independent-judge iteration loop
 
@@ -1815,15 +1815,24 @@ describes the shipped mechanism, not a verdict on whether it should exist.
 
 ### 42.1 What `/goal` does
 
-A student types `/goal` and states an outcome. Counselle decomposes it into 2–6 frozen,
-binary acceptance criteria, works the plan/tool loop against them, and at each stopping
-point an independent judge — a separate model call that sees tool receipts, never the
-agent's own claims — decides whether the criteria are met. Unmet criteria come back to
-the agent by name in the next round's prompt. The run ends in exactly one of six honest
-terminal states (`domain/goal.py::GoalStatus`): `achieved`, `partial`, `stopped_budget`,
-`stopped_no_progress`, `stopped_user`, `stopped_check_failed`. The whole run is one
-assistant message in the existing chat (ADR 0028's "the run is the message" contract,
-unchanged).
+A student types `/goal` and states an outcome. One model call turns that statement into
+the run's termination condition — 1–6 frozen, binary criteria describing the *result*
+the student asked for, never the steps to get there. The agent then works exactly as it
+does on any other turn; goal mode is a wrapper that keeps it going. At each stopping
+point an independent judge — a separate model call that sees tool receipts and the
+final answer, never the agent's plan or its claims — decides whether the condition is
+met. How the agent works is the agent's business: its plan is prompted for, never
+enforced, and is not an input to any stop decision. A run counts as stalled only when
+`goal_stall_iterations` checks in a row meet nothing new. The criteria writer, the agent
+and the judge all read one code-computed calendar block (`domain.goal.calendar_context`),
+so "this week" is the same date range to all three. Unmet criteria come back to
+the agent by name in the next round's prompt. The run ends in one of seven
+`domain/goal.py::GoalStatus` values: six honest terminal judgments — `achieved`,
+`partial`, `stopped_budget`, `stopped_no_progress`, `stopped_user`,
+`stopped_check_failed` — plus `awaiting_input`, which is not a judgment at all but the
+agent's own pause for the student's answer (§42.2); `decide_terminal_status` never
+returns it. The whole run is one assistant message in the existing chat (ADR 0028's
+"the run is the message" contract, unchanged).
 
 ### 42.2 Where the loop lives
 
@@ -1839,9 +1848,25 @@ outer orchestrator, and not a model-callable tool (ADR 0041 D1). `app/graph.py` 
   because `TurnState["messages"]` is the whole session's history and a `/goal` sent
   mid-conversation is not at index 0. `instructions` is re-sent every request and no
   compaction strategy touches it.
-- A goal turn's `Agent` is built with `output_type=[str]` (D13), the same as an existing
-  continuation turn, so it structurally cannot emit a `ClarifyDraftV2` and park itself —
-  genuine ambiguity becomes a stated assumption recorded against the criterion instead.
+- A goal turn mounts `ask_student` like an ordinary turn (D13, reversed 2026-09-18).
+  An `ask_student` output ends the loop at once with status `awaiting_input` — no
+  check, no nudge, no wrap-up — and the turn parks as any clarification does; the turn
+  record's `goal` field carries the statement, frozen criteria, not-checked note and the
+  receipts of every run before it. `accept_clarification` reads that into
+  `PreparedContinuation.inherited_goal`, and the continuation is then itself a goal
+  turn (`turn_ids["goal_mode"]`/`turn_ids["goal"]`): same criteria, never re-derived,
+  the student's answer as its first prompt, the inherited receipts prepended to the
+  judge's evidence (step ids prefixed with the paused turn's message id, since ids are
+  per-turn counters), the goal watchdog and concurrency ceiling. The ledger carries
+  forward across the pause: iteration count, cost, active elapsed time, consecutive
+  tool errors, and the stall tracking (previously-met criterion ids, the flat-check
+  count) are seeded from the paused record via `app/goal_loop.py`'s
+  `GoalLoopController.from_carry`/`carry_state`, so a resumed run is judged against the whole goal's
+  budget rather than a fresh one per segment; time spent waiting for the student's
+  answer is excluded from `max_wall_clock_s`, since the resumed segment's own clock
+  starts fresh and the prior elapsed time is added on top. Only the per-run pydantic-ai
+  `UsageLimits` (max requests, max tokens) are scoped per segment. A resumed run may
+  pause again.
 - `app/agent_node.py::_run_once` owns one iteration's lifecycle:
   `router.begin_iteration()` and `final_writer.begin_iteration()` reset the emitters'
   one-shot latches (`EmissionRouter`'s `_closed`/`final_answer_started`, the writer's
@@ -1987,4 +2012,4 @@ design and its adversarial-review history.
 
 ---
 
-*Companions: `specs/mvp1/PRD.md` (agent service product spec), `specs/mvp2/PRD.md` (full-stack app product spec), `specs/user-onboarding/plan/` (onboarding plan and phase record), `specs/school-data-v3/` (the graduated facts-store plan and its divergence record), `specs/essay-ai-panel/` (the essay AI panel's graduated plan and divergence record), `docs/DATABASE_GUIDE.md` (the facts-store data contract — the six reader views, fact states, and honesty rules), `PARKED.md` (the parked CDS system's file list, import edges, and revival steps), `docs/DEPLOY.md` (the deploy runbook), `docs/adr/` (decisions — Part I added ADRs 0016–0019; Part II added ADRs 0020–0031; hardening added ADR 0025; workspace/service and run/message parity added ADRs 0026–0030; profile/document/memory added ADR 0031; db-rewire to the CDS Library added ADR 0032; onboarding's reserved-settings-namespace and locked merge added ADR 0033; counselor response modes added ADR 0034; the in-app CDS extraction pipeline and admin write path added ADR 0036; the per-turn agent surface and the essay suggestion layer added ADR 0037, amending ADRs 0013 and 0030; the CollegeData facts store, in-process DB tools, and CDS-parking decision added ADR 0038; the admissions-fit Explore estimate added ADR 0039; goal mode's independent-judge iteration loop added ADR 0041, still Proposed pending the plan's real-student dogfood gate), `docs/research/` (stack survey). Keep this current as decisions change.*
+*Companions: `specs/mvp1/PRD.md` (agent service product spec), `specs/mvp2/PRD.md` (full-stack app product spec), `specs/user-onboarding/plan/` (onboarding plan and phase record), `specs/school-data-v3/` (the graduated facts-store plan and its divergence record), `specs/essay-ai-panel/` (the essay AI panel's graduated plan and divergence record), `docs/DATABASE_GUIDE.md` (the facts-store data contract — the six reader views, fact states, and honesty rules), `PARKED.md` (the parked CDS system's file list, import edges, and revival steps), `docs/DEPLOY.md` (the deploy runbook), `docs/adr/` (decisions — Part I added ADRs 0016–0019; Part II added ADRs 0020–0031; hardening added ADR 0025; workspace/service and run/message parity added ADRs 0026–0030; profile/document/memory added ADR 0031; db-rewire to the CDS Library added ADR 0032; onboarding's reserved-settings-namespace and locked merge added ADR 0033; counselor response modes added ADR 0034; the in-app CDS extraction pipeline and admin write path added ADR 0036; the per-turn agent surface and the essay suggestion layer added ADR 0037, amending ADRs 0013 and 0030; the CollegeData facts store, in-process DB tools, and CDS-parking decision added ADR 0038; the admissions-fit Explore estimate added ADR 0039, superseded by ADR 0040, which cut the estimate back to the admit rate alone; goal mode's independent-judge iteration loop added ADR 0041, still Proposed pending the plan's real-student dogfood gate), `docs/research/` (stack survey). Keep this current as decisions change.*

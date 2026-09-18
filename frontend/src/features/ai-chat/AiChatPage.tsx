@@ -164,6 +164,7 @@ export function AiChatPage({
     retryTranscript,
     messages,
     liveTurn,
+    liveTurnIsGoal,
     sourceConfig,
     setSourceConfig,
     selectedResponseMode,
@@ -563,6 +564,7 @@ export function AiChatPage({
           }
           isSubmitting={isSubmitting}
           liveMessageId={liveMessageId}
+          liveTurnIsGoal={liveTurnIsGoal}
           messages={messages}
           modeSkillNames={modeSkillNames}
           skillLabelForName={(name) =>

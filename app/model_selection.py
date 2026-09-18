@@ -34,6 +34,25 @@ def model_name_from_setting(model_setting: str) -> str:
     return model_setting.split(":", 1)[-1]
 
 
+def google_thinking_config(selection: CounselorModelSelection) -> dict[str, object]:
+    """Return the provider-shaped thinking settings for a resolved counselor mode.
+
+    Gemini 2.5 uses numeric ``thinking_budget`` values; its Vertex endpoint
+    rejects Gemini 3's ``thinking_level`` field with HTTP 400. Later model
+    families keep the level-based protocol until Google documents otherwise.
+    """
+    model_name = model_name_from_setting(selection.model_setting)
+    if model_name.startswith("gemini-2.5-"):
+        return {
+            "thinking_budget": -1 if selection.response_mode is ResponseMode.THINK else 0,
+            "include_thoughts": selection.include_thoughts,
+        }
+    return {
+        "thinking_level": selection.thinking_level,
+        "include_thoughts": selection.include_thoughts,
+    }
+
+
 @dataclass(frozen=True)
 class CounselorModelSelection:
     """The immutable, fully-resolved model configuration for one turn."""

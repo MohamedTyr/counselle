@@ -18,6 +18,12 @@ export type UseComposerStartTurnResult = {
     text: string,
     sourceConfig: SourceConfig,
     responseMode: ResponseMode,
+    /** Set only by an explicit `/goal` slash-command selection (goal-mode
+     * plan §5.5), never derived from `text`. Session creation carries no
+     * goal_mode field (D10: it rides the first message, not the session) —
+     * this is echoed straight through into the returned `StartTurnResult`
+     * so the caller can thread it into the first `sendMessage` call. */
+    goalMode?: boolean,
   ) => Promise<StartTurnResult>;
   cancel: () => Promise<void>;
   isSubmitting: boolean;
@@ -42,6 +48,7 @@ export function useComposerStartTurn({
       text: string,
       sourceConfig: SourceConfig,
       responseMode: ResponseMode,
+      goalMode = false,
     ): Promise<StartTurnResult> => {
       const trimmed = text.trim();
       if (trimmed.length === 0 || submittingRef.current) {
@@ -74,6 +81,7 @@ export function useComposerStartTurn({
         ok: true,
         sessionId: created.sessionId,
         responseMode: created.responseMode,
+        goalMode,
       };
     },
     [transport],

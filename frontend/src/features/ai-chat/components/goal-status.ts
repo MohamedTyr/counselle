@@ -1,12 +1,17 @@
-import type { badgeVariants } from "@/components/ui/badge";
 import type { GoalStatus } from "@/api/chat/types";
 
-import type { VariantProps } from "class-variance-authority";
+/** How a goal state reads at a glance. Color is never the only channel —
+ * every tone is paired with its headline text. */
+export type GoalTone = "neutral" | "success" | "warning";
 
-type BadgeVariant = VariantProps<typeof badgeVariants>["variant"];
+export const goalToneClass: Readonly<Record<GoalTone, string>> = {
+  neutral: "text-muted-foreground",
+  success: "text-[var(--success-fg)]",
+  warning: "text-[var(--warning-fg)]",
+};
 
 /**
- * The six terminal states, `running`, and the crash rule, all in one place
+ * The terminal states, the pause, `running`, and the crash rule, all in one place
  * (plans/goal-mode-plan.md §5.3) — `GoalHeader` and `GoalVerdictCard` both
  * call this so they can never disagree about what a status means. `null`
  * means "still running" unless `isInterrupted` overrides it.
@@ -21,9 +26,9 @@ type BadgeVariant = VariantProps<typeof badgeVariants>["variant"];
  * literal. The persisted-transcript replay path does not: `legacy-replay.ts`
  * passes a `kind: "step"` segment's `data` through as an opaque record (only
  * checked to be an object, never shape-checked), so a stored session
- * carrying a status outside the current six-literal union — after a backend
- * rename, or a seventh status persisted before a frontend deploy — reaches
- * this function unvalidated on replay. The `default` branch below is
+ * carrying a status outside the current seven-literal union — after a
+ * backend rename, or an eighth status persisted before a frontend deploy —
+ * reaches this function unvalidated on replay. The `default` branch below is
  * load-bearing for exactly that path, even though TypeScript's
  * exhaustiveness checking considers the switch complete: it is the only
  * thing standing between an unrecognized value and a `TypeError` that would
@@ -41,27 +46,32 @@ type BadgeVariant = VariantProps<typeof badgeVariants>["variant"];
 export function goalStatusPresentation(
   status: GoalStatus | null,
   isInterrupted: boolean,
-): Readonly<{ headline: string; badge: BadgeVariant }> {
+): Readonly<{ headline: string; tone: GoalTone }> {
   if (isInterrupted) {
-    return { headline: "Stopped — interrupted", badge: "secondary" };
+    return { headline: "Interrupted before it finished", tone: "neutral" };
   }
 
   switch (status) {
     case null:
-      return { headline: "Working", badge: "secondary" };
+      return { headline: "Working", tone: "neutral" };
     case "achieved":
-      return { headline: "Achieved", badge: "success" };
+      return { headline: "All done", tone: "success" };
     case "partial":
-      return { headline: "Partial — some criteria unmet", badge: "warning" };
+      return { headline: "Partly done", tone: "warning" };
     case "stopped_budget":
-      return { headline: "Partial — budget reached", badge: "warning" };
+      return { headline: "Stopped at the run limit", tone: "warning" };
     case "stopped_no_progress":
-      return { headline: "Stopped — no progress", badge: "warning" };
+      return {
+        headline: "Stopped, no longer making progress",
+        tone: "warning",
+      };
     case "stopped_user":
-      return { headline: "Stopped — you stopped it", badge: "secondary" };
+      return { headline: "You stopped it", tone: "neutral" };
     case "stopped_check_failed":
-      return { headline: "Stopped — couldn't check", badge: "warning" };
+      return { headline: "Couldn't be checked", tone: "warning" };
+    case "awaiting_input":
+      return { headline: "Waiting for your answer", tone: "neutral" };
     default:
-      return { headline: "Status unknown", badge: "secondary" };
+      return { headline: "Status unknown", tone: "neutral" };
   }
 }

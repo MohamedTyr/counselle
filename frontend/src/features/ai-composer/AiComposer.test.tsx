@@ -1,5 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { useState } from "react";
 import { describe, expect, test, vi } from "vitest";
 
 import type { CounselingMode } from "@/api/chat/types";
@@ -74,5 +75,72 @@ describe("AiComposer", () => {
     fireEvent.keyDown(textarea, { key: "Enter" });
 
     expect(onSubmit).not.toHaveBeenCalled();
+  });
+
+  function ControlledComposer(
+    props: Omit<
+      Partial<Parameters<typeof AiComposer>[0]>,
+      "value" | "onValueChange"
+    >,
+  ) {
+    const [value, setValue] = useState("");
+    return (
+      <AiComposer
+        canCancel={false}
+        isSubmitting={false}
+        onCancel={vi.fn()}
+        onSourceConfigChange={vi.fn()}
+        onSubmit={vi.fn()}
+        sourceConfig={BUILT_IN_SOURCE_CONFIG}
+        {...props}
+        onValueChange={setValue}
+        value={value}
+      />
+    );
+  }
+
+  test("selecting /goal from the menu arms the chip; sending reports goal_mode true and the chip clears", async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn();
+    const onGoalModeSubmit = vi.fn();
+    render(
+      <ControlledComposer onGoalModeSubmit={onGoalModeSubmit} onSubmit={onSubmit} />,
+    );
+
+    const textarea = screen.getByRole("combobox", {
+      name: "Message Counselle",
+    });
+    await user.type(textarea, "/goal");
+    await screen.findByRole("option", { name: /Goal mode/ });
+
+    await user.keyboard("{Enter}");
+    expect(screen.getByText("Goal mode")).toBeInTheDocument();
+
+    await user.type(textarea, "Help me get into MIT");
+    await user.keyboard("{Enter}");
+
+    expect(onGoalModeSubmit).toHaveBeenCalledWith(true);
+    expect(onSubmit).toHaveBeenCalled();
+    expect(screen.queryByText("Goal mode")).not.toBeInTheDocument();
+  });
+
+  test("typing /goal without selecting it submits with goal_mode false", async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn();
+    const onGoalModeSubmit = vi.fn();
+    render(
+      <ControlledComposer onGoalModeSubmit={onGoalModeSubmit} onSubmit={onSubmit} />,
+    );
+
+    const textarea = screen.getByRole("combobox", {
+      name: "Message Counselle",
+    });
+    await user.type(textarea, "/goal");
+    await screen.findByRole("option", { name: /Goal mode/ });
+
+    await user.click(screen.getByRole("button", { name: "Send message" }));
+
+    expect(onGoalModeSubmit).toHaveBeenCalledWith(false);
+    expect(onSubmit).toHaveBeenCalled();
   });
 });

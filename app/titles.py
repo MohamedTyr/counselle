@@ -97,10 +97,11 @@ def _title_model(runtime: Any, settings: Any) -> Any:
     from pydantic_ai.providers.google_cloud import GoogleCloudProvider
 
     from app.model_selection import model_name_from_setting
+    from app.vertex import build_vertex_client
 
     return GoogleModel(
         model_name_from_setting(settings.model_title),
-        provider=GoogleCloudProvider(api_key=settings.vertex_api_key),
+        provider=GoogleCloudProvider(client=build_vertex_client(settings)),
     )
 
 
@@ -116,9 +117,7 @@ async def _generate_title(runtime: Any, settings: Any, user_text: str, assistant
     return str(result.output).strip().strip('"').strip()
 
 
-def make_auto_titler(
-    pool: Any, runtime: Any, settings: Any
-) -> Callable[[str], Awaitable[None]]:
+def make_auto_titler(pool: Any, runtime: Any, settings: Any) -> Callable[[str], Awaitable[None]]:
     """Build the async ``on_turn_complete`` hook (assigned in the lifespan).
 
     The hook reads the session + its first exchange, and only retitles while the

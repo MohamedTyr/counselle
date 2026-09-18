@@ -99,7 +99,7 @@ describe("filterSlashCommands", () => {
 describe("SLASH_COMMANDS", () => {
   test("v1 ships exactly one command", () => {
     expect(SLASH_COMMANDS).toHaveLength(1);
-    expect(SLASH_COMMANDS[0]).toEqual({
+    expect(SLASH_COMMANDS[0]).toMatchObject({
       id: "goal",
       keyword: "goal",
       label: "Goal mode",

@@ -59,4 +59,3 @@ plans/.local/
 .coverage.*
 htmlcov/
 coverage.xml
-

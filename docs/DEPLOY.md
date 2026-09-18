@@ -132,7 +132,10 @@ A first deploy easily forgets the agent-core half. The complete set:
 - `COUNSELLE_FACTS_STALE_DAYS` (default `120`) — when a school's facts flip to the stale caveat
 
 **Models / GCP**
-- `COUNSELLE_VERTEX_API_KEY` (preferred) **or** `GOOGLE_APPLICATION_CREDENTIALS` (service-account JSON) — use the API key, not an ADC file, where possible
+- Application Default Credentials (preferred): a workload identity or
+  `GOOGLE_APPLICATION_CREDENTIALS` service-account configuration. For local
+  development, use `gcloud auth application-default login`. `COUNSELLE_VERTEX_API_KEY`
+  remains an Express-mode fallback where authorization keys are permitted.
 - `COUNSELLE_GOOGLE_CLOUD_PROJECT`, `COUNSELLE_GOOGLE_CLOUD_LOCATION`
 - `COUNSELLE_MODEL_COUNSELOR` (Quick), `COUNSELLE_MODEL_COUNSELOR_THINK` (Think), `_CHEAP`, `_CLARIFIER`, `_TITLE`, display-name/preview fields, and `COUNSELLE_MODEL_PRICES`
 - `COUNSELLE_RESPONSE_MODE_THINK_ENABLED` — leave false until Think's target environment has verified Vertex/Express Mode quota, live smokes, and accepted quality/cost; disabled Think is omitted from `/v1/config` and never silently falls back to Quick

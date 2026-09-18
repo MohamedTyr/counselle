@@ -716,7 +716,7 @@ on screen when the document is meant to be the only one that floats.
 | `/app/ai` | composer landing | ” |
 | `/app/ai/:sessionId` | chat | ” |
 | `/app/tasks` | task board / table | ” |
-| `/app/schools`, `/app/schools/:unitid` | list; school page (About + Your application). Keyed by school, so a school you have not added still has a page; an application id in the slot redirects to the canonical URL | ” |
+| `/app/schools`, `/app/schools/:unitid` | list; school page (About + Compare + Your application). Keyed by school, so a school you have not added still has a page; an application id in the slot redirects to the canonical URL | ” |
 | `/app/essays`, `/app/essays/:id` | library, editor | ” |
 | `/app/activities` | activities + honors | ” |
 | `/app/profile` | profile | ” |
@@ -1111,37 +1111,61 @@ that drove it.
 - Character budget: `empty` → `--ink-faint`, `ok` → muted, `near` (≥90%) → warning,
   `over` → danger + `font-medium`.
 
-**Goal mode** (`domain/goal.py::GoalStatus`, six terminal states plus a running and an
-interrupted state — engineering-complete, product-unvalidated; see
-`docs/ARCHITECTURE.md` §42, ADR 0041) uses exactly **three** of the five variants —
-**no `error`/`destructive` anywhere in this mapping**, because a goal run stopping short
-is never rendered as the run having failed:
+**Goal mode** (`domain/goal.py::GoalStatus`, six terminal states plus the agent's own
+`awaiting_input` pause, a running state, and an interrupted state — engineering-complete,
+product-unvalidated; see
+`docs/ARCHITECTURE.md` §42, ADR 0041) is not a badge: a goal run's state is one line of
+toned text beside the word "Goal" (`goal-status.ts::goalStatusPresentation`). It uses
+three tones — neutral (`text-muted-foreground`), `--success-fg`, `--warning-fg` — and
+**never `destructive`**, because a goal run stopping short is never rendered as the run
+having failed:
 
-| Status | Headline | Badge |
+| Status | Headline | Tone |
 |---|---|---|
-| running (no terminal step yet) | `Working` | `secondary` |
-| `achieved` | `Achieved` | `success` |
-| `partial` | `Partial — <reason>` | `warning` |
-| `stopped_budget` | `Partial — budget reached` | `warning` |
-| `stopped_no_progress` | `Stopped — no progress` | `warning` |
-| `stopped_user` | `Stopped — you stopped it` | `secondary` |
-| `stopped_check_failed` | `Stopped — couldn't check` | `warning` |
-| no `phase="final"` step reached (crash/interrupt) | `Stopped — interrupted` | `secondary` |
+| sent, no `goal` step yet | `Working out what done looks like` | neutral |
+| running | `Working` | neutral |
+| running, after N checks | `Checked once, still working` (`twice`, `N times`) | neutral |
+| `achieved` | `All done` | success |
+| `partial` | `Partly done` | warning |
+| `stopped_budget` | `Stopped at the run limit` | warning |
+| `stopped_no_progress` | `Stopped, no longer making progress` | warning |
+| `stopped_user`, or the turn's own `cancelled` status | `You stopped it` | neutral |
+| `stopped_check_failed` | `Couldn't be checked` | warning |
+| `awaiting_input` | `Waiting for your answer` | neutral |
+| no `phase="final"` step reached (crash/interrupt) | `Interrupted before it finished` | neutral |
+
+**One progress list, not two.** A goal message stacks, top to bottom: the goal line, the
+agent's own `PlanChecklist`, its tool beats, a check note between rounds, and — once a
+verdict exists — the result. The agent's plan is the run's *only* checklist. The frozen
+criteria the independent check uses are the finish line, not a to-do list, so while the
+run is live they sit behind a closed `Done when` disclosure on the goal line, and they
+are laid out in full exactly once, in the result. Rendering them as an open checklist
+above the plan is the defect this layout replaces: two stacked cards, each with a count
+pill, a meter and a list, that a student could not tell apart.
+
+- **The goal line does not repeat the goal.** The student's own message sits directly
+  above it, so the statement is `sr-only`; the line shows the mark, "Goal", and the state.
+- **The check note never claims the run kept going.** The backend emits a `check` step
+  *before* it decides whether to continue, so `GoalCheckBeat` states only what the check
+  found ("Checked the goal: 2 of 4 done. Still missing:") and lists each outstanding
+  reason. A check that found everything met renders nothing — the result below says so.
+- **The result carries no developer numbers.** Elapsed time, plus "Checked N times" when
+  the run was sent back to work. Requests and dollars are not the student's concern.
+- **The goal line appears on the first frame.** The turn engine knows a send was a
+  `/goal` run (`liveTurnIsGoal`, set on every send path so a regenerate or retry can never
+  inherit it), so the live message shows the pending goal line instead of the generic
+  starting beat while the backend is still deriving criteria.
 
 `GoalHeader` and `GoalVerdictCard` render from the same `detail.goal.status` field so the
-two never contradict each other (the defect this table fixes: revision 1's header had
-only a "Working" row, so a settled **Achieved** card could sit under a header still
-reading "Working" forever). The last row is the crash rule: a hard process kill can never
-run "emit the final step before exiting," so a goal message that is not the client's
-actively-streaming turn and whose latest `goal` step has `status == null` renders
-**Stopped — interrupted** rather than a frozen "Working" — a derivation from what the
-frontend already knows, not a new backend signal. `warning` covers four structurally
-different stop reasons (`partial`, `stopped_budget`, `stopped_no_progress`,
-`stopped_check_failed`); the badge alone does not distinguish which — the headline text
-and the per-criterion breakdown do that work. This is the plan's own mapping
-(`plans/goal-mode-plan.md` §5.3): it never proposed a fourth variant, which is fortunate,
-since §14.1's five-variant contract has no `info` role to reach for and none will be
-added.
+two never contradict each other. The last table row is the crash rule: a hard process
+kill can never run "emit the final step before exiting," so a goal message that is not
+the client's actively-streaming turn and whose latest `goal` step has `status == null`
+reads **Interrupted before it finished** rather than a frozen "Working" — a derivation
+from what the frontend already knows, not a new backend signal. A run the student
+stopped is the exception: it can also end with no `final` step, and calling their own
+deliberate action an interruption would be a false statement about what happened.
+`warning` covers four structurally different stop reasons; the tone alone does not
+distinguish which — the headline text and the per-criterion breakdown do that work.
 
 ### 14.3 Status is never colour alone
 
@@ -1303,8 +1327,11 @@ Two competing right rails is worse than one that swaps.
 
 ### 15.5 Visualisations
 
-There is **no charting library.** "Viz" means typed tabular render specs:
+Server-sent **viz** has no charting library: its typed render specs are
 `stat_block` (a `<dl>`) and `comparison_table` (schools as columns, metrics as rows).
+The school page's `Compare` tab is the deliberate exception: it reuses the installed
+Recharts primitives through the facts feature's accessible `ChartFigure` shell for
+reported GPA buckets and SAT/ACT ranges.
 
 - **Every cell is a citation envelope.** Unavailable cells render *"not available"* in
   muted italic — never blank, never a dash.
@@ -1313,6 +1340,27 @@ There is **no charting library.** "Viz" means typed tabular render specs:
   §1.1 forbids.
 - An unrecognised spec version renders "This visualization requires a newer client."
   inside the normal frame, so it reads as forward-compatibility rather than breakage.
+
+### 15.5.1 School Compare
+
+`Compare` is the product vocabulary for the school-detail academic comparison (the
+route/query implementation may use `chances` internally). It says where a student's
+saved GPA, SAT sections, or ACT composite sits against reported entering-class data;
+it never says chance, odds, probability, confidence, Reach, Target, or Safety.
+
+The school detail is one `PageContainer` `panel` surface. Its route owns the single
+school-facts read and passes that response to the About and Compare tabs; Compare is
+not a second facts fetch. The Compare panel is one raised frame with flat internal
+groups and hairlines—no nested cards—and renders one selected metric at a time.
+
+Compare is read-only in the honest product sense: selecting a metric and moving or
+resetting an Explore scenario changes local view state only. It issues no Profile
+`PATCH`, application mutation, estimator request, or feature-owned persistence. The
+existing Profile `GET` is lazy and begins only when Compare is selected (and may
+initialize the established empty Profile row); About never requests it. Missing,
+incompatible, stale, or partial values remain explicitly labeled rather than being
+filled, normalized, or turned into an admission claim. Every graphic has a complete
+text-equivalent description and does not rely on hover or color.
 
 ### 15.6 Tracked changes
 
@@ -1865,3 +1913,27 @@ bypassed somewhere upstream — find that instead.
 
 *When this document and the code disagree, the code is the bug — unless the code is
 right, in which case this document is the bug. Fix whichever it is in the same PR.*
+
+## 22. Admissions landing hero
+
+The public landing hero has an approved marketing-specific visual system, separate
+from workspace tokens. Its purpose is to show a student question becoming a useful
+next step. The direction is a full persimmon canvas with charcoal display type,
+Switzer regular/semibold, a broad two-line opening, and a dimensional question
+and plan composition with a short, replayable explanation. Source tokens live in
+`frontend/src/features/landing/landing.css`; the standalone Vite entry is
+`frontend/landing.html`. The product workspace retains its existing system.
+
+The hero has one primary action, **Build my plan**, leading to the existing
+registration/onboarding flow. Three explicitly labeled illustrative examples
+show school research, essay guidance, and planning. They contain no invented
+admission odds, university facts, or user outcomes. Demo actions change only the
+local example; they never create real workspace records.
+
+Use one semantic accent family, 12px surface corners, 8px controls, readable
+contrast, and 44px interaction targets. The initial copy and final example are
+available without waiting for motion. Explanatory motion plays once, can be
+replayed, and stops under reduced motion. Keyboard example changes are instant.
+On narrow screens, copy and CTA precede a front-facing compact example,
+with one task visible and a disclosure for the next two steps. This
+marketing surface uses its own system-preference dark palette.

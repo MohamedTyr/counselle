@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 
 import {
   GOAL_MODE_FIXTURES,
+  GOAL_RUN_FIXTURES,
   TOOL_CALL_FIXTURES,
   TOOL_CALL_GROUPS,
 } from "./tool-call-fixtures";
@@ -83,6 +84,35 @@ function GoalFixturePreview({
           fixture.detail.criteria.length > 0 && (
             <GoalVerdictCard detail={fixture.detail} />
           )}
+      </div>
+    </div>
+  );
+}
+
+function GoalRunPreview({
+  fixture,
+}: {
+  fixture: (typeof GOAL_RUN_FIXTURES)[number];
+}) {
+  return (
+    <div className="grid gap-3 border-b border-[var(--edge)] py-5 last:border-b-0 md:grid-cols-[148px_minmax(0,1fr)]">
+      <div className="min-w-0 pt-1">
+        <code className="block truncate text-[11px] text-[var(--ink-secondary)]">
+          {fixture.id}
+        </code>
+        <span className="mt-1 block text-[11px] text-muted-foreground">
+          {fixture.label}
+        </span>
+      </div>
+      <div className="min-w-0">
+        <GoalHeader detail={fixture.detail} />
+        <PlanChecklist isLive={fixture.live} step={fixture.plan} />
+        {fixture.steps.map((step) => (
+          <ToolStepBeat key={step.step_id} step={step} />
+        ))}
+        {fixture.detail.status !== null && (
+          <GoalVerdictCard detail={fixture.detail} />
+        )}
       </div>
     </div>
   );
@@ -197,6 +227,9 @@ export function ToolCallGalleryPage() {
               </span>
             </div>
             <div>
+              {GOAL_RUN_FIXTURES.map((fixture) => (
+                <GoalRunPreview fixture={fixture} key={fixture.id} />
+              ))}
               {GOAL_MODE_FIXTURES.map((fixture) => (
                 <GoalFixturePreview fixture={fixture} key={fixture.id} />
               ))}

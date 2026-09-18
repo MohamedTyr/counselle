@@ -1,7 +1,7 @@
 """Goal-mode criteria derivation and the judge call (plans/goal-mode-plan.md Part 3).
 
 Two independent, tool-less, typed-output cheap-model calls: :func:`derive_criteria`
-turns a `/goal` statement into 2-6 frozen binary criteria plus a mandatory
+turns a `/goal` statement into 1-6 frozen binary criteria plus a mandatory
 `not_checked_note` (§3.2, C11); :func:`judge_goal` is the loop gate (D5) —
 blind to the agent's self-report, it grades those criteria against bounded
 tool receipts (§3.3) and returns an already honesty-corrected
@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Collection, Sequence
+from datetime import date
 from typing import TYPE_CHECKING, Any
 
 import structlog
@@ -32,7 +33,13 @@ from app.model_selection import (
     model_name_from_setting,
 )
 from config.settings import load_prompt
-from domain.goal import CriterionVerdict, GoalCriterion, GoalVerdict, compute_checked
+from domain.goal import (
+    CriterionVerdict,
+    GoalCriterion,
+    GoalVerdict,
+    calendar_context,
+    compute_checked,
+)
 from domain.mutation_receipts import (
     BatchMutationBody,
     DuplicateMutationBody,
@@ -54,7 +61,7 @@ if TYPE_CHECKING:
     from pydantic_ai.usage import RunUsage
 
     from config.settings import Settings
-    from domain.events import StepData
+    from domain.events import StepData, WorkspacePreviewItem
 
 logger = structlog.get_logger(__name__)
 
@@ -73,7 +80,10 @@ class GoalCriteriaOutput(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    criteria: list[GoalCriterion] = Field(min_length=2, max_length=6)
+    # No `max_length` here: `settings.goal_max_criteria` is the single cap
+    # (already enforced by the truncation in `derive_criteria` below), so a
+    # schema-level number would be a second copy of the same knowledge.
+    criteria: list[GoalCriterion] = Field(min_length=1)
     #: REQUIRED: nullable here would let a lenient model omit it and produce
     #: a green "Achieved" card with no scope caveat — the C11 failure this
     #: field exists to prevent.
@@ -142,7 +152,7 @@ async def _run_with_retries(agent: Any, prompt: str, *, usage: RunUsage, setting
 
 
 async def derive_criteria(
-    statement: str, *, settings: Settings, usage: RunUsage
+    statement: str, *, settings: Settings, usage: RunUsage, today: date | None = None
 ) -> tuple[tuple[GoalCriterion, ...], str]:
     """`/goal` statement -> (criteria, not_checked_note). Always returns a
     non-empty note (§3.2): a missing required field is a pydantic
@@ -156,7 +166,10 @@ async def derive_criteria(
         output_type=GoalCriteriaOutput,
     )
     prompt = render_slots(
-        load_prompt("goal_criteria"), ("goal_statement",), goal_statement=statement
+        load_prompt("goal_criteria"),
+        ("goal_statement", "today"),
+        goal_statement=statement,
+        today=calendar_context(today),
     )
     output = await _run_with_retries(agent, prompt, usage=usage, settings=settings)
     if output is None:
@@ -245,8 +258,8 @@ def _change_fact(change: MutationChange) -> str:
 
 
 def _body_fact(body: MutationBody) -> str:
-    """The one concrete, typed fact this receipt's body proves — the piece
-    `_receipt_text` used to drop on the floor, leaving the judge nothing but
+    """The one concrete, typed fact this receipt's body proves — without it,
+    `_receipt_text` leaves the judge nothing but
     `outcome=success family=... action=...` to reason from."""
     if isinstance(body, UpdateMutationBody):
         changes = "; ".join(_change_fact(c) for c in body.changes)
@@ -283,6 +296,17 @@ def _body_fact(body: MutationBody) -> str:
     return ""
 
 
+def _item_fact(item: WorkspacePreviewItem) -> str:
+    """One item a read returned, with the display facts it carries (a
+    deadline, a school, a word count) — what lets a single read prove a
+    field a batch write's receipt does not state."""
+    facts = [f"{m.label}: {m.value}" for m in item.meta]
+    if item.status:
+        facts.append(f"status: {item.status}")
+    detail = f" — {'; '.join(facts)}" if facts else ""
+    return f'{item.kind} "{item.title}"{detail}'
+
+
 def _receipt_text(receipt: StepData, *, carried_from_prior_round: bool = False) -> str:
     """Render one receipt into the compact text sent to the judge, stating
     plainly what it proves rather than leaving the judge to infer it from
@@ -304,6 +328,14 @@ def _receipt_text(receipt: StepData, *, carried_from_prior_round: bool = False) 
                 "  This is a direct, current-state check, not a mutation — it is "
                 "equally valid proof when it confirms or contradicts a criterion."
             )
+        if detail.workspace_items:
+            shown = len(detail.workspace_items)
+            total = detail.result_count if detail.result_count is not None else shown
+            lines.append(
+                f"  current state read from the workspace ({shown} of {total} items shown) — "
+                "each line is a fact that is true now:"
+            )
+            lines.extend(f"    - {_item_fact(item)}" for item in detail.workspace_items)
         if detail.error:
             lines.append(f"  error={detail.error}")
     if carried_from_prior_round:
@@ -312,6 +344,13 @@ def _receipt_text(receipt: StepData, *, carried_from_prior_round: bool = False) 
             "counts exactly as much as evidence produced this round)"
         )
     return "\n".join(lines)
+
+
+# The id the judge cites when the agent's answer itself is the proof — an
+# essay, a list, a plan the student asked for and received in the reply. It
+# makes the artifact citable; whether a given sentence is an artifact or a
+# bare claim that something was done stays the judge prompt's rule 1.
+FINAL_TEXT_EVIDENCE_ID = "final-text"
 
 
 def select_evidence(
@@ -354,10 +393,11 @@ def _render_evidence_block(
         or "(no tool receipts this round)"
     )
     dropped_marker = f'<dropped-receipts count="{dropped}"/>\n' if dropped else ""
-    final = final_text.strip() or "(no final text this round)"
+    final = final_text.strip()
+    final_block = f"[{FINAL_TEXT_EVIDENCE_ID}]\n{final}" if final else "(no final text this round)"
     return (
         f"{dropped_marker}<tool-receipts>\n{receipts_text}\n</tool-receipts>\n\n"
-        f"<final-text>\n{final}\n</final-text>"
+        f"<final-text>\n{final_block}\n</final-text>"
     )
 
 
@@ -365,7 +405,7 @@ def _render_criteria_block(criteria: Sequence[GoalCriterion]) -> str:
     return "\n".join(f"- [{c.id}] {c.text}" for c in criteria)
 
 
-async def judge_goal(
+def _build_judge_prompt(
     *,
     statement: str,
     criteria: Sequence[GoalCriterion],
@@ -373,60 +413,45 @@ async def judge_goal(
     final_text: str,
     prior_cited_step_ids: Collection[str],
     settings: Settings,
-    usage: RunUsage,
-) -> tuple[GoalVerdict, dict[str, bool]] | None:
-    """The judge call (D4, D5, §3). Returns ``None`` after
-    ``goal_judge_retries`` failed attempts — feed that into
-    ``decide_terminal_status(verdict=None, ...)`` for `"stopped_check_failed"`.
-
-    On success returns ``(verdict, checked_by_criterion_id)``: every
-    `verdict.criteria[i].met` is already CODE-CORRECTED (C9/C10 via
-    `compute_checked`), so `verdict.met` is honest by construction, not
-    convention; `checked_by_criterion_id` is C9's per-criterion "never
-    checked" flag, returned because `CriterionVerdict` doesn't carry it.
-
-    *receipts* is bounded internally via :func:`select_evidence`.
-    *prior_cited_step_ids* is what a PREVIOUS round cited (empty on round
-    one) — evidence retention only; this round's `checked` is always fresh.
-    """
-    from pydantic_ai import Agent
-
+    today: date | None,
+) -> tuple[str, frozenset[str], frozenset[str]]:
+    """Bound the evidence bundle (§3.3) and render the judge prompt from it,
+    returning the bundle/unknown step-id sets `_correct_criterion_verdicts`
+    needs to apply the same bound to the judge's raw claims afterward."""
     selected, dropped = select_evidence(
         receipts,
         always_keep_step_ids=prior_cited_step_ids,
         max_chars=settings.goal_judge_evidence_max_chars,
     )
     bundle_step_ids = frozenset(r.step_id for r in selected)
+    if final_text.strip():
+        bundle_step_ids |= {FINAL_TEXT_EVIDENCE_ID}
     unknown_ids = unknown_step_ids(selected)
-
     prompt = render_slots(
         load_prompt("goal_judge"),
-        ("goal_statement", "criteria_block", "evidence_block"),
+        ("goal_statement", "today", "criteria_block", "evidence_block"),
         goal_statement=statement,
+        today=calendar_context(today),
         criteria_block=_render_criteria_block(criteria),
         evidence_block=_render_evidence_block(
             selected, dropped, final_text, carried_step_ids=prior_cited_step_ids
         ),
     )
-    from pydantic_ai.settings import ModelSettings
+    return prompt, bundle_step_ids, unknown_ids
 
-    # Pinned to temperature=0: the judge is a grader, not a creative writer,
-    # and the eval gate must be able to attribute a score change to a prompt
-    # or rendering fix rather than to run-to-run sampling noise — the same
-    # 32 cases scored TPR 0.882, then 0.824, then 0.765 across three runs of
-    # the unpinned judge with no code change between them.
-    agent: Agent[None, _RawGoalVerdict] = Agent(
-        _vertex_model(settings, goal_judge_model_setting(settings)),
-        output_type=_RawGoalVerdict,
-        model_settings=ModelSettings(temperature=0.0),
-    )
-    raw = await _run_with_retries(agent, prompt, usage=usage, settings=settings)
-    if raw is None:
-        return None
 
+def _correct_criterion_verdicts(
+    criteria: Sequence[GoalCriterion],
+    raw_by_id: dict[str, _RawCriterionVerdict],
+    *,
+    bundle_step_ids: frozenset[str],
+    unknown_ids: frozenset[str],
+) -> tuple[list[CriterionVerdict], dict[str, bool]]:
+    """Run every criterion's raw, unvalidated judge claim through
+    `compute_checked` (C9/C10) so `judge_goal` never returns anything the
+    judge asserted uncorrected."""
     checked_by_id: dict[str, bool] = {}
     corrected: list[CriterionVerdict] = []
-    raw_by_id = {v.criterion_id: v for v in raw.criteria}
     for criterion in criteria:
         rv = raw_by_id.get(criterion.id)
         if rv is None:
@@ -458,4 +483,65 @@ async def judge_goal(
                 evidence_step_ids=tuple(rv.evidence_step_ids),
             )
         )
+    return corrected, checked_by_id
+
+
+async def judge_goal(
+    *,
+    statement: str,
+    criteria: Sequence[GoalCriterion],
+    receipts: Sequence[StepData],
+    final_text: str,
+    prior_cited_step_ids: Collection[str],
+    settings: Settings,
+    usage: RunUsage,
+    today: date | None = None,
+) -> tuple[GoalVerdict, dict[str, bool]] | None:
+    """The judge call (D4, D5, §3). Returns ``None`` after
+    ``goal_judge_retries`` failed attempts — feed that into
+    ``decide_terminal_status(verdict=None, ...)`` for `"stopped_check_failed"`.
+
+    On success returns ``(verdict, checked_by_criterion_id)``: every
+    `verdict.criteria[i].met` is already CODE-CORRECTED (C9/C10 via
+    `compute_checked`), so `verdict.met` is honest by construction, not
+    convention; `checked_by_criterion_id` is C9's per-criterion "never
+    checked" flag, returned because `CriterionVerdict` doesn't carry it.
+
+    *receipts* is bounded internally via :func:`select_evidence`.
+    *prior_cited_step_ids* is what a PREVIOUS round cited (empty on round
+    one) — evidence retention only; this round's `checked` is always fresh.
+    """
+    from pydantic_ai import Agent
+    from pydantic_ai.settings import ModelSettings
+
+    prompt, bundle_step_ids, unknown_ids = _build_judge_prompt(
+        statement=statement,
+        criteria=criteria,
+        receipts=receipts,
+        final_text=final_text,
+        prior_cited_step_ids=prior_cited_step_ids,
+        settings=settings,
+        today=today,
+    )
+
+    # Pinned to temperature=0: the judge is a grader, not a creative writer,
+    # and the eval gate must be able to attribute a score change to a prompt
+    # or rendering fix rather than to run-to-run sampling noise — the same
+    # 32 cases scored TPR 0.882, then 0.824, then 0.765 across three runs of
+    # the unpinned judge with no code change between them.
+    agent: Agent[None, _RawGoalVerdict] = Agent(
+        _vertex_model(settings, goal_judge_model_setting(settings)),
+        output_type=_RawGoalVerdict,
+        model_settings=ModelSettings(temperature=0.0),
+    )
+    raw = await _run_with_retries(agent, prompt, usage=usage, settings=settings)
+    if raw is None:
+        return None
+
+    corrected, checked_by_id = _correct_criterion_verdicts(
+        criteria,
+        {v.criterion_id: v for v in raw.criteria},
+        bundle_step_ids=bundle_step_ids,
+        unknown_ids=unknown_ids,
+    )
     return GoalVerdict(criteria=tuple(corrected), critique=raw.critique), checked_by_id

@@ -119,6 +119,9 @@ export function SlashCommandMenu({
                           /{command.keyword}
                         </span>
                       </span>
+                      <span className="text-[12px] leading-4 text-[var(--workspace-muted-foreground)]">
+                        {command.hint}
+                      </span>
                     </div>
                   );
                 })

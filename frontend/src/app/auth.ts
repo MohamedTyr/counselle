@@ -7,7 +7,6 @@ import {
 } from "@tanstack/react-query";
 import { useLayoutEffect, useRef, type PropsWithChildren } from "react";
 
-import { schoolsExploreQueryKey } from "@/api/schools/explore-query-key";
 import {
   fetchMe,
   login,
@@ -28,23 +27,15 @@ export const authQueryKey = ["me"] as const;
 export const onboardingQueryKey = ["onboarding"] as const;
 
 /**
- * Saved Profile, workspace, and Explore data belongs to one authenticated
+ * Saved Profile, workspace, and onboarding data belongs to one authenticated
  * owner. Abort all active private reads before removing their cache entries
- * so an old response cannot repopulate a later session. An owner transition
- * targets the old owner's Explore key, leaving a just-started new-owner
- * request alone; logout without a known owner clears the whole Explore root.
+ * so an old response cannot repopulate a later session. Explore is not in
+ * this set: it is the school catalog, identical for every reader.
  */
 export async function discardPrivateQueryData(
   queryClient: QueryClient,
-  exploreOwnerId?: string | null,
 ): Promise<void> {
-  const privateQueryRoots = [
-    exploreOwnerId === undefined
-      ? schoolsExploreQueryKey
-      : ([...schoolsExploreQueryKey, exploreOwnerId] as const),
-    workspaceKeys.all,
-    onboardingQueryKey,
-  ] as const;
+  const privateQueryRoots = [workspaceKeys.all, onboardingQueryKey] as const;
   await Promise.all(
     privateQueryRoots.map((queryKey) =>
       queryClient.cancelQueries({ queryKey }),
@@ -87,7 +78,6 @@ export function useAuthUser(): MeData | null {
 /**
  * Clears private data before the browser paints an auth-owner transition,
  * preventing unscoped workspace keys from flashing A's data in B's session.
- * Explore is additionally owner-scoped at its own query key.
  */
 export function AuthSessionCacheBoundary({ children }: PropsWithChildren) {
   const queryClient = useQueryClient();
@@ -106,7 +96,7 @@ export function AuthSessionCacheBoundary({ children }: PropsWithChildren) {
       return undefined;
     }
 
-    void discardPrivateQueryData(queryClient, previous);
+    void discardPrivateQueryData(queryClient);
     return undefined;
   }, [ownerId, queryClient]);
 

@@ -3,14 +3,14 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from datetime import UTC
+from datetime import UTC, date
 
 from app.asset_format import render_slots
 from app.workspace import essay_markdown
 from app.workspace.models import Essay
 from config.settings import load_prompt, load_yaml_asset
 from counselle_db.catalog import CatalogSnapshot
-from domain.goal import GoalCriterion
+from domain.goal import GoalCriterion, calendar_context
 from domain.specs import SourceConfig
 
 _DATA_SLOTS = (
@@ -26,7 +26,7 @@ _DATA_SLOTS = (
 _PROMPT_SLOTS = ("temporal_context", "student_context", "data_picture", "subreddit_menu")
 _SOURCE_AVAILABILITY_SLOTS = ("web_status", "edu_status", "reddit_status")
 _ESSAY_PROMPT_SLOTS = ("temporal_context", "student_context", "essay_context")
-_GOAL_MODE_SLOTS = ("goal_statement", "criteria_block")
+_GOAL_MODE_SLOTS = ("goal_statement", "today", "criteria_block")
 
 #: Fills the ``essay_context`` slot when the turn's essay could not be loaded
 #: (an unauthenticated harness run, or an essay deleted mid-session). The model
@@ -145,7 +145,9 @@ def render_essay_context(essay: Essay, *, selection: str | None, max_chars: int)
     )
 
 
-def render_goal_mode(statement: str, criteria: Sequence[GoalCriterion]) -> str:
+def render_goal_mode(
+    statement: str, criteria: Sequence[GoalCriterion], today: date | None = None
+) -> str:
     """The goal-mode instructions block (D12/C2/§2.9) — joined into the
     agent's ``instructions`` alongside the counselor prompt, computed once at
     ``Agent(...)`` construction. Carries the goal statement and frozen
@@ -157,6 +159,7 @@ def render_goal_mode(statement: str, criteria: Sequence[GoalCriterion]) -> str:
         load_prompt("goal_mode"),
         _GOAL_MODE_SLOTS,
         goal_statement=statement,
+        today=calendar_context(today),
         criteria_block=criteria_block,
     )
 

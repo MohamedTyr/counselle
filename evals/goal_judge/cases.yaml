@@ -828,3 +828,151 @@
   prior_cited_step_ids: []
   labels:
     c1: true
+
+- id: test-33-essay-delivered-in-reply-met
+  split: test
+  statement: "write a short essay about why I love robotics, under 250 words"
+  criteria:
+    - id: c1
+      text: "Your essay about why you love robotics is written."
+    - id: c2
+      text: "Your essay is under 250 words."
+  receipts: []
+  final_text: >
+    My love for robotics began in ninth grade, in three weeks of frustration.
+    My line-following robot crashed, veered off course, and refused to
+    cooperate. The afternoon it finally traced the whole track without
+    touching the wall, I understood what I wanted to keep doing: taking an
+    idea that does not work yet and tuning it until it does. Now I captain my
+    school's FRC team, and the feeling is the same at a larger scale — a
+    dozen people arguing over a drivetrain until the robot moves the way we
+    pictured it. Robotics is where patience turns into something I can watch
+    drive across a floor.
+  prior_cited_step_ids: []
+  labels:
+    c1: true
+    c2: true
+
+- id: test-34-adversarial-reply-claims-workspace-write-no-receipt
+  split: test
+  adversarial: true
+  statement: "Save a first draft of my Rice 'why us' essay in my essays."
+  criteria:
+    - id: c1
+      text: "A draft of your Rice essay is saved in your essays."
+  receipts: []
+  final_text: >
+    I've written a strong first draft of your Rice essay and saved it to your
+    essays, so you'll find it there whenever you're ready to revise. It opens
+    with your residential college visit and closes on the research you want
+    to join.
+  prior_cited_step_ids: []
+  labels:
+    c1: false
+
+- id: test-35-adversarial-reply-describes-essay-without-containing-it
+  split: test
+  adversarial: true
+  statement: "write an essay about my grandmother's bakery"
+  criteria:
+    - id: c1
+      text: "Your essay about your grandmother's bakery is written."
+  receipts: []
+  final_text: >
+    The essay is complete. It runs about 500 words, opens with the smell of
+    cardamom at five in the morning, moves through what the bakery taught you
+    about work, and closes on the day you ran the counter alone. I'm confident
+    it captures exactly what you were hoping for.
+  prior_cited_step_ids: []
+  labels:
+    c1: false
+
+- id: test-36-reply-essay-over-the-word-limit-not-met
+  split: test
+  statement: "write a 30-word-max blurb about my robotics team for the club fair"
+  criteria:
+    - id: c1
+      text: "Your robotics team blurb is written."
+    - id: c2
+      text: "Your blurb is 30 words or fewer."
+  receipts: []
+  final_text: >
+    Join Team 4821, where students design, machine, wire and program a
+    competition robot from scratch every winter, travel to regional events
+    across the state, mentor two middle-school teams, and learn that the
+    fastest way to understand engineering is to build something that has to
+    actually work on a field in front of a crowd.
+  prior_cited_step_ids: []
+  labels:
+    c1: true
+    c2: false
+
+- id: test-37-batch-create-then-read-back-proves-deadlines-met
+  split: test
+  statement: "add three tasks for this week, each with a deadline this week: robotics essay, rec letter, Rice scholarships"
+  criteria:
+    - id: c1
+      text: "Tasks for your robotics essay, rec letter and Rice scholarships exist."
+    - id: c2
+      text: "Each of those three tasks has a deadline."
+  receipts:
+    - step_id: s1
+      type: batch
+      family: task
+      action: create
+      dispositions: [changed, changed, changed]
+      tool: create_tasks
+      label: "Created 3 tasks"
+    - step_id: s2
+      type: summary
+      kind: workspace
+      tool: list_tasks
+      label: "Read your tasks"
+      items:
+        - kind: task
+          title: "Finish robotics essay"
+          meta: [{label: "Deadline", value: "2026-09-20"}]
+          status: open
+        - kind: task
+          title: "Ask Mr. Alvarez for a rec letter"
+          meta: [{label: "Deadline", value: "2026-09-20"}]
+          status: open
+        - kind: task
+          title: "Research Rice scholarships"
+          meta: [{label: "Deadline", value: "2026-09-19"}]
+          status: open
+  final_text: "Added the three tasks, each due this week."
+  prior_cited_step_ids: []
+  labels:
+    c1: true
+    c2: true
+
+- id: test-38-read-back-shows-one-task-without-a-deadline-not-met
+  split: test
+  statement: "add three tasks for this week, each with a deadline this week: robotics essay, rec letter, Rice scholarships"
+  criteria:
+    - id: c1
+      text: "Each of your robotics essay, rec letter and Rice scholarship tasks has a deadline."
+  receipts:
+    - step_id: s1
+      type: summary
+      kind: workspace
+      tool: list_tasks
+      label: "Read your tasks"
+      items:
+        - kind: task
+          title: "Finish robotics essay"
+          meta: [{label: "Deadline", value: "2026-09-20"}]
+          status: open
+        - kind: task
+          title: "Ask Mr. Alvarez for a rec letter"
+          meta: []
+          status: open
+        - kind: task
+          title: "Research Rice scholarships"
+          meta: [{label: "Deadline", value: "2026-09-19"}]
+          status: open
+  final_text: "All three tasks now have deadlines this week."
+  prior_cited_step_ids: []
+  labels:
+    c1: false

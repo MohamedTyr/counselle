@@ -2,7 +2,7 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, test } from "vitest";
 
 import { ToolCallGalleryPage } from "./ToolCallGalleryPage";
-import { GOAL_MODE_FIXTURES } from "./tool-call-fixtures";
+import { GOAL_MODE_FIXTURES, GOAL_RUN_FIXTURES } from "./tool-call-fixtures";
 
 /**
  * Smoke test for the gallery's "Goal mode" section (plans/goal-mode-plan.md
@@ -12,8 +12,8 @@ import { GOAL_MODE_FIXTURES } from "./tool-call-fixtures";
  * viewport to perform (§7.4).
  */
 describe("ToolCallGalleryPage — goal mode", () => {
-  test("renders exactly ten goal-mode fixtures", () => {
-    expect(GOAL_MODE_FIXTURES.length).toBe(10);
+  test("renders exactly eleven goal-mode fixtures", () => {
+    expect(GOAL_MODE_FIXTURES.length).toBe(11);
 
     render(<ToolCallGalleryPage />);
 
@@ -26,9 +26,11 @@ describe("ToolCallGalleryPage — goal mode", () => {
     render(<ToolCallGalleryPage />);
 
     const headers = screen.getAllByRole("region", { name: "Goal" });
-    expect(headers).toHaveLength(GOAL_MODE_FIXTURES.length);
+    expect(headers).toHaveLength(
+      GOAL_MODE_FIXTURES.length + GOAL_RUN_FIXTURES.length,
+    );
 
-    const expectedCards = GOAL_MODE_FIXTURES.filter(
+    const expectedCards = [...GOAL_MODE_FIXTURES, ...GOAL_RUN_FIXTURES].filter(
       (fixture) => fixture.detail.status !== null && fixture.detail.criteria.length > 0,
     ).length;
     const cards = screen.queryAllByRole("region", { name: "Goal result" });

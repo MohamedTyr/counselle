@@ -631,16 +631,13 @@ def _google_thinking_config(model_settings: Any) -> dict[str, Any] | None:
 async def test_agent_node_thinking_config_follows_response_mode(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Quick is always MINIMAL/no-thoughts; Think is HIGH and requests provider
-    thoughts only when settings.effective_thinking_stream is on (plan
-    plans/quick-think-response-mode.md §5.2) — the node never re-derives this
-    from a global default, only from counselor_model_selection(response_mode)."""
+    """The selected model family owns the wire shape; mode owns its intent."""
     quick_settings = FakeSettings()
     quick_model_settings = await _run_node_capturing_model_settings(
         monkeypatch, quick_settings, response_mode="quick"
     )
     assert _google_thinking_config(quick_model_settings) == {
-        "thinking_level": "MINIMAL",
+        "thinking_budget": 0,
         "include_thoughts": False,
     }
 

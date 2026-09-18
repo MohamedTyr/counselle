@@ -103,10 +103,9 @@ def make_document_summary_generator(
     return generate
 
 
-#: Only this provider prefix needs the explicit Vertex Express Mode auth path
-#: below (see ``app.agent_node.default_model_factory``); every other
-#: provider-prefixed string resolves fine through PydanticAI's own
-#: ``infer_model``.
+#: Only this provider prefix needs explicit Vertex construction so the app can
+#: consistently select its Express-key or ADC credentials. Every other
+#: provider-prefixed string resolves through PydanticAI's own ``infer_model``.
 _GOOGLE_VERTEX_PREFIX = "google-vertex:"
 
 
@@ -118,24 +117,17 @@ def _summary_model(settings: Any, model_factory: ModelFactory | None) -> Any:
         # PydanticAI resolves this provider-prefixed string to the configured
         # provider/model pair, so summaries follow the same cheap-model Settings seam.
         return model_setting
-    # The bare "google-vertex:" prefix resolves to an ambient-credentials
-    # GoogleCloudProvider, which this app can't authenticate with (notes §1 on
-    # app.model_selection.model_name_from_setting/app.agent_node.default_model_factory).
-    # Build the model the same explicit way the counselor model does, but for
-    # the cheap model setting.
+    # Build the cheap model through the same explicit Vertex client as the
+    # counselor model so API-key and ADC configuration stay consistent.
     from pydantic_ai.models.google import GoogleModel
     from pydantic_ai.providers.google_cloud import GoogleCloudProvider
 
     from app.model_selection import model_name_from_setting
+    from app.vertex import build_vertex_client
 
-    if not settings.vertex_api_key:
-        raise RuntimeError(
-            "COUNSELLE_VERTEX_API_KEY is not set — the cheap model cannot "
-            "authenticate (Vertex Express Mode key required)."
-        )
     return GoogleModel(
         model_name_from_setting(model_setting),
-        provider=GoogleCloudProvider(api_key=settings.vertex_api_key),
+        provider=GoogleCloudProvider(client=build_vertex_client(settings)),
     )
 
 
@@ -169,13 +161,17 @@ def normalize_document_summary(value: object) -> str | None:
 
 def _summary_topics_are_private(value: str) -> bool:
     topics = [topic.strip() for topic in value.split(",")]
-    return 2 <= len(topics) <= 3 and len(set(topics)) == len(topics) and all(
-        topic in _SUMMARY_TOPICS for topic in topics
+    return (
+        2 <= len(topics) <= 3
+        and len(set(topics)) == len(topics)
+        and all(topic in _SUMMARY_TOPICS for topic in topics)
     )
 
 
 def is_no_document_summary(value: object) -> bool:
     """Return whether the model deliberately reported insufficient source text."""
-    return isinstance(value, str) and "\n".join(
-        " ".join(line.split()) for line in value.splitlines() if line.strip()
-    ) == "NO_SUMMARY"
+    return (
+        isinstance(value, str)
+        and "\n".join(" ".join(line.split()) for line in value.splitlines() if line.strip())
+        == "NO_SUMMARY"
+    )

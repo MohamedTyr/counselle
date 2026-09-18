@@ -831,9 +831,6 @@ follow-up in the same phase; this entry is closed on the backend side.
     follow-up on its own branch; not started.
   - **Re-deriving criteria after a steer.** A mid-run steer redirects *how* the agent
     works, never *what* it is judged against — criteria are frozen at goal start.
-  - **Clarify inside a goal run.** Structurally impossible by construction
-    (`output_type=[str]`, D13) — genuine ambiguity becomes a stated assumption on the
-    criterion instead of a question.
   - **A domain-specific `summary_prompt`** for the compaction summarizing tier (e.g.
     preserving school names/UNITIDs/deadlines/citation markers verbatim). Deferred until
     real goal-run traces exist to tune against — the shipped default summary prompt
@@ -897,3 +894,42 @@ follow-up in the same phase; this entry is closed on the backend side.
 - **Context:** `app/agent_node.py` (`compaction_capabilities`, `_SummarizingBeat`);
   `config/settings.py` (`goal_compaction_*`); `tests/app/test_agent_node_compaction.py`.
 - *(Logged when the summarizing tier was built, 2026-09-16.)*
+
+## Goal mode: opening a long goal run mid-flight shows a blank "Starting response…"
+- **What:** reloading, or opening from the sidebar, a goal run that is still in progress
+  can show only the student's message and the generic starting beat — no goal line, no
+  plan, no tool beats — until the run ends and the transcript is persisted. Short goal
+  runs are unaffected once finished: a settled run replays correctly from the transcript.
+- **Observed (2026-09-18):** a live goal run ~25 minutes in. `GET /sessions/{id}` returned
+  a transcript holding only the user message; `GET /sessions/{id}/stream` returned 200
+  (so the registry had an active turn) and replayed no events, several times closing
+  within ~6ms. Reproduced on a fresh page load with no dev hot-reload involved.
+- **Likely cause, not confirmed from logs:** `app/turns.py::_follow` terminates a consumer
+  that "fell off the buffer head" rather than skip events. The replay buffer is
+  byte-budgeted (`stream_buffer_bytes`), so a long goal run evicts its early events; a
+  fresh attach from seq 0 then falls off the head, and the client's transcript fallback
+  has nothing to show because a live turn's assistant message is not persisted yet.
+  That rule is right for a short turn and a real hole for a run designed to last up to
+  an hour. Confirm by looking for `consumer fell off the buffer head` in the server log.
+- **Why it was not fixed here:** it is the turn registry's replay contract, not the goal
+  UI. The honest fix is structural — e.g. keep the latest `goal` and `write_plan` steps
+  replayable regardless of eviction, or persist a partial transcript for long turns —
+  and deserves its own change, not a patch smuggled into a UI pass.
+- *(Logged from the goal-mode UI/UX pass, 2026-09-18.)*
+
+## Goal mode: the agent runs on the cheap tier, not the student's selected mode
+- **What:** `goal_agent_model_setting` falls back to `model_cheap` (D15), so a goal turn
+  ignores Quick/Think. In live runs on 2026-09-18 the cheap tier planned myopically (a
+  2-step plan for a 3-school goal, grown to 6 as it went) and, once, gave up and asked the
+  student for dates despite the prompt's "state assumptions, don't ask" rule — the check
+  then correctly sent it back. Setting `COUNSELLE_GOAL_MODEL` is a one-line change, but
+  `goal_max_model_requests` and `goal_max_total_tokens` are derived from cheap-tier
+  pricing under the $3.00 cap, so raising the model means re-deriving both. Owner call.
+- *(Logged from the goal-mode UI/UX pass, 2026-09-18.)*
+
+## `search_school_site` searched the wrong school's website
+- **What:** during a goal run, a beat read "Searching Dalton State College's website:
+  'Emory University Regular Decision deadline 2027'" and returned federalregister.gov
+  and Dalton State results. The `.edu` search resolved Emory to the wrong institution.
+  Unrelated to goal mode — seen there only because goal runs do a lot of searching.
+- *(Logged from the goal-mode UI/UX pass, 2026-09-18.)*

@@ -11,15 +11,20 @@ C9/C10 honesty corrections are decided — exactly one copy of this logic (§6.2
 
 from __future__ import annotations
 
-from collections.abc import Collection, Iterable
+from collections.abc import Collection, Iterable, Mapping
 from dataclasses import dataclass
-from typing import Literal
+from datetime import date, timedelta
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict
 
-# THE single source of truth for the six terminal states (§0.1, §2.5, §2.6,
+# THE single source of truth for the terminal states (§0.1, §2.5, §2.6,
 # §5.3). Imported by domain/events.py's GoalStepDetail (Phase 3) and
 # app/goal_loop.py's GoalLoopController — never redefined elsewhere.
+# ``awaiting_input`` is the one state :func:`decide_terminal_status` never
+# returns: it is not a judgment about the goal but the agent's own explicit
+# pause (an ``ask_student`` output), set by the loop before any check runs.
+# The run resumes as a clarify continuation carrying the same frozen criteria.
 GoalStatus = Literal[
     "achieved",  # every criterion met AND checked
     "partial",  # stopped for a non-limit reason (tool-error escalation)
@@ -27,6 +32,7 @@ GoalStatus = Literal[
     "stopped_no_progress",  # stalled for goal_stall_iterations
     "stopped_user",  # the student pressed Stop
     "stopped_check_failed",  # the judge itself failed after its retries (C12)
+    "awaiting_input",  # the agent asked the student a question; resumes with their answer
 ]
 
 
@@ -100,6 +106,37 @@ class GoalLedger:
     iteration: int = 0
     consecutive_tool_errors: int = 0
 
+    def to_carry(self) -> dict[str, Any]:
+        """The totals that survive an ``ask_student`` pause: iteration
+        count, cost, active elapsed time, and consecutive tool errors — a
+        resumed goal turn is judged against the whole goal's budget, never a
+        fresh one per segment. Never ``requests_used``/``tokens_used``: those
+        back pydantic-ai's own per-run ``UsageLimits``, a hard per-segment
+        safety stop rather than the run's budget, so each segment gets a
+        fresh ``UsageLimits`` and these two fields are recomputed fresh from
+        that segment's own ``RunUsage`` rather than carried across a pause.
+        """
+        return {
+            "iteration": self.iteration,
+            "cost_usd": self.cost_usd,
+            "elapsed_s": self.elapsed_s,
+            "consecutive_tool_errors": self.consecutive_tool_errors,
+        }
+
+    @classmethod
+    def from_carry(cls, carried: Mapping[str, Any] | None) -> GoalLedger:
+        """The inverse of :meth:`to_carry` — a fresh ledger seeded with a
+        prior segment's totals, or an empty one for a goal run's first
+        segment (``carried`` is ``None``)."""
+        if not carried:
+            return cls()
+        return cls(
+            iteration=int(carried.get("iteration", 0)),
+            cost_usd=float(carried.get("cost_usd", 0.0)),
+            elapsed_s=float(carried.get("elapsed_s", 0.0)),
+            consecutive_tool_errors=int(carried.get("consecutive_tool_errors", 0)),
+        )
+
 
 @dataclass(frozen=True)
 class GoalLimits:
@@ -116,6 +153,7 @@ class GoalLimits:
     max_wall_clock_s: float
     max_cost_usd: float | None
     max_consecutive_tool_errors: int
+    max_flat_checks: int
 
 
 def decide_terminal_status(
@@ -159,25 +197,47 @@ def decide_terminal_status(
     return None
 
 
-def is_stalled(
+def calendar_context(today: date | None) -> str:
+    """Today and the weeks around it, spelled out as dates. The criteria
+    writer, the agent and the judge all read this same text, so "this week"
+    is one fixed range rather than three models' separate arithmetic."""
+    if today is None:
+        return "(not given)"
+    monday = today - timedelta(days=today.weekday())
+
+    def week(start: date) -> str:
+        return f"{start.isoformat()} (Monday) to {(start + timedelta(days=6)).isoformat()} (Sunday)"
+
+    return (
+        f"Today is {today.strftime('%A')}, {today.isoformat()}.\n"
+        f"This week: {week(monday)}.\n"
+        f"Next week: {week(monday + timedelta(days=7))}."
+    )
+
+
+def flat_checks_after(
     prev_met_criterion_ids: frozenset[str] | None,
     current_met_criterion_ids: frozenset[str],
-    prev_plan_signature: str | None,
-    current_plan_signature: str,
-) -> bool:
-    """True when genuinely stuck (§2.5): the met-criterion-id set is
-    unchanged from the previous round AND the rendered plan is
-    byte-identical. Requiring both separates "stuck" from "still working a
-    long criterion" (repeated criteria with a changing plan is NOT stalled).
-    The first round has no previous state (``prev_*`` is ``None``) and can
-    never be stalled.
+    flat_checks: int,
+) -> int:
+    """The running count of consecutive checks that met nothing new. The
+    first check has no previous state and is never flat; a check that meets
+    a criterion the one before it did not resets the count."""
+    if prev_met_criterion_ids is None:
+        return 0
+    if current_met_criterion_ids - prev_met_criterion_ids:
+        return 0
+    return flat_checks + 1
+
+
+def is_stalled(flat_checks: int, limits: GoalLimits) -> bool:
+    """True when ``max_flat_checks`` checks in a row met nothing new (§2.5).
+
+    Judged from the check's own results and nothing else. How the agent
+    works — whether it keeps a plan, what the plan says, whether it changed
+    — is the agent's business and is never an input to stopping a run.
     """
-    if prev_met_criterion_ids is None or prev_plan_signature is None:
-        return False
-    return (
-        prev_met_criterion_ids == current_met_criterion_ids
-        and prev_plan_signature == current_plan_signature
-    )
+    return flat_checks >= limits.max_flat_checks
 
 
 def validate_evidence_ids(

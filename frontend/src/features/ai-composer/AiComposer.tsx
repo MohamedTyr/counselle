@@ -1,4 +1,4 @@
-import { AtSign, Send, Square } from "lucide-react";
+import { AtSign, Send, Square, Target, X } from "lucide-react";
 import {
   useEffect,
   useRef,
@@ -7,6 +7,7 @@ import {
   type KeyboardEvent,
 } from "react";
 
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useAutoResizeTextarea } from "@/hooks/use-auto-resize-textarea";
@@ -35,6 +36,8 @@ import {
 } from "@/features/skill-picker/InlineSkillMentionLayer";
 import { SkillPicker } from "@/features/skill-picker/SkillPicker";
 import { useSkillPicker } from "@/features/skill-picker/useSkillPicker";
+import { SlashCommandMenu } from "@/features/slash-command/SlashCommandMenu";
+import { useSlashCommand } from "@/features/slash-command/useSlashCommand";
 
 type AiComposerProps = {
   value: string;
@@ -45,6 +48,16 @@ type AiComposerProps = {
   responseModes?: readonly ResponseModeOption[];
   onResponseModeChange?: (mode: ResponseMode) => void;
   onSubmit: () => void;
+  /**
+   * Fired immediately before `onSubmit` on every send, carrying whether goal
+   * mode is armed for this message (goal-mode plan §5.5). `true` only when
+   * the student explicitly selected `/goal` from the slash-command menu —
+   * never derived from the raw text, so typing the literal string `/goal`
+   * and sending it never arms an autonomous, budget-spending run. A
+   * separate callback rather than an `onSubmit` argument, matching
+   * `ChatComposer` (see its doc comment for why).
+   */
+  onGoalModeSubmit?: (goalMode: boolean) => void;
   onCancel: () => void;
   isSubmitting: boolean;
   canCancel: boolean;
@@ -67,6 +80,7 @@ export function AiComposer({
   responseModes = BUILT_IN_RESPONSE_MODE_OPTIONS,
   onResponseModeChange = () => undefined,
   onSubmit,
+  onGoalModeSubmit = () => undefined,
   onCancel,
   isSubmitting,
   canCancel,
@@ -99,6 +113,13 @@ export function AiComposer({
     maxSelectedSkills: maxTaskSkills,
     disabled: disabled || isSubmitting || maxTaskSkills === 0,
   });
+  const slash = useSlashCommand({
+    text: value,
+    onTextChange: onValueChange,
+    textareaRef,
+    disabled: disabled || isSubmitting,
+  });
+  const goalArmed = slash.armedCommandId === "goal";
   const canSubmit = value.trim().length > 0 && !isSubmitting && !disabled;
   const hasSkillMention = hasInlineSkillMention(value, selectedSkills);
 
@@ -111,11 +132,20 @@ export function AiComposer({
     if (!canSubmit) {
       return;
     }
+    onGoalModeSubmit(goalArmed);
     onSubmit();
+    // Every send clears the armed command, so a later, unrelated message can
+    // never silently inherit goal mode (§5.5).
+    slash.clearArmedCommand();
     adjustHeight(true);
   }
 
   function handleKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
+    // Chained slash → skill → submit (§5.5): both return `true` when they
+    // consume a key, so first refusal wins and nothing falls through.
+    if (slash.handleKeyDown(event)) {
+      return;
+    }
     if (picker.handleKeyDown(event)) {
       return;
     }
@@ -138,6 +168,26 @@ export function AiComposer({
         ref={composerRef}
         className="group flex min-h-28 w-full flex-col overflow-hidden rounded-2xl border border-[var(--workspace-composer-border)] bg-[var(--workspace-composer-surface)] text-card-foreground transition-[border-color,box-shadow] focus-within:border-[var(--workspace-composer-border-active)] focus-within:ring-2 focus-within:ring-[var(--focus-ring)]/30 motion-reduce:transition-none"
       >
+        {goalArmed && (
+          <div className="flex px-[var(--workspace-composer-inset)] pt-3">
+            <Badge
+              className="min-w-0 max-w-full gap-1.5 py-0.5 pr-1 pl-2 font-normal"
+              variant="outline"
+            >
+              <Target aria-hidden="true" className="size-3.5 shrink-0" />
+              <span className="truncate">Goal mode</span>
+              <button
+                aria-label="Cancel goal mode"
+                className="-mr-0.5 relative flex size-4 shrink-0 cursor-pointer items-center justify-center rounded-sm text-muted-foreground transition-colors duration-150 ease-out hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background focus-visible:outline-none motion-reduce:transition-none pointer-coarse:after:absolute pointer-coarse:after:size-full pointer-coarse:after:min-h-11 pointer-coarse:after:min-w-11"
+                onClick={slash.clearArmedCommand}
+                type="button"
+              >
+                <X aria-hidden="true" className="size-3" />
+              </button>
+            </Badge>
+          </div>
+        )}
+
         <div className="relative">
           {hasSkillMention && (
             <InlineSkillMentionLayer
@@ -147,10 +197,18 @@ export function AiComposer({
             />
           )}
           <Textarea
-            aria-activedescendant={picker.activeOptionId}
+            aria-activedescendant={
+              slash.isOpen ? slash.activeOptionId : picker.activeOptionId
+            }
             aria-autocomplete="list"
-            aria-controls={picker.isOpen ? picker.listboxId : undefined}
-            aria-expanded={picker.isOpen}
+            aria-controls={
+              slash.isOpen
+                ? slash.listboxId
+                : picker.isOpen
+                  ? picker.listboxId
+                  : undefined
+            }
+            aria-expanded={slash.isOpen || picker.isOpen}
             aria-label="Message Counselle"
             role="combobox"
             unstyled
@@ -161,22 +219,28 @@ export function AiComposer({
             )}
             disabled={disabled}
             onChange={(event) => {
+              slash.handleTextChange(event);
               picker.handleTextChange(event);
               adjustHeight();
             }}
             onCompositionEnd={(event) => {
               setIsComposing(false);
+              slash.handleCompositionEnd(event);
               picker.handleCompositionEnd(event);
             }}
             onCompositionStart={() => {
               setIsComposing(true);
+              slash.handleCompositionStart();
               picker.handleCompositionStart();
             }}
             onKeyDown={handleKeyDown}
             onScroll={(event) =>
               setTextareaScrollTop(event.currentTarget.scrollTop)
             }
-            onSelect={picker.handleTextareaSelect}
+            onSelect={(event) => {
+              slash.handleTextareaSelect(event);
+              picker.handleTextareaSelect(event);
+            }}
             placeholder="Message Counselle"
             ref={textareaRef}
             style={{ resize: "none" }}
@@ -259,6 +323,18 @@ export function AiComposer({
           results={picker.results}
           selectedSkills={selectedSkills}
           setActiveIndex={picker.setActiveIndex}
+        />
+        <SlashCommandMenu
+          activeIndex={slash.activeIndex}
+          anchorRef={composerRef}
+          announcement={slash.announcement}
+          isOpen={slash.isOpen}
+          listboxId={slash.listboxId}
+          onClose={slash.close}
+          onSelect={slash.selectCommand}
+          query={slash.query}
+          results={slash.results}
+          setActiveIndex={slash.setActiveIndex}
         />
       </div>
     </form>

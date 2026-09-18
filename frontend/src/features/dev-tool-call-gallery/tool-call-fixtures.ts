@@ -1728,10 +1728,11 @@ export const TOOL_CALL_GROUPS = Object.freeze([
 ] as const);
 
 // ---------------------------------------------------------------------------
-// Goal mode (plans/goal-mode-plan.md §6.5) — ten fixtures covering the six
-// `GoalStatus` values, `running`, the criteria-loading skeleton, the
-// no-`phase="final"` "Stopped — interrupted" state, and the C9 omitted-
-// criterion honesty guard. These render through
+// Goal mode (plans/goal-mode-plan.md §6.5) — eleven fixtures covering the
+// seven `GoalStatus` values (including the `awaiting_input` pause), `running`,
+// the criteria-loading skeleton, the no-`phase="final"` "Stopped —
+// interrupted" state, and the C9 omitted-criterion honesty guard. These
+// render through
 // `GoalHeader`/`GoalVerdictCard` directly rather than `ToolStepBeat`, so
 // they carry a `GoalStepDetail` instead of a `StepData`.
 // ---------------------------------------------------------------------------
@@ -2056,10 +2057,12 @@ export const GOAL_MODE_FIXTURES: readonly GoalFixture[] = Object.freeze([
     label: "Stopped — interrupted",
     isInterrupted: true,
     detail: goalDetail({
-      // A crashed run never emits `phase: "final"` — `status` stays `null`
+      // A run that dies on error emits a genuine `phase: "final"` step —
+      // the ledger plus the last verdict — but `status` stays `null`
       // forever. This fixture's `isInterrupted: true` is what the header
       // reads instead (§5.3's crash rule).
       status: null,
+      phase: "final",
       iteration: 3,
       criteria: [
         goalCriterion({ id: "c1", text: BASE_CRITERIA[0].text, met: true, checked: true }),
@@ -2074,5 +2077,146 @@ export const GOAL_MODE_FIXTURES: readonly GoalFixture[] = Object.freeze([
       elapsed_s: 205,
     }),
   },
+  {
+    id: "goal-awaiting-input",
+    label: "Waiting for your answer",
+    detail: goalDetail({
+      status: "awaiting_input",
+      phase: "final",
+      iteration: 2,
+      criteria: [
+        goalCriterion({ id: "c1", text: BASE_CRITERIA[0].text, met: true, checked: true }),
+        goalCriterion({
+          id: "c2",
+          text: BASE_CRITERIA[1].text,
+          met: null,
+          checked: false,
+          reason: "Not checked yet — the run is waiting on your answer.",
+        }),
+        goalCriterion({ id: "c3", text: BASE_CRITERIA[2].text, met: null, checked: false }),
+        goalCriterion({ id: "c4", text: BASE_CRITERIA[3].text, met: null, checked: false }),
+      ],
+      met_count: 1,
+      unchecked_count: 3,
+      requests_used: 12,
+      est_cost_usd: 0.3,
+      elapsed_s: 96,
+    }),
+  },
   GOAL_CRITERION_HONESTY_FIXTURE,
+]);
+
+// A whole goal message, top to bottom — the goal line, the agent's own plan,
+// its tool work, the between-rounds check, and (once finished) the result.
+// The isolated fixtures above cover every state; these two exist to judge
+// the states as a student actually meets them: together.
+export type GoalRunFixture = Readonly<{
+  id: string;
+  label: string;
+  detail: GoalStepDetail;
+  plan: StepData;
+  steps: readonly StepData[];
+  live: boolean;
+}>;
+
+function goalRunStep(
+  input: Pick<StepData, "step_id" | "kind" | "label"> & Partial<StepData>,
+): StepData {
+  return { status: "end", tier: null, detail: null, ...input };
+}
+
+const RUN_CHECK_DETAIL = goalDetail({
+  phase: "check",
+  status: null,
+  iteration: 1,
+  met_count: 2,
+  criteria: [
+    goalCriterion({ id: "c1", text: BASE_CRITERIA[0].text, met: true, checked: true }),
+    goalCriterion({ id: "c2", text: BASE_CRITERIA[1].text, met: true, checked: true }),
+    goalCriterion({
+      id: "c3",
+      text: BASE_CRITERIA[2].text,
+      met: false,
+      checked: true,
+      reason: "2 of 6 schools still have an empty note.",
+    }),
+    goalCriterion({
+      id: "c4",
+      text: BASE_CRITERIA[3].text,
+      met: false,
+      checked: true,
+      reason: "Tufts and Rice notes are one sentence each.",
+    }),
+  ],
+});
+
+const RUN_STEPS: readonly StepData[] = [
+  goalRunStep({
+    step_id: "run-list",
+    kind: "workspace",
+    tool: "list_schools",
+    label: "Read your school list",
+  }),
+  goalRunStep({
+    step_id: "run-update",
+    kind: "workspace",
+    tool: "update_school",
+    label: "Added deadlines to 6 schools",
+  }),
+  goalRunStep({
+    step_id: "goal-check-1",
+    kind: "goal",
+    label: "Checked progress against the goal",
+    detail: { goal: RUN_CHECK_DETAIL },
+  }),
+];
+
+export const GOAL_RUN_FIXTURES: readonly GoalRunFixture[] = Object.freeze([
+  {
+    id: "goal-run-working",
+    label: "Mid-run, after one check",
+    live: true,
+    detail: RUN_CHECK_DETAIL,
+    plan: goalRunStep({
+      step_id: "run-plan",
+      kind: "write_plan",
+      tool: "write_plan",
+      label: "Updating the plan",
+      detail: {
+        completed: 2,
+        total: 4,
+        items: [
+          { content: "Read the school list", status: "completed" },
+          { content: "Add each school's deadline", status: "completed" },
+          { content: "Write the two missing notes", status: "in_progress" },
+          { content: "Lengthen the short notes", status: "pending" },
+        ],
+      },
+    }),
+    steps: RUN_STEPS,
+  },
+  {
+    id: "goal-run-finished",
+    label: "Finished",
+    live: false,
+    detail: GOAL_MODE_FIXTURES.find((item) => item.id === "goal-achieved")!
+      .detail,
+    plan: goalRunStep({
+      step_id: "run-plan",
+      kind: "write_plan",
+      tool: "write_plan",
+      label: "Updated the plan",
+      detail: {
+        completed: 4,
+        total: 4,
+        items: [
+          { content: "Read the school list", status: "completed" },
+          { content: "Add each school's deadline", status: "completed" },
+          { content: "Write the two missing notes", status: "completed" },
+          { content: "Lengthen the short notes", status: "completed" },
+        ],
+      },
+    }),
+    steps: RUN_STEPS,
+  },
 ]);

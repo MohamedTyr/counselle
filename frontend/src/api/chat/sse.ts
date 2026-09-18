@@ -253,7 +253,8 @@ function isGoalStatus(value: unknown) {
     value === "stopped_budget" ||
     value === "stopped_no_progress" ||
     value === "stopped_user" ||
-    value === "stopped_check_failed"
+    value === "stopped_check_failed" ||
+    value === "awaiting_input"
   );
 }
 
