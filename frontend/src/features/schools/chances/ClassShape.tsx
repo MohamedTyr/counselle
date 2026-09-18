@@ -2,6 +2,7 @@
  * and selectClassShapeKind are consumed by AcademicComparisonPlot.tsx and
  * GpaComparison.tsx alongside the component itself; see badge.tsx/select.tsx
  * for the same precedent in this codebase. */
+import * as React from "react";
 import { Area, ComposedChart, XAxis, YAxis } from "recharts";
 
 import { ChartContainer } from "@/components/ui/chart";
@@ -174,7 +175,9 @@ function SteppedArea({
   metric: PlotWindowMetric;
   className?: string;
 }): React.ReactElement {
-  const data = steppedAreaData(distribution, window, metric);
+  const data = smoothSilhouette(steppedAreaData(distribution, window, metric));
+  const rampId = React.useId();
+  const fadeId = React.useId();
   return (
     <ChartContainer
       className={cn("w-full", className)}
@@ -194,13 +197,37 @@ function SteppedArea({
       >
         <XAxis dataKey="x" domain={[window.lo, window.hi]} hide type="number" />
         <YAxis domain={[0, 100]} hide type="number" />
+        {/* `userSpaceOnUse` so the ramp spans the score axis itself, not the
+         * path's own bounding box — a flat line has a zero-height box and
+         * would otherwise lose its stroke entirely. */}
+        <defs>
+          <linearGradient gradientUnits="userSpaceOnUse" id={rampId} x1="0" x2="100%" y1="0" y2="0">
+            <stop offset="0%" stopColor="var(--school-chances-ramp-low)" />
+            <stop offset="50%" stopColor="var(--school-chances-ramp-mid)" />
+            <stop offset="100%" stopColor="var(--school-chances-ramp-high)" />
+          </linearGradient>
+          <linearGradient id={fadeId} x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0%" stopColor="var(--school-chances-panel-surface)" stopOpacity={0} />
+            <stop offset="100%" stopColor="var(--school-chances-panel-surface)" stopOpacity={1} />
+          </linearGradient>
+        </defs>
         <Area
           dataKey="y"
-          fill="var(--school-chances-class-fill)"
+          fill={`url(#${rampId})`}
+          fillOpacity={0.3}
           isAnimationActive={false}
-          stroke="var(--school-chances-class-edge)"
-          strokeWidth={1.5}
-          type="stepAfter"
+          stroke="none"
+          type="monotoneX"
+        />
+        <Area
+          dataKey="y"
+          fill={`url(#${fadeId})`}
+          fillOpacity={0.55}
+          isAnimationActive={false}
+          stroke={`url(#${rampId})`}
+          strokeLinecap="round"
+          strokeWidth={2}
+          type="monotoneX"
         />
       </ComposedChart>
     </ChartContainer>
@@ -314,6 +341,33 @@ export function steppedAreaData(
   const last = points[points.length - 1]!;
   if (last.x < window.hi) points.push({ x: window.hi, y: last.y });
   return points;
+}
+
+/**
+ * Turns the step polyline into the anchor points of the drawn silhouette:
+ * one point at the centre of each reported bucket, at that bucket's own
+ * percentage. A monotone curve through them never overshoots a reported
+ * value, a real reported gap keeps both of its zero endpoints so the curve
+ * rests on the axis across it, and a bucket flush to the window's edge stays
+ * at its own height there rather than diving to a zero nobody reported. The
+ * exact bucket ranges and shares stay in the number row and the summary.
+ */
+export function smoothSilhouette(
+  steps: { x: number; y: number }[],
+): { x: number; y: number }[] {
+  if (steps.length < 2) return steps;
+  const points: { x: number; y: number }[] = [steps[0]!];
+  for (let index = 0; index < steps.length - 1; index += 1) {
+    const start = steps[index]!;
+    const end = steps[index + 1]!;
+    if (end.x <= start.x) continue;
+    if (start.y === 0) points.push({ x: start.x, y: 0 }, { x: end.x, y: 0 });
+    else points.push({ x: (start.x + end.x) / 2, y: start.y });
+  }
+  points.push(steps[steps.length - 1]!);
+  return points.filter(
+    (point, index) => index === 0 || point.x > points[index - 1]!.x,
+  );
 }
 
 /**

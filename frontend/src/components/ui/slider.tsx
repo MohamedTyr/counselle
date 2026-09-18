@@ -46,8 +46,13 @@ export function Slider({
         </SliderPrimitive.Track>
         <SliderPrimitive.Thumb
           aria-valuetext={ariaValueText}
+          /* `[contain:layout]` makes the thumb the containing block for Base
+           * UI's visually-hidden range input, which is `position: fixed` at
+           * the viewport's top-left. Under any ancestor with a transform or
+           * filter that input resolves against the ancestor instead, and
+           * focusing it on press scrolls the page away mid-drag. */
           className={cn(
-            "absolute z-10 size-4 rounded-full border-2 border-primary bg-primary shadow-xs outline-none transition-[box-shadow,border-color] duration-150 ease-out focus-visible:ring-[3px] focus-visible:ring-ring/35 data-disabled:bg-[var(--control-quiet-surface)]",
+            "absolute z-10 size-4 rounded-full [contain:layout] border-2 border-primary bg-primary shadow-xs outline-none transition-[box-shadow,border-color] duration-150 ease-out focus-visible:ring-[3px] focus-visible:ring-ring/35 data-disabled:bg-[var(--control-quiet-surface)]",
           )}
           data-slot="slider-thumb"
           data-testid="slider-thumb"

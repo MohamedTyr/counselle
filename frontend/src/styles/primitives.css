@@ -297,4 +297,14 @@
    * (chroma tapers 0.18 -> 0.16 -> 0.13 as the ramp darkens, same as every
    * saturated ramp here). */
   --red-800: oklch(32% 0.13 25);
+
+  /* ---- chance-gradient stops — the school-chances curve's own low/mid
+   * points on its red-to-green wash. Not a fourth status ramp: the wash
+   * needs two intermediate stops distinct enough from --red-600/--amber-600
+   * to read as a smooth gradient rather than banding, so these are named,
+   * single-purpose primitives (same pattern as --lime-950/--lime-ink-on-50
+   * above) rather than steps of an existing ramp. The high stop is
+   * --success-solid itself, not a third literal here. */
+  --chance-ramp-low: oklch(66% 0.2 48);
+  --chance-ramp-mid: oklch(76% 0.16 82);
 }

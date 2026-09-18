@@ -7,6 +7,15 @@ import type {
 export const CHANCES_TRUTH_FOOTER =
   "Reported entering-class data — not a cutoff or a chance.";
 
+/** Where a class percentile (0..1) sits, in words a student reads at a glance. */
+export function classStanding(classPercentile: number): string {
+  if (classPercentile >= 0.9) return "above most of this school's students";
+  if (classPercentile >= 0.65) return "in the upper part of this school's class";
+  if (classPercentile >= 0.35) return "right around the typical student here";
+  if (classPercentile >= 0.1) return "in the lower part of this school's class";
+  return "below most of this school's students";
+}
+
 /** The two SAT lane labels (plan §4) — the short form used as the
  * per-lane inline label, distinct from `scenarioLabel`'s "SAT Math" /
  * "SAT Reading and Writing" (spoken form, prefixed with the instrument). */

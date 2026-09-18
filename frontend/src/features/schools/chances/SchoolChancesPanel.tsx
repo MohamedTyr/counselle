@@ -10,6 +10,8 @@ import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { ActComparison } from "./ActComparison";
+import { buildChanceLane } from "./chance-lane";
+import { ChanceScreen } from "./ChanceScreen";
 import { GpaComparison } from "./GpaComparison";
 import { SatComparison } from "./SatComparison";
 import { ScrubbingProvider, useIsScrubbing } from "./ScrubbablePlot";
@@ -82,6 +84,8 @@ function SchoolChancesPanelBody({
    * default is deterministic; there is deliberately no stale local metric. */
   const metric = isMetric(metricParam) ? metricParam : defaultMetric;
   const model = buildSchoolChancesModel(data, profile, metric, scenarios);
+  const chanceLane = buildChanceLane(model);
+  const showsChance = chanceLane !== null && model.admitRate !== null;
   const interpretation = metricInterpretation(
     metric,
     model,
@@ -126,24 +130,28 @@ function SchoolChancesPanelBody({
           options={METRIC_OPTIONS}
           value={metric}
         />
-        {/* One metadata line: the page's freshness stamp, plus the testing
-         * policy beside it (moved out of the body, plan §3). Both are the
-         * same 12px muted caveat weight — neither outranks the other. */}
-        <div className={cn("flex flex-col items-end gap-0.5 text-right")}>
-          {data.freshness_line ? (
-            <p className={cn("text-xs text-[var(--school-fact-caveat)]")}>
-              {data.freshness_line}
-            </p>
-          ) : null}
-          {model.testPolicy ? (
-            <p className={cn("text-xs text-[var(--school-fact-caveat)]")}>
-              Testing policy: {model.testPolicy.display}
-              {model.testPolicy.reportedPeriod
-                ? ` · Reported ${model.testPolicy.reportedPeriod}`
-                : ""}
-            </p>
-          ) : null}
-        </div>
+        {showsChance ? null : (
+          <>
+          {/* One metadata line: the page's freshness stamp, plus the testing
+           * policy beside it (moved out of the body, plan §3). Both are the
+           * same 12px muted caveat weight — neither outranks the other. */}
+          <div className={cn("flex flex-col items-end gap-0.5 text-right")}>
+            {data.freshness_line ? (
+              <p className={cn("text-xs text-[var(--school-fact-caveat)]")}>
+                {data.freshness_line}
+              </p>
+            ) : null}
+            {model.testPolicy ? (
+              <p className={cn("text-xs text-[var(--school-fact-caveat)]")}>
+                Testing policy: {model.testPolicy.display}
+                {model.testPolicy.reportedPeriod
+                  ? ` · Reported ${model.testPolicy.reportedPeriod}`
+                  : ""}
+              </p>
+            ) : null}
+          </div>
+          </>
+        )}
       </header>
       <div
         className={cn("flex flex-col gap-4 p-4")}
@@ -167,57 +175,68 @@ function SchoolChancesPanelBody({
             </Button>
           </div>
         ) : null}
-        {/* The only prose on the screen (plan §3): everything else is
-         * either a number or the shape itself.
-         *
-         * FIX 2 (WCAG 4.1.3): this paragraph is also the settled-value
-         * announcement — `role="status"` rather than a second, duplicate
-         * live region, so the sentence a sighted student reads is exactly
-         * the one a screen reader announces. `aria-busy` (see the
-         * `isScrubbing` comment above) defers that announcement while a
-         * drag is live.
-         *
-         * FIX 3a: a 120ms opacity crossfade on every settled value change.
-         * The `key` lives on the inner `span`, not this `<p>` — the live
-         * region's own root has to stay mounted for a screen reader to
-         * treat a content update as a mutation of a live region it already
-         * knows about, rather than a fresh region it may or may not pick
-         * up; the span remounting inside it is what gives the
-         * `@starting-style` enter transition (schools.css) something to
-         * replay against, since mutating text in place has nothing to
-         * trigger a transition. */}
-        <p
-          aria-busy={isScrubbing}
-          className={cn(
-            "max-w-[48ch] text-[17px] text-foreground leading-[1.45] text-pretty",
-          )}
-          data-slot="school-chances-interpretation"
-          role="status"
-        >
-          <span data-slot="school-chances-interpretation-text" key={interpretation}>
-            {interpretation}
-          </span>
-        </p>
-        {metric === "gpa" ? <NumberRowFade cells={gpaNumberCells(model)} /> : null}
-        {metric === "act" ? <NumberRowFade cells={actNumberCells(model)} /> : null}
-        <MetricPlotReveal key={metric}>
-          <ComparisonGraphic
-            metric={metric}
-            model={model}
-            onScenarioChange={setScenarios}
-            profile={profileScenario(model)}
-            scenario={scenarios}
-          />
-        </MetricPlotReveal>
-      </div>
-      <footer
-        className={cn(
-          "border-t border-[var(--school-chances-divider)] px-4 py-3 text-xs text-[var(--school-fact-caveat)]",
+        {/* With an admit rate and a class to rank against, the screen is the
+         * chance estimate. Without either, there is nothing honest to
+         * estimate from, and the plain class comparison stands in. */}
+        {showsChance ? (
+          <MetricPlotReveal key={metric}>
+            <ChanceScreen lane={chanceLane!} model={model} />
+          </MetricPlotReveal>
+        ) : (
+          <>
+            {/* The only prose on the screen (plan §3): everything else is
+             * either a number or the shape itself.
+             *
+             * FIX 2 (WCAG 4.1.3): this paragraph is also the settled-value
+             * announcement — `role="status"` rather than a second, duplicate
+             * live region, so the sentence a sighted student reads is exactly
+             * the one a screen reader announces. `aria-busy` (see the
+             * `isScrubbing` comment above) defers that announcement while a
+             * drag is live.
+             *
+             * The inner `span` is `key`'d to the sentence with its numbers
+             * masked out, so a scrub that only moves the number updates the
+             * text in place, and only a change of wording — crossing into a
+             * different bucket, or out of the reported range — remounts it for
+             * the 120ms `@starting-style` crossfade (schools.css). The key sits
+             * on the span, not this `<p>`, so the live region's own root stays
+             * mounted for a screen reader. */}
+            <p
+              aria-busy={isScrubbing}
+              className={cn(
+                "max-w-[48ch] text-[17px] text-foreground leading-[1.45] text-pretty",
+              )}
+              data-slot="school-chances-interpretation"
+              role="status"
+            >
+              <span data-slot="school-chances-interpretation-text" key={interpretation.replace(/[\d.,%]+/g, "#")}>
+                {interpretation}
+              </span>
+            </p>
+            {metric === "gpa" ? <NumberRow cells={gpaNumberCells(model)} /> : null}
+            {metric === "act" ? <NumberRow cells={actNumberCells(model)} /> : null}
+            <MetricPlotReveal key={metric}>
+              <ComparisonGraphic
+                metric={metric}
+                model={model}
+                onScenarioChange={setScenarios}
+                profile={profileScenario(model)}
+                scenario={scenarios}
+              />
+            </MetricPlotReveal>
+          </>
         )}
-        data-slot="school-chances-footer"
-      >
-        {footerTruth(metric, data, model)}
-      </footer>
+      </div>
+      {showsChance ? null : (
+        <footer
+          className={cn(
+            "border-t border-[var(--school-chances-divider)] px-4 py-3 text-xs text-[var(--school-fact-caveat)]",
+          )}
+          data-slot="school-chances-footer"
+        >
+          {footerTruth(metric, data, model)}
+        </footer>
+      )}
     </section>
   );
 }
@@ -262,16 +281,6 @@ function MetricPlotReveal({
       {children}
     </div>
   );
-}
-
-/**
- * FIX 3a: the number row's own 120ms opacity crossfade, `key`'d to the
- * cells' own displayed values — the same `@starting-style` mechanism the
- * interpretation paragraph above uses (schools.css), triggered by a fresh
- * mount rather than an in-place text mutation with nothing to transition.
- */
-function NumberRowFade({ cells }: { cells: NumberCell[] }): React.ReactElement {
-  return <NumberRow cells={cells} key={cells.map((cell) => cell.value).join("|")} />;
 }
 
 function ComparisonGraphic({

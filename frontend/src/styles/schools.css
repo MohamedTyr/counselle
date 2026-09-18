@@ -76,6 +76,13 @@
     var(--ink-faint) 71%,
     transparent
   );
+  /* The chance ramp, low to high. The amber stop is below 3:1 against the
+   * panel surface, so nothing that must be found by its edge alone uses a
+   * raw stop: text and the slider thumb take --chance-level-text. */
+  --school-chances-ramp-low: var(--chance-scale-low);
+  --school-chances-ramp-mid: var(--chance-scale-mid);
+  --school-chances-ramp-high: var(--success-solid);
+  --school-chances-typical-rule: var(--ink-faint);
   --school-chances-axis: var(--hairline);
   --school-chances-you: var(--brand-scale-3);
   --school-chances-you-chip: var(--brand-subtle);
@@ -252,13 +259,11 @@
   transition-duration: 0s, 160ms;
 }
 
-/* FIX 3a: the verdict sentence and the three-number row crossfade in over
- * 120ms whenever their own value settles — `key`'d to their content in
- * SchoolChancesPanel.tsx, so a change forces a fresh DOM node whose
- * `@starting-style` opacity is what this transition animates away from,
- * rather than mutating text in place with nothing to trigger a transition. */
-[data-slot="school-chances-interpretation-text"],
-[data-slot="school-chances-numbers"] {
+/* The verdict sentence crossfades in over 120ms when its wording changes —
+ * `key`'d in SchoolChancesPanel.tsx so a new sentence is a fresh DOM node
+ * whose `@starting-style` opacity this transition animates away from. The
+ * numbers update in place: they change on every frame of a scrub. */
+[data-slot="school-chances-interpretation-text"] {
   transition: opacity 120ms ease-out;
 
   @starting-style {
@@ -266,10 +271,79 @@
   }
 }
 
+/* The chance screen's level colour: one attribute on the screen (and on the
+ * dot) sets both the solid used for marks and the darker step used for text,
+ * so the hero figure, its label, the dot and its pill always agree. The
+ * text step mixes toward the foreground to clear 4.5:1 in either theme. */
+/* --chance-level-on-solid: white on the low/mid stops measures 3.34:1 and
+ * 2.18:1, both under the 4.5:1 text floor — dark ink clears both (4.80:1,
+ * 7.36:1) and stays legible in the same "bright fill, dark ink" shape as
+ * --on-brand. --success-solid (high) is dark enough that white still clears
+ * 4.5:1 (5.39:1), so it keeps the inverse ink. */
+[data-level="low"] {
+  --chance-level-solid: var(--school-chances-ramp-low);
+  --chance-level-on-solid: var(--on-status-solid);
+}
+[data-level="mid"] {
+  --chance-level-solid: var(--school-chances-ramp-mid);
+  --chance-level-on-solid: var(--on-status-solid);
+}
+[data-level="high"] {
+  --chance-level-solid: var(--school-chances-ramp-high);
+  --chance-level-on-solid: var(--on-status-solid-inverse);
+}
+/* Set here, not as a utility: `cn` reads the custom `text-chrome` size as a
+ * colour and would drop a colour utility sitting beside it. */
+[data-slot="chance-graph-pill"] {
+  color: var(--chance-level-on-solid);
+}
+[data-level] {
+  --chance-level-text: color-mix(
+    in oklch,
+    var(--chance-level-solid) 72%,
+    var(--foreground)
+  );
+}
+[data-slot="chance-explorer"] [data-slot="slider-track"] {
+  background: color-mix(in oklch, var(--foreground) 12%, transparent);
+}
+[data-slot="chance-explorer"] [data-slot="slider-indicator"] {
+  background: var(--chance-level-solid);
+  transition: background-color 200ms ease;
+}
+[data-slot="chance-explorer"] [data-slot="slider-thumb"] {
+  border-color: var(--chance-level-text);
+  background: var(--school-chances-panel-surface);
+  transition-property: border-color, box-shadow, scale;
+  transition-duration: 200ms, 150ms, 160ms;
+}
+[data-slot="chance-explorer"] [data-slot="slider-thumb"]:active {
+  scale: 1.15;
+}
+[data-slot="chance-hero"],
+[data-slot="chance-graph-dot"] > span {
+  transition-property: color, background-color, box-shadow;
+  transition-duration: 200ms;
+  transition-timing-function: ease;
+}
+
+/* The curve wipes in from the left once per mount: a rare, first-look
+ * moment, never replayed by the slider. */
+.chance-graph-reveal {
+  clip-path: inset(0 0 0 0);
+  transition: clip-path 600ms cubic-bezier(0.23, 1, 0.32, 1);
+
+  @starting-style {
+    clip-path: inset(0 100% 0 0);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .chance-graph-reveal {
+    transition: none;
+  }
   [data-slot="you-mark-pill"],
-  [data-slot="school-chances-interpretation-text"],
-  [data-slot="school-chances-numbers"] {
+  [data-slot="school-chances-interpretation-text"] {
     transition: none;
   }
 }
