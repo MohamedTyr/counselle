@@ -54,8 +54,12 @@ plans/.local/
 /*REPORT*.md
 /*ONBOARDING*.md
 
-# Coverage artifacts (06-L8 adds pytest-cov; don't commit run output).
+# Coverage artifacts (06-L8 adds pytest-cov; don't commit run output). Also
+# covers Vitest's own `coverage/` output dir (frontend/coverage/) — same
+# rule, same reason: regenerated test-run scratch, never source.
 .coverage
 .coverage.*
 htmlcov/
 coverage.xml
+coverage/
+

@@ -83,6 +83,32 @@ export const schoolChancesFactFixtures = deepFreeze({
   noCrawl: factsResponse([], { has_collegedata: false, freshness_line: null }),
 });
 
+/** `response` with a published overall admit rate (a percent) and control —
+ * the two facts that turn the comparison into a chance estimate. */
+export function withAdmitRate(
+  response: SchoolFactsResponse,
+  percent: number,
+  control: SchoolFactsResponse["identity"]["control"],
+): SchoolFactsResponse {
+  const [first, ...rest] = response.sections;
+  if (!first?.groups[0]) return response;
+  const [group, ...groups] = first.groups;
+  return {
+    ...response,
+    identity: { ...response.identity, control },
+    sections: [
+      {
+        ...first,
+        groups: [
+          { ...group!, facts: [...group!.facts, scalar("admissions.admit_rate", percent)] },
+          ...groups,
+        ],
+      },
+      ...rest,
+    ],
+  };
+}
+
 export const schoolChancesProfileFixtures = deepFreeze({
   compatible: {
     academics: { gpa_unweighted: "3.82", gpa_scale: "4.0" },

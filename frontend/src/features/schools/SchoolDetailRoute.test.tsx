@@ -182,7 +182,7 @@ describe("SchoolDetailRoute — facts fetch states", () => {
     ).toBeVisible();
   });
 
-  test("Compare scenarios issue no PATCH, application, or estimator request", async () => {
+  test("Compare scenarios — drag, keyboard, and pill exact entry — issue no PATCH, application, or estimator request", async () => {
     const requestedUrls: string[] = [];
     renderApp(PATH, {
       fetchHandler: (input, init) => {
@@ -203,13 +203,50 @@ describe("SchoolDetailRoute — facts fetch states", () => {
     });
 
     fireEvent.click(await screen.findByRole("tab", { name: "Compare" }));
-    const slider = await screen.findByLabelText("Explore GPA");
+    // The plot itself is the slider now (school-chances-redesign plan §5) —
+    // its own `role="slider"` control replaces the old bordered-slider
+    // input this selector used to find by its "Explore GPA" label.
+    const slider = await screen.findByRole("slider", { name: "GPA" });
     const requestsBeforeScenario = [...requestedUrls];
-    fireEvent.keyDown(slider, { key: "ArrowRight" });
 
+    // Keyboard step.
+    fireEvent.keyDown(slider, { key: "ArrowRight" });
     await waitFor(() =>
       expect(slider).toHaveAttribute("aria-valuenow", "3.81"),
     );
+
+    // Pointer drag.
+    Object.defineProperties(slider, {
+      hasPointerCapture: { configurable: true, value: vi.fn(() => false) },
+      releasePointerCapture: { configurable: true, value: vi.fn() },
+      setPointerCapture: { configurable: true, value: vi.fn() },
+    });
+    vi.spyOn(slider, "getBoundingClientRect").mockReturnValue({
+      bottom: 100,
+      height: 100,
+      left: 0,
+      right: 300,
+      toJSON: () => ({}),
+      top: 0,
+      width: 300,
+      x: 0,
+      y: 0,
+    });
+    fireEvent.pointerDown(slider, { button: 0, clientX: 150, pointerId: 1 });
+    fireEvent.pointerUp(slider, { clientX: 150, pointerId: 1 });
+    await waitFor(() =>
+      expect(slider).not.toHaveAttribute("aria-valuenow", "3.81"),
+    );
+
+    // Pill exact entry.
+    fireEvent.keyDown(slider, { key: "Enter" });
+    const input = await screen.findByLabelText("Enter an exact value");
+    fireEvent.input(input, { target: { value: "3.79" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    await waitFor(() =>
+      expect(slider).toHaveAttribute("aria-valuenow", "3.79"),
+    );
+
     expect(requestedUrls).toEqual(requestsBeforeScenario);
   });
 

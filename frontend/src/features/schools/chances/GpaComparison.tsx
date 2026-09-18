@@ -1,33 +1,49 @@
-import { Bar, BarChart, ReferenceLine, XAxis, YAxis } from "recharts";
-
-import { ChartContainer } from "@/components/ui/chart";
 import { ChartFigure } from "@/features/schools/facts/charts/chart-shell";
 import { cn } from "@/lib/utils";
 
 import {
-  calloutLayout,
-  useMeasuredPlotWidth,
-} from "./academic-comparison-geometry";
-import { GpaEdgeTicks, GpaMarkerRail } from "./GpaComparisonMarkers";
-import type { GpaModel } from "./school-chances-model";
+  AxisEndpointLabels,
+  AxisOnly,
+  ClassShape,
+  CLASS_SHAPE_HEIGHT,
+  YOU_MARK_PILL_CLEARANCE,
+} from "./ClassShape";
+import { ScrubAffordanceHint, ScrubbablePlot } from "./ScrubbablePlot";
+import { YouMark } from "./YouMark";
+import { plotWindow } from "./academic-comparison-geometry";
+import { scenarioSetCopy } from "./school-chances-copy";
+import {
+  laneConfigs,
+  offGridCopy,
+  onGrid,
+  profileValue,
+  withChangedLane,
+  withoutLane,
+} from "./scenario-explorer-model";
+import {
+  isSumsToMaterial,
+  partialDistributionSummaryText,
+} from "./score-plot-copy";
+import type { ChancesScenarioInput, GpaModel } from "./school-chances-model";
 
-const CHART_CONFIG = {
-  reported: {
-    label: "Reported entering-class distribution",
-    color: "var(--school-chances-mark)",
-  },
-} as const;
+/** GPA has one fixed instrument scale — the 4.0 scale this whole tab is
+ * scoped to (school-chances-model.ts's `gpaProfile` rejects anything else). */
+const GPA_DOMAIN = { min: 0, max: 4 };
 
 export function GpaComparison({
   model,
-  availableWidth,
+  profile,
+  scenario,
+  onScenarioChange,
 }: {
   model: GpaModel;
-  /** Deterministic measurement seam for visual tests. */
-  availableWidth?: number;
+  /** Panel-level scenario plumbing (plan §5) — this plot's own
+   * `ScrubbablePlot` reads and writes through these, exactly as
+   * `ScenarioExplorer` used to for the whole GPA metric at once. */
+  profile: ChancesScenarioInput;
+  scenario: ChancesScenarioInput;
+  onScenarioChange: (next: ChancesScenarioInput) => void;
 }): React.ReactElement {
-  const [plotRef, measuredWidth] =
-    useMeasuredPlotWidth<HTMLDivElement>(availableWidth);
   const distribution = model.distribution;
   const changed =
     model.scenario !== null && model.scenario.value !== model.profile.value;
@@ -36,143 +52,169 @@ export function GpaComparison({
     changed && model.scenario ? scenarioMarkerLabel(model) : null;
   const summary = gpaSummary(model, profileMarker, scenarioMarker);
 
-  if (!distribution || model.distributionState.state !== "school_value") {
+  if (!distribution || !model.distributionState.usable) {
     return <GpaFallback model={model} summary={summary} />;
   }
 
-  const data = distribution.buckets.map((bucket) => ({
-    label: bucket.label,
-    /* A reported zero gets a visible tick; an absent bucket stays a gap. */
-    plotPct: bucket.pct === null ? 0 : bucket.pct === 0 ? 0.5 : bucket.pct,
-  }));
-  const callouts = gpaCallouts(
-    distribution.buckets.map((bucket) => bucket.label),
-    profileMarker,
-    scenarioMarker,
-    model,
+  const window = plotWindow(
+    "gpa",
+    GPA_DOMAIN,
+    drawnValues(distribution),
+    model.scenario?.value ?? model.profile.value ?? null,
   );
-  const layout = calloutLayout(
-    callouts.map((callout) => callout.position),
-    measuredWidth,
+  const markers = gpaMarkers(model);
+  const secondaryMarkers = markers.filter((marker) => marker.variant === "saved");
+  const laneConfig = laneConfigs("gpa", profile, scenario).find(
+    (candidate) => candidate.key === "gpa",
   );
+  const savedValue = profileValue("gpa", "gpa", profile);
+  const scenarioValue = profileValue("gpa", "gpa", scenario);
+  /* The control is interactive only where a scenario COULD land on this
+   * chart. A GPA saved on a different scale can never be placed here no
+   * matter what the student scrubs to, so the slider itself — not just the
+   * verdict sentence — has to stay off; see `AcademicComparisonPlot.tsx`'s
+   * identical `interactive` guard for the SAT/ACT lanes' own version of
+   * this. */
+  const interactive = model.profile.state !== "incompatible_profile_value";
+  /* The mark shows the raw saved or scenario value, off-grid or not — never
+   * `laneConfig.seed`, which exists purely to seed on-grid interaction and
+   * silently drops an off-grid saved value (e.g. a 3.825 GPA) to `null`
+   * (FIX 1's own rationale, restated for the interactive mark). */
+  const displayValue = scenarioValue ?? savedValue;
+  const offGrid =
+    displayValue !== null && laneConfig ? !onGrid(displayValue, laneConfig) : false;
+  const plotHeight = CLASS_SHAPE_HEIGHT.stepped;
+
   return (
-    <ChartFigure summary={summary}>
-      <div
-        className={cn("flex flex-col gap-3")}
-        data-slot="gpa-comparison"
-        ref={plotRef}
-      >
-        <div className={cn("relative")} data-slot="gpa-comparison-plot">
-          <GpaMarkerRail callouts={callouts} layout={layout} />
-          <div className={cn("relative")}>
-            <ChartContainer
-              className={cn("h-44 min-h-44 w-full")}
-              config={CHART_CONFIG}
-              data-slot="gpa-comparison-chart"
-            >
-              <BarChart
-                data={data}
-                margin={{ top: 20, right: 0, bottom: 0, left: 0 }}
-              >
-                <XAxis dataKey="label" hide />
-                <YAxis domain={[0, 100]} hide />
-                <Bar
-                  dataKey="plotPct"
-                  fill="var(--school-chances-mark)"
-                  isAnimationActive={false}
-                  radius={[2, 2, 0, 0]}
+    <div className={cn("relative flex flex-col gap-3")} data-slot="gpa-comparison">
+      <ChartFigure summary={summary}>
+        <div className={cn("flex flex-col gap-3")}>
+          {/* FIX 4: reserves the room `YouMark`'s pill escapes into above the
+           * plot box, so it lands in empty space instead of the heading
+           * above. The plot box itself keeps its exact stepped height. */}
+          <div style={{ paddingTop: YOU_MARK_PILL_CLEARANCE }}>
+            <div className={cn("relative")} style={{ height: plotHeight }}>
+              <ClassShape
+                band={null}
+                distribution={distribution}
+                distributionUsable={model.distributionState.usable}
+                metric="gpa"
+                window={window}
+              />
+              {secondaryMarkers.map((marker) => (
+                <YouMark
+                  display={marker.display}
+                  key={marker.variant}
+                  value={marker.value}
+                  variant={marker.variant}
+                  window={window}
                 />
-                <GpaChartMarker
-                  model={model}
-                  variant={changed ? "profile" : "you"}
-                />
-                <GpaChartMarker model={model} variant="scenario" />
-              </BarChart>
-            </ChartContainer>
-            <GpaEdgeTicks callouts={callouts} />
-          </div>
-        </div>
-        <div
-          className={cn("grid gap-2 sm:grid-cols-3")}
-          data-slot="gpa-comparison-buckets"
-        >
-          {[
-            ...distribution.buckets,
-            ...distribution.omittedBuckets.map((bucket) => ({
-              ...bucket,
-              pct: null,
-              absenceDisplay: bucket.display,
-            })),
-          ].map((bucket) => (
-            <div
-              className={cn(
-                "border-t border-[var(--school-chances-divider)] pt-1.5 text-xs",
-              )}
-              key={bucket.label}
-            >
-              <p className={cn("font-medium text-foreground")}>
-                {bucket.label}
-              </p>
-              <p
-                className={cn("text-[var(--school-fact-caveat)] tabular-nums")}
-              >
-                {bucket.pct === null
-                  ? `${bucket.label}: ${bucket.absenceDisplay ?? "Not reported"}`
-                  : `${bucket.pct}%`}
-              </p>
+              ))}
             </div>
-          ))}
+          </div>
+          <AxisEndpointLabels format={(value) => value.toFixed(2)} window={window} />
         </div>
-        {gpaProfileMessage(model) ? (
+      </ChartFigure>
+      {/* Outside `ChartFigure`'s aria-hidden box — see the identical note in
+       * `AcademicComparisonPlot.tsx`. */}
+      {laneConfig && interactive ? (
+        <div
+          className={cn("absolute inset-x-0")}
+          style={{ top: YOU_MARK_PILL_CLEARANCE, height: plotHeight }}
+        >
+          <ScrubbablePlot
+            ariaLabel="GPA"
+            ariaValueText={(next) => scenarioSetCopy("gpa", next)}
+            formatDisplay={(value) => value.toFixed(2)}
+            height={plotHeight}
+            lane={laneConfig}
+            onScenarioChange={(next) =>
+              onScenarioChange(
+                next === null
+                  ? withoutLane(scenario, "gpa")
+                  : withChangedLane(scenario, profile, "gpa", "gpa", next),
+              )
+            }
+            savedDisplay={model.profile.display}
+            savedValue={savedValue}
+            value={displayValue}
+            window={window}
+          />
+        </div>
+      ) : null}
+      <div className={cn("flex flex-col gap-3")}>
+        {interactive ? <ScrubAffordanceHint /> : null}
+        {interactive && offGrid ? (
           <p className={cn("text-xs text-[var(--school-fact-caveat)]")}>
-            {gpaProfileMessage(model)}
+            {offGridCopy("gpa", laneConfig!.step)}
           </p>
         ) : null}
-        {distribution.reportedPeriod ? (
+        {/* The bucket grid is gone — the shape draws the same class profile
+         * (plan §6). Its reported period moves to the "Reported band"
+         * number cell in SchoolChancesPanel.tsx, printed only when it
+         * diverges from the rest of this screen. */}
+        {/* Whole-plan close-out review: a missing OR incompatible GPA is
+         * always stated by the verdict sentence above this plot
+         * (`gpaInterpretation` is unconditional for both states) — this
+         * caption's own text (`gpaProfileMessage`, which only ever returns
+         * non-null for those same two states) would always be a second,
+         * redundant statement of the same fact, so the paragraph is
+         * removed rather than guarded. The missing case was suppressed
+         * first; a close-out audit found the same "stated twice, in two
+         * vocabularies" defect still live for the incompatible-scale case
+         * (verdict: "Your GPA is saved on a 5.0 scale, so it cannot be
+         * placed…"; caption: "Your GPA uses a different scale and cannot
+         * be placed…") and closed it the same way. `gpaProfileMessage`
+         * itself is untouched — `gpaSummary`'s accessible-summary fallback
+         * below still reads it, and must keep carrying both absence texts
+         * for a viewer with no geometry at all to compare against. */}
+        {isSumsToMaterial(distribution.sumsTo) ? (
           <p className={cn("text-xs text-[var(--school-fact-caveat)]")}>
-            Reported {distribution.reportedPeriod}
-          </p>
-        ) : null}
-        {distribution.sumsTo !== null &&
-        Math.abs(distribution.sumsTo - 100) > 0.5 ? (
-          <p className={cn("text-xs text-[var(--school-fact-caveat)]")}>
-            Reported buckets total {distribution.sumsTo}%; missing buckets are
-            not treated as zero.
+            {partialDistributionSummaryText(distribution.sumsTo)}
           </p>
         ) : null}
       </div>
-    </ChartFigure>
+    </div>
   );
 }
 
-function GpaChartMarker({
-  model,
-  variant,
-}: {
-  model: GpaModel;
-  variant: "profile" | "scenario" | "you";
-}): React.ReactElement | null {
-  const comparison =
-    variant === "scenario"
-      ? model.scenario?.comparison
-      : model.profile.comparison;
-  /* Out-of-span values are callouts at a true plot edge, never bucket centres. */
-  if (
-    comparison?.state === "below_reported_buckets" ||
-    comparison?.state === "above_reported_buckets"
-  )
-    return null;
-  const category = comparison?.label;
-  if (!category) return null;
-  return (
-    <ReferenceLine
-      ifOverflow="extendDomain"
-      stroke="var(--school-chances-profile-outline)"
-      strokeDasharray={variant === "profile" ? "3 2" : undefined}
-      strokeWidth={variant === "profile" ? 2 : 3}
-      x={category}
-    />
-  );
+type GpaPlotMarker = {
+  value: number;
+  display: string;
+  variant: "you" | "scenario" | "saved";
+};
+
+/**
+ * Positions the student's mark directly by its numeric GPA value on the
+ * continuous windowed axis — simpler than, and a strict improvement on, the
+ * old bucket-label lookup this replaces: it places a value even when the
+ * value falls outside every reported bucket, which the old system could only
+ * render as an edge callout.
+ */
+function gpaMarkers(model: GpaModel): GpaPlotMarker[] {
+  const profile = model.profile.value;
+  const scenario = model.scenario?.value ?? null;
+  if (scenario !== null && scenario !== profile) {
+    return [
+      ...(profile === null
+        ? []
+        : [{ value: profile, display: model.profile.display ?? String(profile), variant: "saved" as const }]),
+      { value: scenario, display: String(scenario), variant: "scenario" as const },
+    ];
+  }
+  return profile === null
+    ? []
+    : [{ value: profile, display: model.profile.display ?? String(profile), variant: "you" as const }];
+}
+
+function drawnValues(distribution: NonNullable<GpaModel["distribution"]>): number[] {
+  const values: number[] = [];
+  for (const bucket of distribution.buckets) {
+    if (bucket.pct === null || bucket.range === null) continue;
+    if (Number.isFinite(bucket.range.lo)) values.push(bucket.range.lo);
+    if (Number.isFinite(bucket.range.hi)) values.push(bucket.range.hi);
+  }
+  return values;
 }
 
 function GpaFallback({
@@ -182,21 +224,30 @@ function GpaFallback({
   model: GpaModel;
   summary: string;
 }): React.ReactElement {
+  /* FIX 2: the number row (`gpaNumberCells` in SchoolChancesPanel.tsx)
+   * already states the distribution's own absence for both "Reported band"
+   * and "Of the class" — repeating it here, inside a figure whose children
+   * are `aria-hidden` anyway (`ChartFigure`), is pure visual duplication.
+   * A reported average is the one thing the row never carries, so it still
+   * gets its own visible line. */
   const display = model.average
     ? `Reported average ${model.average.display}`
-    : (model.distributionState.display ?? "No reported GPA comparison data.");
+    : null;
   return (
     <ChartFigure summary={summary}>
       <div
         className={cn("flex flex-col gap-1")}
         data-slot="gpa-comparison-unavailable"
       >
-        <p
-          className={cn("text-sm text-[var(--school-fact-absent)]")}
-          data-school-state={model.distributionState.state}
-        >
-          {display}
-        </p>
+        <AxisOnly />
+        {display ? (
+          <p
+            className={cn("text-sm text-[var(--school-fact-absent)]")}
+            data-school-state={model.distributionState.state}
+          >
+            {display}
+          </p>
+        ) : null}
         {(model.average?.reportedPeriod ??
         model.distributionState.reportedPeriod) ? (
           <p className={cn("text-xs text-[var(--school-fact-caveat)]")}>
@@ -205,12 +256,13 @@ function GpaFallback({
               model.distributionState.reportedPeriod}
           </p>
         ) : null}
-        {model.profile.state === "incompatible_profile_value" ? (
-          <p className={cn("text-xs text-[var(--school-fact-caveat)]")}>
-            Your GPA uses a different scale and cannot be placed on this
-            4.0-scale chart.
-          </p>
-        ) : null}
+        {/* Whole-plan close-out review: this fallback (no usable
+         * distribution to compare against) used to restate an incompatible
+         * saved scale here too, even though `gpaInterpretation` already
+         * states it unconditionally in the verdict sentence above this
+         * figure — the same "stated twice, in two vocabularies" defect
+         * fixed for the has-distribution path in `GpaComparison` above,
+         * closed here the same way by dropping the redundant restatement. */}
       </div>
     </ChartFigure>
   );
@@ -254,13 +306,15 @@ function gpaSummary(
     model.distributionState.state !== "school_value"
       ? ` Distribution: ${model.distributionState.display ?? "unavailable"} (${model.distributionState.state}).`
       : "";
-  const total =
-    model.distribution?.sumsTo !== null &&
-    model.distribution &&
-    Math.abs(model.distribution.sumsTo - 100) > 0.5
-      ? ` Reported buckets total ${model.distribution.sumsTo}%; missing buckets are not treated as zero.`
-      : "";
-  return `GPA comparison. ${placement} ${scenario ? `${scenario}.` : ""} Profile comparison: ${model.profile.comparison?.state ?? model.profile.state}. Reported buckets: ${buckets}.${model.distribution?.reportedPeriod ? ` Reported distribution period: ${model.distribution.reportedPeriod}.` : ""}${total}${average}${distributionCaveat}`;
+  const totalSummary = partialDistributionSummaryText(
+    model.distribution?.sumsTo,
+  );
+  const total = totalSummary ? ` ${totalSummary}` : "";
+  // FIX 5: same mitigation as the score lanes' `scoreSummary` — the windowed
+  // axis is only permissible because the accessible summary always states
+  // the real, uncropped instrument scale. Additive.
+  const fullScale = ` On the ${GPA_DOMAIN.min}–${GPA_DOMAIN.max} GPA scale.`;
+  return `GPA comparison. ${placement} ${scenario ? `${scenario}.` : ""} Profile comparison: ${model.profile.comparison?.state ?? model.profile.state}. Reported buckets: ${buckets}.${model.distribution?.reportedPeriod ? ` Reported distribution period: ${model.distribution.reportedPeriod}.` : ""}${total}${average}${distributionCaveat}${fullScale}`;
 }
 
 function gpaProfileMessage(model: GpaModel): string | null {
@@ -270,13 +324,6 @@ function gpaProfileMessage(model: GpaModel): string | null {
     return "Your GPA uses a different scale and cannot be placed on this 4.0-scale chart.";
   return null;
 }
-
-export type GpaCallout = {
-  label: string;
-  position: number;
-  placement: "below-edge" | "above-edge" | undefined;
-  variant: "profile" | "scenario" | "you";
-};
 
 function profileMarkerLabel(model: GpaModel, changed: boolean): string | null {
   if (
@@ -303,50 +350,4 @@ function scenarioMarkerLabel(model: GpaModel): string | null {
   if (model.scenario.comparison?.state === "above_reported_buckets")
     return "Scenario above reported buckets";
   return `Scenario ${model.scenario.value}`;
-}
-
-function gpaCallouts(
-  bucketLabels: string[],
-  profile: string | null,
-  scenario: string | null,
-  model: GpaModel,
-): GpaCallout[] {
-  const make = (
-    label: string | null,
-    comparison: GpaModel["profile"]["comparison"],
-    variant: GpaCallout["variant"],
-  ): GpaCallout | null => {
-    if (!label || !comparison) return null;
-    const placement = edgePlacement(label);
-    if (placement === "below-edge")
-      return { label, position: 0, placement, variant };
-    if (placement === "above-edge")
-      return { label, position: 1, placement, variant };
-    const index = bucketLabels.indexOf(comparison.label ?? "");
-    return index < 0
-      ? null
-      : {
-          label,
-          position: (index + 0.5) / bucketLabels.length,
-          placement,
-          variant,
-        };
-  };
-  return [
-    make(
-      profile,
-      model.profile.comparison,
-      profile?.startsWith("You ") ? "you" : "profile",
-    ),
-    make(scenario, model.scenario?.comparison ?? null, "scenario"),
-  ].filter((value): value is GpaCallout => value !== null);
-}
-
-function edgePlacement(label: string): "below-edge" | "above-edge" | undefined {
-  const normalized = label.toLowerCase();
-  return normalized.includes("below reported buckets")
-    ? "below-edge"
-    : normalized.includes("above reported buckets")
-      ? "above-edge"
-      : undefined;
 }

@@ -1,8 +1,6 @@
-import { scenarioLabel } from "./school-chances-copy";
 import type {
   ChancesMetric,
   ChancesScenarioInput,
-  SchoolChancesModel,
 } from "./school-chances-model";
 
 export type ScenarioLane = "gpa" | "math" | "ebrw" | "composite";
@@ -73,81 +71,6 @@ export function withChangedLane(
     : withLane(current, key, value);
 }
 
-export function withoutMetric(
-  metric: ChancesMetric,
-  current: ChancesScenarioInput,
-): ChancesScenarioInput {
-  if (metric === "gpa") return withoutLane(current, "gpa");
-  if (metric === "act") return withoutLane(current, "composite");
-  return withoutLane(withoutLane(current, "math"), "ebrw");
-}
-
-export function hasChangedMetricScenario(
-  metric: ChancesMetric,
-  profile: ChancesScenarioInput,
-  scenario: ChancesScenarioInput,
-): boolean {
-  const keys: ScenarioLane[] =
-    metric === "gpa"
-      ? ["gpa"]
-      : metric === "sat"
-        ? ["math", "ebrw"]
-        : ["composite"];
-  return keys.some((key) => {
-    const value = profileValue(metric, key, scenario);
-    return value !== null && value !== profileValue(metric, key, profile);
-  });
-}
-
-export function laneIsComparable(
-  metric: ChancesMetric,
-  key: ScenarioLane,
-  model: SchoolChancesModel,
-) {
-  if (metric === "gpa") return model.gpa!.distributionState.usable;
-  const lane =
-    metric === "act"
-      ? model.act!
-      : model.sat!.lanes.find((candidate) => candidate.key === key);
-  return Boolean(lane?.distributionState.usable || lane?.bandState.usable);
-}
-
-/** Scenario copy comes from the scenario comparison, never saved-profile copy. */
-export function scenarioPosition(
-  metric: ChancesMetric,
-  key: ScenarioLane,
-  model: SchoolChancesModel,
-): string | null {
-  if (metric === "gpa") {
-    const scenario = model.gpa!.scenario;
-    if (!scenario?.comparison) return null;
-    if (scenario.comparison.state === "in_bucket")
-      return `A scenario of ${scenario.value} GPA sits in the ${scenario.comparison.label} reported band.`;
-    if (scenario.comparison.state === "below_reported_buckets")
-      return `A scenario of ${scenario.value} GPA is below the reported buckets.`;
-    if (scenario.comparison.state === "above_reported_buckets")
-      return `A scenario of ${scenario.value} GPA is above the reported buckets.`;
-    return "This GPA scenario cannot be placed in the school's published bucket labels.";
-  }
-  const lane =
-    metric === "act"
-      ? model.act!
-      : model.sat!.lanes.find((candidate) => candidate.key === key);
-  const scenario = lane?.scenario;
-  if (!scenario?.comparison) return null;
-  const label =
-    metric === "act"
-      ? "ACT composite"
-      : scenarioLabel("sat", key as "math" | "ebrw");
-  const position =
-    scenario.comparison.state === "within_band"
-      ? "within"
-      : scenario.comparison.state === "below_band"
-        ? "below"
-        : "above";
-  return `A scenario of ${scenario.value} ${label} is ${position} the reported middle 50%.`;
-}
-
 export function onGrid(
   value: number,
   lane: Pick<LaneConfig, "min" | "max" | "step">,
@@ -161,10 +84,6 @@ export function onGrid(
         Math.round((value - lane.min) / lane.step),
     ) < 1e-8
   );
-}
-
-export function formatValue(value: number, step: number) {
-  return step < 1 ? value.toFixed(2) : String(value);
 }
 
 export function errorCopy(lane: Pick<LaneConfig, "step">) {
@@ -201,7 +120,11 @@ function withLane(
   return { ...current, sat: { ...current.sat, [key]: value } };
 }
 
-function withoutLane(
+/** Exported for `ScrubbablePlot.tsx`'s per-plot Reset (plan §5) — each plot
+ * resets only its own lane. For GPA and ACT (one lane per metric) that is
+ * the whole metric; for SAT it lets Math and Reading/Writing reset
+ * independently, which the old single metric-wide reset button could not. */
+export function withoutLane(
   current: ChancesScenarioInput,
   key: ScenarioLane,
 ): ChancesScenarioInput {

@@ -34,82 +34,102 @@ test.describe("School Chances fixture gallery", () => {
       .toBe(true);
   });
 
-  test("covers metric switching, missing-value entry, exploration, reset, and profile prompt", async ({
+  test("covers metric switching, drag, keyboard, exact entry, reset, and the no-comparison guard", async ({
     page,
   }, testInfo) => {
     const fullGpa = page.getByTestId("school-chances-gallery-fixture-full-gpa");
-    const metric = fullGpa.getByRole("radio");
+    const gpaSlider = fullGpa.getByRole("slider", { name: "GPA" });
 
-    await expect(fullGpa.getByText("How your academics compare")).toBeVisible();
-    await expect(metric.filter({ hasText: "GPA" })).toHaveAttribute(
-      "aria-checked",
-      "true",
-    );
+    // Metric switching — the plot is the same product on every tab.
     await expect(
-      fullGpa.locator('[data-slot="school-chances-plot-reveal"]'),
-    ).toHaveAttribute(
-      "data-reveal-state",
-      testInfo.project.name === "chromium-reduced-motion"
-        ? "visited"
-        : "first-visit",
-    );
-
-    await metric.filter({ hasText: "SAT" }).click();
-    await expect(fullGpa.getByText("Compared by section")).toBeVisible();
-    await metric.filter({ hasText: "ACT" }).click();
-    await expect(fullGpa.getByText("ACT composite").first()).toBeVisible();
-    await metric.filter({ hasText: "GPA" }).click();
-    await expect(
-      fullGpa.getByText("Your 3.82 GPA", { exact: false }),
+      fullGpa.getByText("Your 3.82 GPA sits in the 3.75 - 3.99 reported band."),
     ).toBeVisible();
+    await fullGpa.getByRole("radio", { name: "SAT" }).click();
+    await expect(fullGpa.getByRole("slider", { name: "SAT Math" })).toBeVisible();
+    await fullGpa.getByRole("radio", { name: "ACT" }).click();
+    await expect(
+      fullGpa.getByRole("slider", { name: "ACT composite" }),
+    ).toBeVisible();
+    await fullGpa.getByRole("radio", { name: "GPA" }).click();
+    await expect(gpaSlider).toBeVisible();
 
-    const noScore = page.getByTestId(
-      "school-chances-gallery-fixture-no-student-score",
+    // Drag — press anywhere on the plot, the mark follows 1:1. The fixture
+    // gallery stacks every fixture on one long page, so raw `page.mouse`
+    // coordinates need the target scrolled into view first — a locator
+    // action like `.click()` does this automatically, but `boundingBox()`
+    // does not.
+    await gpaSlider.scrollIntoViewIfNeeded();
+    const plotBox = await gpaSlider.boundingBox();
+    expect(plotBox).not.toBeNull();
+    await page.mouse.move(
+      (plotBox?.x ?? 0) + (plotBox?.width ?? 0) * 0.5,
+      (plotBox?.y ?? 0) + (plotBox?.height ?? 0) * 0.5,
+      { steps: 5 },
     );
-    await noScore.getByRole("radio").filter({ hasText: "SAT" }).click();
-    await expect(
-      noScore.getByText(
-        "Add your SAT section scores to place yourself on these charts.",
-      ),
-    ).toBeVisible();
-
-    const mathInput = noScore.locator('input[aria-label="Math scenario"]');
-    await mathInput.fill("650");
-    await mathInput.press("Enter");
-    await mathInput.blur();
-    const mathSlider = noScore.getByRole("slider", {
-      name: "Explore SAT Math",
-    });
-    await expect(mathSlider).toHaveAttribute("aria-valuenow", "650");
-
-    const control = noScore.locator('[data-slot="slider-control"]').first();
-    const box = await control.boundingBox();
-    expect(box).not.toBeNull();
-    await control.click({
-      position: {
-        x: Math.max(1, (box?.width ?? 2) * 0.7),
-        y: (box?.height ?? 2) / 2,
-      },
-    });
-    await expect(mathSlider).not.toHaveAttribute("aria-valuenow", "650");
-    const pointerValue = await mathSlider.getAttribute("aria-valuenow");
-    expect(pointerValue).not.toBeNull();
-
-    await mathSlider.press("ArrowLeft");
-    await expect(mathSlider).toHaveAttribute(
-      "aria-valuenow",
-      String(Number(pointerValue) - 10),
+    await page.mouse.down();
+    await page.mouse.move(
+      (plotBox?.x ?? 0) + (plotBox?.width ?? 0) * 0.75,
+      (plotBox?.y ?? 0) + (plotBox?.height ?? 0) * 0.5,
+      { steps: 5 },
     );
-    await expect(
-      noScore.getByRole("button", { name: "Reset SAT" }),
-    ).toBeVisible();
-    await noScore.getByRole("button", { name: "Reset SAT" }).click();
-    await expect(
-      noScore.getByRole("button", { name: "Reset SAT" }),
-    ).toHaveCount(0);
-    await expect(
-      noScore.getByText("Enter a value to start exploring").first(),
-    ).toBeVisible();
+    await page.mouse.up();
+    const draggedValue = await gpaSlider.getAttribute("aria-valuenow");
+    expect(draggedValue).not.toBe("3.82");
+
+    // Keyboard — arrow steps by the metric's own 0.01 grid, Home/End to the
+    // window ends, and focus stays on the plot throughout.
+    await gpaSlider.focus();
+    await page.keyboard.press("ArrowRight");
+    await expect
+      .poll(async () => Number(await gpaSlider.getAttribute("aria-valuenow")))
+      .toBeCloseTo(Number(draggedValue) + 0.01, 5);
+    const beforeHome = Number(await gpaSlider.getAttribute("aria-valuenow"));
+    await page.keyboard.press("Home");
+    // `Home` jumps to the window's own low end — which the commit itself
+    // can then re-pad/re-snap (`plotWindow()` folds the new value back in),
+    // so the only stable assertion is the direction, not a fixed target.
+    await expect
+      .poll(async () => Number(await gpaSlider.getAttribute("aria-valuenow")))
+      .toBeLessThan(beforeHome);
+    const beforeEnd = Number(await gpaSlider.getAttribute("aria-valuenow"));
+    await page.keyboard.press("End");
+    await expect
+      .poll(async () => Number(await gpaSlider.getAttribute("aria-valuenow")))
+      .toBeGreaterThan(beforeEnd);
+    expect(await page.evaluate(() => document.activeElement?.tagName)).not.toBe(
+      "BODY",
+    );
+
+    // Exact entry — Enter opens the pill as a field; off-grid shows
+    // errorCopy() inline and does not commit; a valid value does.
+    await page.keyboard.press("Enter");
+    const exactInput = fullGpa.getByLabel("Enter an exact value");
+    await expect(exactInput).toBeFocused();
+    // Out of range rather than off-grid-by-precision: the pill's own
+    // `maxLength={4}` makes a 3-decimal GPA (needing 5+ characters)
+    // untypeable, so this is the shortest string `onGrid()` still rejects.
+    await exactInput.fill("4.01");
+    await page.keyboard.press("Enter");
+    await expect(fullGpa.getByText("Use increments of 0.01")).toBeVisible();
+    await exactInput.fill("3.90");
+    await page.keyboard.press("Enter");
+    await expect(gpaSlider).toHaveAttribute("aria-valuenow", "3.9");
+    await expect(gpaSlider).toBeFocused();
+
+    // Reset — one word, only while a scenario differs from the saved value;
+    // clicking it returns focus to the plot, never to <body>.
+    const resetButton = fullGpa.getByRole("button", { name: "Reset" });
+    await expect(resetButton).toBeVisible();
+    await resetButton.click();
+    await expect(resetButton).toHaveCount(0);
+    await expect(gpaSlider).toBeFocused();
+
+    // No comparison data — the plot never becomes draggable when there is
+    // nothing honest to drag against.
+    const noSchoolData = page.getByTestId(
+      "school-chances-gallery-fixture-no-school-data",
+    );
+    await expect(noSchoolData.getByRole("slider")).toHaveCount(0);
 
     await expect
       .poll(() =>
@@ -125,5 +145,63 @@ test.describe("School Chances fixture gallery", () => {
       ),
       fullPage: true,
     });
+  });
+
+  test("keeps a plot present but valueless with no saved comparison until the student sets one", async ({
+    page,
+  }) => {
+    const noScore = page.getByTestId(
+      "school-chances-gallery-fixture-no-student-score",
+    );
+    const mathSlider = noScore.getByRole("slider", { name: "SAT Math" });
+
+    // No saved value, no scenario yet — the plot is still focusable and
+    // reachable, it just has nothing to show until the first interaction
+    // (ScrubbablePlot.tsx never invents a starting position).
+    await expect(mathSlider).toBeVisible();
+    await expect(noScore.locator('[data-slot="you-mark"]')).toHaveCount(0);
+
+    await mathSlider.focus();
+    await page.keyboard.press("Enter");
+    const input = noScore.getByLabel("Enter an exact value");
+    await input.fill("650");
+    await page.keyboard.press("Enter");
+    await expect(mathSlider).toHaveAttribute("aria-valuenow", "650");
+  });
+
+  test("shows the drag affordance hint once, then fades it permanently after the first successful drag", async ({
+    page,
+  }) => {
+    const fullSat = page.getByTestId("school-chances-gallery-fixture-full-sat");
+    const mathSlider = fullSat.getByRole("slider", { name: "SAT Math" });
+    // SAT has two lanes, each with its own hint line under its own axis.
+    const hint = fullSat.locator('[data-slot="scrub-affordance-hint"]');
+
+    await expect(hint).toHaveCount(2);
+    await expect(hint.first()).toHaveText("Drag to try a different score");
+
+    await mathSlider.scrollIntoViewIfNeeded();
+    const box = await mathSlider.boundingBox();
+    expect(box).not.toBeNull();
+    await page.mouse.move(
+      (box?.x ?? 0) + (box?.width ?? 0) * 0.2,
+      (box?.y ?? 0) + (box?.height ?? 0) * 0.5,
+      { steps: 5 },
+    );
+    await page.mouse.down();
+    await page.mouse.move(
+      (box?.x ?? 0) + (box?.width ?? 0) * 0.6,
+      (box?.y ?? 0) + (box?.height ?? 0) * 0.5,
+      { steps: 5 },
+    );
+    await page.mouse.up();
+
+    // Fades on every plot in the gallery, not just the one dragged — the
+    // lesson is learned once per session (plan §5), not once per lane.
+    await expect(hint).toHaveCount(0);
+    const gpaHint = page
+      .getByTestId("school-chances-gallery-fixture-full-gpa")
+      .locator('[data-slot="scrub-affordance-hint"]');
+    await expect(gpaHint).toHaveCount(0);
   });
 });

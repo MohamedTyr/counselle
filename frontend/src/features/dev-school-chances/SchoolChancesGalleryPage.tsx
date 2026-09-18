@@ -8,6 +8,7 @@ import { SchoolChancesPanel } from "@/features/schools/chances/SchoolChancesPane
 import {
   schoolChancesFactFixtures,
   schoolChancesProfileFixtures,
+  withAdmitRate,
 } from "@/features/schools/chances/school-chances-fixtures";
 import type {
   Fact,
@@ -184,6 +185,38 @@ function FixturePreview({
 }
 
 const CHANCES_GALLERY_FIXTURES: readonly GalleryFixture[] = [
+  {
+    id: "chance-selective",
+    title: "Chances · selective private",
+    description: "An 8% admit rate: the curve stays low even at the top of the class.",
+    metric: "gpa",
+    data: withAdmitRate(schoolChancesFactFixtures.full, 8, "private"),
+    profile: compatible,
+  },
+  {
+    id: "chance-moderate",
+    title: "Chances · moderate",
+    description: "A 38% admit rate at a private school, saved SAT in the upper part of the class.",
+    metric: "sat",
+    data: withAdmitRate(schoolChancesFactFixtures.full, 38, "private"),
+    profile: compatible,
+  },
+  {
+    id: "chance-open-public",
+    title: "Chances · open public",
+    description: "A 72% admit rate at a public school.",
+    metric: "act",
+    data: withAdmitRate(schoolChancesFactFixtures.full, 72, "public"),
+    profile: compatible,
+  },
+  {
+    id: "chance-no-profile",
+    title: "Chances · no saved score",
+    description: "No Profile value: the slider starts at the typical student.",
+    metric: "gpa",
+    data: withAdmitRate(schoolChancesFactFixtures.full, 24, "public"),
+    profile: null,
+  },
   {
     id: "full-gpa",
     title: "Full GPA · compatible",

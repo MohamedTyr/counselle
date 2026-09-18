@@ -52,9 +52,16 @@ describe("SchoolChancesGalleryPage", () => {
       .toHaveTextContent("Not checked")
       .toHaveTextContent("Not on file")
       .toHaveTextContent("Not collected");
+    // The SAT screen's own two-lane redesign (and its number row) is P4
+    // scope (school-chances-minimal-redesign §4) — the "Not added" ledger
+    // cell this asserted on died with `ComparisonLedger` in P2; the
+    // unadded section still states its own absence in the placement
+    // message and the accessible summary instead.
     expect(
       screen.getByTestId("school-chances-gallery-fixture-partial-profile"),
-    ).toHaveTextContent("Not added");
+    ).toHaveTextContent(
+      "Add your SAT Reading and Writing score to place yourself on this chart.",
+    );
     expect(
       await screen.findByTestId("school-chances-gallery-fixture-request-error"),
     )

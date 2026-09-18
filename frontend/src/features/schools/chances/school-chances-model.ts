@@ -4,6 +4,7 @@ import type {
   DistributionValue,
   Fact,
   SchoolFactsResponse,
+  SchoolIdentity,
 } from "@/features/schools/facts/school-facts-types";
 
 import {
@@ -167,6 +168,9 @@ export type GpaModel = {
 export type SchoolChancesModel = {
   metric: ChancesMetric;
   freshnessLine: string | null;
+  /** The school's overall admit rate as a 0..1 share, when published. */
+  admitRate: number | null;
+  control: SchoolIdentity["control"];
   testPolicy: ScalarModel;
   school: SchoolValueModel;
   gpa: GpaModel | null;
@@ -188,7 +192,11 @@ const INITIAL_FACTS = (): Record<ChancesFactKey, Fact | null> =>
     Fact | null
   >;
 
-const SCORE_DOMAINS = {
+/** The instrument scale for each SAT/ACT lane — the score domain a lane's
+ * own value is defined over, independent of any reported band. Exported for
+ * `AcademicComparisonPlot.tsx`'s `plotWindow()` call, which needs the same
+ * fact this contract already owns rather than a second copy of it. */
+export const SCORE_DOMAINS = {
   math: { min: 200, max: 800 },
   ebrw: { min: 200, max: 800 },
   composite: { min: 1, max: 36 },
@@ -262,6 +270,8 @@ export function buildSchoolChancesModel(
     return {
       metric,
       freshnessLine: response.freshness_line,
+      admitRate: admitRate(response),
+      control: response.identity.control,
       testPolicy,
       school,
       gpa,
@@ -296,6 +306,8 @@ export function buildSchoolChancesModel(
     return {
       metric,
       freshnessLine: response.freshness_line,
+      admitRate: admitRate(response),
+      control: response.identity.control,
       testPolicy,
       school: {
         state: combineSchoolStates([math.school.state, ebrw.school.state]),
@@ -331,6 +343,8 @@ export function buildSchoolChancesModel(
   return {
     metric,
     freshnessLine: response.freshness_line,
+      admitRate: admitRate(response),
+      control: response.identity.control,
     testPolicy,
     school: act.school,
     gpa: null,
@@ -696,6 +710,24 @@ function bandState(result: BandResult): BandStateModel {
     display: result.display,
     reportedPeriod: result.reportedPeriod,
   };
+}
+
+const ADMIT_RATE_KEY = "admissions.admit_rate";
+
+/**
+ * The overall admit rate, as a 0..1 share. Read on its own rather than
+ * through `CHANCES_FACT_KEYS`: that contract is the academic-comparison
+ * facts, and a school with no admit rate still gets the full comparison.
+ * Reported twice, or as anything but a percent above 0, it is absent.
+ */
+function admitRate(response: SchoolFactsResponse): number | null {
+  const matches = response.sections
+    .flatMap((section) => section.groups)
+    .flatMap((group) => group.facts)
+    .filter((fact) => fact.key === ADMIT_RATE_KEY);
+  const fact = matches.length === 1 ? matches[0]! : null;
+  if (fact === null || fact.state !== "value" || !finite(fact.value)) return null;
+  return fact.value > 0 && fact.value <= 100 ? fact.value / 100 : null;
 }
 
 function scalar(fact: Fact | null): ScalarModel {
