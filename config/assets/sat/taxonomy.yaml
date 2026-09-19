@@ -1,0 +1,103 @@
+# The College Board SAT skill taxonomy (plan.md §3.6 G6, §4.2; parity-inventory
+# F7, F11-F13, X6), ported from liprep's `src/components/TopicTree.ts`
+# (`topicTree`, `topicCodes`, `domainMap`, `getDifficultyTierFromScoreBand`).
+#
+# Consumed by `domain.sat.taxonomy.Taxonomy.model_validate(data)` — app/
+# loads this file (`load_yaml_asset("sat/taxonomy")`) and constructs the
+# value object; domain/sat/taxonomy.py never reads it directly (ADR 0017).
+#
+# Codes are verified against every (module, domain_cd, skill_cd) triple
+# observed in the College Board question-bank stub lists
+# (artifacts/sat-practice/research/list/*.json, assessments 99/100/102):
+# 29 skills across 8 domains, no skill filed under two domains, zero
+# mismatches. Domain and skill order follows `topicTree`'s object key order
+# (JS preserves insertion order); names are liprep's display strings, not
+# College Board's raw `skill_desc` (which carries trailing spaces and casing
+# variants — G6 compares those after strip + case-fold, not against this
+# file's names).
+modules:
+  - code: reading
+    short_label: EBRW
+    long_label: Reading and Writing
+    order: 1
+    domains:
+      - code: CAS
+        name: Craft and Structure
+        order: 1
+        skills:
+          - {code: CTC, name: Cross-text Connections, order: 1}
+          - {code: TSP, name: Text Structure and Purpose, order: 2}
+          - {code: WIC, name: Words in Context, order: 3}
+      - code: EOI
+        name: Expression of Ideas
+        order: 2
+        skills:
+          - {code: SYN, name: Rhetorical Synthesis, order: 1}
+          - {code: TRA, name: Transitions, order: 2}
+      - code: INI
+        name: Information and Ideas
+        order: 3
+        skills:
+          - {code: CID, name: Central Ideas and Details, order: 1}
+          - {code: COE, name: Command of Evidence, order: 2}
+          - {code: INF, name: Inferences, order: 3}
+      - code: SEC
+        name: Standard English Conventions
+        order: 4
+        skills:
+          - {code: BOU, name: Boundaries, order: 1}
+          - {code: FSS, name: "Form, Structure, and Sense", order: 2}
+  - code: math
+    short_label: Math
+    long_label: Math
+    order: 2
+    domains:
+      - code: H
+        name: Algebra
+        order: 1
+        skills:
+          - {code: "H.A.", name: Linear equations in one variable, order: 1}
+          - {code: "H.B.", name: Linear functions, order: 2}
+          - {code: "H.C.", name: Linear equations in two variables, order: 3}
+          - {code: "H.D.", name: Systems of two linear equations in two variables, order: 4}
+          - {code: "H.E.", name: Linear inequalities in one or two variables, order: 5}
+      - code: P
+        name: Advanced Math
+        order: 2
+        skills:
+          - {code: "P.A.", name: Equivalent expressions, order: 1}
+          - code: "P.B."
+            name: Nonlinear equations in one variable and systems of equations in two variables
+            order: 2
+          - {code: "P.C.", name: Nonlinear functions, order: 3}
+      - code: Q
+        name: Problem-Solving and Data Analysis
+        order: 3
+        skills:
+          - {code: "Q.A.", name: "Ratios, rates, proportional relationships, and units", order: 1}
+          - {code: "Q.B.", name: Percentages, order: 2}
+          - code: "Q.C."
+            name: "One-variable data: Distributions and measures of center and spread"
+            order: 3
+          - code: "Q.D."
+            name: "Two-variable data: Models and scatterplots"
+            order: 4
+          - {code: "Q.E.", name: Probability and conditional probability, order: 5}
+          - code: "Q.F."
+            name: Inference from sample statistics and margin of error
+            order: 6
+          - code: "Q.G."
+            name: "Evaluating statistical claims: Observational studies and experiments"
+            order: 7
+      - code: S
+        name: Geometry and Trigonometry
+        order: 4
+        skills:
+          - {code: "S.A.", name: Area and volume, order: 1}
+          - {code: "S.B.", name: "Lines, angles, and triangles", order: 2}
+          - {code: "S.C.", name: Right triangles and trigonometry, order: 3}
+          - {code: "S.D.", name: Circles, order: 4}
+band_tiers:
+  - {name: Easy, bands: [1, 2, 3]}
+  - {name: Medium, bands: [4, 5]}
+  - {name: Hard, bands: [6, 7]}
