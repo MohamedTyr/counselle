@@ -3,7 +3,7 @@
 /*
  * The component half of @coss/segmented-control. The registry ships the
  * class recipe (lib/segmented-control.ts) and demonstrates it on Base UI's
- * radio primitives; this is that composition, made a component so the four
+ * radio primitives; this is that composition, made a component so the five
  * call sites don't each re-derive the item className.
  *
  * Base UI's RadioGroup (not the project's Radix radio-group.tsx, which
@@ -36,6 +36,11 @@ type SegmentedControlProps<TValue extends string> = {
   onValueChange: (value: TValue) => void;
   label: string;
   size?: SegmentedControlSize;
+  /**
+   * Lays the trough out as an N-column grid at full width instead of the
+   * default `w-fit` row. Omit for the default behaviour.
+   */
+  columns?: number;
   className?: string;
 };
 
@@ -45,6 +50,7 @@ export function SegmentedControl<TValue extends string>({
   onValueChange,
   label,
   size = "sm",
+  columns,
   className,
 }: SegmentedControlProps<TValue>): React.ReactElement {
   const itemClassName = segmentedControlItemVariants({
@@ -56,8 +62,17 @@ export function SegmentedControl<TValue extends string>({
   return (
     <RadioGroupPrimitive
       aria-label={label}
-      className={cn(segmentedControlRootClassName, className)}
+      className={cn(
+        segmentedControlRootClassName,
+        columns === undefined ? null : "grid w-full",
+        className,
+      )}
       onValueChange={(next) => onValueChange(next as TValue)}
+      style={
+        columns === undefined
+          ? undefined
+          : { gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }
+      }
       value={value}
     >
       {options.map((option) => (
