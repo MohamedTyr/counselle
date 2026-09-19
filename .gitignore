@@ -63,3 +63,9 @@ htmlcov/
 coverage.xml
 coverage/
 
+# SAT question bank seed file (plan plans/sat-practice/plan.md §3.2, ADR
+# 0043, owner decision O5): gitignored until O5 says "yes, in the repo";
+# until then `app/sat/bank.py`'s bank-sync reads it from `sat_bank_path`
+# and the app boots without it, so nothing depends on it being committed.
+deploy/seed/sat/bank.jsonl.gz
+
