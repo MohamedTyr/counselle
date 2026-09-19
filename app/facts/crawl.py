@@ -299,11 +299,12 @@ async def _process_school_live(
             counters.pages_changed += 1
 
         if changed_tabs:
-            fallback_year = None
+            fallback_year = settings.current_admissions_cycle_year
             if "admission" not in pages:
-                fallback_year = await facts_store.get_stored_deadline_year(
+                stored_year = await facts_store.get_stored_deadline_year(
                     conn, school_id=school_id
                 )
+                fallback_year = stored_year or settings.current_admissions_cycle_year
             # A shape the mapper cannot handle (an unhandled-length header/body
             # array, a sentence regex that never matches, ...) must skip and
             # record this school, never take down the pass (Finding 1's
@@ -366,7 +367,7 @@ async def _fetch_all_bodies(
 
 
 async def _process_school_remap(
-    pool: asyncpg.Pool, *, school_id: int, mapper_version: str
+    pool: asyncpg.Pool, *, school_id: int, mapper_version: str, fallback_cycle_year: int
 ) -> _SchoolCounters:
     """`python -m app.facts remap` (plan §4.2/appendix J-iv): the identical
     mapper+SCD2 block over `school_pages.latest_snapshot_id`, no network,
@@ -410,7 +411,7 @@ async def _process_school_remap(
                 snapshot_ids=snapshot_ids,
                 snapshot_sha256=snapshot_sha256,
                 mapper_version=mapper_version,
-                fallback_cycle_year=None,
+                fallback_cycle_year=fallback_cycle_year,
             )
             counters.facts_changed = write_result.inserted + write_result.closed_withdrawn
             counters.unmapped = unmapped
@@ -667,7 +668,10 @@ async def run_remap_pass(
     )
     for row in schools:
         school_counters = await _process_school_remap(
-            pool, school_id=row["school_id"], mapper_version=mapper_version
+            pool,
+            school_id=row["school_id"],
+            mapper_version=mapper_version,
+            fallback_cycle_year=settings.current_admissions_cycle_year,
         )
         totals.add(school_counters)
 
