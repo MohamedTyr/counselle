@@ -56,12 +56,16 @@ export function MeterTrack({
 
 export function MeterIndicator({
   className,
+  variant = "primary",
   ...props
-}: MeterPrimitive.Indicator.Props): React.ReactElement {
+}: MeterPrimitive.Indicator.Props & {
+  variant?: "primary" | "neutral";
+}): React.ReactElement {
   return (
     <MeterPrimitive.Indicator
       className={cn(
-        "bg-primary transition-all duration-500",
+        variant === "neutral" ? "bg-muted-foreground" : "bg-primary",
+        "transition-all duration-500",
         /* Motion is not a fact. A width sweep on a value someone asked to
          * see less movement of is decoration they opted out of. */
         "motion-reduce:transition-none",
