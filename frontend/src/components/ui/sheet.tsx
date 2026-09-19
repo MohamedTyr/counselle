@@ -49,14 +49,16 @@ export function SheetViewport({
   ...props
 }: SheetPrimitive.Viewport.Props & {
   side?: "right" | "left" | "top" | "bottom";
-  variant?: "default" | "inset";
+  variant?: "default" | "inset" | "full";
 }): React.ReactElement {
   return (
     <SheetPrimitive.Viewport
       className={cn(
         "fixed inset-0 z-[var(--z-modal)] grid",
-        side === "bottom" && "grid grid-rows-[1fr_auto] pt-12",
-        side === "top" && "grid grid-rows-[auto_1fr] pb-12",
+        side === "bottom" && "grid grid-rows-[1fr_auto]",
+        side === "bottom" && variant !== "full" && "pt-12",
+        side === "top" && "grid grid-rows-[auto_1fr]",
+        side === "top" && variant !== "full" && "pb-12",
         side === "left" && "flex justify-start",
         side === "right" && "flex justify-end",
         variant === "inset" && "sm:p-4",
@@ -80,7 +82,7 @@ export function SheetPopup({
 }: SheetPrimitive.Popup.Props & {
   showCloseButton?: boolean;
   side?: "right" | "left" | "top" | "bottom";
-  variant?: "default" | "inset";
+  variant?: "default" | "inset" | "full";
   closeProps?: SheetPrimitive.Close.Props;
   portalProps?: SheetPrimitive.Portal.Props;
 }): React.ReactElement {
@@ -92,15 +94,24 @@ export function SheetPopup({
           className={cn(
             "relative flex max-h-full min-h-0 w-full min-w-0 flex-col bg-popover text-popover-foreground shadow-lg/5 transition-[opacity,translate] duration-200 ease-in-out will-change-transform bg-clip-padding before:pointer-events-none before:absolute before:inset-0 before:shadow-[0_1px_--theme(--color-black/4%)] data-ending-style:opacity-0 data-starting-style:opacity-0 max-sm:before:hidden",
             side === "bottom" &&
-              "row-start-2 border-t data-ending-style:translate-y-8 data-starting-style:translate-y-8",
+              "row-start-2 data-ending-style:translate-y-8 data-starting-style:translate-y-8",
+            side === "bottom" && variant !== "full" && "border-t",
             side === "top" &&
-              "border-b data-ending-style:-translate-y-8 data-starting-style:-translate-y-8",
+              "data-ending-style:-translate-y-8 data-starting-style:-translate-y-8",
+            side === "top" && variant !== "full" && "border-b",
             side === "left" &&
-              "w-[calc(100%-(--spacing(12)))] max-w-md border-e data-ending-style:-translate-x-8 data-starting-style:-translate-x-8",
+              "data-ending-style:-translate-x-8 data-starting-style:-translate-x-8",
+            side === "left" &&
+              variant !== "full" &&
+              "w-[calc(100%-(--spacing(12)))] max-w-md border-e",
             side === "right" &&
-              "col-start-2 w-[calc(100%-(--spacing(12)))] max-w-md border-s data-ending-style:translate-x-8 data-starting-style:translate-x-8",
+              "col-start-2 data-ending-style:translate-x-8 data-starting-style:translate-x-8",
+            side === "right" &&
+              variant !== "full" &&
+              "w-[calc(100%-(--spacing(12)))] max-w-md border-s",
             variant === "inset" &&
               "before:hidden sm:rounded-2xl sm:border sm:before:rounded-[calc(var(--radius-2xl)-1px)] sm:**:data-[slot=sheet-footer]:rounded-b-[calc(var(--radius-2xl)-1px)]",
+            variant === "full" && "h-full w-full max-w-none border-0 before:hidden",
             className,
           )}
           data-slot="sheet-popup"
