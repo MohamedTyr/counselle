@@ -50,6 +50,22 @@ _MIN_JWT_SECRET_BYTES = 32
 #: `adapters/collegedata/fetch.py`.
 _FACTS_CRAWL_UA_PLACEHOLDER_MARKER = "<domain>"
 
+#: The contact-URL rule shared by every User-Agent field validator in this
+#: module (`facts_crawl_user_agent`, `sat_fetch_user_agent`) — two crawls,
+#: two hosts, two separate settings, but one rule for what makes a UA
+#: truthfully self-identifying (a real `http(s)://` URL somewhere in it).
+#: This is a plain regex check, not the placeholder check — see
+#: `_facts_crawl_user_agent_has_contact_url`'s docstring for why the
+#: placeholder rejection stays a `model_validator` gated on `environment`
+#: rather than living here too.
+_UA_CONTACT_URL_RE = re.compile(r"https?://\S+")
+
+
+def _user_agent_has_contact_url(value: str) -> bool:
+    """True if `value` carries a real `http(s)://` contact URL."""
+    return bool(_UA_CONTACT_URL_RE.search(value))
+
+
 #: Fields whose values must never appear unmasked in repr/str/logs.
 _SECRET_FIELDS = frozenset(
     {
@@ -552,6 +568,48 @@ class Settings(BaseSettings):
     # the text is truncated and points the model at read_essay.
     essay_context_max_chars: int = Field(default=8_000, gt=0)
 
+    # --- SAT practice (plan plans/sat-practice/plan.md §3.2/§4.1/§4.3/§4.6/§5.6/§6.4) ---
+    # The shared token-bucket rate for adapters/collegeboard/client.py — one
+    # bucket across both College Board API hosts (plan §3.2: "a full run
+    # ≈ 16 min" at this rate).
+    sat_fetch_requests_per_second: float = Field(default=4.0, gt=0)
+    # The truthful, self-identifying User-Agent every College Board request
+    # carries — its own setting, not a reuse of facts_crawl_user_agent:
+    # two crawls, two hosts, two independent reasons to change (plan §3.2).
+    # Boot-validated below (contact URL, and outside `development` the
+    # `<domain>` placeholder) the same way facts_crawl_user_agent is.
+    sat_fetch_user_agent: str = Field(
+        default="CounselleBot/1.0 (+https://<domain>/bot)", min_length=1
+    )
+    # Where app/sat/bank.py reads the built question-bank file from when it
+    # is not committed to the repo (plan §3.2, O5) — deploy places it here.
+    sat_bank_path: Path = Path("deploy/seed/sat/bank.jsonl.gz")
+    # Upper clamp on a submitted/imported attempt's time_spent_seconds (plan
+    # §4.3 Q25) — 24h, generous headroom over any real practice session.
+    sat_attempt_max_seconds: int = Field(default=86_400, gt=0)
+    # Hard cap on a PUT /v1/sat/progress import body (plan §4.6) — below the
+    # global max_request_body_bytes ceiling, so the student sees our own 413
+    # sentence rather than the middleware's bare 400 on a truncated body.
+    sat_import_max_bytes: int = Field(default=12 * 1024 * 1024, gt=0)
+    # api/ratelimit.py's check_sat_write budget (plan §4.1) — attempts and
+    # bookmark writes share this, separate from workspace_writes_per_minute
+    # so SAT answers never throttle task/essay edits or vice versa.
+    sat_writes_per_minute: int = Field(default=120, gt=0)
+    # api/ratelimit.py's check_sat_read budget (plan §4.1) — GET
+    # /questions/{id} is the one endpoint that lets a signed-in account walk
+    # the whole licensed corpus in 3,767 requests; this turns a bulk scrape
+    # into a throttled event.
+    sat_question_reads_per_minute: int = Field(default=600, gt=0)
+    # College Board's own Bluebook calculator embed (plan §6.4, O3) — served
+    # through GET /v1/config. Its configuration (degree mode, feature set)
+    # is College Board's, not ours to change.
+    sat_desmos_embed_url: str = "https://www.desmos.com/testing/collegeboard/graphing"
+    # The mailto target for the practice Info dialog's "Report an issue"
+    # link (plan §5.6, Q38) — SAT questions have no feedback-route home
+    # (FeedbackBody is bound to a chat message_id), so this is a plain
+    # mailto with the question id in the subject.
+    support_email: str = "support@counselle.app"
+
     # --- CDS admin pipeline (parked, ADR 0036/0038 — D8) ---
     # In-process asyncio poller kill switch — all queue state lives in
     # cds_extractions (Postgres), so flipping this off just stops new claims.
@@ -629,6 +687,18 @@ class Settings(BaseSettings):
                     "own real, reachable contact URL before deploying outside "
                     "development (ADR 0038 R0)"
                 )
+            if _FACTS_CRAWL_UA_PLACEHOLDER_MARKER in self.sat_fetch_user_agent:
+                # Same rule, same reason, for the second crawler this module
+                # boot-validates (plan §3.2): an operator who deploys
+                # without setting COUNSELLE_SAT_FETCH_USER_AGENT would
+                # otherwise boot clean and silently misidentify every
+                # College Board request the moment a fetch runs.
+                raise ValueError(
+                    "sat_fetch_user_agent is still the documented '<domain>' "
+                    "placeholder — set COUNSELLE_SAT_FETCH_USER_AGENT to your "
+                    "own real, reachable contact URL before deploying outside "
+                    "development"
+                )
         return self
 
     @field_validator("facts_crawl_user_agent")
@@ -652,9 +722,25 @@ class Settings(BaseSettings):
         # placeholder-specific check instead, gated to fire only outside
         # `development`, exactly like the cookie_secure/password_reset
         # checks it already makes.
-        if not re.search(r"https?://\S+", value):
+        if not _user_agent_has_contact_url(value):
             raise ValueError(
                 "facts_crawl_user_agent must contain a contact URL (http:// or https://)"
+            )
+        return value
+
+    @field_validator("sat_fetch_user_agent")
+    @classmethod
+    def _sat_fetch_user_agent_has_contact_url(cls, value: str) -> str:
+        # Same rule as `facts_crawl_user_agent` above, same reason it lives
+        # in a field validator rather than only in the model validator
+        # below: `pydantic-settings` runs field validators against a
+        # field's own default too, so this must hold unconditionally (every
+        # environment, including a plain `Settings()` in tests) while the
+        # placeholder-specific rejection stays gated to non-development in
+        # `_validate_deploy_auth_posture`.
+        if not _user_agent_has_contact_url(value):
+            raise ValueError(
+                "sat_fetch_user_agent must contain a contact URL (http:// or https://)"
             )
         return value
 

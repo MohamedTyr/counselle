@@ -311,10 +311,80 @@ class TestFactsCrawlSettings:
         monkeypatch.setenv(
             "COUNSELLE_FACTS_CRAWL_USER_AGENT", "CounselleBot/1.0 (+https://counselle.ai/bot)"
         )
+        monkeypatch.setenv(
+            "COUNSELLE_SAT_FETCH_USER_AGENT", "CounselleBot/1.0 (+https://counselle.ai/bot)"
+        )
 
         settings = EnvFileFreeSettings(db_ro_dsn=RO_DSN, db_app_dsn=APP_DSN, jwt_secret=JWT_SECRET)
 
         assert settings.facts_crawl_user_agent == "CounselleBot/1.0 (+https://counselle.ai/bot)"
+
+
+class TestSatFetchSettings:
+    """The College Board fetch adapter's own User-Agent boot gate — the same
+    rule as TestFactsCrawlSettings above, duplicated because
+    sat_fetch_user_agent is its own setting (plan §3.2: two crawls, two
+    hosts, two reasons to change)."""
+
+    def test_defaults_match_plan_section_3_2(self, clean_env: None) -> None:
+        settings = EnvFileFreeSettings(db_ro_dsn=RO_DSN, db_app_dsn=APP_DSN, jwt_secret=JWT_SECRET)
+
+        assert settings.sat_fetch_requests_per_second == 4.0
+        assert settings.sat_fetch_user_agent == "CounselleBot/1.0 (+https://<domain>/bot)"
+
+    def test_user_agent_with_no_url_fails_boot(
+        self, clean_env: None, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("COUNSELLE_SAT_FETCH_USER_AGENT", "CounselleBot/1.0")
+
+        with pytest.raises(ValueError, match="contact URL"):
+            EnvFileFreeSettings(db_ro_dsn=RO_DSN, db_app_dsn=APP_DSN, jwt_secret=JWT_SECRET)
+
+    def test_user_agent_with_a_url_boots(
+        self, clean_env: None, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv(
+            "COUNSELLE_SAT_FETCH_USER_AGENT", "CounselleBot/1.0 (+https://counselle.ai/bot)"
+        )
+
+        settings = EnvFileFreeSettings(db_ro_dsn=RO_DSN, db_app_dsn=APP_DSN, jwt_secret=JWT_SECRET)
+
+        assert settings.sat_fetch_user_agent == "CounselleBot/1.0 (+https://counselle.ai/bot)"
+
+    def test_placeholder_user_agent_boots_fine_in_development(self, clean_env: None) -> None:
+        settings = EnvFileFreeSettings(db_ro_dsn=RO_DSN, db_app_dsn=APP_DSN, jwt_secret=JWT_SECRET)
+        assert settings.environment == "development"
+        assert settings.sat_fetch_user_agent == "CounselleBot/1.0 (+https://<domain>/bot)"
+
+    def test_placeholder_user_agent_fails_boot_outside_development(
+        self, clean_env: None, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("COUNSELLE_ENVIRONMENT", "staging")
+        monkeypatch.setenv("COUNSELLE_COOKIE_SECURE", "true")
+        monkeypatch.setenv("COUNSELLE_PASSWORD_RESET_ENABLED", "false")
+        monkeypatch.setenv(
+            "COUNSELLE_FACTS_CRAWL_USER_AGENT", "CounselleBot/1.0 (+https://counselle.ai/bot)"
+        )
+
+        with pytest.raises(ValueError, match="placeholder"):
+            EnvFileFreeSettings(db_ro_dsn=RO_DSN, db_app_dsn=APP_DSN, jwt_secret=JWT_SECRET)
+
+    def test_real_user_agent_boots_outside_development(
+        self, clean_env: None, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("COUNSELLE_ENVIRONMENT", "staging")
+        monkeypatch.setenv("COUNSELLE_COOKIE_SECURE", "true")
+        monkeypatch.setenv("COUNSELLE_PASSWORD_RESET_ENABLED", "false")
+        monkeypatch.setenv(
+            "COUNSELLE_FACTS_CRAWL_USER_AGENT", "CounselleBot/1.0 (+https://counselle.ai/bot)"
+        )
+        monkeypatch.setenv(
+            "COUNSELLE_SAT_FETCH_USER_AGENT", "CounselleBot/1.0 (+https://counselle.ai/bot)"
+        )
+
+        settings = EnvFileFreeSettings(db_ro_dsn=RO_DSN, db_app_dsn=APP_DSN, jwt_secret=JWT_SECRET)
+
+        assert settings.sat_fetch_user_agent == "CounselleBot/1.0 (+https://counselle.ai/bot)"
 
 
 class TestTavilyKeyAlias:
