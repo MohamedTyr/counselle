@@ -16,6 +16,7 @@ from collections.abc import Callable
 import httpx
 import pytest
 
+from adapters._ratelimit import TokenBucket
 from adapters.collegedata.fetch import (
     AllowedPathViolation,
     BuildIdRotationLimitExceeded,
@@ -23,7 +24,6 @@ from adapters.collegedata.fetch import (
     FetchConfig,
     ResponseTooLargeError,
     RobotsDisallowedError,
-    TokenBucket,
     TooManyRateLimitBlocks,
     _maybe_gunzip,
     _send,

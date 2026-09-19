@@ -77,7 +77,6 @@ import asyncio
 import gzip
 import io
 import re
-import time
 import urllib.robotparser as robotparser
 from datetime import UTC, datetime
 from typing import Literal
@@ -88,6 +87,7 @@ from defusedxml.ElementTree import fromstring as _defused_fromstring
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from tenacity import retry, retry_if_exception, stop_after_attempt, wait_exponential
 
+from adapters._ratelimit import TokenBucket
 from domain.envelope import JsonValue
 from domain.facts.models import TAB_NAMES, TabName
 
@@ -100,7 +100,6 @@ __all__ = [
     "FetchedPage",
     "ResponseTooLargeError",
     "RobotsDisallowedError",
-    "TokenBucket",
     "TooManyRateLimitBlocks",
     "TransportFailure",
     "build_client",
@@ -167,12 +166,6 @@ _RETRY_ATTEMPTS = 4
 # shape of the algorithm, not a tunable (CLAUDE.md's "would someone change
 # this without changing the logic?" test says no).
 _CONSECUTIVE_BLOCK_LIMIT = 3
-
-# A rate-limit halving floor: at most one request per 5 minutes, so a long
-# run of non-consecutive blocks across a whole pass can never stall the
-# fetcher outright. Not part of the plan's named constants — an internal
-# safety bound on `TokenBucket.halve`, never a decision anyone would tune.
-_MAX_TOKEN_INTERVAL_S = 300.0
 
 # `_get`'s manual redirect loop (Finding 4, school-data-v3 fix review) —
 # a hop ceiling against a redirect cycle, never a real collegedata.com
@@ -308,36 +301,6 @@ class FetchedPage(BaseModel):
     build_id: str | None = None
     profile: dict[str, JsonValue] | None = None
     fetched_at: datetime
-
-
-class TokenBucket:
-    """Async single-request-per-interval rate limiter (plan §4.1's "one
-    token bucket ... shared by N schools in flight"). `acquire()` blocks
-    the caller until it is safe to send the next request; `halve()`
-    implements the 429/403 backoff, floored so the rate never collapses to
-    a full stop.
-    """
-
-    def __init__(self, rps: float) -> None:
-        self._interval = 1.0 / rps
-        self._lock = asyncio.Lock()
-        self._next_allowed = 0.0  # monotonic time
-
-    @property
-    def rps(self) -> float:
-        return 1.0 / self._interval
-
-    def halve(self) -> None:
-        self._interval = min(self._interval * 2, _MAX_TOKEN_INTERVAL_S)
-
-    async def acquire(self) -> None:
-        async with self._lock:
-            now = time.monotonic()
-            wait_s = self._next_allowed - now
-            if wait_s > 0:
-                await asyncio.sleep(wait_s)
-                now = time.monotonic()
-            self._next_allowed = now + self._interval
 
 
 def build_client(config: FetchConfig) -> httpx.AsyncClient:
