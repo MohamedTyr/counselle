@@ -1,0 +1,116 @@
+--- a/src/pages/Practice.tsx
++++ b/src/pages/Practice.tsx
+@@ -31,7 +31,7 @@
+   return `${GOOGLE_FORM_BASE_URL}?${params.toString()}`;
+ }
+ 
+-function parseNumericValue(value: string): number | null {
++export function parseNumericValue(value: string): number | null {
+   const trimmed = value.trim();
+   if (!/^-?(?:\d+(?:\.\d*)?|\.\d+)(?:\/-?(?:\d+(?:\.\d*)?|\.\d+))?$/.test(trimmed)) {
+     return null;
+@@ -45,7 +45,7 @@
+   return num / den;
+ }
+ 
+-function checkIsCorrect(question: SatQuestion, answer: string): boolean {
++export function checkIsCorrect(question: SatQuestion, answer: string): boolean {
+   const cleaned = answer.trim().toLowerCase();
+   if (question.correct_answer.some((ans) => ans.trim().toLowerCase() === cleaned)) {
+     return true;
+--- a/src/db.ts
++++ b/src/db.ts
+@@ -105,7 +105,7 @@
+   return [];
+ }
+ 
+-function parseWrittenFraction(text: string): string | null {
++export function parseWrittenFraction(text: string): string | null {
+   const wordsToNumbers: Record<string, number> = {
+     zero: 0, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10,
+     eleven: 11, twelve: 12, thirteen: 13, fourteen: 14, fifteen: 15, sixteen: 16, seventeen: 17,
+--- a/src/components/RichContent.tsx
++++ b/src/components/RichContent.tsx
+@@ -67,7 +67,7 @@
+  * This transforms `<mfenced>` into standard `<mrow><mo>(</mo>...<mo>)</mo></mrow>`
+  * so parentheses and separators render properly in all browsers.
+  */
+-function transformMfenced(html: string): string {
++export function transformMfenced(html: string): string {
+   if (!html.includes("<mfenced") && !html.includes("<mfenced/")) {
+     return html;
+   }
+@@ -127,6 +127,38 @@
+   }
+ }
+ 
++export function preprocessSatHtml(html: string): string {
++  let preprocessed = html;
++
++  // 1. Normalize screen-reader blanks
++  preprocessed = preprocessed.replace(
++    /<span aria-hidden="true">_+<\/span><span class="sr-only">blank<\/span>/gi,
++    '<span class="sat-blank" aria-label="blank space"></span>'
++  );
++  preprocessed = preprocessed.replace(
++    /_{4,}/g,
++    '<span class="sat-blank"></span>'
++  );
++
++  // 2. Fix degree symbol spacing quirks
++  preprocessed = preprocessed.replace(/&deg;/g, "°");
++
++  // 3. Clean up hardcoded pixel widths on table headers and cells that cause truncation
++  preprocessed = preprocessed.replace(
++    /(<(?:th|td)\b[^>]*style="[^"]*?)\bwidth:\s*[\d.]+(?:px|pt|em|rem);?\s*/gi,
++    "$1"
++  );
++  preprocessed = preprocessed.replace(
++    /(<(?:th|td)\b[^>]*)\bwidth=["'][\d.]+(?:px|pt)?["']/gi,
++    "$1"
++  );
++
++  // 4. Transform deprecated MathML <mfenced> to explicit <mo> fence tags
++  preprocessed = transformMfenced(preprocessed);
++
++  return preprocessed;
++}
++
+ export default function RichContent({
+   content,
+   className = "",
+@@ -134,33 +166,7 @@
+   const renderedContent = useMemo(() => {
+     if (!content) return null;
+ 
+-    let preprocessed = content;
+-
+-    // 1. Normalize screen-reader blanks
+-    preprocessed = preprocessed.replace(
+-      /<span aria-hidden="true">_+<\/span><span class="sr-only">blank<\/span>/gi,
+-      '<span class="sat-blank" aria-label="blank space"></span>'
+-    );
+-    preprocessed = preprocessed.replace(
+-      /_{4,}/g,
+-      '<span class="sat-blank"></span>'
+-    );
+-
+-    // 2. Fix degree symbol spacing quirks
+-    preprocessed = preprocessed.replace(/&deg;/g, "°");
+-
+-    // 3. Clean up hardcoded pixel widths on table headers and cells that cause truncation
+-    preprocessed = preprocessed.replace(
+-      /(<(?:th|td)\b[^>]*style="[^"]*?)\bwidth:\s*[\d.]+(?:px|pt|em|rem);?\s*/gi,
+-      "$1"
+-    );
+-    preprocessed = preprocessed.replace(
+-      /(<(?:th|td)\b[^>]*)\bwidth=["'][\d.]+(?:px|pt)?["']/gi,
+-      "$1"
+-    );
+-
+-    // 4. Transform deprecated MathML <mfenced> to explicit <mo> fence tags
+-    preprocessed = transformMfenced(preprocessed);
++    const preprocessed = preprocessSatHtml(content);
+ 
+     // 5. Clean and sanitize HTML, SVG & MathML
+     const cleanHTML = DOMPurify.sanitize(preprocessed, {

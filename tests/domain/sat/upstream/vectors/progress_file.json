@@ -1,0 +1,879 @@
+{
+  "suite": "progress_file",
+  "upstream_commit": "c84d3dc099653cc82fa2d380a7bbd299ae52201e",
+  "patch_sha256": "98a2bc4914fd1bb18db9445366d374813cc489be27539e7daac9657ffa73dfb3",
+  "generated_at": "2026-09-19T12:00:00.000Z",
+  "count": 20,
+  "cases": [
+    {
+      "label": "well_formed_liprep_file",
+      "direction": "import",
+      "input": {
+        "format": "LiPrep",
+        "version": 1,
+        "exportedAt": 1789819200000,
+        "exportDateStr": "2026-09-19",
+        "data": {
+          "attempts": [
+            {
+              "questionId": "q1",
+              "module": "math",
+              "primary_class_cd": "H",
+              "skill_cd": "H.A.",
+              "score_band_range_cd": 5,
+              "userAnswer": "3",
+              "isCorrect": true,
+              "timeSpentSeconds": 42,
+              "solvedAt": 1789815600000,
+              "dateKey": "2026-09-19"
+            }
+          ],
+          "bookmarks": [
+            {
+              "questionId": "q1",
+              "bookmarkedAt": 1789819200000
+            }
+          ]
+        }
+      },
+      "importResult": {
+        "attemptsCount": 1,
+        "bookmarksCount": 1
+      },
+      "importError": null,
+      "persisted": {
+        "attempts": [
+          {
+            "questionId": "q1",
+            "module": "math",
+            "primary_class_cd": "H",
+            "skill_cd": "H.A.",
+            "score_band_range_cd": 5,
+            "userAnswer": "3",
+            "isCorrect": true,
+            "timeSpentSeconds": 42,
+            "solvedAt": 1789815600000,
+            "dateKey": "2026-09-19",
+            "id": 1
+          }
+        ],
+        "bookmarks": [
+          {
+            "questionId": "q1",
+            "bookmarkedAt": 1789819200000
+          }
+        ]
+      }
+    },
+    {
+      "label": "missing_module_defaults_reading",
+      "direction": "import",
+      "input": {
+        "data": {
+          "attempts": [
+            {
+              "questionId": "q1",
+              "primary_class_cd": "H",
+              "skill_cd": "H.A.",
+              "score_band_range_cd": 5,
+              "userAnswer": "3",
+              "isCorrect": true,
+              "timeSpentSeconds": 42,
+              "solvedAt": 1789815600000,
+              "dateKey": "2026-09-19"
+            }
+          ],
+          "bookmarks": []
+        }
+      },
+      "importResult": {
+        "attemptsCount": 1,
+        "bookmarksCount": 0
+      },
+      "importError": null,
+      "persisted": {
+        "attempts": [
+          {
+            "questionId": "q1",
+            "module": "reading",
+            "primary_class_cd": "H",
+            "skill_cd": "H.A.",
+            "score_band_range_cd": 5,
+            "userAnswer": "3",
+            "isCorrect": true,
+            "timeSpentSeconds": 42,
+            "solvedAt": 1789815600000,
+            "dateKey": "2026-09-19",
+            "id": 2
+          }
+        ],
+        "bookmarks": []
+      }
+    },
+    {
+      "label": "missing_module_other_string_kept_as_given",
+      "direction": "import",
+      "input": {
+        "data": {
+          "attempts": [
+            {
+              "questionId": "q1",
+              "module": "ebrw-legacy",
+              "primary_class_cd": "H",
+              "skill_cd": "H.A.",
+              "score_band_range_cd": 5,
+              "userAnswer": "3",
+              "isCorrect": true,
+              "timeSpentSeconds": 42,
+              "solvedAt": 1789815600000,
+              "dateKey": "2026-09-19"
+            }
+          ],
+          "bookmarks": []
+        }
+      },
+      "importResult": {
+        "attemptsCount": 1,
+        "bookmarksCount": 0
+      },
+      "importError": null,
+      "persisted": {
+        "attempts": [
+          {
+            "questionId": "q1",
+            "module": "ebrw-legacy",
+            "primary_class_cd": "H",
+            "skill_cd": "H.A.",
+            "score_band_range_cd": 5,
+            "userAnswer": "3",
+            "isCorrect": true,
+            "timeSpentSeconds": 42,
+            "solvedAt": 1789815600000,
+            "dateKey": "2026-09-19",
+            "id": 3
+          }
+        ],
+        "bookmarks": []
+      }
+    },
+    {
+      "label": "missing_band_defaults_3",
+      "direction": "import",
+      "input": {
+        "data": {
+          "attempts": [
+            {
+              "questionId": "q1",
+              "module": "math",
+              "primary_class_cd": "H",
+              "skill_cd": "H.A.",
+              "userAnswer": "3",
+              "isCorrect": true,
+              "timeSpentSeconds": 42,
+              "solvedAt": 1789815600000,
+              "dateKey": "2026-09-19"
+            }
+          ],
+          "bookmarks": []
+        }
+      },
+      "importResult": {
+        "attemptsCount": 1,
+        "bookmarksCount": 0
+      },
+      "importError": null,
+      "persisted": {
+        "attempts": [
+          {
+            "questionId": "q1",
+            "module": "math",
+            "primary_class_cd": "H",
+            "skill_cd": "H.A.",
+            "score_band_range_cd": 3,
+            "userAnswer": "3",
+            "isCorrect": true,
+            "timeSpentSeconds": 42,
+            "solvedAt": 1789815600000,
+            "dateKey": "2026-09-19",
+            "id": 4
+          }
+        ],
+        "bookmarks": []
+      }
+    },
+    {
+      "label": "band_out_of_range_kept_as_is_by_upstream",
+      "direction": "import",
+      "input": {
+        "data": {
+          "attempts": [
+            {
+              "questionId": "q1",
+              "module": "math",
+              "primary_class_cd": "H",
+              "skill_cd": "H.A.",
+              "score_band_range_cd": 99,
+              "userAnswer": "3",
+              "isCorrect": true,
+              "timeSpentSeconds": 42,
+              "solvedAt": 1789815600000,
+              "dateKey": "2026-09-19"
+            }
+          ],
+          "bookmarks": []
+        }
+      },
+      "importResult": {
+        "attemptsCount": 1,
+        "bookmarksCount": 0
+      },
+      "importError": null,
+      "persisted": {
+        "attempts": [
+          {
+            "questionId": "q1",
+            "module": "math",
+            "primary_class_cd": "H",
+            "skill_cd": "H.A.",
+            "score_band_range_cd": 99,
+            "userAnswer": "3",
+            "isCorrect": true,
+            "timeSpentSeconds": 42,
+            "solvedAt": 1789815600000,
+            "dateKey": "2026-09-19",
+            "id": 5
+          }
+        ],
+        "bookmarks": []
+      }
+    },
+    {
+      "label": "missing_seconds_defaults_1",
+      "direction": "import",
+      "input": {
+        "data": {
+          "attempts": [
+            {
+              "questionId": "q1",
+              "module": "math",
+              "primary_class_cd": "H",
+              "skill_cd": "H.A.",
+              "score_band_range_cd": 5,
+              "userAnswer": "3",
+              "isCorrect": true,
+              "solvedAt": 1789815600000,
+              "dateKey": "2026-09-19"
+            }
+          ],
+          "bookmarks": []
+        }
+      },
+      "importResult": {
+        "attemptsCount": 1,
+        "bookmarksCount": 0
+      },
+      "importError": null,
+      "persisted": {
+        "attempts": [
+          {
+            "questionId": "q1",
+            "module": "math",
+            "primary_class_cd": "H",
+            "skill_cd": "H.A.",
+            "score_band_range_cd": 5,
+            "userAnswer": "3",
+            "isCorrect": true,
+            "timeSpentSeconds": 1,
+            "solvedAt": 1789815600000,
+            "dateKey": "2026-09-19",
+            "id": 6
+          }
+        ],
+        "bookmarks": []
+      }
+    },
+    {
+      "label": "zero_seconds_kept_as_is_by_upstream",
+      "direction": "import",
+      "input": {
+        "data": {
+          "attempts": [
+            {
+              "questionId": "q1",
+              "module": "math",
+              "primary_class_cd": "H",
+              "skill_cd": "H.A.",
+              "score_band_range_cd": 5,
+              "userAnswer": "3",
+              "isCorrect": true,
+              "timeSpentSeconds": 0,
+              "solvedAt": 1789815600000,
+              "dateKey": "2026-09-19"
+            }
+          ],
+          "bookmarks": []
+        }
+      },
+      "importResult": {
+        "attemptsCount": 1,
+        "bookmarksCount": 0
+      },
+      "importError": null,
+      "persisted": {
+        "attempts": [
+          {
+            "questionId": "q1",
+            "module": "math",
+            "primary_class_cd": "H",
+            "skill_cd": "H.A.",
+            "score_band_range_cd": 5,
+            "userAnswer": "3",
+            "isCorrect": true,
+            "timeSpentSeconds": 0,
+            "solvedAt": 1789815600000,
+            "dateKey": "2026-09-19",
+            "id": 7
+          }
+        ],
+        "bookmarks": []
+      }
+    },
+    {
+      "label": "missing_solved_at_defaults_now",
+      "direction": "import",
+      "input": {
+        "data": {
+          "attempts": [
+            {
+              "questionId": "q1",
+              "module": "math",
+              "primary_class_cd": "H",
+              "skill_cd": "H.A.",
+              "score_band_range_cd": 5,
+              "userAnswer": "3",
+              "isCorrect": true,
+              "timeSpentSeconds": 42,
+              "dateKey": "2026-09-19"
+            }
+          ],
+          "bookmarks": []
+        }
+      },
+      "importResult": {
+        "attemptsCount": 1,
+        "bookmarksCount": 0
+      },
+      "importError": null,
+      "persisted": {
+        "attempts": [
+          {
+            "questionId": "q1",
+            "module": "math",
+            "primary_class_cd": "H",
+            "skill_cd": "H.A.",
+            "score_band_range_cd": 5,
+            "userAnswer": "3",
+            "isCorrect": true,
+            "timeSpentSeconds": 42,
+            "solvedAt": 1789819200000,
+            "dateKey": "2026-09-19",
+            "id": 8
+          }
+        ],
+        "bookmarks": []
+      }
+    },
+    {
+      "label": "missing_date_key_defaults_today",
+      "direction": "import",
+      "input": {
+        "data": {
+          "attempts": [
+            {
+              "questionId": "q1",
+              "module": "math",
+              "primary_class_cd": "H",
+              "skill_cd": "H.A.",
+              "score_band_range_cd": 5,
+              "userAnswer": "3",
+              "isCorrect": true,
+              "timeSpentSeconds": 42,
+              "solvedAt": 1789815600000
+            }
+          ],
+          "bookmarks": []
+        }
+      },
+      "importResult": {
+        "attemptsCount": 1,
+        "bookmarksCount": 0
+      },
+      "importError": null,
+      "persisted": {
+        "attempts": [
+          {
+            "questionId": "q1",
+            "module": "math",
+            "primary_class_cd": "H",
+            "skill_cd": "H.A.",
+            "score_band_range_cd": 5,
+            "userAnswer": "3",
+            "isCorrect": true,
+            "timeSpentSeconds": 42,
+            "solvedAt": 1789815600000,
+            "dateKey": "2026-09-19",
+            "id": 9
+          }
+        ],
+        "bookmarks": []
+      }
+    },
+    {
+      "label": "missing_primary_class_and_skill_default_empty_string",
+      "direction": "import",
+      "input": {
+        "data": {
+          "attempts": [
+            {
+              "questionId": "q1",
+              "module": "math",
+              "score_band_range_cd": 5,
+              "userAnswer": "3",
+              "isCorrect": true,
+              "timeSpentSeconds": 42,
+              "solvedAt": 1789815600000,
+              "dateKey": "2026-09-19"
+            }
+          ],
+          "bookmarks": []
+        }
+      },
+      "importResult": {
+        "attemptsCount": 1,
+        "bookmarksCount": 0
+      },
+      "importError": null,
+      "persisted": {
+        "attempts": [
+          {
+            "questionId": "q1",
+            "module": "math",
+            "primary_class_cd": "",
+            "skill_cd": "",
+            "score_band_range_cd": 5,
+            "userAnswer": "3",
+            "isCorrect": true,
+            "timeSpentSeconds": 42,
+            "solvedAt": 1789815600000,
+            "dateKey": "2026-09-19",
+            "id": 10
+          }
+        ],
+        "bookmarks": []
+      }
+    },
+    {
+      "label": "missing_question_id_row_rejected",
+      "direction": "import",
+      "input": {
+        "data": {
+          "attempts": [
+            {
+              "module": "math",
+              "primary_class_cd": "H",
+              "skill_cd": "H.A.",
+              "score_band_range_cd": 5,
+              "userAnswer": "3",
+              "isCorrect": true,
+              "timeSpentSeconds": 42,
+              "solvedAt": 1789815600000,
+              "dateKey": "2026-09-19"
+            },
+            {
+              "questionId": "q2",
+              "module": "math",
+              "primary_class_cd": "H",
+              "skill_cd": "H.A.",
+              "score_band_range_cd": 5,
+              "userAnswer": "3",
+              "isCorrect": true,
+              "timeSpentSeconds": 42,
+              "solvedAt": 1789815600000,
+              "dateKey": "2026-09-19"
+            }
+          ],
+          "bookmarks": []
+        }
+      },
+      "importResult": {
+        "attemptsCount": 1,
+        "bookmarksCount": 0
+      },
+      "importError": null,
+      "persisted": {
+        "attempts": [
+          {
+            "questionId": "q2",
+            "module": "math",
+            "primary_class_cd": "H",
+            "skill_cd": "H.A.",
+            "score_band_range_cd": 5,
+            "userAnswer": "3",
+            "isCorrect": true,
+            "timeSpentSeconds": 42,
+            "solvedAt": 1789815600000,
+            "dateKey": "2026-09-19",
+            "id": 11
+          }
+        ],
+        "bookmarks": []
+      }
+    },
+    {
+      "label": "missing_is_correct_row_rejected",
+      "direction": "import",
+      "input": {
+        "data": {
+          "attempts": [
+            {
+              "questionId": "q1",
+              "module": "math",
+              "primary_class_cd": "H",
+              "skill_cd": "H.A.",
+              "score_band_range_cd": 5,
+              "userAnswer": "3",
+              "timeSpentSeconds": 42,
+              "solvedAt": 1789815600000,
+              "dateKey": "2026-09-19"
+            },
+            {
+              "questionId": "q3",
+              "module": "math",
+              "primary_class_cd": "H",
+              "skill_cd": "H.A.",
+              "score_band_range_cd": 5,
+              "userAnswer": "3",
+              "isCorrect": true,
+              "timeSpentSeconds": 42,
+              "solvedAt": 1789815600000,
+              "dateKey": "2026-09-19"
+            }
+          ],
+          "bookmarks": []
+        }
+      },
+      "importResult": {
+        "attemptsCount": 1,
+        "bookmarksCount": 0
+      },
+      "importError": null,
+      "persisted": {
+        "attempts": [
+          {
+            "questionId": "q3",
+            "module": "math",
+            "primary_class_cd": "H",
+            "skill_cd": "H.A.",
+            "score_band_range_cd": 5,
+            "userAnswer": "3",
+            "isCorrect": true,
+            "timeSpentSeconds": 42,
+            "solvedAt": 1789815600000,
+            "dateKey": "2026-09-19",
+            "id": 12
+          }
+        ],
+        "bookmarks": []
+      }
+    },
+    {
+      "label": "version_field_unchecked",
+      "direction": "import",
+      "input": {
+        "version": 999,
+        "data": {
+          "attempts": [
+            {
+              "questionId": "q1",
+              "module": "math",
+              "primary_class_cd": "H",
+              "skill_cd": "H.A.",
+              "score_band_range_cd": 5,
+              "userAnswer": "3",
+              "isCorrect": true,
+              "timeSpentSeconds": 42,
+              "solvedAt": 1789815600000,
+              "dateKey": "2026-09-19"
+            }
+          ],
+          "bookmarks": []
+        }
+      },
+      "importResult": {
+        "attemptsCount": 1,
+        "bookmarksCount": 0
+      },
+      "importError": null,
+      "persisted": {
+        "attempts": [
+          {
+            "questionId": "q1",
+            "module": "math",
+            "primary_class_cd": "H",
+            "skill_cd": "H.A.",
+            "score_band_range_cd": 5,
+            "userAnswer": "3",
+            "isCorrect": true,
+            "timeSpentSeconds": 42,
+            "solvedAt": 1789815600000,
+            "dateKey": "2026-09-19",
+            "id": 13
+          }
+        ],
+        "bookmarks": []
+      }
+    },
+    {
+      "label": "no_format_no_data_key_but_has_attempts_top_level",
+      "direction": "import",
+      "input": {
+        "attempts": [
+          {
+            "questionId": "q1",
+            "module": "math",
+            "primary_class_cd": "H",
+            "skill_cd": "H.A.",
+            "score_band_range_cd": 5,
+            "userAnswer": "3",
+            "isCorrect": true,
+            "timeSpentSeconds": 42,
+            "solvedAt": 1789815600000,
+            "dateKey": "2026-09-19"
+          }
+        ],
+        "bookmarks": []
+      },
+      "importResult": null,
+      "importError": "Invalid .liprep backup format.",
+      "persisted": {
+        "attempts": [],
+        "bookmarks": []
+      }
+    },
+    {
+      "label": "bookmarks_wiped_even_when_file_has_none",
+      "direction": "import",
+      "input": {
+        "data": {
+          "attempts": [
+            {
+              "questionId": "q1",
+              "module": "math",
+              "primary_class_cd": "H",
+              "skill_cd": "H.A.",
+              "score_band_range_cd": 5,
+              "userAnswer": "3",
+              "isCorrect": true,
+              "timeSpentSeconds": 42,
+              "solvedAt": 1789815600000,
+              "dateKey": "2026-09-19"
+            }
+          ],
+          "bookmarks": []
+        }
+      },
+      "importResult": {
+        "attemptsCount": 1,
+        "bookmarksCount": 0
+      },
+      "importError": null,
+      "persisted": {
+        "attempts": [
+          {
+            "questionId": "q1",
+            "module": "math",
+            "primary_class_cd": "H",
+            "skill_cd": "H.A.",
+            "score_band_range_cd": 5,
+            "userAnswer": "3",
+            "isCorrect": true,
+            "timeSpentSeconds": 42,
+            "solvedAt": 1789815600000,
+            "dateKey": "2026-09-19",
+            "id": 14
+          }
+        ],
+        "bookmarks": []
+      }
+    },
+    {
+      "label": "non_array_attempts_and_bookmarks_treated_as_empty",
+      "direction": "import",
+      "input": {
+        "data": {
+          "attempts": "not-an-array",
+          "bookmarks": "not-an-array"
+        }
+      },
+      "importResult": {
+        "attemptsCount": 0,
+        "bookmarksCount": 0
+      },
+      "importError": null,
+      "persisted": {
+        "attempts": [],
+        "bookmarks": []
+      }
+    },
+    {
+      "label": "invalid_json_content",
+      "direction": "import",
+      "input": "{not valid json",
+      "importResult": null,
+      "importError": "Invalid .liprep file. Could not parse JSON content.",
+      "persisted": {
+        "attempts": [],
+        "bookmarks": []
+      }
+    },
+    {
+      "label": "wrong_shape_no_format_no_data",
+      "direction": "import",
+      "input": {
+        "foo": "bar"
+      },
+      "importResult": null,
+      "importError": "Invalid .liprep backup format.",
+      "persisted": {
+        "attempts": [],
+        "bookmarks": []
+      }
+    },
+    {
+      "label": "export_known_state",
+      "direction": "export",
+      "exportedJson": "{\n  \"format\": \"LiPrep\",\n  \"version\": 1,\n  \"exportedAt\": 1789819200000,\n  \"exportDateStr\": \"2026-09-19\",\n  \"data\": {\n    \"attempts\": [\n      {\n        \"questionId\": \"q1\",\n        \"module\": \"math\",\n        \"primary_class_cd\": \"H\",\n        \"skill_cd\": \"H.A.\",\n        \"score_band_range_cd\": 5,\n        \"userAnswer\": \"3\",\n        \"isCorrect\": true,\n        \"timeSpentSeconds\": 42,\n        \"solvedAt\": 1789815600000,\n        \"dateKey\": \"2026-09-19\"\n      },\n      {\n        \"questionId\": \"q2\",\n        \"module\": \"math\",\n        \"primary_class_cd\": \"P\",\n        \"skill_cd\": \"P.A.\",\n        \"score_band_range_cd\": 5,\n        \"userAnswer\": \"3\",\n        \"isCorrect\": false,\n        \"timeSpentSeconds\": 42,\n        \"solvedAt\": 1789815600000,\n        \"dateKey\": \"2026-09-19\"\n      }\n    ],\n    \"bookmarks\": [\n      {\n        \"questionId\": \"q1\",\n        \"bookmarkedAt\": 1789819200000\n      }\n    ]\n  }\n}",
+      "persisted": {
+        "attempts": [
+          {
+            "questionId": "q1",
+            "module": "math",
+            "primary_class_cd": "H",
+            "skill_cd": "H.A.",
+            "score_band_range_cd": 5,
+            "userAnswer": "3",
+            "isCorrect": true,
+            "timeSpentSeconds": 42,
+            "solvedAt": 1789815600000,
+            "dateKey": "2026-09-19",
+            "id": 15
+          },
+          {
+            "questionId": "q2",
+            "module": "math",
+            "primary_class_cd": "P",
+            "skill_cd": "P.A.",
+            "score_band_range_cd": 5,
+            "userAnswer": "3",
+            "isCorrect": false,
+            "timeSpentSeconds": 42,
+            "solvedAt": 1789815600000,
+            "dateKey": "2026-09-19",
+            "id": 16
+          }
+        ],
+        "bookmarks": [
+          {
+            "questionId": "q1",
+            "bookmarkedAt": 1789819200000
+          }
+        ]
+      }
+    },
+    {
+      "label": "round_trip_export_then_import",
+      "direction": "round_trip",
+      "input": {
+        "format": "LiPrep",
+        "version": 1,
+        "exportedAt": 1789819200000,
+        "exportDateStr": "2026-09-19",
+        "data": {
+          "attempts": [
+            {
+              "questionId": "q1",
+              "module": "math",
+              "primary_class_cd": "H",
+              "skill_cd": "H.A.",
+              "score_band_range_cd": 5,
+              "userAnswer": "3",
+              "isCorrect": true,
+              "timeSpentSeconds": 42,
+              "solvedAt": 1789815600000,
+              "dateKey": "2026-09-19"
+            },
+            {
+              "questionId": "q2",
+              "module": "math",
+              "primary_class_cd": "P",
+              "skill_cd": "P.A.",
+              "score_band_range_cd": 5,
+              "userAnswer": "3",
+              "isCorrect": false,
+              "timeSpentSeconds": 42,
+              "solvedAt": 1789815600000,
+              "dateKey": "2026-09-19"
+            }
+          ],
+          "bookmarks": [
+            {
+              "questionId": "q1",
+              "bookmarkedAt": 1789819200000
+            }
+          ]
+        }
+      },
+      "importResult": {
+        "attemptsCount": 2,
+        "bookmarksCount": 1
+      },
+      "importError": null,
+      "persisted": {
+        "attempts": [
+          {
+            "questionId": "q1",
+            "module": "math",
+            "primary_class_cd": "H",
+            "skill_cd": "H.A.",
+            "score_band_range_cd": 5,
+            "userAnswer": "3",
+            "isCorrect": true,
+            "timeSpentSeconds": 42,
+            "solvedAt": 1789815600000,
+            "dateKey": "2026-09-19",
+            "id": 17
+          },
+          {
+            "questionId": "q2",
+            "module": "math",
+            "primary_class_cd": "P",
+            "skill_cd": "P.A.",
+            "score_band_range_cd": 5,
+            "userAnswer": "3",
+            "isCorrect": false,
+            "timeSpentSeconds": 42,
+            "solvedAt": 1789815600000,
+            "dateKey": "2026-09-19",
+            "id": 18
+          }
+        ],
+        "bookmarks": [
+          {
+            "questionId": "q1",
+            "bookmarkedAt": 1789819200000
+          }
+        ]
+      }
+    }
+  ]
+}

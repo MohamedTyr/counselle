@@ -1,0 +1,6461 @@
+{
+  "suite": "grading",
+  "upstream_commit": "c84d3dc099653cc82fa2d380a7bbd299ae52201e",
+  "patch_sha256": "98a2bc4914fd1bb18db9445366d374813cc489be27539e7daac9657ffa73dfb3",
+  "generated_at": "2026-09-19T16:35:15.094Z",
+  "count": 632,
+  "cases": [
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/00165291.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "15.5",
+        "31/2"
+      ],
+      "answer": "15.5",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/00165291.json",
+      "variant": "near_miss_1e-5",
+      "question_type": "spr",
+      "correct_answer": [
+        "15.5",
+        "31/2"
+      ],
+      "answer": "15.50001",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/00165291.json",
+      "variant": "near_miss_1e-7",
+      "question_type": "spr",
+      "correct_answer": [
+        "15.5",
+        "31/2"
+      ],
+      "answer": "15.5000001",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/00165291.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "15.5",
+        "31/2"
+      ],
+      "answer": "31/2",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/00165291.json",
+      "variant": "fraction_to_decimal",
+      "question_type": "spr",
+      "correct_answer": [
+        "15.5",
+        "31/2"
+      ],
+      "answer": "15.500000000",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/00165291.json",
+      "variant": "near_miss_1e-5",
+      "question_type": "spr",
+      "correct_answer": [
+        "15.5",
+        "31/2"
+      ],
+      "answer": "15.50001",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/00165291.json",
+      "variant": "near_miss_1e-7",
+      "question_type": "spr",
+      "correct_answer": [
+        "15.5",
+        "31/2"
+      ],
+      "answer": "15.5000001",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/00165291.json",
+      "variant": "junk",
+      "question_type": "spr",
+      "correct_answer": [
+        "15.5",
+        "31/2"
+      ],
+      "answer": "not-a-number",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/010243e6.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "C"
+      ],
+      "answer": "C",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/010243e6.json",
+      "variant": "junk",
+      "question_type": "spr",
+      "correct_answer": [
+        "C"
+      ],
+      "answer": "not-a-number",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/014c47ab.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "0.7",
+        "7/10"
+      ],
+      "answer": "0.7",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/014c47ab.json",
+      "variant": "leading_zero_remove",
+      "question_type": "spr",
+      "correct_answer": [
+        "0.7",
+        "7/10"
+      ],
+      "answer": ".7",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/014c47ab.json",
+      "variant": "near_miss_1e-5",
+      "question_type": "spr",
+      "correct_answer": [
+        "0.7",
+        "7/10"
+      ],
+      "answer": "0.7000099999999999",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/014c47ab.json",
+      "variant": "near_miss_1e-7",
+      "question_type": "spr",
+      "correct_answer": [
+        "0.7",
+        "7/10"
+      ],
+      "answer": "0.7000000999999999",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/014c47ab.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "0.7",
+        "7/10"
+      ],
+      "answer": "7/10",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/014c47ab.json",
+      "variant": "fraction_to_decimal",
+      "question_type": "spr",
+      "correct_answer": [
+        "0.7",
+        "7/10"
+      ],
+      "answer": "0.700000000",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/014c47ab.json",
+      "variant": "near_miss_1e-5",
+      "question_type": "spr",
+      "correct_answer": [
+        "0.7",
+        "7/10"
+      ],
+      "answer": "0.7000099999999999",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/014c47ab.json",
+      "variant": "near_miss_1e-7",
+      "question_type": "spr",
+      "correct_answer": [
+        "0.7",
+        "7/10"
+      ],
+      "answer": "0.7000000999999999",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/014c47ab.json",
+      "variant": "junk",
+      "question_type": "spr",
+      "correct_answer": [
+        "0.7",
+        "7/10"
+      ],
+      "answer": "not-a-number",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/03a16790.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "B"
+      ],
+      "answer": "B",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/03a16790.json",
+      "variant": "junk",
+      "question_type": "spr",
+      "correct_answer": [
+        "B"
+      ],
+      "answer": "not-a-number",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/0536ad4f.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "B"
+      ],
+      "answer": "B",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/0536ad4f.json",
+      "variant": "junk",
+      "question_type": "spr",
+      "correct_answer": [
+        "B"
+      ],
+      "answer": "not-a-number",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/083ef63a.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "-13/2",
+        "-6.5"
+      ],
+      "answer": "-13/2",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/083ef63a.json",
+      "variant": "fraction_to_decimal",
+      "question_type": "spr",
+      "correct_answer": [
+        "-13/2",
+        "-6.5"
+      ],
+      "answer": "-6.500000000",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/083ef63a.json",
+      "variant": "near_miss_1e-5",
+      "question_type": "spr",
+      "correct_answer": [
+        "-13/2",
+        "-6.5"
+      ],
+      "answer": "-6.49999",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/083ef63a.json",
+      "variant": "near_miss_1e-7",
+      "question_type": "spr",
+      "correct_answer": [
+        "-13/2",
+        "-6.5"
+      ],
+      "answer": "-6.4999999",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/083ef63a.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "-13/2",
+        "-6.5"
+      ],
+      "answer": "-6.5",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/083ef63a.json",
+      "variant": "near_miss_1e-5",
+      "question_type": "spr",
+      "correct_answer": [
+        "-13/2",
+        "-6.5"
+      ],
+      "answer": "-6.49999",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/083ef63a.json",
+      "variant": "near_miss_1e-7",
+      "question_type": "spr",
+      "correct_answer": [
+        "-13/2",
+        "-6.5"
+      ],
+      "answer": "-6.4999999",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/083ef63a.json",
+      "variant": "junk",
+      "question_type": "spr",
+      "correct_answer": [
+        "-13/2",
+        "-6.5"
+      ],
+      "answer": "not-a-number",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/088bc84e.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "C"
+      ],
+      "answer": "C",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/088bc84e.json",
+      "variant": "junk",
+      "question_type": "spr",
+      "correct_answer": [
+        "C"
+      ],
+      "answer": "not-a-number",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/09e5e4d3.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "C"
+      ],
+      "answer": "C",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/09e5e4d3.json",
+      "variant": "junk",
+      "question_type": "spr",
+      "correct_answer": [
+        "C"
+      ],
+      "answer": "not-a-number",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/1087f6c4.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "0.25",
+        "1/4"
+      ],
+      "answer": "0.25",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/1087f6c4.json",
+      "variant": "leading_zero_remove",
+      "question_type": "spr",
+      "correct_answer": [
+        "0.25",
+        "1/4"
+      ],
+      "answer": ".25",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/1087f6c4.json",
+      "variant": "near_miss_1e-5",
+      "question_type": "spr",
+      "correct_answer": [
+        "0.25",
+        "1/4"
+      ],
+      "answer": "0.25001",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/1087f6c4.json",
+      "variant": "near_miss_1e-7",
+      "question_type": "spr",
+      "correct_answer": [
+        "0.25",
+        "1/4"
+      ],
+      "answer": "0.2500001",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/1087f6c4.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "0.25",
+        "1/4"
+      ],
+      "answer": "1/4",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/1087f6c4.json",
+      "variant": "fraction_to_decimal",
+      "question_type": "spr",
+      "correct_answer": [
+        "0.25",
+        "1/4"
+      ],
+      "answer": "0.250000000",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/1087f6c4.json",
+      "variant": "near_miss_1e-5",
+      "question_type": "spr",
+      "correct_answer": [
+        "0.25",
+        "1/4"
+      ],
+      "answer": "0.25001",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/1087f6c4.json",
+      "variant": "near_miss_1e-7",
+      "question_type": "spr",
+      "correct_answer": [
+        "0.25",
+        "1/4"
+      ],
+      "answer": "0.2500001",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/1087f6c4.json",
+      "variant": "junk",
+      "question_type": "spr",
+      "correct_answer": [
+        "0.25",
+        "1/4"
+      ],
+      "answer": "not-a-number",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/10c448d6.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "D"
+      ],
+      "answer": "D",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/10c448d6.json",
+      "variant": "junk",
+      "question_type": "spr",
+      "correct_answer": [
+        "D"
+      ],
+      "answer": "not-a-number",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/128c75e2.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "609"
+      ],
+      "answer": "609",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/128c75e2.json",
+      "variant": "near_miss_1e-5",
+      "question_type": "spr",
+      "correct_answer": [
+        "609"
+      ],
+      "answer": "609.00001",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/128c75e2.json",
+      "variant": "near_miss_1e-7",
+      "question_type": "spr",
+      "correct_answer": [
+        "609"
+      ],
+      "answer": "609.0000001",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/128c75e2.json",
+      "variant": "junk",
+      "question_type": "spr",
+      "correct_answer": [
+        "609"
+      ],
+      "answer": "not-a-number",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/12b04e68.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "A"
+      ],
+      "answer": "A",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/12b04e68.json",
+      "variant": "junk",
+      "question_type": "spr",
+      "correct_answer": [
+        "A"
+      ],
+      "answer": "not-a-number",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/149021da.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "16"
+      ],
+      "answer": "16",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/149021da.json",
+      "variant": "near_miss_1e-5",
+      "question_type": "spr",
+      "correct_answer": [
+        "16"
+      ],
+      "answer": "16.00001",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/149021da.json",
+      "variant": "near_miss_1e-7",
+      "question_type": "spr",
+      "correct_answer": [
+        "16"
+      ],
+      "answer": "16.0000001",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/149021da.json",
+      "variant": "junk",
+      "question_type": "spr",
+      "correct_answer": [
+        "16"
+      ],
+      "answer": "not-a-number",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/18c7c3e0.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "B"
+      ],
+      "answer": "B",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/18c7c3e0.json",
+      "variant": "junk",
+      "question_type": "spr",
+      "correct_answer": [
+        "B"
+      ],
+      "answer": "not-a-number",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/1baffbcf.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "D"
+      ],
+      "answer": "D",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/1baffbcf.json",
+      "variant": "junk",
+      "question_type": "spr",
+      "correct_answer": [
+        "D"
+      ],
+      "answer": "not-a-number",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/1d945139.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "D"
+      ],
+      "answer": "D",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/1d945139.json",
+      "variant": "junk",
+      "question_type": "spr",
+      "correct_answer": [
+        "D"
+      ],
+      "answer": "not-a-number",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/1dacfb94.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "54"
+      ],
+      "answer": "54",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/1dacfb94.json",
+      "variant": "near_miss_1e-5",
+      "question_type": "spr",
+      "correct_answer": [
+        "54"
+      ],
+      "answer": "54.00001",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/1dacfb94.json",
+      "variant": "near_miss_1e-7",
+      "question_type": "spr",
+      "correct_answer": [
+        "54"
+      ],
+      "answer": "54.0000001",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/1dacfb94.json",
+      "variant": "junk",
+      "question_type": "spr",
+      "correct_answer": [
+        "54"
+      ],
+      "answer": "not-a-number",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/241f1db7.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "B"
+      ],
+      "answer": "B",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/241f1db7.json",
+      "variant": "junk",
+      "question_type": "spr",
+      "correct_answer": [
+        "B"
+      ],
+      "answer": "not-a-number",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/2869fe95.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "C"
+      ],
+      "answer": "C",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/2869fe95.json",
+      "variant": "junk",
+      "question_type": "spr",
+      "correct_answer": [
+        "C"
+      ],
+      "answer": "not-a-number",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/2992ac30.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "A"
+      ],
+      "answer": "A",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/2992ac30.json",
+      "variant": "junk",
+      "question_type": "spr",
+      "correct_answer": [
+        "A"
+      ],
+      "answer": "not-a-number",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/2c3aefc9.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "38"
+      ],
+      "answer": "38",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/2c3aefc9.json",
+      "variant": "near_miss_1e-5",
+      "question_type": "spr",
+      "correct_answer": [
+        "38"
+      ],
+      "answer": "38.00001",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/2c3aefc9.json",
+      "variant": "near_miss_1e-7",
+      "question_type": "spr",
+      "correct_answer": [
+        "38"
+      ],
+      "answer": "38.0000001",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/2c3aefc9.json",
+      "variant": "junk",
+      "question_type": "spr",
+      "correct_answer": [
+        "38"
+      ],
+      "answer": "not-a-number",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/2cdefcb1.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "C"
+      ],
+      "answer": "C",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/2cdefcb1.json",
+      "variant": "junk",
+      "question_type": "spr",
+      "correct_answer": [
+        "C"
+      ],
+      "answer": "not-a-number",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/2e74e403.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "C"
+      ],
+      "answer": "C",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/2e74e403.json",
+      "variant": "junk",
+      "question_type": "spr",
+      "correct_answer": [
+        "C"
+      ],
+      "answer": "not-a-number",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/2e92cc21.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "9.87",
+        "987/100"
+      ],
+      "answer": "9.87",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/2e92cc21.json",
+      "variant": "near_miss_1e-5",
+      "question_type": "spr",
+      "correct_answer": [
+        "9.87",
+        "987/100"
+      ],
+      "answer": "9.870009999999999",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/2e92cc21.json",
+      "variant": "near_miss_1e-7",
+      "question_type": "spr",
+      "correct_answer": [
+        "9.87",
+        "987/100"
+      ],
+      "answer": "9.870000099999999",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/2e92cc21.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "9.87",
+        "987/100"
+      ],
+      "answer": "987/100",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/2e92cc21.json",
+      "variant": "fraction_to_decimal",
+      "question_type": "spr",
+      "correct_answer": [
+        "9.87",
+        "987/100"
+      ],
+      "answer": "9.870000000",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/2e92cc21.json",
+      "variant": "near_miss_1e-5",
+      "question_type": "spr",
+      "correct_answer": [
+        "9.87",
+        "987/100"
+      ],
+      "answer": "9.870009999999999",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/2e92cc21.json",
+      "variant": "near_miss_1e-7",
+      "question_type": "spr",
+      "correct_answer": [
+        "9.87",
+        "987/100"
+      ],
+      "answer": "9.870000099999999",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/2e92cc21.json",
+      "variant": "junk",
+      "question_type": "spr",
+      "correct_answer": [
+        "9.87",
+        "987/100"
+      ],
+      "answer": "not-a-number",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/2e98b1df.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "B"
+      ],
+      "answer": "B",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/2e98b1df.json",
+      "variant": "junk",
+      "question_type": "spr",
+      "correct_answer": [
+        "B"
+      ],
+      "answer": "not-a-number",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/2f7c92ad.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "C"
+      ],
+      "answer": "C",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/2f7c92ad.json",
+      "variant": "junk",
+      "question_type": "spr",
+      "correct_answer": [
+        "C"
+      ],
+      "answer": "not-a-number",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/3318d37b.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "66"
+      ],
+      "answer": "66",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/3318d37b.json",
+      "variant": "near_miss_1e-5",
+      "question_type": "spr",
+      "correct_answer": [
+        "66"
+      ],
+      "answer": "66.00001",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/3318d37b.json",
+      "variant": "near_miss_1e-7",
+      "question_type": "spr",
+      "correct_answer": [
+        "66"
+      ],
+      "answer": "66.0000001",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/3318d37b.json",
+      "variant": "junk",
+      "question_type": "spr",
+      "correct_answer": [
+        "66"
+      ],
+      "answer": "not-a-number",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/33e4af6b.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "B"
+      ],
+      "answer": "B",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/33e4af6b.json",
+      "variant": "junk",
+      "question_type": "spr",
+      "correct_answer": [
+        "B"
+      ],
+      "answer": "not-a-number",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/343aaff6.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "C"
+      ],
+      "answer": "C",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/343aaff6.json",
+      "variant": "junk",
+      "question_type": "spr",
+      "correct_answer": [
+        "C"
+      ],
+      "answer": "not-a-number",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/34f8cd89.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "C"
+      ],
+      "answer": "C",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/34f8cd89.json",
+      "variant": "junk",
+      "question_type": "spr",
+      "correct_answer": [
+        "C"
+      ],
+      "answer": "not-a-number",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/3726e079.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "24"
+      ],
+      "answer": "24",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/3726e079.json",
+      "variant": "near_miss_1e-5",
+      "question_type": "spr",
+      "correct_answer": [
+        "24"
+      ],
+      "answer": "24.00001",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/3726e079.json",
+      "variant": "near_miss_1e-7",
+      "question_type": "spr",
+      "correct_answer": [
+        "24"
+      ],
+      "answer": "24.0000001",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/3726e079.json",
+      "variant": "junk",
+      "question_type": "spr",
+      "correct_answer": [
+        "24"
+      ],
+      "answer": "not-a-number",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/38bf4e04.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "D"
+      ],
+      "answer": "D",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/38bf4e04.json",
+      "variant": "junk",
+      "question_type": "spr",
+      "correct_answer": [
+        "D"
+      ],
+      "answer": "not-a-number",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/39652e93.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "A"
+      ],
+      "answer": "A",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/39652e93.json",
+      "variant": "junk",
+      "question_type": "spr",
+      "correct_answer": [
+        "A"
+      ],
+      "answer": "not-a-number",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/3a3b95df.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "B"
+      ],
+      "answer": "B",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/3a3b95df.json",
+      "variant": "junk",
+      "question_type": "spr",
+      "correct_answer": [
+        "B"
+      ],
+      "answer": "not-a-number",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/40f0ee70.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "8"
+      ],
+      "answer": "8",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/40f0ee70.json",
+      "variant": "near_miss_1e-5",
+      "question_type": "spr",
+      "correct_answer": [
+        "8"
+      ],
+      "answer": "8.00001",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/40f0ee70.json",
+      "variant": "near_miss_1e-7",
+      "question_type": "spr",
+      "correct_answer": [
+        "8"
+      ],
+      "answer": "8.0000001",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/40f0ee70.json",
+      "variant": "junk",
+      "question_type": "spr",
+      "correct_answer": [
+        "8"
+      ],
+      "answer": "not-a-number",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/4618501a.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "D"
+      ],
+      "answer": "D",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/4618501a.json",
+      "variant": "junk",
+      "question_type": "spr",
+      "correct_answer": [
+        "D"
+      ],
+      "answer": "not-a-number",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/4702da8f.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "B"
+      ],
+      "answer": "B",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/4702da8f.json",
+      "variant": "junk",
+      "question_type": "spr",
+      "correct_answer": [
+        "B"
+      ],
+      "answer": "not-a-number",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/499cb491.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "A"
+      ],
+      "answer": "A",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/499cb491.json",
+      "variant": "junk",
+      "question_type": "spr",
+      "correct_answer": [
+        "A"
+      ],
+      "answer": "not-a-number",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/4a5af623.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "A"
+      ],
+      "answer": "A",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/4a5af623.json",
+      "variant": "junk",
+      "question_type": "spr",
+      "correct_answer": [
+        "A"
+      ],
+      "answer": "not-a-number",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/4e527894.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "B"
+      ],
+      "answer": "B",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/4e527894.json",
+      "variant": "junk",
+      "question_type": "spr",
+      "correct_answer": [
+        "B"
+      ],
+      "answer": "not-a-number",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/4fb8adf7.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "A"
+      ],
+      "answer": "A",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/4fb8adf7.json",
+      "variant": "junk",
+      "question_type": "spr",
+      "correct_answer": [
+        "A"
+      ],
+      "answer": "not-a-number",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/5154615f.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "6.21"
+      ],
+      "answer": "6.21",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/5154615f.json",
+      "variant": "near_miss_1e-5",
+      "question_type": "spr",
+      "correct_answer": [
+        "6.21"
+      ],
+      "answer": "6.21001",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/5154615f.json",
+      "variant": "near_miss_1e-7",
+      "question_type": "spr",
+      "correct_answer": [
+        "6.21"
+      ],
+      "answer": "6.2100001",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/5154615f.json",
+      "variant": "junk",
+      "question_type": "spr",
+      "correct_answer": [
+        "6.21"
+      ],
+      "answer": "not-a-number",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/51568fb9.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "D"
+      ],
+      "answer": "D",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/51568fb9.json",
+      "variant": "junk",
+      "question_type": "spr",
+      "correct_answer": [
+        "D"
+      ],
+      "answer": "not-a-number",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/51c9d65f.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "B"
+      ],
+      "answer": "B",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/51c9d65f.json",
+      "variant": "junk",
+      "question_type": "spr",
+      "correct_answer": [
+        "B"
+      ],
+      "answer": "not-a-number",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/5252e606.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "C"
+      ],
+      "answer": "C",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/5252e606.json",
+      "variant": "junk",
+      "question_type": "spr",
+      "correct_answer": [
+        "C"
+      ],
+      "answer": "not-a-number",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/52a8ef85.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "B"
+      ],
+      "answer": "B",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/52a8ef85.json",
+      "variant": "junk",
+      "question_type": "spr",
+      "correct_answer": [
+        "B"
+      ],
+      "answer": "not-a-number",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/5355c0ef.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        ".09",
+        "9/100"
+      ],
+      "answer": ".09",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/5355c0ef.json",
+      "variant": "leading_zero_add",
+      "question_type": "spr",
+      "correct_answer": [
+        ".09",
+        "9/100"
+      ],
+      "answer": "0.09",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/5355c0ef.json",
+      "variant": "near_miss_1e-5",
+      "question_type": "spr",
+      "correct_answer": [
+        ".09",
+        "9/100"
+      ],
+      "answer": "0.09000999999999999",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/5355c0ef.json",
+      "variant": "near_miss_1e-7",
+      "question_type": "spr",
+      "correct_answer": [
+        ".09",
+        "9/100"
+      ],
+      "answer": "0.0900001",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/5355c0ef.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        ".09",
+        "9/100"
+      ],
+      "answer": "9/100",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/5355c0ef.json",
+      "variant": "fraction_to_decimal",
+      "question_type": "spr",
+      "correct_answer": [
+        ".09",
+        "9/100"
+      ],
+      "answer": "0.090000000",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/5355c0ef.json",
+      "variant": "near_miss_1e-5",
+      "question_type": "spr",
+      "correct_answer": [
+        ".09",
+        "9/100"
+      ],
+      "answer": "0.09000999999999999",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/5355c0ef.json",
+      "variant": "near_miss_1e-7",
+      "question_type": "spr",
+      "correct_answer": [
+        ".09",
+        "9/100"
+      ],
+      "answer": "0.0900001",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/5355c0ef.json",
+      "variant": "junk",
+      "question_type": "spr",
+      "correct_answer": [
+        ".09",
+        "9/100"
+      ],
+      "answer": "not-a-number",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/541bef2f.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "D"
+      ],
+      "answer": "D",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/541bef2f.json",
+      "variant": "junk",
+      "question_type": "spr",
+      "correct_answer": [
+        "D"
+      ],
+      "answer": "not-a-number",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/54df8076.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "284/3",
+        "94.66",
+        "94.67"
+      ],
+      "answer": "284/3",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/54df8076.json",
+      "variant": "fraction_to_decimal",
+      "question_type": "spr",
+      "correct_answer": [
+        "284/3",
+        "94.66",
+        "94.67"
+      ],
+      "answer": "94.666666667",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/54df8076.json",
+      "variant": "near_miss_1e-5",
+      "question_type": "spr",
+      "correct_answer": [
+        "284/3",
+        "94.66",
+        "94.67"
+      ],
+      "answer": "94.66667666666667",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/54df8076.json",
+      "variant": "near_miss_1e-7",
+      "question_type": "spr",
+      "correct_answer": [
+        "284/3",
+        "94.66",
+        "94.67"
+      ],
+      "answer": "94.66666676666667",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/54df8076.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "284/3",
+        "94.66",
+        "94.67"
+      ],
+      "answer": "94.66",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/54df8076.json",
+      "variant": "near_miss_1e-5",
+      "question_type": "spr",
+      "correct_answer": [
+        "284/3",
+        "94.66",
+        "94.67"
+      ],
+      "answer": "94.66001",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/54df8076.json",
+      "variant": "near_miss_1e-7",
+      "question_type": "spr",
+      "correct_answer": [
+        "284/3",
+        "94.66",
+        "94.67"
+      ],
+      "answer": "94.66000009999999",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/54df8076.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "284/3",
+        "94.66",
+        "94.67"
+      ],
+      "answer": "94.67",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/54df8076.json",
+      "variant": "near_miss_1e-5",
+      "question_type": "spr",
+      "correct_answer": [
+        "284/3",
+        "94.66",
+        "94.67"
+      ],
+      "answer": "94.67001",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/54df8076.json",
+      "variant": "near_miss_1e-7",
+      "question_type": "spr",
+      "correct_answer": [
+        "284/3",
+        "94.66",
+        "94.67"
+      ],
+      "answer": "94.6700001",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/54df8076.json",
+      "variant": "junk",
+      "question_type": "spr",
+      "correct_answer": [
+        "284/3",
+        "94.66",
+        "94.67"
+      ],
+      "answer": "not-a-number",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/571174f3.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        ".2857",
+        "2/7"
+      ],
+      "answer": ".2857",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/571174f3.json",
+      "variant": "leading_zero_add",
+      "question_type": "spr",
+      "correct_answer": [
+        ".2857",
+        "2/7"
+      ],
+      "answer": "0.2857",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/571174f3.json",
+      "variant": "near_miss_1e-5",
+      "question_type": "spr",
+      "correct_answer": [
+        ".2857",
+        "2/7"
+      ],
+      "answer": "0.28571",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/571174f3.json",
+      "variant": "near_miss_1e-7",
+      "question_type": "spr",
+      "correct_answer": [
+        ".2857",
+        "2/7"
+      ],
+      "answer": "0.2857001",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/571174f3.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        ".2857",
+        "2/7"
+      ],
+      "answer": "2/7",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/571174f3.json",
+      "variant": "fraction_to_decimal",
+      "question_type": "spr",
+      "correct_answer": [
+        ".2857",
+        "2/7"
+      ],
+      "answer": "0.285714286",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/571174f3.json",
+      "variant": "near_miss_1e-5",
+      "question_type": "spr",
+      "correct_answer": [
+        ".2857",
+        "2/7"
+      ],
+      "answer": "0.2857242857142857",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/571174f3.json",
+      "variant": "near_miss_1e-7",
+      "question_type": "spr",
+      "correct_answer": [
+        ".2857",
+        "2/7"
+      ],
+      "answer": "0.2857143857142857",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/571174f3.json",
+      "variant": "junk",
+      "question_type": "spr",
+      "correct_answer": [
+        ".2857",
+        "2/7"
+      ],
+      "answer": "not-a-number",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/5907e072.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "D"
+      ],
+      "answer": "D",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/5907e072.json",
+      "variant": "junk",
+      "question_type": "spr",
+      "correct_answer": [
+        "D"
+      ],
+      "answer": "not-a-number",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/5e08a055.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "B"
+      ],
+      "answer": "B",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/5e08a055.json",
+      "variant": "junk",
+      "question_type": "spr",
+      "correct_answer": [
+        "B"
+      ],
+      "answer": "not-a-number",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/61b87506.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "17"
+      ],
+      "answer": "17",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/61b87506.json",
+      "variant": "near_miss_1e-5",
+      "question_type": "spr",
+      "correct_answer": [
+        "17"
+      ],
+      "answer": "17.00001",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/61b87506.json",
+      "variant": "near_miss_1e-7",
+      "question_type": "spr",
+      "correct_answer": [
+        "17"
+      ],
+      "answer": "17.0000001",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/61b87506.json",
+      "variant": "junk",
+      "question_type": "spr",
+      "correct_answer": [
+        "17"
+      ],
+      "answer": "not-a-number",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/6708546e.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "C"
+      ],
+      "answer": "C",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/6708546e.json",
+      "variant": "junk",
+      "question_type": "spr",
+      "correct_answer": [
+        "C"
+      ],
+      "answer": "not-a-number",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/674a4084.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "A"
+      ],
+      "answer": "A",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/674a4084.json",
+      "variant": "junk",
+      "question_type": "spr",
+      "correct_answer": [
+        "A"
+      ],
+      "answer": "not-a-number",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/67d63e19.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "A"
+      ],
+      "answer": "A",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/67d63e19.json",
+      "variant": "junk",
+      "question_type": "spr",
+      "correct_answer": [
+        "A"
+      ],
+      "answer": "not-a-number",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/686b5212.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "57"
+      ],
+      "answer": "57",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/686b5212.json",
+      "variant": "near_miss_1e-5",
+      "question_type": "spr",
+      "correct_answer": [
+        "57"
+      ],
+      "answer": "57.00001",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/686b5212.json",
+      "variant": "near_miss_1e-7",
+      "question_type": "spr",
+      "correct_answer": [
+        "57"
+      ],
+      "answer": "57.0000001",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/686b5212.json",
+      "variant": "junk",
+      "question_type": "spr",
+      "correct_answer": [
+        "57"
+      ],
+      "answer": "not-a-number",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/689abc2a.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "D"
+      ],
+      "answer": "D",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/689abc2a.json",
+      "variant": "junk",
+      "question_type": "spr",
+      "correct_answer": [
+        "D"
+      ],
+      "answer": "not-a-number",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/694b7fce.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "480"
+      ],
+      "answer": "480",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/694b7fce.json",
+      "variant": "near_miss_1e-5",
+      "question_type": "spr",
+      "correct_answer": [
+        "480"
+      ],
+      "answer": "480.00001",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/694b7fce.json",
+      "variant": "near_miss_1e-7",
+      "question_type": "spr",
+      "correct_answer": [
+        "480"
+      ],
+      "answer": "480.0000001",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/694b7fce.json",
+      "variant": "junk",
+      "question_type": "spr",
+      "correct_answer": [
+        "480"
+      ],
+      "answer": "not-a-number",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/74d8b897.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "81"
+      ],
+      "answer": "81",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/74d8b897.json",
+      "variant": "near_miss_1e-5",
+      "question_type": "spr",
+      "correct_answer": [
+        "81"
+      ],
+      "answer": "81.00001",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/74d8b897.json",
+      "variant": "near_miss_1e-7",
+      "question_type": "spr",
+      "correct_answer": [
+        "81"
+      ],
+      "answer": "81.0000001",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/74d8b897.json",
+      "variant": "junk",
+      "question_type": "spr",
+      "correct_answer": [
+        "81"
+      ],
+      "answer": "not-a-number",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/768f3b7c.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "B"
+      ],
+      "answer": "B",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/768f3b7c.json",
+      "variant": "junk",
+      "question_type": "spr",
+      "correct_answer": [
+        "B"
+      ],
+      "answer": "not-a-number",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/772de699.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "C"
+      ],
+      "answer": "C",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/772de699.json",
+      "variant": "junk",
+      "question_type": "spr",
+      "correct_answer": [
+        "C"
+      ],
+      "answer": "not-a-number",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/776cfa7c.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "A"
+      ],
+      "answer": "A",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/776cfa7c.json",
+      "variant": "junk",
+      "question_type": "spr",
+      "correct_answer": [
+        "A"
+      ],
+      "answer": "not-a-number",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/788bfd56.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "B"
+      ],
+      "answer": "B",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/788bfd56.json",
+      "variant": "junk",
+      "question_type": "spr",
+      "correct_answer": [
+        "B"
+      ],
+      "answer": "not-a-number",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/7b17f86a.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "1"
+      ],
+      "answer": "1",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/7b17f86a.json",
+      "variant": "near_miss_1e-5",
+      "question_type": "spr",
+      "correct_answer": [
+        "1"
+      ],
+      "answer": "1.00001",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/7b17f86a.json",
+      "variant": "near_miss_1e-7",
+      "question_type": "spr",
+      "correct_answer": [
+        "1"
+      ],
+      "answer": "1.0000001",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/7b17f86a.json",
+      "variant": "junk",
+      "question_type": "spr",
+      "correct_answer": [
+        "1"
+      ],
+      "answer": "not-a-number",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/7d3a84bf.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "B"
+      ],
+      "answer": "B",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/7d3a84bf.json",
+      "variant": "junk",
+      "question_type": "spr",
+      "correct_answer": [
+        "B"
+      ],
+      "answer": "not-a-number",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/8493fd10.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "B"
+      ],
+      "answer": "B",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/8493fd10.json",
+      "variant": "junk",
+      "question_type": "spr",
+      "correct_answer": [
+        "B"
+      ],
+      "answer": "not-a-number",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/8f82ad81.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "A"
+      ],
+      "answer": "A",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/8f82ad81.json",
+      "variant": "junk",
+      "question_type": "spr",
+      "correct_answer": [
+        "A"
+      ],
+      "answer": "not-a-number",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/94f7c9e2.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "D"
+      ],
+      "answer": "D",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/94f7c9e2.json",
+      "variant": "junk",
+      "question_type": "spr",
+      "correct_answer": [
+        "D"
+      ],
+      "answer": "not-a-number",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/95ca2683.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "C"
+      ],
+      "answer": "C",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/95ca2683.json",
+      "variant": "junk",
+      "question_type": "spr",
+      "correct_answer": [
+        "C"
+      ],
+      "answer": "not-a-number",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/95eeeb5b.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "A"
+      ],
+      "answer": "A",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/95eeeb5b.json",
+      "variant": "junk",
+      "question_type": "spr",
+      "correct_answer": [
+        "A"
+      ],
+      "answer": "not-a-number",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/97158b3a.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "C"
+      ],
+      "answer": "C",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/97158b3a.json",
+      "variant": "junk",
+      "question_type": "spr",
+      "correct_answer": [
+        "C"
+      ],
+      "answer": "not-a-number",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/98c12e38.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "D"
+      ],
+      "answer": "D",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/98c12e38.json",
+      "variant": "junk",
+      "question_type": "spr",
+      "correct_answer": [
+        "D"
+      ],
+      "answer": "not-a-number",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/9b7a1b67.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "A"
+      ],
+      "answer": "A",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/9b7a1b67.json",
+      "variant": "junk",
+      "question_type": "spr",
+      "correct_answer": [
+        "A"
+      ],
+      "answer": "not-a-number",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/9b886541.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "D"
+      ],
+      "answer": "D",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/9b886541.json",
+      "variant": "junk",
+      "question_type": "spr",
+      "correct_answer": [
+        "D"
+      ],
+      "answer": "not-a-number",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/9d2e7037.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "D"
+      ],
+      "answer": "D",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/9d2e7037.json",
+      "variant": "junk",
+      "question_type": "spr",
+      "correct_answer": [
+        "D"
+      ],
+      "answer": "not-a-number",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/a07ed090.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "C"
+      ],
+      "answer": "C",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/a07ed090.json",
+      "variant": "junk",
+      "question_type": "spr",
+      "correct_answer": [
+        "C"
+      ],
+      "answer": "not-a-number",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/a309803e.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "A"
+      ],
+      "answer": "A",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/a309803e.json",
+      "variant": "junk",
+      "question_type": "spr",
+      "correct_answer": [
+        "A"
+      ],
+      "answer": "not-a-number",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/a45ffacb.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "5"
+      ],
+      "answer": "5",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/a45ffacb.json",
+      "variant": "near_miss_1e-5",
+      "question_type": "spr",
+      "correct_answer": [
+        "5"
+      ],
+      "answer": "5.00001",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/a45ffacb.json",
+      "variant": "near_miss_1e-7",
+      "question_type": "spr",
+      "correct_answer": [
+        "5"
+      ],
+      "answer": "5.0000001",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/a45ffacb.json",
+      "variant": "junk",
+      "question_type": "spr",
+      "correct_answer": [
+        "5"
+      ],
+      "answer": "not-a-number",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/a67a439d.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "A"
+      ],
+      "answer": "A",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/a67a439d.json",
+      "variant": "junk",
+      "question_type": "spr",
+      "correct_answer": [
+        "A"
+      ],
+      "answer": "not-a-number",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/aad7e1b9.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "B"
+      ],
+      "answer": "B",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/aad7e1b9.json",
+      "variant": "junk",
+      "question_type": "spr",
+      "correct_answer": [
+        "B"
+      ],
+      "answer": "not-a-number",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/ac472881.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "403"
+      ],
+      "answer": "403",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/ac472881.json",
+      "variant": "near_miss_1e-5",
+      "question_type": "spr",
+      "correct_answer": [
+        "403"
+      ],
+      "answer": "403.00001",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/ac472881.json",
+      "variant": "near_miss_1e-7",
+      "question_type": "spr",
+      "correct_answer": [
+        "403"
+      ],
+      "answer": "403.0000001",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/ac472881.json",
+      "variant": "junk",
+      "question_type": "spr",
+      "correct_answer": [
+        "403"
+      ],
+      "answer": "not-a-number",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/adb0c96c.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "80"
+      ],
+      "answer": "80",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/adb0c96c.json",
+      "variant": "near_miss_1e-5",
+      "question_type": "spr",
+      "correct_answer": [
+        "80"
+      ],
+      "answer": "80.00001",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/adb0c96c.json",
+      "variant": "near_miss_1e-7",
+      "question_type": "spr",
+      "correct_answer": [
+        "80"
+      ],
+      "answer": "80.0000001",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/adb0c96c.json",
+      "variant": "junk",
+      "question_type": "spr",
+      "correct_answer": [
+        "80"
+      ],
+      "answer": "not-a-number",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/ae33e0a1.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "C"
+      ],
+      "answer": "C",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/ae33e0a1.json",
+      "variant": "junk",
+      "question_type": "spr",
+      "correct_answer": [
+        "C"
+      ],
+      "answer": "not-a-number",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/aeaba0b6.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "11"
+      ],
+      "answer": "11",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/aeaba0b6.json",
+      "variant": "near_miss_1e-5",
+      "question_type": "spr",
+      "correct_answer": [
+        "11"
+      ],
+      "answer": "11.00001",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/aeaba0b6.json",
+      "variant": "near_miss_1e-7",
+      "question_type": "spr",
+      "correct_answer": [
+        "11"
+      ],
+      "answer": "11.0000001",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/aeaba0b6.json",
+      "variant": "junk",
+      "question_type": "spr",
+      "correct_answer": [
+        "11"
+      ],
+      "answer": "not-a-number",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/aeeaec96.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "B"
+      ],
+      "answer": "B",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/aeeaec96.json",
+      "variant": "junk",
+      "question_type": "spr",
+      "correct_answer": [
+        "B"
+      ],
+      "answer": "not-a-number",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/afa3c48b.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "D"
+      ],
+      "answer": "D",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/afa3c48b.json",
+      "variant": "junk",
+      "question_type": "spr",
+      "correct_answer": [
+        "D"
+      ],
+      "answer": "not-a-number",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/b5ebd31c.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "B"
+      ],
+      "answer": "B",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/b5ebd31c.json",
+      "variant": "junk",
+      "question_type": "spr",
+      "correct_answer": [
+        "B"
+      ],
+      "answer": "not-a-number",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/ba0edc30.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "B"
+      ],
+      "answer": "B",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/ba0edc30.json",
+      "variant": "junk",
+      "question_type": "spr",
+      "correct_answer": [
+        "B"
+      ],
+      "answer": "not-a-number",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/bba18ecb.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "B"
+      ],
+      "answer": "B",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/bba18ecb.json",
+      "variant": "junk",
+      "question_type": "spr",
+      "correct_answer": [
+        "B"
+      ],
+      "answer": "not-a-number",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/bd45df49.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "D"
+      ],
+      "answer": "D",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/bd45df49.json",
+      "variant": "junk",
+      "question_type": "spr",
+      "correct_answer": [
+        "D"
+      ],
+      "answer": "not-a-number",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/bd4d0e0c.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "A"
+      ],
+      "answer": "A",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/bd4d0e0c.json",
+      "variant": "junk",
+      "question_type": "spr",
+      "correct_answer": [
+        "A"
+      ],
+      "answer": "not-a-number",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/bef4b1c6.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "5"
+      ],
+      "answer": "5",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/bef4b1c6.json",
+      "variant": "near_miss_1e-5",
+      "question_type": "spr",
+      "correct_answer": [
+        "5"
+      ],
+      "answer": "5.00001",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/bef4b1c6.json",
+      "variant": "near_miss_1e-7",
+      "question_type": "spr",
+      "correct_answer": [
+        "5"
+      ],
+      "answer": "5.0000001",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/bef4b1c6.json",
+      "variant": "junk",
+      "question_type": "spr",
+      "correct_answer": [
+        "5"
+      ],
+      "answer": "not-a-number",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/bf4a8b6a.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "C"
+      ],
+      "answer": "C",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/bf4a8b6a.json",
+      "variant": "junk",
+      "question_type": "spr",
+      "correct_answer": [
+        "C"
+      ],
+      "answer": "not-a-number",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/c039b198.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "B"
+      ],
+      "answer": "B",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/c039b198.json",
+      "variant": "junk",
+      "question_type": "spr",
+      "correct_answer": [
+        "B"
+      ],
+      "answer": "not-a-number",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/c141366d.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "A"
+      ],
+      "answer": "A",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/c141366d.json",
+      "variant": "junk",
+      "question_type": "spr",
+      "correct_answer": [
+        "A"
+      ],
+      "answer": "not-a-number",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/c3989ef8.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "B"
+      ],
+      "answer": "B",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/c3989ef8.json",
+      "variant": "junk",
+      "question_type": "spr",
+      "correct_answer": [
+        "B"
+      ],
+      "answer": "not-a-number",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/c3b116d7.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "B"
+      ],
+      "answer": "B",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/c3b116d7.json",
+      "variant": "junk",
+      "question_type": "spr",
+      "correct_answer": [
+        "B"
+      ],
+      "answer": "not-a-number",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/c7a187a7.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "A"
+      ],
+      "answer": "A",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/c7a187a7.json",
+      "variant": "junk",
+      "question_type": "spr",
+      "correct_answer": [
+        "A"
+      ],
+      "answer": "not-a-number",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/c95686e9.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "1.1",
+        "11/10"
+      ],
+      "answer": "1.1",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/c95686e9.json",
+      "variant": "near_miss_1e-5",
+      "question_type": "spr",
+      "correct_answer": [
+        "1.1",
+        "11/10"
+      ],
+      "answer": "1.1000100000000002",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/c95686e9.json",
+      "variant": "near_miss_1e-7",
+      "question_type": "spr",
+      "correct_answer": [
+        "1.1",
+        "11/10"
+      ],
+      "answer": "1.1000001000000001",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/c95686e9.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "1.1",
+        "11/10"
+      ],
+      "answer": "11/10",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/c95686e9.json",
+      "variant": "fraction_to_decimal",
+      "question_type": "spr",
+      "correct_answer": [
+        "1.1",
+        "11/10"
+      ],
+      "answer": "1.100000000",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/c95686e9.json",
+      "variant": "near_miss_1e-5",
+      "question_type": "spr",
+      "correct_answer": [
+        "1.1",
+        "11/10"
+      ],
+      "answer": "1.1000100000000002",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/c95686e9.json",
+      "variant": "near_miss_1e-7",
+      "question_type": "spr",
+      "correct_answer": [
+        "1.1",
+        "11/10"
+      ],
+      "answer": "1.1000001000000001",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/c95686e9.json",
+      "variant": "junk",
+      "question_type": "spr",
+      "correct_answer": [
+        "1.1",
+        "11/10"
+      ],
+      "answer": "not-a-number",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/cab8f907.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "A"
+      ],
+      "answer": "A",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/cab8f907.json",
+      "variant": "junk",
+      "question_type": "spr",
+      "correct_answer": [
+        "A"
+      ],
+      "answer": "not-a-number",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/cbc4c163.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "11/4",
+        "2.75"
+      ],
+      "answer": "11/4",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/cbc4c163.json",
+      "variant": "fraction_to_decimal",
+      "question_type": "spr",
+      "correct_answer": [
+        "11/4",
+        "2.75"
+      ],
+      "answer": "2.750000000",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/cbc4c163.json",
+      "variant": "near_miss_1e-5",
+      "question_type": "spr",
+      "correct_answer": [
+        "11/4",
+        "2.75"
+      ],
+      "answer": "2.75001",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/cbc4c163.json",
+      "variant": "near_miss_1e-7",
+      "question_type": "spr",
+      "correct_answer": [
+        "11/4",
+        "2.75"
+      ],
+      "answer": "2.7500001",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/cbc4c163.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "11/4",
+        "2.75"
+      ],
+      "answer": "2.75",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/cbc4c163.json",
+      "variant": "near_miss_1e-5",
+      "question_type": "spr",
+      "correct_answer": [
+        "11/4",
+        "2.75"
+      ],
+      "answer": "2.75001",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/cbc4c163.json",
+      "variant": "near_miss_1e-7",
+      "question_type": "spr",
+      "correct_answer": [
+        "11/4",
+        "2.75"
+      ],
+      "answer": "2.7500001",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/cbc4c163.json",
+      "variant": "junk",
+      "question_type": "spr",
+      "correct_answer": [
+        "11/4",
+        "2.75"
+      ],
+      "answer": "not-a-number",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/d1aeb6f1.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "D"
+      ],
+      "answer": "D",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/d1aeb6f1.json",
+      "variant": "junk",
+      "question_type": "spr",
+      "correct_answer": [
+        "D"
+      ],
+      "answer": "not-a-number",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/d71550d0.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "B"
+      ],
+      "answer": "B",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/d71550d0.json",
+      "variant": "junk",
+      "question_type": "spr",
+      "correct_answer": [
+        "B"
+      ],
+      "answer": "not-a-number",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/dcc4886a.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "D"
+      ],
+      "answer": "D",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/dcc4886a.json",
+      "variant": "junk",
+      "question_type": "spr",
+      "correct_answer": [
+        "D"
+      ],
+      "answer": "not-a-number",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/dccdb20c.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "27"
+      ],
+      "answer": "27",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/dccdb20c.json",
+      "variant": "near_miss_1e-5",
+      "question_type": "spr",
+      "correct_answer": [
+        "27"
+      ],
+      "answer": "27.00001",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/dccdb20c.json",
+      "variant": "near_miss_1e-7",
+      "question_type": "spr",
+      "correct_answer": [
+        "27"
+      ],
+      "answer": "27.0000001",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/dccdb20c.json",
+      "variant": "junk",
+      "question_type": "spr",
+      "correct_answer": [
+        "27"
+      ],
+      "answer": "not-a-number",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/dcf63c94.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "A"
+      ],
+      "answer": "A",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/dcf63c94.json",
+      "variant": "junk",
+      "question_type": "spr",
+      "correct_answer": [
+        "A"
+      ],
+      "answer": "not-a-number",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/e103300e.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "A"
+      ],
+      "answer": "A",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/e103300e.json",
+      "variant": "junk",
+      "question_type": "spr",
+      "correct_answer": [
+        "A"
+      ],
+      "answer": "not-a-number",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/e17babed.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "C"
+      ],
+      "answer": "C",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/e17babed.json",
+      "variant": "junk",
+      "question_type": "spr",
+      "correct_answer": [
+        "C"
+      ],
+      "answer": "not-a-number",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/e3d49511.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "A"
+      ],
+      "answer": "A",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/e3d49511.json",
+      "variant": "junk",
+      "question_type": "spr",
+      "correct_answer": [
+        "A"
+      ],
+      "answer": "not-a-number",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/e4b4e9ea.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "D"
+      ],
+      "answer": "D",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/e4b4e9ea.json",
+      "variant": "junk",
+      "question_type": "spr",
+      "correct_answer": [
+        "D"
+      ],
+      "answer": "not-a-number",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/e597050f.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "D"
+      ],
+      "answer": "D",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/e597050f.json",
+      "variant": "junk",
+      "question_type": "spr",
+      "correct_answer": [
+        "D"
+      ],
+      "answer": "not-a-number",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/e6cb2402.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        ".9411",
+        ".9412",
+        "16/17"
+      ],
+      "answer": ".9411",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/e6cb2402.json",
+      "variant": "leading_zero_add",
+      "question_type": "spr",
+      "correct_answer": [
+        ".9411",
+        ".9412",
+        "16/17"
+      ],
+      "answer": "0.9411",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/e6cb2402.json",
+      "variant": "near_miss_1e-5",
+      "question_type": "spr",
+      "correct_answer": [
+        ".9411",
+        ".9412",
+        "16/17"
+      ],
+      "answer": "0.94111",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/e6cb2402.json",
+      "variant": "near_miss_1e-7",
+      "question_type": "spr",
+      "correct_answer": [
+        ".9411",
+        ".9412",
+        "16/17"
+      ],
+      "answer": "0.9411001",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/e6cb2402.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        ".9411",
+        ".9412",
+        "16/17"
+      ],
+      "answer": ".9412",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/e6cb2402.json",
+      "variant": "leading_zero_add",
+      "question_type": "spr",
+      "correct_answer": [
+        ".9411",
+        ".9412",
+        "16/17"
+      ],
+      "answer": "0.9412",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/e6cb2402.json",
+      "variant": "near_miss_1e-5",
+      "question_type": "spr",
+      "correct_answer": [
+        ".9411",
+        ".9412",
+        "16/17"
+      ],
+      "answer": "0.94121",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/e6cb2402.json",
+      "variant": "near_miss_1e-7",
+      "question_type": "spr",
+      "correct_answer": [
+        ".9411",
+        ".9412",
+        "16/17"
+      ],
+      "answer": "0.9412001",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/e6cb2402.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        ".9411",
+        ".9412",
+        "16/17"
+      ],
+      "answer": "16/17",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/e6cb2402.json",
+      "variant": "fraction_to_decimal",
+      "question_type": "spr",
+      "correct_answer": [
+        ".9411",
+        ".9412",
+        "16/17"
+      ],
+      "answer": "0.941176471",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/e6cb2402.json",
+      "variant": "near_miss_1e-5",
+      "question_type": "spr",
+      "correct_answer": [
+        ".9411",
+        ".9412",
+        "16/17"
+      ],
+      "answer": "0.9411864705882352",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/e6cb2402.json",
+      "variant": "near_miss_1e-7",
+      "question_type": "spr",
+      "correct_answer": [
+        ".9411",
+        ".9412",
+        "16/17"
+      ],
+      "answer": "0.9411765705882352",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/e6cb2402.json",
+      "variant": "junk",
+      "question_type": "spr",
+      "correct_answer": [
+        ".9411",
+        ".9412",
+        "16/17"
+      ],
+      "answer": "not-a-number",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/e7d48c8a.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "C"
+      ],
+      "answer": "C",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/e7d48c8a.json",
+      "variant": "junk",
+      "question_type": "spr",
+      "correct_answer": [
+        "C"
+      ],
+      "answer": "not-a-number",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/ebbf23ae.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "5"
+      ],
+      "answer": "5",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/ebbf23ae.json",
+      "variant": "near_miss_1e-5",
+      "question_type": "spr",
+      "correct_answer": [
+        "5"
+      ],
+      "answer": "5.00001",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/ebbf23ae.json",
+      "variant": "near_miss_1e-7",
+      "question_type": "spr",
+      "correct_answer": [
+        "5"
+      ],
+      "answer": "5.0000001",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/ebbf23ae.json",
+      "variant": "junk",
+      "question_type": "spr",
+      "correct_answer": [
+        "5"
+      ],
+      "answer": "not-a-number",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/ee857afb.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "7"
+      ],
+      "answer": "7",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/ee857afb.json",
+      "variant": "near_miss_1e-5",
+      "question_type": "spr",
+      "correct_answer": [
+        "7"
+      ],
+      "answer": "7.00001",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/ee857afb.json",
+      "variant": "near_miss_1e-7",
+      "question_type": "spr",
+      "correct_answer": [
+        "7"
+      ],
+      "answer": "7.0000001",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/ee857afb.json",
+      "variant": "junk",
+      "question_type": "spr",
+      "correct_answer": [
+        "7"
+      ],
+      "answer": "not-a-number",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/eeebe166.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "C"
+      ],
+      "answer": "C",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/eeebe166.json",
+      "variant": "junk",
+      "question_type": "spr",
+      "correct_answer": [
+        "C"
+      ],
+      "answer": "not-a-number",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/f243c383.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "B"
+      ],
+      "answer": "B",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/f243c383.json",
+      "variant": "junk",
+      "question_type": "spr",
+      "correct_answer": [
+        "B"
+      ],
+      "answer": "not-a-number",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/f2bbd43d.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "A"
+      ],
+      "answer": "A",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/f2bbd43d.json",
+      "variant": "junk",
+      "question_type": "spr",
+      "correct_answer": [
+        "A"
+      ],
+      "answer": "not-a-number",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/f547a8b1.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "D"
+      ],
+      "answer": "D",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/f547a8b1.json",
+      "variant": "junk",
+      "question_type": "spr",
+      "correct_answer": [
+        "D"
+      ],
+      "answer": "not-a-number",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/f8ff3249.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "C"
+      ],
+      "answer": "C",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/f8ff3249.json",
+      "variant": "junk",
+      "question_type": "spr",
+      "correct_answer": [
+        "C"
+      ],
+      "answer": "not-a-number",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/fb43b85f.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "1.636",
+        "18/11"
+      ],
+      "answer": "1.636",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/fb43b85f.json",
+      "variant": "near_miss_1e-5",
+      "question_type": "spr",
+      "correct_answer": [
+        "1.636",
+        "18/11"
+      ],
+      "answer": "1.63601",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/fb43b85f.json",
+      "variant": "near_miss_1e-7",
+      "question_type": "spr",
+      "correct_answer": [
+        "1.636",
+        "18/11"
+      ],
+      "answer": "1.6360001",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/fb43b85f.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "1.636",
+        "18/11"
+      ],
+      "answer": "18/11",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/fb43b85f.json",
+      "variant": "fraction_to_decimal",
+      "question_type": "spr",
+      "correct_answer": [
+        "1.636",
+        "18/11"
+      ],
+      "answer": "1.636363636",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/fb43b85f.json",
+      "variant": "near_miss_1e-5",
+      "question_type": "spr",
+      "correct_answer": [
+        "1.636",
+        "18/11"
+      ],
+      "answer": "1.6363736363636365",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/fb43b85f.json",
+      "variant": "near_miss_1e-7",
+      "question_type": "spr",
+      "correct_answer": [
+        "1.636",
+        "18/11"
+      ],
+      "answer": "1.6363637363636365",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/fb43b85f.json",
+      "variant": "junk",
+      "question_type": "spr",
+      "correct_answer": [
+        "1.636",
+        "18/11"
+      ],
+      "answer": "not-a-number",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/fcb78856.json",
+      "variant": "exact_key",
+      "question_type": "spr",
+      "correct_answer": [
+        "A"
+      ],
+      "answer": "A",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/spr_sample/fcb78856.json",
+      "variant": "junk",
+      "question_type": "spr",
+      "correct_answer": [
+        "A"
+      ],
+      "answer": "not-a-number",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/02527f43.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "A"
+      ],
+      "answer": "A",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/02527f43.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "A"
+      ],
+      "answer": "B",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/02527f43.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "A"
+      ],
+      "answer": "C",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/02527f43.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "A"
+      ],
+      "answer": "D",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/0992bd73.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "A"
+      ],
+      "answer": "A",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/0992bd73.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "A"
+      ],
+      "answer": "B",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/0992bd73.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "A"
+      ],
+      "answer": "C",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/0992bd73.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "A"
+      ],
+      "answer": "D",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/0ed94d4c.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "C"
+      ],
+      "answer": "A",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/0ed94d4c.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "C"
+      ],
+      "answer": "B",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/0ed94d4c.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "C"
+      ],
+      "answer": "C",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/0ed94d4c.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "C"
+      ],
+      "answer": "D",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/146233fc.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "C"
+      ],
+      "answer": "A",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/146233fc.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "C"
+      ],
+      "answer": "B",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/146233fc.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "C"
+      ],
+      "answer": "C",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/146233fc.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "C"
+      ],
+      "answer": "D",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/155239cf.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "B"
+      ],
+      "answer": "A",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/155239cf.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "B"
+      ],
+      "answer": "B",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/155239cf.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "B"
+      ],
+      "answer": "C",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/155239cf.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "B"
+      ],
+      "answer": "D",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/1792fa73.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "A"
+      ],
+      "answer": "A",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/1792fa73.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "A"
+      ],
+      "answer": "B",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/1792fa73.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "A"
+      ],
+      "answer": "C",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/1792fa73.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "A"
+      ],
+      "answer": "D",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/18382e67.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "C"
+      ],
+      "answer": "A",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/18382e67.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "C"
+      ],
+      "answer": "B",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/18382e67.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "C"
+      ],
+      "answer": "C",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/18382e67.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "C"
+      ],
+      "answer": "D",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/2312021b.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "B"
+      ],
+      "answer": "A",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/2312021b.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "B"
+      ],
+      "answer": "B",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/2312021b.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "B"
+      ],
+      "answer": "C",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/2312021b.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "B"
+      ],
+      "answer": "D",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/2b08f514.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "C"
+      ],
+      "answer": "A",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/2b08f514.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "C"
+      ],
+      "answer": "B",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/2b08f514.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "C"
+      ],
+      "answer": "C",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/2b08f514.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "C"
+      ],
+      "answer": "D",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/3233c162.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "B"
+      ],
+      "answer": "A",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/3233c162.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "B"
+      ],
+      "answer": "B",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/3233c162.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "B"
+      ],
+      "answer": "C",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/3233c162.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "B"
+      ],
+      "answer": "D",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/39e440e4.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "D"
+      ],
+      "answer": "A",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/39e440e4.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "D"
+      ],
+      "answer": "B",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/39e440e4.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "D"
+      ],
+      "answer": "C",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/39e440e4.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "D"
+      ],
+      "answer": "D",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/3bfcb73b.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "C"
+      ],
+      "answer": "A",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/3bfcb73b.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "C"
+      ],
+      "answer": "B",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/3bfcb73b.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "C"
+      ],
+      "answer": "C",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/3bfcb73b.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "C"
+      ],
+      "answer": "D",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/3c925481.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "B"
+      ],
+      "answer": "A",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/3c925481.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "B"
+      ],
+      "answer": "B",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/3c925481.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "B"
+      ],
+      "answer": "C",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/3c925481.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "B"
+      ],
+      "answer": "D",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/4830ab87.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "B"
+      ],
+      "answer": "A",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/4830ab87.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "B"
+      ],
+      "answer": "B",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/4830ab87.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "B"
+      ],
+      "answer": "C",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/4830ab87.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "B"
+      ],
+      "answer": "D",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/4d1a9c0d.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "D"
+      ],
+      "answer": "A",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/4d1a9c0d.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "D"
+      ],
+      "answer": "B",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/4d1a9c0d.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "D"
+      ],
+      "answer": "C",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/4d1a9c0d.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "D"
+      ],
+      "answer": "D",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/4fc9a13a.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "A"
+      ],
+      "answer": "A",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/4fc9a13a.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "A"
+      ],
+      "answer": "B",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/4fc9a13a.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "A"
+      ],
+      "answer": "C",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/4fc9a13a.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "A"
+      ],
+      "answer": "D",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/5105ca38.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "A"
+      ],
+      "answer": "A",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/5105ca38.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "A"
+      ],
+      "answer": "B",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/5105ca38.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "A"
+      ],
+      "answer": "C",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/5105ca38.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "A"
+      ],
+      "answer": "D",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/512f0ac9.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "A"
+      ],
+      "answer": "A",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/512f0ac9.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "A"
+      ],
+      "answer": "B",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/512f0ac9.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "A"
+      ],
+      "answer": "C",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/512f0ac9.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "A"
+      ],
+      "answer": "D",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/5f56fdec.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "C"
+      ],
+      "answer": "A",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/5f56fdec.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "C"
+      ],
+      "answer": "B",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/5f56fdec.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "C"
+      ],
+      "answer": "C",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/5f56fdec.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "C"
+      ],
+      "answer": "D",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/6540a976.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "D"
+      ],
+      "answer": "A",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/6540a976.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "D"
+      ],
+      "answer": "B",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/6540a976.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "D"
+      ],
+      "answer": "C",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/6540a976.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "D"
+      ],
+      "answer": "D",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/6bc0e595.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "B"
+      ],
+      "answer": "A",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/6bc0e595.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "B"
+      ],
+      "answer": "B",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/6bc0e595.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "B"
+      ],
+      "answer": "C",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/6bc0e595.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "B"
+      ],
+      "answer": "D",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/707461d8.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "A"
+      ],
+      "answer": "A",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/707461d8.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "A"
+      ],
+      "answer": "B",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/707461d8.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "A"
+      ],
+      "answer": "C",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/707461d8.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "A"
+      ],
+      "answer": "D",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/757077f9.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "B"
+      ],
+      "answer": "A",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/757077f9.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "B"
+      ],
+      "answer": "B",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/757077f9.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "B"
+      ],
+      "answer": "C",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/757077f9.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "B"
+      ],
+      "answer": "D",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/775f3eb9.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "C"
+      ],
+      "answer": "A",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/775f3eb9.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "C"
+      ],
+      "answer": "B",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/775f3eb9.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "C"
+      ],
+      "answer": "C",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/775f3eb9.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "C"
+      ],
+      "answer": "D",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/7fdba7ad.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "B"
+      ],
+      "answer": "A",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/7fdba7ad.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "B"
+      ],
+      "answer": "B",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/7fdba7ad.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "B"
+      ],
+      "answer": "C",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/7fdba7ad.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "B"
+      ],
+      "answer": "D",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/8a3998f1.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "C"
+      ],
+      "answer": "A",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/8a3998f1.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "C"
+      ],
+      "answer": "B",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/8a3998f1.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "C"
+      ],
+      "answer": "C",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/8a3998f1.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "C"
+      ],
+      "answer": "D",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/8d579825.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "B"
+      ],
+      "answer": "A",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/8d579825.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "B"
+      ],
+      "answer": "B",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/8d579825.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "B"
+      ],
+      "answer": "C",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/8d579825.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "B"
+      ],
+      "answer": "D",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/96a86bce.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "C"
+      ],
+      "answer": "A",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/96a86bce.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "C"
+      ],
+      "answer": "B",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/96a86bce.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "C"
+      ],
+      "answer": "C",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/96a86bce.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "C"
+      ],
+      "answer": "D",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/a05cc490.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "C"
+      ],
+      "answer": "A",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/a05cc490.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "C"
+      ],
+      "answer": "B",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/a05cc490.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "C"
+      ],
+      "answer": "C",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/a05cc490.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "C"
+      ],
+      "answer": "D",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/a3204ab0.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "D"
+      ],
+      "answer": "A",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/a3204ab0.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "D"
+      ],
+      "answer": "B",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/a3204ab0.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "D"
+      ],
+      "answer": "C",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/a3204ab0.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "D"
+      ],
+      "answer": "D",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/a60b0004.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "D"
+      ],
+      "answer": "A",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/a60b0004.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "D"
+      ],
+      "answer": "B",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/a60b0004.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "D"
+      ],
+      "answer": "C",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/a60b0004.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "D"
+      ],
+      "answer": "D",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/a7a944ed.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "A"
+      ],
+      "answer": "A",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/a7a944ed.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "A"
+      ],
+      "answer": "B",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/a7a944ed.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "A"
+      ],
+      "answer": "C",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/a7a944ed.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "A"
+      ],
+      "answer": "D",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/ac285054.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "C"
+      ],
+      "answer": "A",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/ac285054.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "C"
+      ],
+      "answer": "B",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/ac285054.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "C"
+      ],
+      "answer": "C",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/ac285054.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "C"
+      ],
+      "answer": "D",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/ad680167.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "C"
+      ],
+      "answer": "A",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/ad680167.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "C"
+      ],
+      "answer": "B",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/ad680167.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "C"
+      ],
+      "answer": "C",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/ad680167.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "C"
+      ],
+      "answer": "D",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/b0fb36ad.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "A"
+      ],
+      "answer": "A",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/b0fb36ad.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "A"
+      ],
+      "answer": "B",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/b0fb36ad.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "A"
+      ],
+      "answer": "C",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/b0fb36ad.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "A"
+      ],
+      "answer": "D",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/b2e54b50.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "D"
+      ],
+      "answer": "A",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/b2e54b50.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "D"
+      ],
+      "answer": "B",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/b2e54b50.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "D"
+      ],
+      "answer": "C",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/b2e54b50.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "D"
+      ],
+      "answer": "D",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/b4d29611.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "B"
+      ],
+      "answer": "A",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/b4d29611.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "B"
+      ],
+      "answer": "B",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/b4d29611.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "B"
+      ],
+      "answer": "C",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/b4d29611.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "B"
+      ],
+      "answer": "D",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/b5972710.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "A"
+      ],
+      "answer": "A",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/b5972710.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "A"
+      ],
+      "answer": "B",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/b5972710.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "A"
+      ],
+      "answer": "C",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/b5972710.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "A"
+      ],
+      "answer": "D",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/c8540a5b.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "C"
+      ],
+      "answer": "A",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/c8540a5b.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "C"
+      ],
+      "answer": "B",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/c8540a5b.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "C"
+      ],
+      "answer": "C",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/c8540a5b.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "C"
+      ],
+      "answer": "D",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/c8603ed7.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "B"
+      ],
+      "answer": "A",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/c8603ed7.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "B"
+      ],
+      "answer": "B",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/c8603ed7.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "B"
+      ],
+      "answer": "C",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/c8603ed7.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "B"
+      ],
+      "answer": "D",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/cbecb873.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "C"
+      ],
+      "answer": "A",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/cbecb873.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "C"
+      ],
+      "answer": "B",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/cbecb873.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "C"
+      ],
+      "answer": "C",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/cbecb873.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "C"
+      ],
+      "answer": "D",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/d563bf65.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "D"
+      ],
+      "answer": "A",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/d563bf65.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "D"
+      ],
+      "answer": "B",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/d563bf65.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "D"
+      ],
+      "answer": "C",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/d563bf65.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "D"
+      ],
+      "answer": "D",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/e1079609.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "B"
+      ],
+      "answer": "A",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/e1079609.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "B"
+      ],
+      "answer": "B",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/e1079609.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "B"
+      ],
+      "answer": "C",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/e1079609.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "B"
+      ],
+      "answer": "D",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/f1bfbed3.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "B"
+      ],
+      "answer": "A",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/f1bfbed3.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "B"
+      ],
+      "answer": "B",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/f1bfbed3.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "B"
+      ],
+      "answer": "C",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/f1bfbed3.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "B"
+      ],
+      "answer": "D",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/fa36d803.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "B"
+      ],
+      "answer": "A",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/fa36d803.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "B"
+      ],
+      "answer": "B",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/fa36d803.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "B"
+      ],
+      "answer": "C",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/fa36d803.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "B"
+      ],
+      "answer": "D",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/faee8ec7.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "B"
+      ],
+      "answer": "A",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/faee8ec7.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "B"
+      ],
+      "answer": "B",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/faee8ec7.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "B"
+      ],
+      "answer": "C",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/faee8ec7.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "B"
+      ],
+      "answer": "D",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/fb8b56bc.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "B"
+      ],
+      "answer": "A",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/fb8b56bc.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "B"
+      ],
+      "answer": "B",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/fb8b56bc.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "B"
+      ],
+      "answer": "C",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/fb8b56bc.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "B"
+      ],
+      "answer": "D",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/fc95a352.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "A"
+      ],
+      "answer": "A",
+      "expected": true
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/fc95a352.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "A"
+      ],
+      "answer": "B",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/fc95a352.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "A"
+      ],
+      "answer": "C",
+      "expected": false
+    },
+    {
+      "suiteCase": "/home/saifuddin/Projects/counselle/.worktrees/sat-practice/artifacts/sat-practice/research/rw_sample/fc95a352.json",
+      "variant": "mcq_label",
+      "question_type": "mcq",
+      "correct_answer": [
+        "A"
+      ],
+      "answer": "D",
+      "expected": false
+    },
+    {
+      "suiteCase": "o7-college-board-2-3-table",
+      "variant": "o7_table",
+      "question_type": "spr",
+      "correct_answer": [
+        "2/3"
+      ],
+      "answer": ".6666",
+      "expected": true
+    },
+    {
+      "suiteCase": "o7-college-board-2-3-table",
+      "variant": "o7_table",
+      "question_type": "spr",
+      "correct_answer": [
+        "2/3"
+      ],
+      "answer": ".6667",
+      "expected": true
+    },
+    {
+      "suiteCase": "o7-college-board-2-3-table",
+      "variant": "o7_table",
+      "question_type": "spr",
+      "correct_answer": [
+        "2/3"
+      ],
+      "answer": "0.666",
+      "expected": true
+    },
+    {
+      "suiteCase": "o7-college-board-2-3-table",
+      "variant": "o7_table",
+      "question_type": "spr",
+      "correct_answer": [
+        "2/3"
+      ],
+      "answer": "0.667",
+      "expected": true
+    },
+    {
+      "suiteCase": "o7-college-board-2-3-table",
+      "variant": "o7_table",
+      "question_type": "spr",
+      "correct_answer": [
+        "2/3"
+      ],
+      "answer": "0.66",
+      "expected": false
+    },
+    {
+      "suiteCase": "o7-college-board-2-3-table",
+      "variant": "o7_table",
+      "question_type": "spr",
+      "correct_answer": [
+        "2/3"
+      ],
+      "answer": ".66",
+      "expected": false
+    },
+    {
+      "suiteCase": "o7-college-board-2-3-table",
+      "variant": "o7_table",
+      "question_type": "spr",
+      "correct_answer": [
+        "2/3"
+      ],
+      "answer": "0.67",
+      "expected": false
+    },
+    {
+      "suiteCase": "o7-college-board-2-3-table",
+      "variant": "o7_table",
+      "question_type": "spr",
+      "correct_answer": [
+        "2/3"
+      ],
+      "answer": ".67",
+      "expected": false
+    },
+    {
+      "suiteCase": "o7-7/10",
+      "variant": "o7_truncate_with_zero",
+      "question_type": "spr",
+      "correct_answer": [
+        "7/10"
+      ],
+      "answer": ".700",
+      "expected": false
+    },
+    {
+      "suiteCase": "o7-7/10",
+      "variant": "o7_truncate_no_zero",
+      "question_type": "spr",
+      "correct_answer": [
+        "7/10"
+      ],
+      "answer": ".700",
+      "expected": false
+    },
+    {
+      "suiteCase": "o7-7/10",
+      "variant": "o7_round_with_zero",
+      "question_type": "spr",
+      "correct_answer": [
+        "7/10"
+      ],
+      "answer": ".700",
+      "expected": false
+    },
+    {
+      "suiteCase": "o7-7/10",
+      "variant": "o7_round_no_zero",
+      "question_type": "spr",
+      "correct_answer": [
+        "7/10"
+      ],
+      "answer": ".700",
+      "expected": false
+    },
+    {
+      "suiteCase": "o7-7/10",
+      "variant": "o7_one_digit_short_3",
+      "question_type": "spr",
+      "correct_answer": [
+        "7/10"
+      ],
+      "answer": ".70",
+      "expected": false
+    },
+    {
+      "suiteCase": "o7-7/10",
+      "variant": "o7_one_digit_wrong_3",
+      "question_type": "spr",
+      "correct_answer": [
+        "7/10"
+      ],
+      "answer": ".701",
+      "expected": false
+    },
+    {
+      "suiteCase": "o7-7/10",
+      "variant": "o7_truncate_with_zero",
+      "question_type": "spr",
+      "correct_answer": [
+        "7/10"
+      ],
+      "answer": ".7000",
+      "expected": false
+    },
+    {
+      "suiteCase": "o7-7/10",
+      "variant": "o7_truncate_no_zero",
+      "question_type": "spr",
+      "correct_answer": [
+        "7/10"
+      ],
+      "answer": ".7000",
+      "expected": false
+    },
+    {
+      "suiteCase": "o7-7/10",
+      "variant": "o7_round_with_zero",
+      "question_type": "spr",
+      "correct_answer": [
+        "7/10"
+      ],
+      "answer": ".7000",
+      "expected": false
+    },
+    {
+      "suiteCase": "o7-7/10",
+      "variant": "o7_round_no_zero",
+      "question_type": "spr",
+      "correct_answer": [
+        "7/10"
+      ],
+      "answer": ".7000",
+      "expected": false
+    },
+    {
+      "suiteCase": "o7-7/10",
+      "variant": "o7_one_digit_short_4",
+      "question_type": "spr",
+      "correct_answer": [
+        "7/10"
+      ],
+      "answer": ".700",
+      "expected": false
+    },
+    {
+      "suiteCase": "o7-7/10",
+      "variant": "o7_one_digit_wrong_4",
+      "question_type": "spr",
+      "correct_answer": [
+        "7/10"
+      ],
+      "answer": ".7001",
+      "expected": false
+    },
+    {
+      "suiteCase": "o7-1/4",
+      "variant": "o7_truncate_with_zero",
+      "question_type": "spr",
+      "correct_answer": [
+        "1/4"
+      ],
+      "answer": ".250",
+      "expected": false
+    },
+    {
+      "suiteCase": "o7-1/4",
+      "variant": "o7_truncate_no_zero",
+      "question_type": "spr",
+      "correct_answer": [
+        "1/4"
+      ],
+      "answer": ".250",
+      "expected": false
+    },
+    {
+      "suiteCase": "o7-1/4",
+      "variant": "o7_round_with_zero",
+      "question_type": "spr",
+      "correct_answer": [
+        "1/4"
+      ],
+      "answer": ".250",
+      "expected": false
+    },
+    {
+      "suiteCase": "o7-1/4",
+      "variant": "o7_round_no_zero",
+      "question_type": "spr",
+      "correct_answer": [
+        "1/4"
+      ],
+      "answer": ".250",
+      "expected": false
+    },
+    {
+      "suiteCase": "o7-1/4",
+      "variant": "o7_one_digit_short_3",
+      "question_type": "spr",
+      "correct_answer": [
+        "1/4"
+      ],
+      "answer": ".25",
+      "expected": false
+    },
+    {
+      "suiteCase": "o7-1/4",
+      "variant": "o7_one_digit_wrong_3",
+      "question_type": "spr",
+      "correct_answer": [
+        "1/4"
+      ],
+      "answer": ".251",
+      "expected": false
+    },
+    {
+      "suiteCase": "o7-1/4",
+      "variant": "o7_truncate_with_zero",
+      "question_type": "spr",
+      "correct_answer": [
+        "1/4"
+      ],
+      "answer": ".2500",
+      "expected": false
+    },
+    {
+      "suiteCase": "o7-1/4",
+      "variant": "o7_truncate_no_zero",
+      "question_type": "spr",
+      "correct_answer": [
+        "1/4"
+      ],
+      "answer": ".2500",
+      "expected": false
+    },
+    {
+      "suiteCase": "o7-1/4",
+      "variant": "o7_round_with_zero",
+      "question_type": "spr",
+      "correct_answer": [
+        "1/4"
+      ],
+      "answer": ".2500",
+      "expected": false
+    },
+    {
+      "suiteCase": "o7-1/4",
+      "variant": "o7_round_no_zero",
+      "question_type": "spr",
+      "correct_answer": [
+        "1/4"
+      ],
+      "answer": ".2500",
+      "expected": false
+    },
+    {
+      "suiteCase": "o7-1/4",
+      "variant": "o7_one_digit_short_4",
+      "question_type": "spr",
+      "correct_answer": [
+        "1/4"
+      ],
+      "answer": ".250",
+      "expected": false
+    },
+    {
+      "suiteCase": "o7-1/4",
+      "variant": "o7_one_digit_wrong_4",
+      "question_type": "spr",
+      "correct_answer": [
+        "1/4"
+      ],
+      "answer": ".2501",
+      "expected": false
+    },
+    {
+      "suiteCase": "o7-9/100",
+      "variant": "o7_truncate_with_zero",
+      "question_type": "spr",
+      "correct_answer": [
+        "9/100"
+      ],
+      "answer": ".090",
+      "expected": false
+    },
+    {
+      "suiteCase": "o7-9/100",
+      "variant": "o7_truncate_no_zero",
+      "question_type": "spr",
+      "correct_answer": [
+        "9/100"
+      ],
+      "answer": ".090",
+      "expected": false
+    },
+    {
+      "suiteCase": "o7-9/100",
+      "variant": "o7_round_with_zero",
+      "question_type": "spr",
+      "correct_answer": [
+        "9/100"
+      ],
+      "answer": ".090",
+      "expected": false
+    },
+    {
+      "suiteCase": "o7-9/100",
+      "variant": "o7_round_no_zero",
+      "question_type": "spr",
+      "correct_answer": [
+        "9/100"
+      ],
+      "answer": ".090",
+      "expected": false
+    },
+    {
+      "suiteCase": "o7-9/100",
+      "variant": "o7_one_digit_short_3",
+      "question_type": "spr",
+      "correct_answer": [
+        "9/100"
+      ],
+      "answer": ".09",
+      "expected": false
+    },
+    {
+      "suiteCase": "o7-9/100",
+      "variant": "o7_one_digit_wrong_3",
+      "question_type": "spr",
+      "correct_answer": [
+        "9/100"
+      ],
+      "answer": ".091",
+      "expected": false
+    },
+    {
+      "suiteCase": "o7-9/100",
+      "variant": "o7_truncate_with_zero",
+      "question_type": "spr",
+      "correct_answer": [
+        "9/100"
+      ],
+      "answer": ".0900",
+      "expected": false
+    },
+    {
+      "suiteCase": "o7-9/100",
+      "variant": "o7_truncate_no_zero",
+      "question_type": "spr",
+      "correct_answer": [
+        "9/100"
+      ],
+      "answer": ".0900",
+      "expected": false
+    },
+    {
+      "suiteCase": "o7-9/100",
+      "variant": "o7_round_with_zero",
+      "question_type": "spr",
+      "correct_answer": [
+        "9/100"
+      ],
+      "answer": ".0900",
+      "expected": false
+    },
+    {
+      "suiteCase": "o7-9/100",
+      "variant": "o7_round_no_zero",
+      "question_type": "spr",
+      "correct_answer": [
+        "9/100"
+      ],
+      "answer": ".0900",
+      "expected": false
+    },
+    {
+      "suiteCase": "o7-9/100",
+      "variant": "o7_one_digit_short_4",
+      "question_type": "spr",
+      "correct_answer": [
+        "9/100"
+      ],
+      "answer": ".090",
+      "expected": false
+    },
+    {
+      "suiteCase": "o7-9/100",
+      "variant": "o7_one_digit_wrong_4",
+      "question_type": "spr",
+      "correct_answer": [
+        "9/100"
+      ],
+      "answer": ".0901",
+      "expected": false
+    },
+    {
+      "suiteCase": "o7-2/7",
+      "variant": "o7_truncate_with_zero",
+      "question_type": "spr",
+      "correct_answer": [
+        "2/7"
+      ],
+      "answer": ".285",
+      "expected": false
+    },
+    {
+      "suiteCase": "o7-2/7",
+      "variant": "o7_truncate_no_zero",
+      "question_type": "spr",
+      "correct_answer": [
+        "2/7"
+      ],
+      "answer": ".285",
+      "expected": false
+    },
+    {
+      "suiteCase": "o7-2/7",
+      "variant": "o7_round_with_zero",
+      "question_type": "spr",
+      "correct_answer": [
+        "2/7"
+      ],
+      "answer": ".286",
+      "expected": false
+    },
+    {
+      "suiteCase": "o7-2/7",
+      "variant": "o7_round_no_zero",
+      "question_type": "spr",
+      "correct_answer": [
+        "2/7"
+      ],
+      "answer": ".286",
+      "expected": false
+    },
+    {
+      "suiteCase": "o7-2/7",
+      "variant": "o7_one_digit_short_3",
+      "question_type": "spr",
+      "correct_answer": [
+        "2/7"
+      ],
+      "answer": ".28",
+      "expected": false
+    },
+    {
+      "suiteCase": "o7-2/7",
+      "variant": "o7_one_digit_wrong_3",
+      "question_type": "spr",
+      "correct_answer": [
+        "2/7"
+      ],
+      "answer": ".286",
+      "expected": false
+    },
+    {
+      "suiteCase": "o7-2/7",
+      "variant": "o7_truncate_with_zero",
+      "question_type": "spr",
+      "correct_answer": [
+        "2/7"
+      ],
+      "answer": ".2857",
+      "expected": true
+    },
+    {
+      "suiteCase": "o7-2/7",
+      "variant": "o7_truncate_no_zero",
+      "question_type": "spr",
+      "correct_answer": [
+        "2/7"
+      ],
+      "answer": ".2857",
+      "expected": true
+    },
+    {
+      "suiteCase": "o7-2/7",
+      "variant": "o7_round_with_zero",
+      "question_type": "spr",
+      "correct_answer": [
+        "2/7"
+      ],
+      "answer": ".2857",
+      "expected": true
+    },
+    {
+      "suiteCase": "o7-2/7",
+      "variant": "o7_round_no_zero",
+      "question_type": "spr",
+      "correct_answer": [
+        "2/7"
+      ],
+      "answer": ".2857",
+      "expected": true
+    },
+    {
+      "suiteCase": "o7-2/7",
+      "variant": "o7_one_digit_short_4",
+      "question_type": "spr",
+      "correct_answer": [
+        "2/7"
+      ],
+      "answer": ".285",
+      "expected": false
+    },
+    {
+      "suiteCase": "o7-2/7",
+      "variant": "o7_one_digit_wrong_4",
+      "question_type": "spr",
+      "correct_answer": [
+        "2/7"
+      ],
+      "answer": ".2858",
+      "expected": false
+    },
+    {
+      "suiteCase": "o7-16/17",
+      "variant": "o7_truncate_with_zero",
+      "question_type": "spr",
+      "correct_answer": [
+        "16/17"
+      ],
+      "answer": ".941",
+      "expected": false
+    },
+    {
+      "suiteCase": "o7-16/17",
+      "variant": "o7_truncate_no_zero",
+      "question_type": "spr",
+      "correct_answer": [
+        "16/17"
+      ],
+      "answer": ".941",
+      "expected": false
+    },
+    {
+      "suiteCase": "o7-16/17",
+      "variant": "o7_round_with_zero",
+      "question_type": "spr",
+      "correct_answer": [
+        "16/17"
+      ],
+      "answer": ".941",
+      "expected": false
+    },
+    {
+      "suiteCase": "o7-16/17",
+      "variant": "o7_round_no_zero",
+      "question_type": "spr",
+      "correct_answer": [
+        "16/17"
+      ],
+      "answer": ".941",
+      "expected": false
+    },
+    {
+      "suiteCase": "o7-16/17",
+      "variant": "o7_one_digit_short_3",
+      "question_type": "spr",
+      "correct_answer": [
+        "16/17"
+      ],
+      "answer": ".94",
+      "expected": false
+    },
+    {
+      "suiteCase": "o7-16/17",
+      "variant": "o7_one_digit_wrong_3",
+      "question_type": "spr",
+      "correct_answer": [
+        "16/17"
+      ],
+      "answer": ".942",
+      "expected": false
+    },
+    {
+      "suiteCase": "o7-16/17",
+      "variant": "o7_truncate_with_zero",
+      "question_type": "spr",
+      "correct_answer": [
+        "16/17"
+      ],
+      "answer": ".9411",
+      "expected": true
+    },
+    {
+      "suiteCase": "o7-16/17",
+      "variant": "o7_truncate_no_zero",
+      "question_type": "spr",
+      "correct_answer": [
+        "16/17"
+      ],
+      "answer": ".9411",
+      "expected": true
+    },
+    {
+      "suiteCase": "o7-16/17",
+      "variant": "o7_round_with_zero",
+      "question_type": "spr",
+      "correct_answer": [
+        "16/17"
+      ],
+      "answer": ".9412",
+      "expected": true
+    },
+    {
+      "suiteCase": "o7-16/17",
+      "variant": "o7_round_no_zero",
+      "question_type": "spr",
+      "correct_answer": [
+        "16/17"
+      ],
+      "answer": ".9412",
+      "expected": true
+    },
+    {
+      "suiteCase": "o7-16/17",
+      "variant": "o7_one_digit_short_4",
+      "question_type": "spr",
+      "correct_answer": [
+        "16/17"
+      ],
+      "answer": ".941",
+      "expected": false
+    },
+    {
+      "suiteCase": "o7-16/17",
+      "variant": "o7_one_digit_wrong_4",
+      "question_type": "spr",
+      "correct_answer": [
+        "16/17"
+      ],
+      "answer": ".9412",
+      "expected": true
+    }
+  ]
+}
