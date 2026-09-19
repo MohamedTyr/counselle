@@ -2,10 +2,8 @@ import type React from "react";
 import { Bar, BarChart, LabelList, XAxis, YAxis } from "recharts";
 
 import { ChartContainer, type ChartConfig } from "@/components/ui/chart";
-import {
-  AxisCategoryTick,
-  ChartFigure,
-} from "@/features/schools/facts/charts/chart-shell";
+import { ChartFigure } from "@/components/workspace/chart-figure";
+import { AxisCategoryTick } from "@/features/schools/facts/charts/chart-shell";
 import {
   chartRowHeight,
   VALUE_LABEL,

@@ -230,7 +230,7 @@
  * on the page while it's mid-tween) — `1cqw` is 1% of the nearest
  * `container-type: inline-size` ancestor's inline size, standing in for the
  * `%` these used to resolve `left` against. Both the shape's own plot box
- * (inside `ChartFigure`, unpadded — see chart-shell.tsx) and the
+ * (inside `ChartFigure`, unpadded — see chart-figure.tsx) and the
  * `ScrubbablePlot` overlay stretch to this same panel's full width, so one
  * declaration here is the correct query container for both trees. */
 [data-slot="gpa-comparison"],

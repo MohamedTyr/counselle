@@ -2,7 +2,7 @@ import type React from "react";
 import { Bar, BarChart, XAxis, YAxis } from "recharts";
 
 import { ChartContainer, type ChartConfig } from "@/components/ui/chart";
-import { ChartFigure } from "@/features/schools/facts/charts/chart-shell";
+import { ChartFigure } from "@/components/workspace/chart-figure";
 import {
   CHART_ROW_HEIGHT,
   useChartEntrance,

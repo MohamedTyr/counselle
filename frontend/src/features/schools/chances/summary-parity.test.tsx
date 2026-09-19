@@ -182,7 +182,7 @@ function renderPanel(
     </QueryClientProvider>,
   );
 
-  // The summary: chart-shell.tsx's ChartFigure is the ONLY sr-only text
+  // The summary: chart-figure.tsx's ChartFigure is the ONLY sr-only text
   // mechanism this feature uses — its <figcaption> is the accessible
   // channel plan §6 requires to "not shrink at all."
   const figcaptions = Array.from(container.querySelectorAll("figcaption"));
