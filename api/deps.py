@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import hashlib
 from typing import Any
+from urllib.parse import quote
 from uuid import UUID
 
 from fastapi import Depends, Request
@@ -88,6 +89,21 @@ def etag_response(
     if request.headers.get("if-none-match") == etag:
         return Response(status_code=304, headers=headers)
     return JSONResponse(content=body, headers=headers)
+
+
+def content_disposition(filename: str) -> str:
+    """Build a header-injection-safe ``attachment`` Content-Disposition value.
+
+    Always forces ``attachment`` (never inline) so a browser never renders
+    user-uploaded content in-page. The stored filename is sanitized at
+    upload time by the caller, but header injection is a distinct risk from
+    path traversal, so it is re-escaped here too — mirroring Starlette's own
+    ``FileResponse`` RFC 6266 quoting.
+    """
+    safe_filename = quote(filename)
+    if safe_filename != filename:
+        return f"attachment; filename*=utf-8''{safe_filename}"
+    return f'attachment; filename="{filename}"'
 
 
 async def owned_session(

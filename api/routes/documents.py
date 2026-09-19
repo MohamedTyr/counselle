@@ -12,7 +12,6 @@ project's error envelope.
 
 from __future__ import annotations
 
-from urllib.parse import quote
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, Form, Request, Response, UploadFile
@@ -20,7 +19,7 @@ from pydantic import ValidationError
 
 from api.auth import current_active_user
 from api.auth_security import auth_origin_protect
-from api.deps import EnvelopeError
+from api.deps import EnvelopeError, content_disposition
 from api.ratelimit import workspace_write_rate_limit
 from api.routes.workspace_common import map_workspace_errors, runtime_parts
 from api.users_db import UserDB
@@ -123,26 +122,11 @@ async def read_document_file_route(
         content=document.content,
         media_type=document.mime,
         headers={
-            "Content-Disposition": _content_disposition(document.filename),
+            "Content-Disposition": content_disposition(document.filename),
             "X-Content-Type-Options": "nosniff",
             "Cache-Control": "private, no-store",
         },
     )
-
-
-def _content_disposition(filename: str) -> str:
-    """Build a header-injection-safe ``attachment`` Content-Disposition value.
-
-    Always forces ``attachment`` (never inline) so a browser never renders
-    user-uploaded content in-page. The stored filename was sanitized at
-    upload time (``extraction.py::_unsafe_filename``), but header injection
-    is a distinct risk from path traversal, so it is re-escaped here too —
-    mirroring Starlette's own ``FileResponse`` RFC 6266 quoting.
-    """
-    safe_filename = quote(filename)
-    if safe_filename != filename:
-        return f"attachment; filename*=utf-8''{safe_filename}"
-    return f'attachment; filename="{filename}"'
 
 
 def _upload_validation_message(exc: ValidationError) -> str:
