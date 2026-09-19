@@ -15,6 +15,21 @@ Ported from liprep's own exporter/importer:
     (``exportUserData``, ``importUserData``, ``asString``, ``asNumber``,
     ``isRecord``, ``formatDateKey``)
 
+Rounding: ``_clamp_seconds`` uses ``domain/sat/_rounding.js_round`` (JS
+``Math.round``, half up) because upstream really does apply that rule to
+seconds — ``recordQuestionAttempt``'s ``Math.max(1, Math.round(timeSpentSeconds))``
+(``db.ts``). Upstream's own ``importUserData`` never rounds or clamps
+``score_band_range_cd`` at all (it stays whatever ``asNumber`` returns, int
+or fractional); the 1-7 clamp here is entirely Counselle's own deviation
+(see above), so ``_clamp_band`` uses ``js_round`` only to stay consistent
+with the rest of this package's rounding convention, not because a JS
+``Math.round`` call is being ported. ``_to_epoch_ms`` also has no JS
+``Math.round`` to port — ``exportUserData`` writes an already-integer
+``Date.getTime()``/``solvedAt`` millisecond value straight through — so it
+keeps the builtin ``round()``, which only absorbs Python ``datetime``'s
+sub-millisecond precision and never observably diverges from ``js_round``
+here.
+
 Pure stdlib + pydantic (ADR 0017): no I/O, no clock reads — ``now`` and
 ``today`` are parameters, matching the rest of ``domain/sat`` (§4.4).
 
@@ -37,6 +52,7 @@ from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict
 
+from domain.sat._rounding import js_round
 from domain.sat.types import Attempt, Bookmark
 
 _FORMAT = "LiPrep"
@@ -274,12 +290,12 @@ def _decode_bookmarks(rows: list[Any], *, now: datetime) -> list[ImportedBookmar
 
 
 def _clamp_seconds(raw: float, max_seconds: int) -> int:
-    rounded = round(raw)
+    rounded = js_round(raw)
     return min(max_seconds, max(_MIN_SECONDS, rounded))
 
 
 def _clamp_band(raw: float) -> int:
-    return min(_MAX_BAND, max(_MIN_BAND, round(raw)))
+    return min(_MAX_BAND, max(_MIN_BAND, js_round(raw)))
 
 
 def _decode_solved_at(raw: Any, now: datetime) -> datetime:

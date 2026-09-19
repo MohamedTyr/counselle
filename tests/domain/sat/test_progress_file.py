@@ -24,6 +24,7 @@ from uuid import UUID, uuid4
 
 import pytest
 
+from domain.sat._rounding import js_round
 from domain.sat.progress_file import (
     ProgressFileError,
     decode,
@@ -149,6 +150,53 @@ def test_decode_band_clamped_to_1_through_7() -> None:
     result = decode(payload, today=today, now=now, max_seconds=_MAX_SECONDS)
     assert result.attempts[0].score_band == 1
     assert result.attempts[1].score_band == 7
+
+
+def test_decode_seconds_rounds_half_up_like_js_math_round() -> None:
+    """JS ``Math.round`` rounds half up; Python's builtin ``round`` rounds
+    half to even. 2.5 is the case that tells them apart (js_round -> 3,
+    builtin round -> 2)."""
+    today = date(2026, 1, 1)
+    now = datetime(2026, 1, 1, tzinfo=UTC)
+    payload = json.dumps(
+        {
+            "data": {
+                "attempts": [
+                    {"questionId": "q1", "isCorrect": True, "timeSpentSeconds": 2.5},
+                    {"questionId": "q2", "isCorrect": True, "timeSpentSeconds": 0.4},
+                    {"questionId": "q3", "isCorrect": True, "timeSpentSeconds": 3.5},
+                ],
+                "bookmarks": [],
+            }
+        }
+    )
+    result = decode(payload, today=today, now=now, max_seconds=_MAX_SECONDS)
+    assert result.attempts[0].time_spent_seconds == 3
+    assert result.attempts[1].time_spent_seconds == 1  # floors to 0, then clamped up to 1
+    assert result.attempts[2].time_spent_seconds == 4
+
+
+def test_decode_band_rounds_half_up_like_js_math_round() -> None:
+    today = date(2026, 1, 1)
+    now = datetime(2026, 1, 1, tzinfo=UTC)
+    payload = json.dumps(
+        {
+            "data": {
+                "attempts": [
+                    {"questionId": "q1", "isCorrect": True, "score_band_range_cd": 2.5},
+                ],
+                "bookmarks": [],
+            }
+        }
+    )
+    result = decode(payload, today=today, now=now, max_seconds=_MAX_SECONDS)
+    assert result.attempts[0].score_band == 3
+
+
+def test_js_round_matches_math_round_for_negative_values() -> None:
+    """``js_round`` is ``floor(x + 0.5)``, which matches JS ``Math.round``
+    for negatives too, unlike Python's builtin ``round`` (half to even)."""
+    assert js_round(-2.5) == -2
 
 
 def test_decode_invalid_date_key_falls_back_to_solved_at_date() -> None:

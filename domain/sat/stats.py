@@ -53,18 +53,19 @@ Every parity-inventory S-row this module implements:
   clause that can never be true, read by nothing) is not ported.
 
 Porting trap: JS ``Math.round`` rounds half **up**; Python's ``round``
-rounds half to even. ``_js_round(x) = floor(x + 0.5)`` matches upstream for
-every non-negative quantity computed here (every rounded quantity in this
-module is a count, percentage, or average of non-negative numbers).
+rounds half to even. ``js_round`` (``domain/sat/_rounding.py``) matches
+upstream for every non-negative quantity computed here (every rounded
+quantity in this module is a count, percentage, or average of non-negative
+numbers).
 """
 
 from __future__ import annotations
 
-import math
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import date, timedelta
 
+from domain.sat._rounding import js_round as _js_round
 from domain.sat.taxonomy import Taxonomy
 from domain.sat.types import (
     Attempt,
@@ -79,11 +80,6 @@ from domain.sat.types import (
 
 _MATH = "math"
 _BANDS = range(1, 8)
-
-
-def _js_round(x: float) -> int:
-    """JS ``Math.round``: half rounds up, not to even (S10)."""
-    return math.floor(x + 0.5)
 
 
 def _pct(numerator: int, denominator: int) -> int:
