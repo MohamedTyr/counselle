@@ -51,6 +51,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import re
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -99,6 +100,14 @@ _DETAIL_CONCURRENCY = 4
 # Progress-log cadence over the ~3,800-item detail fetch (plan: "log
 # progress every N items").
 _PROGRESS_LOG_EVERY = 200
+
+# Every observed `external_id` (a UUID) and `ibn` (e.g. "022222-DC") matches
+# this shape. Content ids are interpolated straight into a filesystem path
+# (`run_dir / "detail" / f"{external_id}.json"`) -- this is a whitelist, not
+# a blocklist, so a stray "/", "..", or other path-breaking character in a
+# malformed or unexpected response is a build failure, never a write outside
+# `run_dir`.
+_CONTENT_ID_SHAPE_RE = re.compile(r"^[A-Za-z0-9_-]+$")
 
 
 @dataclass(frozen=True)
@@ -206,17 +215,45 @@ def _content_id_of(stub: dict[str, Any]) -> _ContentId:
     return _ContentId(external_id=external_id, ibn=ibn)
 
 
-def _unique_content_ids(stub_lists: list[list[dict[str, Any]]]) -> dict[str, _ContentId]:
+def _unique_content_ids(
+    stub_lists: list[list[dict[str, Any]]],
+) -> tuple[dict[str, _ContentId], list[dict[str, str]]]:
     """Content id -> `_ContentId`, deduped across every assessment-99 stub
     list (plan §3.1: three content ids are filed twice under 99 -> 3,767
     unique questions from 3,770 stubs). A plain dict keyed by content id
-    collapses those duplicates for free."""
+    collapses those duplicates for free.
+
+    A stub with neither id, or whose id doesn't match
+    `_CONTENT_ID_SHAPE_RE`, is never fetched or written to a path -- it is
+    recorded as a failure (naming the stub's `questionId`) instead of
+    raising, so one malformed stub doesn't abort the whole list pass."""
     unique: dict[str, _ContentId] = {}
+    failures: list[dict[str, str]] = []
     for stubs in stub_lists:
         for stub in stubs:
             content_id = _content_id_of(stub)
-            unique.setdefault(content_id.key, content_id)
-    return unique
+            question_id = str(stub.get("questionId", "<unknown>"))
+            if content_id.external_id is None and content_id.ibn is None:
+                failures.append(
+                    {
+                        "content_id": question_id,
+                        "kind": "stub",
+                        "error": "stub has neither external_id nor ibn",
+                    }
+                )
+                continue
+            key = content_id.key
+            if not _CONTENT_ID_SHAPE_RE.match(key):
+                failures.append(
+                    {
+                        "content_id": question_id,
+                        "kind": "stub",
+                        "error": f"content id has an unexpected shape: {key!r}",
+                    }
+                )
+                continue
+            unique.setdefault(key, content_id)
+    return unique, failures
 
 
 async def _fetch_one_detail(
@@ -398,10 +435,11 @@ async def run_fetch(settings: Settings, run_dir: Path) -> FetchSummary:
         client = CollegeBoardClient(config, http_client)
 
         primary_stub_lists = await _fetch_lists(client, run_dir)
-        unique_content_ids = _unique_content_ids(primary_stub_lists)
-        counters, failures = await _fetch_all_details(client, run_dir, unique_content_ids)
+        unique_content_ids, stub_failures = _unique_content_ids(primary_stub_lists)
+        counters, detail_failures = await _fetch_all_details(client, run_dir, unique_content_ids)
         _write_robots_outcomes(run_dir, client)
 
+    failures = [*stub_failures, *detail_failures]
     summary = FetchSummary(
         started_at=started_at,
         finished_at=datetime.now(UTC).isoformat(),
@@ -409,7 +447,7 @@ async def run_fetch(settings: Settings, run_dir: Path) -> FetchSummary:
         unique_content_ids=len(unique_content_ids),
         details_fetched=counters.fetched,
         details_skipped=counters.skipped,
-        details_failed=counters.failed,
+        details_failed=counters.failed + len(stub_failures),
         failures=failures,
     )
     _write_summary(run_dir, summary)

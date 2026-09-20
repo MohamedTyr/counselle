@@ -1,0 +1,461 @@
+# SAT question bank -- free-response (SPR) key adjudications (plan plans/sat-practice/plan.md §3.5, §3.6 G10).
+#
+# Keys adjudicated by an AI agent on 2026-09-19; owner spot-check pending (R11).
+#
+# question_id: {keys: [...], source: "rationale" | "manual" | "added", note: ...}
+#   rationale = the extractor's proposal (domain/sat/spr_answers.py::extract_spr_candidates),
+#     confirmed against the quoted rationale sentence in `note`.
+#   manual = reviewer-authored (the extractor proposed nothing, or proposed an incomplete
+#     or incorrect set), with the quoted sentence in `note`.
+#   added = a G10 cross-check finding added to a qbank item's official key.
+
+0231050d:
+  keys:
+  - '75'
+  note: The correct answer is 75. The percent decrease between two values is found by dividing the difference
+    between the two values by the original
+  source: rationale
+0366d965:
+  keys:
+  - '30'
+  note: The correct answer is 30. The slope of a line can be found by using the slope formula, . It’s
+    given that the slope of the line is 2; therefo
+  source: rationale
+07f2829b:
+  keys:
+  - '1.3'
+  - 13/10
+  note: 'The correct answer is 1.3. The median number of tourists is found by ordering the number of tourists
+    from least to greatest and determining '
+  source: rationale
+0d1dca87:
+  keys:
+  - '23'
+  note: 'The correct answer is 23. Since it’s given that , the value of y can be found by substituting
+    2 for x in the first equation and solving for '
+  source: rationale
+100030d9:
+  keys:
+  - '2.5'
+  - 5/2
+  note: The correct answer is 2.5. After hitting the ground once, the ball bounces to feet. After hitting
+    the ground a second time, the ball bounces
+  source: rationale
+13d9a1c3:
+  keys:
+  - '4'
+  note: The correct answer is 4. Triangle PQR has given angle measures of 30 ° and 90 ° , so the third
+    angle must be 60° because the measures of the
+  source: rationale
+1697ffcf:
+  keys:
+  - '5'
+  note: 'The correct answer is 5. The intersection points of the graphs of and can be found by solving
+    the system consisting of these two equations. '
+  source: rationale
+16de54c7:
+  keys:
+  - '4'
+  note: The correct answer is 4. It’s given that can be rewritten as ; it follows that . Expanding the
+    left-hand side of this equation yields . Subt
+  source: rationale
+1c3d613c:
+  keys:
+  - '20'
+  note: 'The correct answer is 20. By the equality given, the three pairs of corresponding sides of the
+    two triangles are in the same proportion. By '
+  source: rationale
+25da87f8:
+  keys:
+  - '12'
+  note: The correct answer is 12. It is given that the triangle has angle measures of 30°, 60°, and 90°,
+    and so the triangle is a special right tria
+  source: rationale
+3638f413:
+  keys:
+  - '30'
+  note: The correct answer is 30. The situation can be represented by the equation , where the 2 represents
+    the fact that the amount of money in the
+  source: rationale
+364a2d25:
+  keys:
+  - '8'
+  - '9'
+  note: 'The correct answer is either 8 or 9. The first equation can be rewritten as . Substituting for
+    y in the second equation gives . By applying '
+  source: rationale
+40c09d66:
+  keys:
+  - 7/6
+  - '1.166'
+  - '1.167'
+  note: The correct answer is . The value of can be found by first rewriting the left-hand side of the
+    given equation as . Using the properties of e
+  source: rationale
+43926bd9:
+  keys:
+  - '8'
+  note: The correct answer is 8. The values of for the exponential function f shown in the table increase
+    by a factor of for each increase of 1 in x
+  source: rationale
+466b87e3:
+  keys:
+  - 1/2
+  - '.5'
+  note: 'The correct answer is . A system of two linear equations has no solution when the graphs of the
+    equations have the same slope and different '
+  source: rationale
+4f669597:
+  keys:
+  - '1.2'
+  - 6/5
+  note: The correct answer is 1.2. One way to solve the equation is to first distribute the terms outside
+    the parentheses to the terms inside the pa
+  source: rationale
+4f7981a0:
+  keys:
+  - '24'
+  note: The correct answer is 24. Multiplying both sides of the given equation by 3 yields . Using the
+    distributive property to rewrite the left-han
+  source: rationale
+4fe4fd7c:
+  keys:
+  - '3500'
+  note: The correct answer is 3500. The given information includes a cost, $800, to produce 100 shirts.
+    Substituting and into the given equation yie
+  source: rationale
+54d93874:
+  keys:
+  - '2.6'
+  - 13/5
+  note: The correct answer is 2.6. Since the mean of a set of numbers can be found by adding the numbers
+    together and dividing by how many numbers t
+  source: rationale
+55bb437a:
+  keys:
+  - '6'
+  note: The correct answer is 6. Since , and are both similar to 3-4-5 triangles. This means that they
+    are both similar to the right triangle with s
+  source: rationale
+585de39a:
+  keys:
+  - '42'
+  note: The correct answer is 42. It’s given that in Nigeria on September 30, 2015, the probability of
+    selecting an MTN subscriber from all Internet
+  source: rationale
+58dcc59f:
+  keys:
+  - '13'
+  note: The correct answer is 13. Let w represent the width of the rectangular garden, in feet. Since
+    the length of the garden will be 5 feet longer
+  source: rationale
+65c49824:
+  keys:
+  - '8'
+  note: The correct answer is 8. The 6 students represent of those invited to join the committee. If x
+    people were invited to join the committee, th
+  source: rationale
+6933b3d9:
+  keys:
+  - '0'
+  note: The correct answer is 0. Note that no matter where point W is on , the sum of the measures of
+    and is equal to the measure of , which is . Th
+  source: rationale
+6a3fbec3:
+  keys:
+  - '4.5'
+  - 9/2
+  note: The correct answer is 4.5. According to the properties of right triangles, BD divides triangle
+    ABC into two similar triangles, ABD and BCD .
+  source: rationale
+6e02cd78:
+  keys:
+  - '1'
+  note: 'The correct answer is 1. The point of intersection of the graphs of the given equations is the
+    solution to the system of the two equations. '
+  source: rationale
+8156d446:
+  keys:
+  - '480'
+  note: 'The correct answer is 480. An average temperature of corresponds to the value 32 on the x -axis.
+    On the line of best fit, an x -value of 32 '
+  source: rationale
+8193e8cd:
+  keys:
+  - 1/5
+  - '.2'
+  note: Note that 1/5 and .2 are examples of ways to enter a correct answer. (The extractor's generic
+    fallback also matched a spurious '5' from 'there are 5 numbers in the list', not a form of the answer
+    -- rejected.)
+  source: rationale
+87a3de81:
+  keys:
+  - '3'
+  note: The correct answer is 3. The solution to the given equation can be found by factoring the quadratic
+    expression. The factors can be determine
+  source: rationale
+881ef5f5:
+  keys:
+  - '0'
+  note: 'The correct answer is 0. Any nine consecutive integers can be written as , , , , , , , , . The
+    mean of the integers is their sum divided by '
+  source: rationale
+8a6de407:
+  keys:
+  - '2'
+  note: The correct answer is 2. The slope-intercept form of an equation for a line is , where m is the
+    slope and b is the y -coordinate of the y -i
+  source: rationale
+8e528129:
+  keys:
+  - '4.44'
+  note: 'The correct answer is 4.44. The selling price, in dollars per cubic inch, is found by multiplying
+    the density, in ounces per cubic inch, by '
+  source: rationale
+8e7689e0:
+  keys:
+  - '4'
+  note: The correct answer is 4. There are radians in a angle. An angle measure of is 4 times greater
+    than an angle measure of . Therefore, the numb
+  source: rationale
+911c415b:
+  keys:
+  - '6632'
+  note: The correct answer is 6632. Applying the distributive property to the expression yields . Then
+    adding together and and collecting like terms
+  source: rationale
+'94237701':
+  keys:
+  - '1'
+  note: The correct answer is 1. When there are an odd number of values in a data set, the median of the
+    data set is the middle number when the data
+  source: rationale
+947a3cde:
+  keys:
+  - '30'
+  note: The correct answer is 30. It is given that the measure of is . Angle MPR and are collinear and
+    therefore are supplementary angles. This mean
+  source: rationale
+97e50fa2:
+  keys:
+  - '2'
+  - '8'
+  note: The correct answer is either 2 or 8. Substituting in the definitions for f and g gives and , respectively.
+    If , then . Subtracting 10 from b
+  source: rationale
+9c7741c6:
+  keys:
+  - '3'
+  note: The correct answer is 3. It’s given that Cameron drove 60 miles per hour for x hours; therefore,
+    the distance driven at this speed can be re
+  source: rationale
+9ee22c16:
+  keys:
+  - '3540'
+  note: The correct answer is 3,540.
+  source: manual
+9f2ecade:
+  keys:
+  - '210'
+  note: The correct answer is 210. Since , 6, and 7 are zeros of the function, the function can be rewritten
+    as . Expanding the function yields . Th
+  source: rationale
+a1fd2304:
+  keys:
+  - '1.5'
+  - 3/2
+  note: 'The correct answer is 1.5. The total amount, in liters, of a saline solution can be expressed
+    as the liters of each type of saline solution '
+  source: rationale
+a391ed22:
+  keys:
+  - 5/2
+  - '2.5'
+  note: The correct answer is . The expression can be written in the form , where a , b , and c are constants,
+    by multiplying out the expression usi
+  source: rationale
+a4f61d75:
+  keys:
+  - '7'
+  - '8'
+  - '13'
+  note: The correct answer is either 7, 8, or 13. Since the given equation has two integer solutions,
+    the expression on the left-hand side of this e
+  source: rationale
+ab176ad6:
+  keys:
+  - '11'
+  note: 'The correct answer is 11. A circle with equation , where a , b, and r are constants, has center
+    and radius r . Therefore, the radius of the '
+  source: rationale
+b544a348:
+  keys:
+  - '7'
+  note: The correct answer is 7. Subtracting the second equation from the first equation eliminates the
+    variable y . Dividing both sides of the resu
+  source: rationale
+b75f7812:
+  keys:
+  - '4'
+  note: 'The correct answer is 4. The equation , where h is the number of hours the boat has been rented,
+    can be written to represent the situation. '
+  source: rationale
+bd87bc09:
+  keys:
+  - '24'
+  note: 'The correct answer is 24. The sine of an acute angle in a right triangle is equal to the ratio
+    of the length of the side opposite the angle '
+  source: rationale
+c362c210:
+  keys:
+  - '1.5'
+  - 3/2
+  note: The correct answer is 1.5. The point corresponds to the situation where 16 cornflowers and 0 wallflowers
+    are purchased. Since the total spen
+  source: rationale
+c5082ce3:
+  keys:
+  - '30'
+  note: The correct answer is 30. Let x represent the number of correct answers from the player and y
+    represent the number of incorrect answers from
+  source: rationale
+cb58833c:
+  keys:
+  - '1.25'
+  - 5/4
+  note: The correct answer is 1.25. The y -coordinate of the x -intercept is 0, so 0 can be substituted
+    for y , giving . This simplifies to . Multip
+  source: rationale
+d0430601:
+  keys:
+  - '285'
+  note: The correct answer is 285. The number of people predicted to visit the beach each day is represented
+    by the y -values of the line of best fi
+  source: rationale
+d1b66ae6:
+  keys:
+  - 3/2
+  - '1.5'
+  note: 'The correct answer is . One method for solving the system of equations for y is to add corresponding
+    sides of the two equations. Adding the '
+  source: rationale
+d4413871:
+  keys:
+  - '8'
+  note: The correct answer is 8. In this group, of the people who are rhesus negative have blood type
+    B. The total number of people who are rhesus n
+  source: rationale
+d7bf55e1:
+  keys:
+  - '180'
+  note: The correct answer is 180. Let a be the number of adult tickets sold and c be the number of child
+    tickets sold. Since the theater sold a tot
+  source: rationale
+dba6a25a:
+  keys:
+  - '30'
+  note: 'The correct answer is 30. In the figure given, since is parallel to and both segments are intersected
+    by , then angle BDC and angle AEC are '
+  source: rationale
+e53870b6:
+  keys:
+  - '5'
+  note: The correct answer is 5. Subtracting from both sides of the given equation gives , so for any
+    value of x , if and only if . Therefore, if th
+  source: rationale
+e62cfe5f:
+  keys:
+  - '2.6'
+  - 13/5
+  note: The correct answer is 2.6. According to the model, the head width, in millimeters, of a worker
+    bumblebee can be estimated by adding 0.6 to 4
+  source: rationale
+e8f9e117:
+  keys:
+  - '20'
+  note: The correct answer is 20. For the given circuit, the resistance R is 500 ohms, and the total potential
+    difference V generated by n batteries
+  source: rationale
+ec5d4823:
+  keys:
+  - '360'
+  note: 'The correct answer is 360. The volume of a right rectangular prism is calculated by multiplying
+    its dimensions: length, width, and height. M'
+  source: rationale
+ee2f611f:
+  keys:
+  - '28'
+  note: 'The correct answer is 28. The minimum number of individual trips for which the cost of the monthly
+    pass is less than the cost of individual '
+  source: rationale
+eeb4143c:
+  keys:
+  - 10/3
+  - 15/4
+  - 25/6
+  - '3.333'
+  - '3.75'
+  - '4.166'
+  - '4.167'
+  note: The correct answer is either , , or . The area of triangle ABC can be expressed as or . It’s given
+    that the area of triangle ABC is at least
+  source: rationale
+f09097b1:
+  keys:
+  - '22.4'
+  - 112/5
+  note: The correct answer is 22.4. If the height of the plant increased by an average of 1.20 centimeters
+    per day for 12 days, then its total growt
+  source: rationale
+f11ffa93:
+  keys:
+  - '117'
+  note: The correct answer is 117. Squaring both sides of the given equation gives , or . Subtracting
+    4 from both sides of this equation gives .
+  source: rationale
+f237ccfc:
+  keys:
+  - '32'
+  note: The correct answer is 32. The sum of the given expressions is . Combining like terms yields .
+    Based on the form of the given equation, , , a
+  source: rationale
+f2f3fa00:
+  keys:
+  - '5'
+  note: 'The correct answer is 5. The given equation can be rewritten in the form , like so: It follows
+    that the value of x is 5 and the value of y i'
+  source: rationale
+f88f27e5:
+  keys:
+  - '97'
+  note: The correct answer is 97. The intersecting lines form a triangle, and the angle with measure of
+    is an exterior angle of this triangle. The m
+  source: rationale
+fb58c0db:
+  keys:
+  - 1/6
+  - '.1666'
+  - '.1667'
+  - '0.166'
+  - '0.167'
+  note: Note that 1/6, .1666, .1667, 0.166, and 0.167 are examples of ways to enter a correct answer.
+  source: rationale
+fcdf87b7:
+  keys:
+  - '0'
+  - '3'
+  note: The correct answer is either 0 or 3.
+  source: manual
+fdee0fbf:
+  keys:
+  - '74'
+  note: 'The correct answer is 74. The y -intercept of a line in the xy -plane is the ordered pair of
+    the point of intersection of the line with the '
+  source: rationale
+fea831fc:
+  keys:
+  - '25.4'
+  - 127/5
+  note: 'The correct answer is 25.4. The average speed is the total distance divided by the total time.
+    The total distance is 11 miles and the total '
+  source: rationale

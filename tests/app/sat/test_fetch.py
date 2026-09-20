@@ -331,3 +331,52 @@ class TestFailures:
 
         assert summary.ok
         assert not (run_dir / "failures.json").exists()
+
+    async def test_a_stub_with_neither_id_is_a_failure_not_a_crash(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Regression: `_unique_content_ids` used to call `.key` on every
+        stub unconditionally, which raised a bare `ValueError` and crashed
+        the whole run when a stub carried neither id. It must now be a
+        `failures.json` entry naming the stub's `questionId` instead."""
+        list_bodies = dict(_LIST_BODIES)
+        list_bodies[(99, 1, "INI")] = [*_LIST_BODIES[(99, 1, "INI")], _stub("q-neither")]
+        fake = _FakeCollegeBoardClient(list_bodies)
+        _patch_client(monkeypatch, fake)
+        run_dir = tmp_path / "run"
+
+        summary = await fetch_module.run_fetch(_settings(), run_dir)  # type: ignore[arg-type]
+
+        assert not summary.ok
+        failures = json.loads((run_dir / "failures.json").read_text())
+        assert {
+            "content_id": "q-neither",
+            "kind": "stub",
+            "error": "stub has neither external_id nor ibn",
+        } in failures
+
+    async def test_a_content_id_with_a_path_breaking_shape_is_a_failure(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Regression: an id was interpolated straight into a filesystem
+        path with no shape check. A malformed id (here, one containing a
+        path separator) must be rejected as a failure, never written
+        outside `run_dir`."""
+        list_bodies = dict(_LIST_BODIES)
+        list_bodies[(99, 1, "INI")] = [
+            *_LIST_BODIES[(99, 1, "INI")],
+            _stub("q-bad-id", external_id="../escape"),
+        ]
+        fake = _FakeCollegeBoardClient(list_bodies)
+        _patch_client(monkeypatch, fake)
+        run_dir = tmp_path / "run"
+
+        summary = await fetch_module.run_fetch(_settings(), run_dir)  # type: ignore[arg-type]
+
+        assert not summary.ok
+        failures = json.loads((run_dir / "failures.json").read_text())
+        assert any(
+            f["content_id"] == "q-bad-id" and "unexpected shape" in f["error"] for f in failures
+        )
+        assert not (tmp_path / "escape.json").exists()
+        assert "detail:../escape" not in fake.calls

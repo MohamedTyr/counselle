@@ -1,0 +1,51 @@
+{
+  "content_sha256": "71114db00cf1f752bd7a8ba038c38c06c8f1788bb8210409b2b63450e6e377b6",
+  "counts": {
+    "aliases": 3,
+    "disclosed": 448,
+    "in_bluebook": 2019,
+    "math": 1911,
+    "mcq": 3292,
+    "qbank": 3308,
+    "reading": 1845,
+    "spr": 464,
+    "total": 3756
+  },
+  "endpoints": [
+    {
+      "call": "POST qbank-api.collegeboard.org/msreportingquestionbank-prod/questionbank/digital/get-questions",
+      "id": "E1"
+    },
+    {
+      "call": "POST .../questionbank/digital/get-question",
+      "id": "E2"
+    },
+    {
+      "call": "GET saic.collegeboard.org/disclosed/{ibn}.json",
+      "id": "E3"
+    },
+    {
+      "call": "GET .../questionbank/lookup",
+      "id": "E4"
+    }
+  ],
+  "fetched_at": "2026-09-19T19:10:53.686707+00:00",
+  "question_count": 3756,
+  "raw_archive_sha256": "ee583218706649523a3c819d99e64e602f45c3294d835628d03a138efb6e40d0",
+  "robots": [
+    {
+      "decision": "allowed_unavailable",
+      "host": "qbank-api.collegeboard.org",
+      "status_code": 403
+    },
+    {
+      "decision": "allowed_unavailable",
+      "host": "saic.collegeboard.org",
+      "status_code": 403
+    }
+  ],
+  "upstream_pin": {
+    "commit": "c84d3dc099653cc82fa2d380a7bbd299ae52201e",
+    "patch_sha256": "98a2bc4914fd1bb18db9445366d374813cc489be27539e7daac9657ffa73dfb3"
+  }
+}
