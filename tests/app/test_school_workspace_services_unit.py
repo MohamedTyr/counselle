@@ -183,6 +183,106 @@ async def test_add_application_creates_only_the_application_and_no_children(
     assert all("counselle.essays" not in query for query in connection.queries)
 
 
+class _DeadlineFactsPool:
+    """Answers both `_views_from_rows` queries, dispatched on the SQL text —
+    `school_profiles` for identities, `current_school_facts` for deadlines."""
+
+    def __init__(self, fact_rows: list[dict[str, object]]) -> None:
+        self.fact_rows = fact_rows
+
+    async def fetch(self, query: str, *_: object) -> list[dict[str, object]]:
+        if "school_profiles" in query:
+            return [{"unitid": 1, "name": "Example University", "city": None, "state": "MA"}]
+        assert "current_school_facts" in query
+        return self.fact_rows
+
+
+def _application_row(*, deadline: date | None, round_: str = "ED") -> dict[str, object]:
+    now = datetime.now(UTC)
+    return {
+        "id": uuid4(),
+        "user_id": uuid4(),
+        "school_unitid": 1,
+        "status": "Applying",
+        "list_type": "Target",
+        "round": round_,
+        "deadline": deadline,
+        "aid_deadline": None,
+        "scholarship_deadline": None,
+        "notes": None,
+        "intended_major": None,
+        "test_plan": None,
+        "cycle_year": 2027,
+        "checklist": {},
+        "platform": None,
+        "platform_other": None,
+        "created_at": now,
+        "updated_at": now,
+        "archived_at": None,
+        "task_completed": 0,
+        "task_total": 0,
+        "essay_completed": 0,
+        "essay_total": 0,
+    }
+
+
+async def test_views_from_rows_prefers_the_students_own_deadline() -> None:
+    pool = _DeadlineFactsPool(
+        fact_rows=[
+            {
+                "school_id": 1,
+                "fact_key": "deadlines.early_decision",
+                "value_date": date(2026, 12, 15),
+                "reported_period": "2026-27",
+                "observed_at": datetime.now(UTC),
+            }
+        ]
+    )
+    catalog = SimpleNamespace(
+        pool=pool,
+        school_domain=lambda unitid: "example.edu",
+        settings=SimpleNamespace(facts_stale_days=120),
+    )
+    rows = [_application_row(deadline=date(2026, 11, 1))]
+
+    views = await service_applications._views_from_rows(cast(Any, catalog), cast(Any, rows))
+
+    assert views[0].deadline == date(2026, 11, 1)
+    assert views[0].deadline_source == "student"
+    assert views[0].deadline_checked_at is None
+    assert views[0].deadline_inherited_date == date(2026, 12, 15)
+    assert views[0].deadline_inherited_checked_at is not None
+
+
+async def test_views_from_rows_inherits_from_facts_when_unset() -> None:
+    checked = datetime.now(UTC)
+    pool = _DeadlineFactsPool(
+        fact_rows=[
+            {
+                "school_id": 1,
+                "fact_key": "deadlines.early_decision",
+                "value_date": date(2026, 11, 1),
+                "reported_period": "2026-27",
+                "observed_at": checked,
+            }
+        ]
+    )
+    catalog = SimpleNamespace(
+        pool=pool,
+        school_domain=lambda unitid: "example.edu",
+        settings=SimpleNamespace(facts_stale_days=120),
+    )
+    rows = [_application_row(deadline=None)]
+
+    views = await service_applications._views_from_rows(cast(Any, catalog), cast(Any, rows))
+
+    assert views[0].deadline == date(2026, 11, 1)
+    assert views[0].deadline_source == "facts"
+    assert views[0].deadline_checked_at == checked.date()
+    assert views[0].deadline_inherited_date == date(2026, 11, 1)
+    assert views[0].deadline_inherited_checked_at == checked.date()
+
+
 async def test_school_identity_does_not_require_optional_pipeline_city_column() -> None:
     pool = _IdentityPool()
     catalog = SimpleNamespace(

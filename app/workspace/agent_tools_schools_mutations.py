@@ -215,6 +215,8 @@ def make_update_school_tool(ctx: ToolCtx) -> Tool[Any]:
 
         To CLEAR an optional field, pass the string "clear" (clearable: deadline,
         aid_deadline, scholarship_deadline, intended_major, test_plan, notes).
+        Setting deadline (or aid_deadline) overrides the date inherited from
+        Counselle's data; clearing it returns to inheriting.
 
         Args:
             application_id: The school's id, echoed exactly from view_schools.
