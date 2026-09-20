@@ -36,6 +36,11 @@ esac
 
 .venv/bin/yoyo apply --batch --database "$schema_dsn" migrations/
 
+# Sync the SAT question bank into counselle.sat_* on every boot -- a no-op
+# once the bank file's sha256 already matches what's live (app/sat/bank_sync.py,
+# plan §3.2).
+.venv/bin/python -m app.sat bank-sync
+
 # Trust ONLY the platform's proxy CIDR. '*' makes uvicorn 0.49 take the LEFTMOST,
 # client-supplied X-Forwarded-For entry, turning the per-IP auth limit into a no-op.
 exec .venv/bin/uvicorn api.main:create_app \

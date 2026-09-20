@@ -451,6 +451,34 @@ follow-up in the same phase; this entry is closed on the backend side.
   reports `matches: false`. Reproduce with
   `cd frontend && npm test -- --run TasksLayout` a few times in a row.
 
+## `SchoolDetailRoute.test.tsx`'s tab/metric history test is flaky in the full suite (pre-existing)
+
+- **What:** `pushes tab navigation while metric changes replace and preserves shareable
+  parameters` — the browser-history/`popstate` round-trip test around line 148 — fails when the
+  full `npx vitest run` suite runs, but passes both alone (`npx vitest run
+  src/features/schools/SchoolDetailRoute.test.tsx -t "pushes tab navigation"`) and as part of
+  its own file run (9/9 passing in `SchoolDetailRoute.test.tsx` in isolation). This is a
+  cross-test-file state leak, not a broken assertion.
+- **Why it matters:** same effect as the `TasksLayout` flake above — it makes a full `npm test`
+  run non-deterministic and trains people to re-run until green, and it risks masking a real
+  regression in the comparison-metric picker or its history handling on some future change.
+- **Not caused by the SAT practice work:** the SAT feature (`frontend/src/features/sat/`,
+  `frontend/src/pages/sat-dashboard-page.tsx`) never imports or touches
+  `frontend/src/features/schools/SchoolDetailRoute.tsx` or its metric-picker state, and the
+  flake concerns school-comparison metric selection and `popstate` handling, an area the SAT
+  branch does not modify. Confirmed by isolation: the same test file that fails only in the full
+  run passes 9/9 run alone, which is the signature of another test file leaking module-level or
+  DOM state (e.g. `window.history`/`location`, a shared query-client, or a `matchMedia`/mock
+  timer left dirty) into this one, not a defect in the test's own logic.
+- **Where to start:** `frontend/src/features/schools/SchoolDetailRoute.test.tsx` around line 148
+  (the `pushes tab navigation…` test) and its `window.dispatchEvent(new
+  PopStateEvent("popstate"))` calls around lines 174 and 179; check what runs immediately before
+  it in full-suite ordering for anything that mutates `window.history`, global routing state, or
+  leaves a query-client cache dirty across files without resetting between test files. A fix
+  would need to isolate or reset whatever shared state a preceding file leaves behind rather
+  than touching this test's own assertions.
+- *(Logged from the SAT practice branch's wave verification pass, 2026-09-20.)*
+
 ## Essay panel: the "Open in editor" morph is only partial
 - **What:** opening the docked essay document panel into the full editor route is supposed to
   read as one continuous element growing into the page. It mostly does not. Measured across
@@ -933,3 +961,70 @@ follow-up in the same phase; this entry is closed on the backend side.
   and Dalton State results. The `.edu` search resolved Emory to the wrong institution.
   Unrelated to goal mode — seen there only because goal runs do a lot of searching.
 - *(Logged from the goal-mode UI/UX pass, 2026-09-18.)*
+
+## SAT bank-sync: the retirement guard has no authorised override
+- **What:** `app/sat/bank_sync.py::_check_retirement_is_safe` refuses to retire more than
+  `_RETIREMENT_GUARD_MAX_RATIO` (30%) of `counselle.sat_questions` when the table holds
+  at least `_RETIREMENT_GUARD_MIN_LIVE_ROWS` (50) live rows -- both constants are
+  module-level in `app/sat/bank_sync.py`. There is no flag, setting, or code path that
+  lets a legitimate refresh past this: if College Board ever retires more than 30% of
+  the ~3,756-question bank in one `fetch`/`build` pass (a real overhaul of the assessment,
+  not drift), `bank-sync` raises `BankSyncSafetyError`, `run_bank_sync` catches it like
+  any other sync failure, and the app boots on the bank it already has -- forever, every
+  boot, until someone edits `_RETIREMENT_GUARD_MAX_RATIO` (or the bank file) in code and
+  redeploys.
+- **What it looks like in production:** no crash, no failed boot, no user-visible error --
+  just one ERROR-level log line ("sat bank-sync refused: refusing to retire N of M live
+  sat_questions rows (...), over the 30% guard...") on every boot, and a bank that
+  silently stops updating. Nothing else signals it: `/v1/sat/taxonomy` and `/session`
+  keep serving the stale bank normally, so this needs log monitoring or a manual DB
+  count check to ever notice.
+- **Why there's no override yet:** this guard exists specifically to catch a fixture bank
+  or a broken `build` step being synced against the real, populated database (the
+  CRITICAL finding it fixes) -- an opt-in bypass flag is real additional attack surface
+  for exactly the mistake the guard exists to catch, and no real College Board refresh
+  has ever approached 30% churn in one pass (plan §3.6 G8: churn is small per manifest).
+  Building the override before the scenario has ever happened is exactly the kind of
+  speculative machinery CLAUDE.md's "How we build" tells us to skip.
+- **The fix, when it's needed:** an explicit opt-in, e.g. a `--force-retire` CLI flag or a
+  `sat_bank_sync_force_retire` Settings knob read only by `run_bank_sync`, defaulting to
+  off, that passes through to `_check_retirement_is_safe` (or skips the call) for exactly
+  one invocation -- never a change to the threshold constants themselves, which stay the
+  correct default for every ordinary sync.
+- **Context (start here):** `app/sat/bank_sync.py` (`_check_retirement_is_safe`,
+  `_RETIREMENT_GUARD_MIN_LIVE_ROWS`, `_RETIREMENT_GUARD_MAX_RATIO`, `BankSyncSafetyError`,
+  `run_bank_sync`'s catch block); `tests/app/sat/test_bank_sync.py::test_sync_refuses_to_retire_the_real_bank`
+  is the guard's acceptance test.
+- *(Logged from the SAT bank-sync review-finding closeout, 2026-09-20.)*
+
+## SAT bank-sync tests: three `live_db` tests stay skipped -- `_is_noop`'s global no-op check can't be tested against a populated shared DB
+- **What:** `tests/app/sat/test_bank_sync.py::test_second_sync_is_noop`,
+  `test_truncated_table_resyncs`, and `test_apply_sync_and_is_noop_directly` remain
+  `@pytest.mark.skip`ped (reason `_SKIP_IS_NOOP_GLOBAL`). Five of the eight tests a
+  database reviewer flagged as a coverage regression were restored by giving
+  `_apply_sync` an optional `existing_live_ids: frozenset[str] | None = None` parameter
+  (`None` preserves the original whole-table query byte-for-byte; the five restored tests
+  pass the actual live rows within the reserved `eeeeee%` test namespace, so the
+  retirement-safety guard is satisfied honestly, never bypassed or tuned). These three
+  could not be restored the same way: they assert on `_is_noop`'s "true no-op" detection,
+  which compares the *whole* `sat_questions` table's live row count against
+  `sat_bank_meta`'s single global row (plan §3.2) -- correct in production, where the
+  synced bank IS the whole table, but once a test's 1-3-row fixture bank has overwritten
+  that global meta row's `question_count` to its own tiny count, the real whole-table
+  live count (thousands of real rows plus the test's own) can never equal it again.
+  `_is_noop` can therefore never honestly report `True` in this test file any more, and a
+  `False` result no longer distinguishes "the table was truncated" from "it wasn't" --
+  it's `False` either way, for a reason unrelated to what each test is trying to observe.
+- **Why not fixed the same way as the other five:** giving `_is_noop` the same scoping
+  treatment as `_apply_sync` would mean it no longer checks the *whole* table, which is
+  the entire point of the check (catching drift anywhere in `sat_questions`, not just a
+  test's own rows) -- that would be weakening the thing under test, which the reviewer
+  explicitly ruled out for the retirement guard and applies here for the same reason.
+- **The real fix:** a database or schema these tests own outright, with no real bank
+  seeded into it, so the whole-table comparison is meaningful again -- a second DSN/test
+  schema, out of `tests/app/sat/*`'s current file-ownership boundary. Until then these
+  three stay honestly skipped rather than passing on a hollowed-out assertion.
+- **Context (start here):** `tests/app/sat/test_bank_sync.py` (`_SKIP_IS_NOOP_GLOBAL` and
+  its full explanation, `_sync_test_bank`, the three skipped tests); `app/sat/bank_sync.py`
+  (`_is_noop`, `_apply_sync`'s `existing_live_ids` parameter).
+- *(Logged from the SAT bank-sync review-finding closeout, 2026-09-20.)*

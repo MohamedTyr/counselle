@@ -41,6 +41,8 @@ _RATE_LIMITER_ATTR = "rate_limiter"
 _USER_SAFE_TURNS = "You've sent a lot of messages — please slow down and try again shortly."
 _USER_SAFE_AUTH = "Too many attempts — please wait a moment and try again."
 _USER_SAFE_WORKSPACE = "Too many workspace updates — please slow down and try again shortly."
+_USER_SAFE_SAT_WRITE = "Too many practice submissions — please slow down and try again shortly."
+_USER_SAFE_SAT_READ = "Too many question reads — please slow down and try again shortly."
 
 
 class SlidingWindowLimiter:
@@ -106,6 +108,17 @@ class SlidingWindowLimiter:
         """Per-user workspace write cap. Returns retry seconds when over."""
         return self._check(f"workspace:m:{user_id}", per_minute, 60.0, time.monotonic())
 
+    def check_sat_write(self, user_id: str, *, per_minute: int) -> float | None:
+        """Per-user SAT attempt/import write cap (plan §4.1). Its own bucket
+        so SAT answers never share a budget with task/essay edits."""
+        return self._check(f"sat:w:{user_id}", per_minute, 60.0, time.monotonic())
+
+    def check_sat_read(self, user_id: str, *, per_minute: int) -> float | None:
+        """Per-user ``GET /questions/{id}`` cap (plan §4.1) — the one read
+        limit in this codebase, because that endpoint can walk the whole
+        licensed question bank one id at a time (ADR 0043 Risk R0)."""
+        return self._check(f"sat:r:{user_id}", per_minute, 60.0, time.monotonic())
+
     def reset(self) -> None:
         """Clear all counters (test seam)."""
         self._hits.clear()
@@ -126,6 +139,12 @@ class _NoopLimiter(SlidingWindowLimiter):
         return None
 
     def check_workspace(self, user_id: str, *, per_minute: int) -> float | None:
+        return None
+
+    def check_sat_write(self, user_id: str, *, per_minute: int) -> float | None:
+        return None
+
+    def check_sat_read(self, user_id: str, *, per_minute: int) -> float | None:
         return None
 
 
@@ -193,3 +212,27 @@ async def workspace_write_rate_limit(
     )
     if retry is not None:
         raise EnvelopeError(429, _USER_SAFE_WORKSPACE, headers=_retry_after_header(retry))
+
+
+async def sat_write_rate_limit(
+    request: Request, user: UserDB = Depends(current_active_user)
+) -> None:
+    """Per-user cap for SAT attempt submits and progress import (plan §4.1)."""
+    settings = request.app.state.settings
+    retry = get_limiter(request).check_sat_write(
+        str(user.id), per_minute=settings.sat_writes_per_minute
+    )
+    if retry is not None:
+        raise EnvelopeError(429, _USER_SAFE_SAT_WRITE, headers=_retry_after_header(retry))
+
+
+async def sat_read_rate_limit(
+    request: Request, user: UserDB = Depends(current_active_user)
+) -> None:
+    """Per-user cap for ``GET /questions/{id}`` (plan §4.1, ADR 0043 Risk R0)."""
+    settings = request.app.state.settings
+    retry = get_limiter(request).check_sat_read(
+        str(user.id), per_minute=settings.sat_question_reads_per_minute
+    )
+    if retry is not None:
+        raise EnvelopeError(429, _USER_SAFE_SAT_READ, headers=_retry_after_header(retry))

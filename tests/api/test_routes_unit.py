@@ -112,6 +112,8 @@ def make_test_app(
         # school-data-v3: /v1/health's facts_worker key (api/routes/system.py).
         facts_worker_enabled=False,
         facts_crawl_interval_hours=24,
+        sat_desmos_embed_url="https://www.desmos.com/testing/collegeboard/graphing",
+        support_email="support@counselle.app",
     )
 
     # Default fake pools

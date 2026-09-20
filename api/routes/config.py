@@ -106,6 +106,8 @@ async def get_config(request: Request, user: UserDB = Depends(current_active_use
             "current_admissions_cycle_year": settings.current_admissions_cycle_year,
             "default_response_mode": ResponseMode.QUICK.value,
             "response_modes": _response_modes(settings),
+            "sat_desmos_embed_url": settings.sat_desmos_embed_url,
+            "support_email": settings.support_email,
         }
     )
 

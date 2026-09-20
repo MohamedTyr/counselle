@@ -59,6 +59,7 @@ from api.routes import (
     memories,
     onboarding,
     profile,
+    sat,
     schools_facts,
     sessions,
     system,
@@ -271,6 +272,7 @@ def create_app() -> FastAPI:
     app.include_router(documents.router, prefix="/v1")
     app.include_router(memories.router, prefix="/v1")
     app.include_router(workspace_events.router, prefix="/v1")
+    app.include_router(sat.router, prefix="/v1")
     # school-data-v3: the admin dashboard that replaces the parked CDS admin
     # surface (ADR 0038, PARKED.md) — /v1/admin/facts/*, superuser-gated.
     app.include_router(admin_facts.router, prefix="/v1")

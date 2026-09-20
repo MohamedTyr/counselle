@@ -372,6 +372,21 @@ def apply_migrations(file_env: dict[str, str], *, allow_remote: bool) -> None:
     ok("migrations up to date")
 
 
+def sync_sat_bank(file_env: dict[str, str]) -> None:
+    """`python -m app.sat bank-sync` (plan.md §3.2) -- every boot, after
+    migrations, mirroring `scripts/entrypoint.sh`. A no-op once the bank
+    file's sha256 already matches what's live; app/sat/bank_sync.py never
+    fails the boot."""
+    info("syncing the SAT question bank (python -m app.sat bank-sync)…")
+    _run_checked(
+        ["uv", "run", "python", "-m", "app.sat", "bank-sync"],
+        cwd=REPO_ROOT,
+        env=merged_env(file_env),
+        what="app.sat bank-sync",
+    )
+    ok("sat bank synced")
+
+
 # ---------------------------------------------------------------------------
 # reset-db (school-data-v3, plan §6c / appendix G-iv): the one command that
 # ever drops the local dev database. Every other boot path (container/prod
@@ -543,6 +558,7 @@ def reset_db(file_env: dict[str, str], *, allow_remote: bool = False) -> int:
 
     info("applying counselle migrations from a clean ledger…")
     apply_migrations(file_env, allow_remote=False)
+    sync_sat_bank(file_env)
 
     _print_grant_verification_summary(admin_dsn, file_env)
     ok("reset-db complete")
@@ -663,6 +679,7 @@ def run_stack(args: argparse.Namespace, file_env: dict[str, str]) -> int:
     ensure_local_database(file_env)
     if not args.no_migrate:
         apply_migrations(file_env, allow_remote=args.allow_remote_migrations)
+        sync_sat_bank(file_env)
 
     base_env = merged_env(file_env)
     api_env = {**base_env, "COUNSELLE_API_HOST": args.host, "COUNSELLE_API_PORT": str(api_port)}

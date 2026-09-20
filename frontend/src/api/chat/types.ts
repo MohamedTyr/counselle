@@ -800,6 +800,8 @@ export type ChatConfigWire = {
   max_selected_skills?: number;
   default_response_mode?: string;
   response_modes?: ResponseModeOptionWire[];
+  sat_desmos_embed_url?: string;
+  support_email?: string;
 };
 
 export type ComposerConfig = {
