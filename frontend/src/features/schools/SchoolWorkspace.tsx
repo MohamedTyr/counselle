@@ -5,6 +5,7 @@ import type {
   ApplicationDetail,
   ApplicationPatch,
   ApplicationStatus,
+  DeadlineSource,
   ListType,
   Round,
   TestPlan,
@@ -39,6 +40,65 @@ const listTypes: ListType[] = ["Reach", "Target", "Safety"];
 const rounds: Round[] = ["EA", "ED", "ED2", "REA", "RD", "Rolling", "Priority"];
 const testPlans: TestPlan[] = ["submit", "withhold", "undecided"];
 
+function formatMonthYear(iso: string) {
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    year: "numeric",
+  }).format(new Date(`${iso}T00:00:00`));
+}
+
+function DeadlineField({
+  label,
+  draft,
+  source,
+  checkedAt,
+  inheritedDate,
+  onCommit,
+  onUseInherited,
+}: {
+  label: string;
+  draft: ReturnType<typeof useSyncedDraft<string>>;
+  source: DeadlineSource | null;
+  checkedAt: string | null;
+  inheritedDate: string | null;
+  onCommit: (value: string | null) => void;
+  onUseInherited: () => void;
+}) {
+  const canUseInherited =
+    source === "student" && inheritedDate !== null && inheritedDate !== draft.value;
+  return (
+    <label className="flex flex-col gap-1.5 text-xs font-medium text-muted-foreground">
+      {label}
+      <Input
+        nativeInput
+        onBlur={() => {
+          onCommit(draft.value || null);
+          draft.commit();
+        }}
+        onChange={(event) => draft.setValue(event.currentTarget.value)}
+        type="date"
+        value={draft.value}
+      />
+      {source === "facts" && checkedAt ? (
+        <span className="text-xs font-normal text-muted-foreground">
+          From Counselle&rsquo;s data, checked {formatMonthYear(checkedAt)}
+        </span>
+      ) : null}
+      {canUseInherited ? (
+        <Button
+          className="h-auto self-start px-0"
+          onClick={onUseInherited}
+          size="xs"
+          type="button"
+          variant="link"
+        >
+          Use Counselle&rsquo;s date
+        </Button>
+      ) : null}
+    </label>
+  );
+}
+
 export function SchoolWorkspace({
   detail,
   onRetry,
@@ -50,6 +110,7 @@ export function SchoolWorkspace({
   const updateApplication = useUpdateApplication();
   const majorDraft = useSyncedDraft(application.intended_major ?? "");
   const deadlineDraft = useSyncedDraft(application.deadline ?? "");
+  const aidDeadlineDraft = useSyncedDraft(application.aid_deadline ?? "");
   const notesDraft = useSyncedDraft(application.notes ?? "");
   function patchApplication(patch: ApplicationPatch) {
     updateApplication.mutate({ id: application.id, patch });
@@ -97,7 +158,7 @@ export function SchoolWorkspace({
             value={application.test_plan ?? "undecided"}
           />
         </div>
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <label className="flex flex-col gap-1.5 text-xs font-medium text-muted-foreground">
             Intended major
             <Input
@@ -115,21 +176,24 @@ export function SchoolWorkspace({
               value={majorDraft.value}
             />
           </label>
-          <label className="flex flex-col gap-1.5 text-xs font-medium text-muted-foreground">
-            Application deadline
-            <Input
-              nativeInput
-              onBlur={() => {
-                patchApplication({ deadline: deadlineDraft.value || null });
-                deadlineDraft.commit();
-              }}
-              onChange={(event) =>
-                deadlineDraft.setValue(event.currentTarget.value)
-              }
-              type="date"
-              value={deadlineDraft.value}
-            />
-          </label>
+          <DeadlineField
+            checkedAt={application.deadline_checked_at}
+            draft={deadlineDraft}
+            inheritedDate={application.deadline_inherited_date}
+            label="Application deadline"
+            onCommit={(deadline) => patchApplication({ deadline })}
+            onUseInherited={() => patchApplication({ deadline: null })}
+            source={application.deadline_source}
+          />
+          <DeadlineField
+            checkedAt={application.aid_deadline_checked_at}
+            draft={aidDeadlineDraft}
+            inheritedDate={application.aid_deadline_inherited_date}
+            label="Aid deadline"
+            onCommit={(aid_deadline) => patchApplication({ aid_deadline })}
+            onUseInherited={() => patchApplication({ aid_deadline: null })}
+            source={application.aid_deadline_source}
+          />
         </div>
         {detail.reference.status === "loaded" &&
         detail.reference.test_policy ? (

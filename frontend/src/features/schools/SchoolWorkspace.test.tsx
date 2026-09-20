@@ -41,6 +41,84 @@ describe("SchoolWorkspace honesty states", () => {
     expect(screen.queryByText(/No catalog data for/)).not.toBeInTheDocument();
   });
 
+  it("shows the facts note when the deadline is inherited", async () => {
+    const fetchHandler = createWorkspaceFetchPreset({
+      applications: [
+        {
+          ...workspaceApplicationFixture,
+          deadline: "2026-11-01",
+          deadline_source: "facts",
+          deadline_checked_at: "2026-09-12",
+        },
+      ],
+    });
+    renderApp(
+      `/app/schools/${workspaceApplicationFixture.school_unitid}?tab=application`,
+      { fetchHandler },
+    );
+
+    expect(
+      await screen.findByText("From Counselle’s data, checked Sep 2026"),
+    ).toBeInTheDocument();
+  });
+
+  it("offers to return to Counselle's date when a differing one is inherited", async () => {
+    const user = userEvent.setup();
+    const patches: unknown[] = [];
+    const baseFetchHandler = createWorkspaceFetchPreset({
+      applications: [
+        {
+          ...workspaceApplicationFixture,
+          deadline: "2026-10-15",
+          deadline_source: "student",
+          deadline_inherited_date: "2026-11-01",
+          deadline_inherited_checked_at: "2026-09-12",
+        },
+      ],
+    });
+    const fetchHandler = (input: RequestInfo | URL, init?: RequestInit) => {
+      if (init?.method === "PATCH") {
+        patches.push(JSON.parse(String(init.body ?? "{}")));
+      }
+      return baseFetchHandler(input, init);
+    };
+    renderApp(
+      `/app/schools/${workspaceApplicationFixture.school_unitid}?tab=application`,
+      { fetchHandler },
+    );
+
+    await user.click(
+      await screen.findByRole("button", { name: "Use Counselle’s date" }),
+    );
+
+    await waitFor(() =>
+      expect(patches).toContainEqual({ deadline: null }),
+    );
+  });
+
+  it("does not offer to inherit when no date is available to inherit", async () => {
+    const fetchHandler = createWorkspaceFetchPreset({
+      applications: [
+        {
+          ...workspaceApplicationFixture,
+          deadline: "2026-10-15",
+          deadline_source: "student",
+          deadline_inherited_date: null,
+          deadline_inherited_checked_at: null,
+        },
+      ],
+    });
+    renderApp(
+      `/app/schools/${workspaceApplicationFixture.school_unitid}?tab=application`,
+      { fetchHandler },
+    );
+
+    await screen.findByText("Application deadline");
+    expect(
+      screen.queryByRole("button", { name: "Use Counselle’s date" }),
+    ).not.toBeInTheDocument();
+  });
+
   it("archives from the workspace and offers an undo restore", async () => {
     const user = userEvent.setup();
     const fetchHandler = createWorkspaceFetchPreset();
