@@ -469,6 +469,12 @@
    * primitives.css, which silently depended on the button being dark. */
   --on-brand-quiet: color-mix(in oklab, var(--gray-1000) 12%, transparent);
 
+  /* Ink for a filled --ink square (SAT practice's question-strap number,
+   * sat.css) — the inverse of --ink itself, so a solid dark chip stays
+   * legible without reaching for a primitive from a family file. --gray-0
+   * clears 16.6:1 on --ink (--gray-900). */
+  --on-ink: var(--gray-0);
+
   /* --lime-800, three steps past the brand: a focus ring reads as a halo
    * around the thing it marks rather than a second copy of it, and at this
    * hue it also has to be the step that can actually be SEEN — the brand
@@ -624,6 +630,13 @@
   --label-surface: var(--surface-inset);
   --label-ink: var(--ink-secondary);
   --label-border: var(--edge);
+
+  /* A hairline-weight outline for depth under a base64 figure sitting
+   * directly on the canvas (SAT reference-sheet and question-content
+   * images, sat.css) — drawn as `outline` with a negative offset so it
+   * never adds layout width. 10% of --gray-1000 mixed to transparent, the
+   * same recipe as --overlay-scrim-subtle at a lighter strength. */
+  --image-outline: color-mix(in oklch, var(--gray-1000) 10%, transparent);
 
   /* ---- overlay / scrim — modal & sheet backdrops. ---- */
   --overlay-scrim: color-mix(in oklch, var(--gray-1000) 32%, transparent);

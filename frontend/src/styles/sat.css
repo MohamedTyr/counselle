@@ -1,0 +1,166 @@
+/*
+ * SAT practice — the `--sat-*` family (tier 3, see styles/README.md): every
+ * value here resolves through semantic.css. No primitives, no literals.
+ *
+ * Two things live in this file: the family's own tokens, and `.sat-content`
+ * — the styling for College Board's sanitised question HTML
+ * (`sat-html.ts`), ported rule for rule from liprep (plan §6.1, parity
+ * Q43a). `.sat-content` renders through `dangerouslySetInnerHTML`, so these
+ * are plain descendant selectors, not component classes.
+ */
+
+:root {
+  /* The highlighter's yellow — the one deliberate exception to "amber
+   * means warning" (ui-spec §2): a highlighter is yellow by universal
+   * convention, sits only under body text, and no warning is ever drawn in
+   * a passage or stem. Body ink over this fill is measured and clears the
+   * app's text-contrast floor. */
+  --sat-highlight: var(--warning-surface);
+
+  /* Five-step activity-heatmap intensity (F14), ordered — not a status
+   * hue. Step 0 is the recessed "no activity" well; 1-4 mix increasing
+   * amounts of the ordered brand scale into it. oklch because the mixed
+   * operand (--brand-scale-3) is saturated (styles/README.md §3.2). */
+  --sat-heat-0: var(--surface-inset);
+  --sat-heat-1: color-mix(in oklch, var(--brand-scale-3) 25%, var(--surface-inset));
+  --sat-heat-2: color-mix(in oklch, var(--brand-scale-3) 50%, var(--surface-inset));
+  --sat-heat-3: color-mix(in oklch, var(--brand-scale-3) 75%, var(--surface-inset));
+  --sat-heat-4: color-mix(in oklch, var(--brand-scale-3) 100%, var(--surface-inset));
+
+  /* Question content's own prose scale (ui-spec §4: "the product, not
+   * text-sm") — 16px / 1.72, the same line-height D§6.5 uses for assistant
+   * prose. Named locally rather than reused from theme.css so a future
+   * repaint of one doesn't silently repaint the other. */
+  --sat-prose-font-size: 1rem;
+  --sat-prose-line-height: 1.72;
+  --sat-passage-max-width: 65ch;
+
+  /* Math-marked images (`.math-img`, `[role="math"]`, inside
+   * `.math-container`) are capped and forced inline (Q43a). */
+  --sat-math-image-max-height: 2.2em;
+
+  /* Table cells never collapse below this width (Q43a). */
+  --sat-table-cell-min-width: 42px;
+}
+
+/* ---- .sat-content — College Board's sanitised question HTML ---- */
+
+.sat-content {
+  font-size: var(--sat-prose-font-size);
+  line-height: var(--sat-prose-line-height);
+  color: var(--ink);
+  /* Q43a's fix: upstream's stem has no horizontal scroll at all, so a wide
+   * expression overflows the column. A wide MathML expression scrolls
+   * instead. */
+  overflow-x: auto;
+  /* Option/body text wraps anywhere (Q43a); table cells override this
+   * back to normal below, so a numeric column wraps instead of crushing. */
+  overflow-wrap: anywhere;
+}
+
+.sat-content--passage {
+  max-width: var(--sat-passage-max-width);
+  text-wrap: pretty;
+}
+
+/* Images: inline-block, vertically centred, never wider than their
+ * container (Q43a). */
+.sat-content img {
+  display: inline-block;
+  vertical-align: middle;
+  max-width: 100%;
+  outline: 1px solid var(--image-outline);
+  outline-offset: -1px;
+}
+
+/* Math-marked images are capped short and forced inline, so an equation
+ * rendered as a bitmap sits on the text baseline instead of blowing out
+ * line height (Q43a). */
+.sat-content img.math-img,
+.sat-content img[role="math"],
+.sat-content .math-container img {
+  display: inline;
+  max-height: var(--sat-math-image-max-height);
+  width: auto;
+  outline: none;
+}
+
+/* Tables: collapsed borders, natural width, a floor on cell width so a
+ * narrow numeric column doesn't crush its header (Q43a). */
+.sat-content table {
+  border-collapse: collapse;
+  width: auto;
+  /* Option/body text wraps anywhere except inside a table, where a forced
+   * break would crush a numeric column instead of just wrapping it (Q43a). */
+  overflow-wrap: normal;
+}
+
+.sat-content th,
+.sat-content td {
+  min-width: var(--sat-table-cell-min-width);
+  border: 1px solid var(--edge);
+  padding: 0.25em 0.5em;
+}
+
+/* A quoted passage — `<blockquote>` or a `<p>` upstream marks with an
+ * inline `padding-left` — reads as a set-off block (Q43a). */
+.sat-content blockquote,
+.sat-content p[style*="padding-left"] {
+  border-left: 2px solid var(--edge);
+  padding-left: 1em;
+  margin-left: 0;
+}
+
+/* Lists: a custom bullet and fixed margins, matching upstream's own reset
+ * rather than the browser default list style (Q43a). */
+.sat-content ul {
+  list-style: none;
+  margin: 0.5em 0;
+  padding-left: 1.25em;
+}
+
+.sat-content ul > li {
+  position: relative;
+}
+
+.sat-content ul > li::before {
+  content: "•";
+  position: absolute;
+  left: -1.25em;
+}
+
+.sat-content ol {
+  list-style: decimal;
+  margin: 0.5em 0;
+  padding-left: 1.5em;
+}
+
+/* MathML tables (`mtable`/`mtr`/`mtd`) are forced to table display so a
+ * matrix or system of equations lays out as a grid rather than inline
+ * tokens (Q43a). */
+.sat-content mtable {
+  display: table;
+}
+
+.sat-content mtr {
+  display: table-row;
+}
+
+.sat-content mtd {
+  display: table-cell;
+}
+
+/* MathML never wraps — inside a table cell, inside an answer option, or in
+ * the passage/stem body (Q43a). The `overflow-x: auto` above is what keeps
+ * a wide expression from blowing out the column instead. */
+.sat-content math {
+  white-space: nowrap;
+}
+
+/* ---- the highlighter (§6.3) — CSS Custom Highlight API ---- */
+
+/* Painted by `use-sat-highlighter.ts` via `CSS.highlights.set("sat", …)`.
+ * The API styles background colour only — no underline, no outline. */
+::highlight(sat) {
+  background-color: var(--sat-highlight);
+}
