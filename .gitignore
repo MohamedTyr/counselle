@@ -63,3 +63,6 @@ htmlcov/
 coverage.xml
 coverage/
 
+
+# Vite dependency cache from an ad-hoc fixture server
+frontend/.vite-school-chances-fixture/
