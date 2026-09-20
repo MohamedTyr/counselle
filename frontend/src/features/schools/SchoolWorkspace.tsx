@@ -67,18 +67,21 @@ function DeadlineField({
   const canUseInherited =
     source === "student" && inheritedDate !== null && inheritedDate !== draft.value;
   return (
-    <label className="flex flex-col gap-1.5 text-xs font-medium text-muted-foreground">
-      {label}
-      <Input
-        nativeInput
-        onBlur={() => {
-          onCommit(draft.value || null);
-          draft.commit();
-        }}
-        onChange={(event) => draft.setValue(event.currentTarget.value)}
-        type="date"
-        value={draft.value}
-      />
+    <div className="flex flex-col gap-1.5 text-xs font-medium text-muted-foreground">
+      <label className="flex flex-col gap-1.5">
+        {label}
+        <Input
+          nativeInput
+          onBlur={() => {
+            if (!draft.dirty) return;
+            onCommit(draft.value || null);
+            draft.commit();
+          }}
+          onChange={(event) => draft.setValue(event.currentTarget.value)}
+          type="date"
+          value={draft.value}
+        />
+      </label>
       {source === "facts" && checkedAt ? (
         <span className="text-xs font-normal text-muted-foreground">
           From Counselle&rsquo;s data, checked {formatMonthYear(checkedAt)}
@@ -95,7 +98,7 @@ function DeadlineField({
           Use Counselle&rsquo;s date
         </Button>
       ) : null}
-    </label>
+    </div>
   );
 }
 
