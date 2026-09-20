@@ -114,6 +114,23 @@ export function ActivitiesIcon(props: IconProps) {
   );
 }
 
+/** SAT practice's nav glyph: a target, for a drill aimed at accuracy. */
+export function SatPracticeIcon(props: IconProps) {
+  return (
+    <RailIcon
+      size={17}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={1.7}
+      {...props}
+    >
+      <circle cx="12" cy="12" r="8.4" />
+      <circle cx="12" cy="12" r="4.6" />
+      <circle cx="12" cy="12" fill="currentColor" r="1.3" stroke="none" />
+    </RailIcon>
+  );
+}
+
 export function TasksIcon(props: IconProps) {
   return (
     <RailIcon

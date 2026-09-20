@@ -23,6 +23,15 @@ import { AnytimeView } from "@/features/tasks/AnytimeView";
 import { LogbookView } from "@/features/tasks/LogbookView";
 import { TodayView } from "@/features/tasks/TodayView";
 import { UpcomingView } from "@/features/tasks/UpcomingView";
+import { SatDashboardSkeleton } from "@/features/sat/SatDashboardSkeleton";
+
+/** SAT practice's dashboard route — lazy-loaded (react-router 8's `lazy:`
+ * form, already used by the `/dev/*` routes), with a `HydrateFallback` for
+ * a hard load of `/app/sat` (plan §5.1). */
+async function satDashboard() {
+  const module = await import("@/pages/sat-dashboard-page");
+  return { Component: module.SatDashboardPage };
+}
 
 export function createAppRouter() {
   const devRoutes = import.meta.env.DEV
@@ -142,6 +151,11 @@ export function createAppRouter() {
                 {
                   path: "activities",
                   element: <ActivitiesPage />,
+                },
+                {
+                  path: "sat",
+                  lazy: satDashboard,
+                  HydrateFallback: SatDashboardSkeleton,
                 },
                 {
                   path: "essays",

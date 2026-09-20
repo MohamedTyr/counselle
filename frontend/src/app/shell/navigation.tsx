@@ -6,6 +6,7 @@ import {
   CalendarIcon,
   EssaysIcon,
   ProfileIcon,
+  SatPracticeIcon,
   SchoolsIcon,
   TasksIcon,
 } from "@/features/shell/sidebar-icons";
@@ -47,6 +48,12 @@ export const shellRoutes: ShellRoute[] = [
     title: "Activities",
     icon: <ActivitiesIcon />,
     link: "/app/activities",
+  },
+  {
+    id: "sat",
+    title: "SAT practice",
+    icon: <SatPracticeIcon />,
+    link: "/app/sat",
   },
   {
     id: "tasks",
