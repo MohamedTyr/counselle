@@ -49,6 +49,7 @@ export function useSatQuestion(id: string, contentSha: string) {
     queryFn: ({ signal }) => getQuestion(id, signal),
     staleTime: Infinity,
     retry: 2,
+    enabled: Boolean(id),
   });
 }
 
@@ -56,6 +57,7 @@ export function useSatAttempts(id: string) {
   return useQuery({
     queryKey: satKeys.attempts(id),
     queryFn: ({ signal }) => getAttempts(id, signal),
+    enabled: Boolean(id),
   });
 }
 

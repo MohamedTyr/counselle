@@ -24,6 +24,7 @@ import { LogbookView } from "@/features/tasks/LogbookView";
 import { TodayView } from "@/features/tasks/TodayView";
 import { UpcomingView } from "@/features/tasks/UpcomingView";
 import { SatDashboardSkeleton } from "@/features/sat/SatDashboardSkeleton";
+import { SatPracticeSkeleton } from "@/features/sat/SatPracticeSkeleton";
 
 /** SAT practice's dashboard route — lazy-loaded (react-router 8's `lazy:`
  * form, already used by the `/dev/*` routes), with a `HydrateFallback` for
@@ -31,6 +32,14 @@ import { SatDashboardSkeleton } from "@/features/sat/SatDashboardSkeleton";
 async function satDashboard() {
   const module = await import("@/pages/sat-dashboard-page");
   return { Component: module.SatDashboardPage };
+}
+
+/** SAT practice's full-viewport practice screen — a sibling of `/app`, not
+ * a child of `WorkspaceShell` (plan §5.1, D4): the Bluebook frame owns the
+ * whole viewport. */
+async function satPractice() {
+  const module = await import("@/pages/sat-practice-page");
+  return { Component: module.SatPracticePage };
 }
 
 export function createAppRouter() {
@@ -194,6 +203,18 @@ export function createAppRouter() {
                   element: <Navigate replace to="/app/tasks" />,
                 },
               ],
+            },
+            {
+              /*
+               * A sibling of `/app`, not a child of `WorkspaceShell` (plan
+               * §5.1, D4): the Bluebook frame is a full-viewport focus
+               * environment, outside the workspace shell's sidebar/shell
+               * chrome. The four-segment static path ranks above `/app/*`'s
+               * splat, so this never loses to the shell's catch-all.
+               */
+              path: "/app/sat/practice/:questionId?",
+              lazy: satPractice,
+              HydrateFallback: SatPracticeSkeleton,
             },
             {
               path: "/onboarding",
