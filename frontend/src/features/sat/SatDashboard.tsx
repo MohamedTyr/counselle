@@ -6,7 +6,7 @@
  */
 import { ChartColumn } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useNavigation } from "react-router";
+import { useNavigate, useNavigation, useSearchParams } from "react-router";
 
 import { Button } from "@/components/ui/button";
 import { ErrorCard } from "@/components/ui/error-card";
@@ -27,6 +27,7 @@ import {
   SatActivityRail,
   toLocalDateKey,
 } from "@/features/sat/SatActivityRail";
+import { isSatAnalyticsTab, SatAnalytics, type SatAnalyticsTab } from "@/features/sat/SatAnalytics";
 import { SatFilterRail } from "@/features/sat/SatFilterRail";
 import { SatTopicTree } from "@/features/sat/SatTopicTree";
 
@@ -61,9 +62,12 @@ function collapseIfFull<T>(selected: ReadonlySet<T>, full: readonly T[]): T[] {
   return selected.size >= full.length ? [] : Array.from(selected);
 }
 
+const ANALYTICS_PARAM = "analytics";
+
 export function SatDashboard() {
   const navigate = useNavigate();
   const navigation = useNavigation();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { data: taxonomy, isError: taxonomyError } = useSatTaxonomy();
 
   const [greeting] = useState(
@@ -186,6 +190,64 @@ export function SatDashboard() {
     navigate(`/app/sat/practice${query ? `?${query}` : ""}`);
   }
 
+  // A19: the open tab lives in the URL while the dialog is open; absence
+  // of the param means closed.
+  const analyticsParam = searchParams.get(ANALYTICS_PARAM);
+  const analyticsOpen = isSatAnalyticsTab(analyticsParam);
+  const analyticsTab: SatAnalyticsTab = isSatAnalyticsTab(analyticsParam)
+    ? analyticsParam
+    : "overview";
+
+  // `SatAnalytics` runs its own `/stats` and `/counts` queries — don't
+  // mount it (and fire those) until the panel is actually opened once.
+  // Stays mounted after that first open so the shell's own close
+  // animation still plays on later closes.
+  const [analyticsMounted, setAnalyticsMounted] = useState(analyticsOpen);
+  useEffect(() => {
+    if (analyticsOpen) setAnalyticsMounted(true);
+  }, [analyticsOpen]);
+
+  function handleAnalyticsOpenChange(next: boolean) {
+    setSearchParams(
+      (prev) => {
+        const params = new URLSearchParams(prev);
+        if (next) {
+          params.set(ANALYTICS_PARAM, params.get(ANALYTICS_PARAM) ?? "overview");
+        } else {
+          params.delete(ANALYTICS_PARAM);
+        }
+        return params;
+      },
+      { replace: true },
+    );
+  }
+
+  function handleAnalyticsTabChange(next: SatAnalyticsTab) {
+    setSearchParams(
+      (prev) => {
+        const params = new URLSearchParams(prev);
+        params.set(ANALYTICS_PARAM, next);
+        return params;
+      },
+      { replace: true },
+    );
+  }
+
+  // A6: a drill launches the dashboard's *current* bands/status/Bluebook —
+  // never the saved topic selection, which this never touches.
+  function handleDrill(skillCode: string) {
+    const drillFilter: FilterState = {
+      bands: filterState?.bands ?? [],
+      excludeBluebook,
+      skills: [skillCode],
+      status,
+    };
+    const params = filterStateToSearchParams(drillFilter);
+    const query = params.toString();
+    navigate(`/app/sat/practice${query ? `?${query}` : ""}`);
+    handleAnalyticsOpenChange(false);
+  }
+
   const topicsAndFiltersReady = Boolean(
     taxonomy && selectedSkills && selectedBands,
   );
@@ -193,7 +255,11 @@ export function SatDashboard() {
   return (
     <PageContainer
       actions={
-        <Button loading={statsQuery.isLoading} variant="outline">
+        <Button
+          loading={statsQuery.isLoading}
+          onClick={() => handleAnalyticsOpenChange(true)}
+          variant="outline"
+        >
           <ChartColumn />
           {SAT_DASHBOARD_COPY.analyticsAction}
         </Button>
@@ -307,6 +373,16 @@ export function SatDashboard() {
             </div>
           </div>
         </div>
+      )}
+      {analyticsMounted && (
+        <SatAnalytics
+          onDrill={handleDrill}
+          onOpenChange={handleAnalyticsOpenChange}
+          onTabChange={handleAnalyticsTabChange}
+          open={analyticsOpen}
+          tab={analyticsTab}
+          todayKey={todayKey}
+        />
       )}
     </PageContainer>
   );

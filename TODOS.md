@@ -1028,3 +1028,74 @@ follow-up in the same phase; this entry is closed on the backend side.
   its full explanation, `_sync_test_bank`, the three skipped tests); `app/sat/bank_sync.py`
   (`_is_noop`, `_apply_sync`'s `existing_live_ids` parameter).
 - *(Logged from the SAT bank-sync review-finding closeout, 2026-09-20.)*
+
+## `SatAnalytics.tsx` depends on a Radix private export (`radix-ui/internal`)
+
+- **What:** `ConfirmDialogContent` imports `DismissableLayer` from `radix-ui/internal` (not
+  the public `radix-ui` surface) and wraps each confirm dialog's whole `DialogPrimitive.Content`
+  (children + the ✕ close button) in `<DismissableLayer.Branch>`; the Cancel button and the ✕
+  close button's own `onClick` also call `event.stopPropagation()`. Both halves are load-bearing
+  — neither alone stops a confirm dismissal (Reset's or Import's) from also closing the whole
+  Analytics panel behind it.
+- **Why both halves are needed:** the `Branch` registers this confirm as "inside" the shell's
+  own dismissable-layer context, so Radix's outside-interaction check on the *shell* would
+  normally treat a click on the confirm as inside it, not outside. But Radix's
+  `usePointerDownOutside` defers that outside-check to the browser's *next* native `click` event
+  on `document` (so text selection isn't misread as a dismiss-click). Because this confirm's
+  `Presence` exit runs with `getComputedStyle(...).animationName === "none"` (no detected CSS
+  animation — reduced-motion or a low-power browser), React unmounts the confirm *synchronously,
+  in the same tick* that Cancel/✕ flips `open` to `false`, tearing down the `Branch`'s
+  registration cleanup before that deferred native click ever reaches `document`. So by the time
+  the shell's outside-check runs, the `Branch` that would have exempted the confirm is already
+  gone, and `stopPropagation()` is what actually stops the native click from reaching
+  `document` at all — making the fix deterministic rather than animation-timing-dependent.
+  `Branch` alone is not sufficient whenever the exit is not detected as animated, which is the
+  common case here.
+- **The risk:** `radix-ui/internal` sits outside the `radix-ui` meta-package's semver
+  guarantees — nothing prevents `DismissableLayer` (or its `.Branch` API) from moving,
+  renaming, or restructuring on a minor/patch bump. `frontend/package.json` currently pins
+  `"radix-ui": "^1.6.1"`, a caret range that allows exactly that kind of bump automatically.
+- **The failure mode is safe, not silent:** because the import is by name
+  (`import { DismissableLayer } from "radix-ui/internal"`), a `radix-ui` version that removes
+  or renames the export fails the frontend **build**, not a runtime dismissal behavior — nobody
+  ships a broken confirm-dialog interaction without the build already refusing to compile.
+- **Required re-verification after any `radix-ui` upgrade:** no jsdom test can exercise real
+  Radix outside-pointer-event timing (`usePointerDownOutside`'s deferred `document`-level click
+  listener, `Presence`'s animation detection), so the only real check is the 16-case dismissal
+  matrix — 2 confirms (Reset, Import) × 4 dismiss routes (Escape, backdrop click, Cancel click,
+  ✕ click) × 2 layouts (desktop `Dialog`, mobile `Sheet`) — run by hand in a real browser
+  against both layouts before merging any `radix-ui` bump.
+- **Context:** `frontend/src/features/sat/SatAnalytics.tsx`'s `ConfirmDialogContent` (its own
+  block comment above the component has the full derivation) and `handleOpenChange`'s
+  `confirmOpen`/`busy` guards.
+- *(Logged from the SAT practice wave 2 closeout, 2026-09-21.)*
+
+## Three known flaky test files under full-suite ordering
+
+- **What:** three frontend test files pass in isolation but fail intermittently under full
+  `npx vitest run` ordering, all with the signature of another file leaking shared module-level
+  or DOM state into them rather than a broken assertion in the failing file itself:
+  - `frontend/src/features/tasks/TaskDetailPanel.tsx`'s consumer, `TasksLayout.test.tsx` — see
+    the dedicated entry above ("`TasksLayout.test.tsx`'s two detail-panel tests are flaky
+    (pre-existing)") for the specific tests and where to start.
+  - `frontend/src/features/schools/SchoolDetailRoute.test.tsx` — see the dedicated entry above
+    ("`SchoolDetailRoute.test.tsx`'s tab/metric history test is flaky in the full suite
+    (pre-existing)") for the specific test and where to start.
+  - `frontend/src/features/ai-chat/AiChatPage.test.tsx` (30 tests) — fails somewhere in the
+    full-suite run, passes 30/30 in isolation (`cd frontend && npx vitest run
+    src/features/ai-chat/AiChatPage.test.tsx`). Not investigated further than that isolation
+    check; same class of failure as the two files above, not yet localized to a specific test
+    or a specific leaking neighbor.
+- **Why it matters:** same as the two entries above — it makes a full `npm test` /
+  `npx vitest run` non-deterministic and trains people to re-run until green, and it risks
+  masking a real regression in any of the three areas on some future change.
+- **Not caused by the SAT practice work:** none of the three files import or touch
+  `frontend/src/features/sat/` or `frontend/src/pages/sat-*-page.tsx`; each was already flagged
+  (or exhibits the identical "isolation passes, full run doesn't" signature) independently of
+  this branch.
+- **Where to start:** the two entries above for `TasksLayout`/`SchoolDetailRoute`; for
+  `AiChatPage.test.tsx`, first localize which of its 30 tests fails and what precedes it in
+  full-suite file ordering, the same way the `SchoolDetailRoute` investigation did, before
+  looking for the specific shared state (query-client cache, `window.history`, mocked timers,
+  etc.) being left dirty.
+- *(Logged from the SAT practice wave 2 closeout, 2026-09-21.)*

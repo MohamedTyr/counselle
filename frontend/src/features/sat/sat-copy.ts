@@ -199,6 +199,21 @@ export const SAT_ANALYTICS_COPY = {
     domainSummary: "Domain summary",
     noData: "no data",
     questionsAndPace: (count: number, avgSeconds: number) => `${count} questions · ~${avgSeconds}s`,
+    tooltip: {
+      firstTry: (value: string) => `First-try: ${value}`,
+      overall: (value: string) => `Overall: ${value}`,
+    },
+  },
+  pace: {
+    subtitle: "Your four weakest and four strongest skills, by first-try accuracy",
+    quadrants: {
+      fastAccurate: "fast and accurate",
+      accurateSlow: "accurate but slow",
+      fastInaccurate: "fast but inaccurate",
+      slowInaccurate: "slow and inaccurate",
+    },
+    tooltip: (accuracyPct: number, avgSeconds: number, attempts: number) =>
+      `${accuracyPct}% first-try accuracy · ${avgSeconds}s average pace · ${attempts} attempts`,
   },
   bands: {
     sectionSegments: {
