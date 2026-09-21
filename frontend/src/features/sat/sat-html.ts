@@ -395,9 +395,12 @@ const satHtmlCache = new Map<string, string>();
 
 /**
  * The memoised `normalizeSatHtml` → `sanitizeSatHtml` pipeline, keyed by
- * `(contentSha, field)`. Memoisation is load-bearing (§6.1): React leaves
- * `dangerouslySetInnerHTML` DOM alone only while the `__html` string value
- * is unchanged, which the highlighter (§6.3) also relies on.
+ * `(contentSha, field)`. Memoisation is load-bearing (§6.1): a stable string
+ * is what lets `SatContent` keep a stable `dangerouslySetInnerHTML` wrapper
+ * object, and it is that wrapper's *reference* — not the `__html` string —
+ * that React's prop differ checks before resetting `innerHTML`. See
+ * `SatContent.tsx` for the full mechanism; the highlighter (§6.3) holds
+ * `Range`s into that DOM and depends on it surviving unrelated re-renders.
  */
 export function getSatHtml(
   contentSha: string,

@@ -107,24 +107,31 @@ function textOffsetInRoot(root: Node, container: Node, offset: number): number {
 
 /** Clips `range` to `container`'s extent, or `null` if they do not overlap
  * (plan §6.3: "clip every selection range to each highlightable field it
- * touches"). */
+ * touches").
+ *
+ * Deliberately avoids `compareBoundaryPoints` against a `container`-typed
+ * boundary (`Range.selectNodeContents`'s start/end are child-index points
+ * on `container` itself): comparing that against a text-node boundary deep
+ * inside `container` — which is what a real Selection's Range almost
+ * always has — does not reliably resolve to "equal" even at the same
+ * logical position, verified in both jsdom and real Firefox. That made
+ * this always report no overlap for an interior selection whose start sits
+ * at a field's very first character, and inverted for a selection that
+ * starts inside the field and extends past its end (e.g. a triple-click
+ * that browsers commonly extend a hair into the next sibling). `Range`'s
+ * own `intersectsNode`/node containment give a boundary-type-agnostic,
+ * spec-defined answer instead. */
 export function clipRangeToElement(range: Range, container: Element): Range | null {
-  const containerRange = document.createRange();
-  containerRange.selectNodeContents(container);
-
-  const noOverlap =
-    range.compareBoundaryPoints(Range.START_TO_END, containerRange) >= 0 ||
-    range.compareBoundaryPoints(Range.END_TO_START, containerRange) <= 0;
-  if (noOverlap) {
+  if (!range.intersectsNode(container)) {
     return null;
   }
 
   const clipped = range.cloneRange();
-  if (range.compareBoundaryPoints(Range.START_TO_START, containerRange) < 0) {
-    clipped.setStart(containerRange.startContainer, containerRange.startOffset);
+  if (!container.contains(range.startContainer)) {
+    clipped.setStart(container, 0);
   }
-  if (range.compareBoundaryPoints(Range.END_TO_END, containerRange) > 0) {
-    clipped.setEnd(containerRange.endContainer, containerRange.endOffset);
+  if (!container.contains(range.endContainer)) {
+    clipped.setEnd(container, container.childNodes.length);
   }
   return clipped;
 }

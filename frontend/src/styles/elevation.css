@@ -58,6 +58,11 @@
    * (dropdowns/modals/toasts above drag previews); this semantic scale is
    * additive for the token layer and future arbitrary-value usage. No
    * 999/9999 anywhere. */
+  /* Draggable floating panels (the SAT practice calculator / reference
+   * sheet): above page content, below any transient overlay the student
+   * opens on top of them — a popover they invoke must never be occluded
+   * by furniture they left lying around. */
+  --z-floating-panel: 10;
   --z-dropdown: 20;
   --z-sticky: 30;
   --z-modal-backdrop: 40;

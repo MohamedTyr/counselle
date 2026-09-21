@@ -1,4 +1,4 @@
-import { getCounts, getSession } from "@/api/sat/client";
+import { getCounts, getSession, getSessionByQuestion } from "@/api/sat/client";
 import { jsonResponse } from "@/test/render-app";
 
 /** Pins the repeated-key encoding `filterSearchParams` must use for
@@ -42,5 +42,35 @@ describe("sat api client list-param encoding", () => {
 
     const [url] = fetchMock.mock.calls[0] as [string];
     expect(url).toBe("/v1/sat/counts?bands=1");
+  });
+});
+
+/** Pins the `GET /session?question=<id>` contract: `api/routes/sat.py`
+ * returns a *bare* `SatSessionRow` for this form, not a list (its own
+ * return type is `SatSessionRow | list[SatSessionRow]`, and
+ * `service_questions.get_session_row` returns a single row) — this
+ * mismatch was invisible to typecheck on both sides (P7 Finding 3): the
+ * server was internally consistent with its own docstring, and the client
+ * was internally consistent with a `SatSessionRow[]` type it never
+ * verified against a real response. `use-sat-session.ts` always wants an
+ * array back, so the client must wrap the bare row, not re-type it as one. */
+describe("getSessionByQuestion wraps the server's bare row into an array", () => {
+  it("wraps a single bare-object response in a one-element array", async () => {
+    const row = {
+      id: "00165291",
+      score_band: 5,
+      content_sha: "abc123",
+      bookmarked: false,
+      ever_correct: false,
+      ever_incorrect: false,
+    };
+    const fetchMock = vi.fn(() => jsonResponse(row));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await getSessionByQuestion("00165291");
+
+    const [url] = fetchMock.mock.calls[0] as [string];
+    expect(url).toBe("/v1/sat/session?question=00165291");
+    expect(result).toEqual([row]);
   });
 });

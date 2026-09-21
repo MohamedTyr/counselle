@@ -1029,6 +1029,33 @@ follow-up in the same phase; this entry is closed on the backend side.
   (`_is_noop`, `_apply_sync`'s `existing_live_ids` parameter).
 - *(Logged from the SAT bank-sync review-finding closeout, 2026-09-20.)*
 
+## SAT practice: the Info dialog restores focus by hand instead of via `DialogTrigger`
+
+- **What:** the question Info dialog's opener is a plain `<Button onClick={onOpenInfo}>` in
+  `frontend/src/features/sat/SatPracticeBars.tsx`, not a Radix `DialogTrigger`. Radix therefore
+  has no trigger element to return focus to when the dialog closes, and focus lands on
+  `<body>`. `SatPractice.tsx` works around this by capturing `document.activeElement` into a ref
+  immediately before opening, and `SatQuestionInfo.tsx` calls `event.preventDefault()` plus an
+  explicit `.focus()` on that captured node in `DialogContent`'s `onCloseAutoFocus`.
+- **Why it is shaped that way:** the agent that fixed the focus bug did not own
+  `SatPracticeBars.tsx`, so it closed the defect entirely within the files it did own. The
+  behaviour is correct — verified in a real browser for Escape, the ✕ control, and an outside
+  click — but the mechanism is a manual patch for a wiring gap.
+- **The proper fix:** route the Info button through `DialogTrigger render={anchor}`, the same
+  pattern `SatNavigator.tsx` already uses with `PopoverTrigger`. That requires
+  `SatPracticeBars.tsx` to accept and render the trigger as an anchor prop, and it lets the
+  ref-capture and the `onCloseAutoFocus` override be deleted outright rather than maintained.
+- **The latent risk in the workaround:** `preventDefault()` runs whenever `triggerRef.current`
+  is truthy, including if that node has since detached — in which case `.focus()` is a silent
+  no-op *and* Radix's own `document.body` fallback has already been suppressed, so focus is
+  lost entirely. This is not reachable today, because the Info button is always mounted (only
+  its text label is hidden by a breakpoint, never the button), but it becomes reachable the
+  moment that button is conditionally rendered.
+- **Context (start here):** `frontend/src/features/sat/SatQuestionInfo.tsx` (`triggerRef`,
+  `onCloseAutoFocus`); `SatPractice.tsx` (the `document.activeElement` capture);
+  `SatPracticeBars.tsx` (the un-wired opener); `SatNavigator.tsx` for the pattern to copy.
+- *(Logged from the SAT practice P7 browser-parity closeout, 2026-09-21.)*
+
 ## `SatAnalytics.tsx` depends on a Radix private export (`radix-ui/internal`)
 
 - **What:** `ConfirmDialogContent` imports `DismissableLayer` from `radix-ui/internal` (not

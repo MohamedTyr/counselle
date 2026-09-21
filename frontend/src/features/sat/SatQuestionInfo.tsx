@@ -1,5 +1,6 @@
 import { ExternalLink, Flag } from "lucide-react";
 import type React from "react";
+import type { RefObject } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -20,6 +21,12 @@ export interface SatQuestionInfoProps {
   question: SatQuestionPublic;
   taxonomy: SatTaxonomy | undefined;
   supportEmail: string | undefined;
+  /** The toolbar button that opened this dialog, captured by the caller.
+   * The Info button is a plain button, not a `DialogTrigger`, so Radix has
+   * no trigger of its own to return focus to on close — restored here
+   * instead (the navigator's Popover anchor is routed through
+   * `PopoverTrigger` and does not need this). */
+  triggerRef: RefObject<HTMLElement | null>;
 }
 
 function findDomainAndSkill(
@@ -50,6 +57,7 @@ export function SatQuestionInfo({
   question,
   taxonomy,
   supportEmail,
+  triggerRef,
 }: SatQuestionInfoProps): React.ReactElement {
   const { domainName, skillName } = findDomainAndSkill(
     taxonomy,
@@ -70,7 +78,15 @@ export function SatQuestionInfo({
 
   return (
     <Dialog onOpenChange={onOpenChange} open={open}>
-      <DialogContent className="max-w-[480px]">
+      <DialogContent
+        className="max-w-[480px]"
+        onCloseAutoFocus={(event) => {
+          if (triggerRef.current) {
+            event.preventDefault();
+            triggerRef.current.focus();
+          }
+        }}
+      >
         <DialogHeader>
           <DialogTitle>{SAT_PRACTICE_COPY.tools.info}</DialogTitle>
         </DialogHeader>

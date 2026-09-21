@@ -98,6 +98,12 @@ export function SatPractice(): React.ReactElement {
   const [calculatorDocked, setCalculatorDocked] = useState(false);
   const [referenceOpen, setReferenceOpen] = useState(false);
   const [infoOpen, setInfoOpen] = useState(false);
+  // The Info toolbar button lives in SatPracticeBars, rendered as a plain
+  // button rather than a DialogTrigger, so Radix's Dialog has no trigger
+  // element of its own to return focus to on close (unlike the navigator's
+  // Popover, whose anchor is routed through PopoverTrigger) — captured
+  // here and handed to SatQuestionInfo to restore explicitly.
+  const infoTriggerRef = useRef<HTMLElement | null>(null);
   const [navigatorOpen, setNavigatorOpen] = useState(false);
   const [lastModule, setLastModule] = useState<"reading" | "math">("reading");
 
@@ -116,10 +122,12 @@ export function SatPractice(): React.ReactElement {
   useEffect(() => {
     if (body.data) {
       setLastModule(body.data.module);
-      setCalculatorOpen(body.data.module === "math" && calculatorOpen);
     }
-    // Only reacts to a genuinely new body — calculatorOpen is read, not a trigger.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // `calculatorOpen` is the student's open/closed preference and outlives
+    // a module switch (Q35b: "returns exactly as it was on the next Math
+    // question") — `visible` below (`calculatorOpen && lastModule ===
+    // "math"`) is what actually hides it on non-Math questions, so this
+    // effect must not also clobber the preference itself.
   }, [body.data]);
 
   const stemRef = useRef<HTMLDivElement>(null);
@@ -127,13 +135,23 @@ export function SatPractice(): React.ReactElement {
   const dockSlotRef = useRef<HTMLDivElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
 
+  // Stable identity across renders (the refs themselves never change) —
+  // a fresh array literal here would give `repaint` inside the hook a new
+  // identity on every render (this component re-renders every second from
+  // the question timer), re-running the hook's questionId-reset effect and
+  // wiping any highlight the student just made before it could persist.
+  const highlightFields = useMemo(
+    () => [
+      { field: "stimulus" as const, ref: passageRef },
+      { field: "stem" as const, ref: stemRef },
+    ],
+    [],
+  );
+
   useSatHighlighter({
     questionId: session.current?.id ?? "",
     active: highlightActive && lastModule === "reading",
-    fields: [
-      { field: "stimulus", ref: passageRef },
-      { field: "stem", ref: stemRef },
-    ],
+    fields: highlightFields,
   });
 
   // Window-level Enter handler (plan §5.5, Q10, Q10a).
@@ -249,7 +267,10 @@ export function SatPractice(): React.ReactElement {
         isRunning={timer.isRunning}
         module={lastModule}
         onExit={() => navigate("/app/sat")}
-        onOpenInfo={() => setInfoOpen(true)}
+        onOpenInfo={() => {
+          infoTriggerRef.current = document.activeElement as HTMLElement | null;
+          setInfoOpen(true);
+        }}
         onToggleCalculator={() => setCalculatorOpen((open) => !open)}
         onToggleHighlight={() => setHighlightActive((active) => !active)}
         onToggleReference={() => setReferenceOpen((open) => !open)}
@@ -349,6 +370,7 @@ export function SatPractice(): React.ReactElement {
           question={question}
           supportEmail={appConfig.data?.support_email}
           taxonomy={taxonomy.data}
+          triggerRef={infoTriggerRef}
         />
       )}
 

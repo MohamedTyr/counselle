@@ -28,7 +28,7 @@ import {
   toLocalDateKey,
 } from "@/features/sat/SatActivityRail";
 import { isSatAnalyticsTab, SatAnalytics, type SatAnalyticsTab } from "@/features/sat/SatAnalytics";
-import { SatFilterRail } from "@/features/sat/SatFilterRail";
+import { SatFilterRail, SatStartSessionButton } from "@/features/sat/SatFilterRail";
 import { SatTopicTree } from "@/features/sat/SatTopicTree";
 
 function toggledSet<T>(current: ReadonlySet<T>, item: T): Set<T> {
@@ -372,6 +372,23 @@ export function SatDashboard() {
               />
             </div>
           </div>
+
+          {/* ui-spec §3.1's F18 addition, phone only: a trailing sibling of
+           * the grid above (not nested inside Filters, which is too short
+           * to keep it stuck once Topics/Activity scroll past) so its
+           * containing block spans the whole dashboard — `sticky bottom-0`
+           * then pins it to the bottom of `PageContainer`'s own scroll
+           * viewport for the rest of the scroll, over the topic list.
+           * Hidden at 640 cw and up, where `SatFilterRail`'s own in-flow
+           * copy takes over. */}
+          {topicsAndFiltersReady && selectedBands && (
+            <SatStartSessionButton
+              className="sticky bottom-0 -mx-6 border-t border-[var(--edge)] bg-[var(--surface-raised)] px-6 py-4 @[640px]/sat-dash:hidden"
+              isStarting={isStarting}
+              onStart={handleStart}
+              startDisabledReason={startDisabledReason}
+            />
+          )}
         </div>
       )}
       {analyticsMounted && (

@@ -81,7 +81,7 @@ export function SatToolWindow({
     <div
       aria-label={title}
       className={cn(
-        "z-[var(--z-sticky)] flex flex-col overflow-hidden rounded-xl bg-[var(--surface-raised)] shadow-[var(--elevation-3)]",
+        "z-[var(--z-floating-panel)] flex flex-col overflow-hidden rounded-xl bg-[var(--surface-raised)] shadow-[var(--elevation-3)]",
         fullscreen && "fixed inset-0 z-[var(--z-modal)] rounded-none",
         docked && "rounded-none border-l border-[var(--hairline)] shadow-none",
         hidden && "invisible",

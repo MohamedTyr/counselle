@@ -62,14 +62,19 @@ export function getSession(filter: SatFilterQuery, signal?: AbortSignal) {
 }
 
 /** `GET /session?question=<id>` — an id lookup, not a filtered list (plan
- * §4.2, P0.4): resolves aliases then `lower(id)`, ignores `retired_at`. Same
- * row shape as `getSession` so a single-question session renders
- * identically to a filtered one. */
-export function getSessionByQuestion(questionId: string, signal?: AbortSignal) {
+ * §4.2, P0.4): resolves aliases then `lower(id)`, ignores `retired_at`. The
+ * server returns a *bare* row for this form (`api/routes/sat.py`'s
+ * `SatSessionRow | list[SatSessionRow]`), not a list — this wraps it into a
+ * one-element array so callers can treat any session identically, one row
+ * or 1,900 (plan §4.2's own phrasing). */
+export function getSessionByQuestion(
+  questionId: string,
+  signal?: AbortSignal,
+): Promise<SatSessionRow[]> {
   const params = new URLSearchParams({ question: questionId });
-  return requestJson<SatSessionRow[]>(withQuery("/sat/session", params), {
+  return requestJson<SatSessionRow>(withQuery("/sat/session", params), {
     signal,
-  });
+  }).then((row) => [row]);
 }
 
 /** `GET /questions/{id}` — no `correct_answers`/`rationale` (plan §4.2). */
