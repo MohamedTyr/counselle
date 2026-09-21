@@ -29,38 +29,8 @@ import {
 } from "@/features/sat/SatActivityRail";
 import { isSatAnalyticsTab, SatAnalytics, type SatAnalyticsTab } from "@/features/sat/SatAnalytics";
 import { SatFilterRail, SatStartSessionButton } from "@/features/sat/SatFilterRail";
+import { collapseIfFull, toggledSet, withMembership } from "@/features/sat/sat-dashboard-selection";
 import { SatTopicTree } from "@/features/sat/SatTopicTree";
-
-function toggledSet<T>(current: ReadonlySet<T>, item: T): Set<T> {
-  const next = new Set(current);
-  if (next.has(item)) {
-    next.delete(item);
-  } else {
-    next.add(item);
-  }
-  return next;
-}
-
-function withMembership<T>(
-  current: ReadonlySet<T>,
-  items: readonly T[],
-  present: boolean,
-): Set<T> {
-  const next = new Set(current);
-  for (const item of items) {
-    if (present) {
-      next.add(item);
-    } else {
-      next.delete(item);
-    }
-  }
-  return next;
-}
-
-/** F20: never encode the full taxonomy/band list to say "all". */
-function collapseIfFull<T>(selected: ReadonlySet<T>, full: readonly T[]): T[] {
-  return selected.size >= full.length ? [] : Array.from(selected);
-}
 
 const ANALYTICS_PARAM = "analytics";
 

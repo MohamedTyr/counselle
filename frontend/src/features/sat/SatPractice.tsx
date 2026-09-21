@@ -1,18 +1,17 @@
 import type React from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router";
-import { useQuery } from "@tanstack/react-query";
 
 import { ErrorCard } from "@/components/ui/error-card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Empty, EmptyContent, EmptyDescription, EmptyTitle } from "@/components/ui/empty";
 import { ChevronDown, ChevronUp } from "lucide-react";
-import { requestJson } from "@/api/http/client";
 import { cn } from "@/lib/utils";
 
 import { useSatAttempts, useSatQuestion, useSatTaxonomy } from "@/api/sat/hooks";
 import type { SatFilterQuery } from "@/api/sat/types";
+import { useChatConfig } from "@/api/chat/config";
 import { SAT_PRACTICE_COPY } from "@/features/sat/sat-copy";
 import { filterStateFromSearchParams } from "@/features/sat/sat-filters";
 import { SatCalculator } from "@/features/sat/SatCalculator";
@@ -40,15 +39,6 @@ function resolveDeepLinkId(
     if (trimmed) return trimmed;
   }
   return null;
-}
-
-function useSatAppConfig() {
-  return useQuery({
-    queryKey: ["sat", "app-config"],
-    queryFn: () =>
-      requestJson<{ sat_desmos_embed_url?: string; support_email?: string }>("/config"),
-    staleTime: Infinity,
-  });
 }
 
 function useIsToolFullscreenBreakpoint(): boolean {
@@ -90,7 +80,7 @@ export function SatPractice(): React.ReactElement {
 
   const session = useSatSession(source);
   const taxonomy = useSatTaxonomy();
-  const appConfig = useSatAppConfig();
+  const appConfig = useChatConfig();
 
   const [eliminateMode, setEliminateMode] = useState(true);
   const [highlightActive, setHighlightActive] = useState(false);

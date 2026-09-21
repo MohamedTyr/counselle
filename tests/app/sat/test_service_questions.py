@@ -58,17 +58,41 @@ async def test_counts_and_session_all_four_statuses(
     await _attempt(app_pool, user_id, now_wrong, answer="B")
     await service_attempts.set_bookmark(app_pool, user_id, bookmarked)
 
+    # Scoped to this test's own four fixture rows (`question_ids`) — a
+    # bank-synced dev database has thousands of other live INF rows for a
+    # fresh user, so an unscoped count would include them too.
+    fixture_ids = [unsolved, now_correct, now_wrong, bookmarked]
     counts_unsolved = await service_questions.get_counts(
-        app_pool, user_id, bands=[], status="unsolved", exclude_bluebook=False
+        app_pool,
+        user_id,
+        bands=[],
+        status="unsolved",
+        exclude_bluebook=False,
+        question_ids=fixture_ids,
     )
     counts_incorrect = await service_questions.get_counts(
-        app_pool, user_id, bands=[], status="incorrect", exclude_bluebook=False
+        app_pool,
+        user_id,
+        bands=[],
+        status="incorrect",
+        exclude_bluebook=False,
+        question_ids=fixture_ids,
     )
     counts_bookmarked = await service_questions.get_counts(
-        app_pool, user_id, bands=[], status="bookmarked", exclude_bluebook=False
+        app_pool,
+        user_id,
+        bands=[],
+        status="bookmarked",
+        exclude_bluebook=False,
+        question_ids=fixture_ids,
     )
     counts_all = await service_questions.get_counts(
-        app_pool, user_id, bands=[], status="all", exclude_bluebook=False
+        app_pool,
+        user_id,
+        bands=[],
+        status="all",
+        exclude_bluebook=False,
+        question_ids=fixture_ids,
     )
 
     # unsolved = never attempted: q_unsolved1 AND q_bookmark1 (bookmarking
@@ -78,13 +102,20 @@ async def test_counts_and_session_all_four_statuses(
     assert counts_bookmarked["INF"] == 1  # only q_bookmark1
     assert counts_all["INF"] == 4
 
-    # Every one of the 29 skills is zero-filled (F13), not just INF.
+    # Every one of the 29 skills is zero-filled (F13), not just INF — the
+    # python-side zero-fill runs regardless of question_ids scoping.
     from app.sat.taxonomy_loader import load_taxonomy
 
     assert set(counts_all) == set(load_taxonomy().skill_codes())
 
     session_unsolved = await service_questions.list_session(
-        app_pool, user_id, skills=[], bands=[], status="unsolved", exclude_bluebook=False
+        app_pool,
+        user_id,
+        skills=[],
+        bands=[],
+        status="unsolved",
+        exclude_bluebook=False,
+        question_ids=fixture_ids,
     )
     assert {row.id for row in session_unsolved} == {unsolved, bookmarked}
 
@@ -124,8 +155,16 @@ async def test_retired_excluded_from_filtered_session_and_counts(
     )
     assert retired not in {row.id for row in session_rows}
 
+    # Scoped to just the retired fixture row — a bank-synced dev database
+    # has hundreds of other live INF rows, so an unscoped count would be
+    # nonzero for reasons unrelated to this test.
     counts = await service_questions.get_counts(
-        app_pool, user_id, bands=[], status="all", exclude_bluebook=False
+        app_pool,
+        user_id,
+        bands=[],
+        status="all",
+        exclude_bluebook=False,
+        question_ids=[retired],
     )
     assert counts["INF"] == 0
 

@@ -1029,6 +1029,41 @@ follow-up in the same phase; this entry is closed on the backend side.
   (`_is_noop`, `_apply_sync`'s `existing_live_ids` parameter).
 - *(Logged from the SAT bank-sync review-finding closeout, 2026-09-20.)*
 
+## SAT practice: the raw question-bank archive has no confirmed off-workstation copy
+
+- **What:** plan §P2's exit criterion is "archive sha in the manifest **and a second copy confirmed**."
+  `deploy/seed/sat/MANIFEST.json` records the sha, but the raw archive itself exists only at
+  `artifacts/sat-practice/raw-<sha>.tar.gz` on this workstation. Nothing in the repo or the
+  artifacts tree evidences a second copy anywhere else.
+- **Why it matters:** `artifacts/` is gitignored and local. If this machine is lost, the raw
+  College Board fetch is gone, and re-fetching depends on an upstream endpoint whose terms are
+  the very thing O5 is unresolved about. The build is reproducible from the archive; it is not
+  reproducible without it.
+- **Note the precedent:** this is the same unmet-requirement pattern as school-data-v3's D9/R12
+  (`artifacts/school-data-v3/.../full.dump` never copied off this workstation). Two features now
+  carry the same gap, which suggests the step needs an owner-side destination rather than another
+  reminder.
+- **This is an owner/operational action, not an engineering one** — it needs somewhere to put the
+  copy. Engineering cannot close it unilaterally.
+- *(Logged from the SAT practice whole-plan audit, 2026-09-21.)*
+
+## SAT practice: backend function lengths exceed the 50-line house cap (as does most of the repo)
+
+- **What:** twelve functions under `domain/sat/`, `app/sat/` exceed `AGENTS.md`'s 50-line cap. The
+  longest are `domain/sat/spr_answers.py::extract_spr_candidates` (90),
+  `app/sat/bank_audit.py::render_audit_md` (70), and
+  `app/sat/bank_sync.py::_release_colliding_natural_keys` (69).
+- **Why it is recorded rather than fixed:** measured repo-wide, 128 functions across
+  `domain/`, `app/`, `adapters/`, `api/` already exceed the cap — `app/agent_node.py::run_agent_node`
+  is 523 lines, `app/run_turn.py::run_turn` is 407. The SAT feature's worst case is 90. Bringing
+  only this feature to a standard the surrounding codebase misses by an order of magnitude is
+  inconsistent scope, and several of these functions (`extract_spr_candidates`, the normalizer
+  entry points) are on the grading-correctness path that was just verified end to end —
+  restructuring them for a line count immediately after that verification is a poor trade.
+- **If the cap is to be enforced, it should be enforced repo-wide as its own change**, with
+  `agent_node.py`'s proposed four-module split (already recorded in this file) as the first move.
+- *(Logged from the SAT practice whole-plan audit, 2026-09-21.)*
+
 ## SAT practice: the Info dialog restores focus by hand instead of via `DialogTrigger`
 
 - **What:** the question Info dialog's opener is a plain `<Button onClick={onOpenInfo}>` in

@@ -140,6 +140,12 @@ export function useToolWindow({
   }, [clampSize, clampPosition]);
 
   const handleHeaderPointerDown = useCallback((event: ReactPointerEvent<HTMLElement>) => {
+    // Let clicks on header controls (dock/float/close) through undragged:
+    // setPointerCapture on the header would otherwise retarget the button's
+    // own pointerup/click to the header div, silently swallowing the click.
+    if ((event.target as HTMLElement).closest("button")) {
+      return;
+    }
     event.currentTarget.setPointerCapture(event.pointerId);
     dragStartRef.current = {
       pointerX: event.clientX,

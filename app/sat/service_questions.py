@@ -10,6 +10,7 @@ they can never drift out of the same filter semantics (F3-F6, F13, F20).
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from uuid import UUID
 
 import asyncpg
@@ -52,6 +53,7 @@ LEFT JOIN latest l USING (question_id)
 LEFT JOIN counselle.sat_bookmarks b
        ON b.user_id = $1::uuid AND b.question_id = q.question_id
 WHERE {_FILTER_WHERE}
+  AND (cardinality($5::text[]) = 0 OR q.question_id = ANY($5::text[]))
 GROUP BY q.skill_cd
 """  # nosec B608 -- every value binds via $N; no string interpolation of input
 
@@ -73,6 +75,7 @@ LEFT JOIN counselle.sat_bookmarks b
        ON b.user_id = $1::uuid AND b.question_id = q.question_id
 WHERE {_FILTER_WHERE}
   AND (cardinality($5::text[]) = 0 OR q.skill_cd = ANY($5::text[]))
+  AND (cardinality($6::text[]) = 0 OR q.question_id = ANY($6::text[]))
 ORDER BY q.question_id
 """  # nosec B608 -- every value binds via $N; no string interpolation of input
 
@@ -140,11 +143,21 @@ async def get_counts(
     bands: list[int],
     status: SolvedStatus,
     exclude_bluebook: bool,
+    question_ids: Sequence[str] = (),
 ) -> dict[str, int]:
     """``{skill_cd: n}`` for all 29 skills, zero-filled (F13) — counts ignore
-    the skill selection, as upstream's per-skill counts do (plan §4.5)."""
+    the skill selection, as upstream's per-skill counts do (plan §4.5).
+
+    ``question_ids`` narrows the scanned rows to exactly this set when
+    non-empty (same empty-means-all convention as ``skills``/``bands``);
+    production never passes it — a real count must reflect the whole live
+    bank. It exists so a live-DB test can scope its assertions to its own
+    fixture rows instead of the whole synced bank, the same shape as
+    ``bank_sync._apply_sync``'s ``existing_live_ids`` parameter."""
     async with pool.acquire() as conn:
-        rows = await conn.fetch(_COUNTS_SQL, user_id, bands, exclude_bluebook, status)
+        rows = await conn.fetch(
+            _COUNTS_SQL, user_id, bands, exclude_bluebook, status, list(question_ids)
+        )
     counts = {code: 0 for code in load_taxonomy().skill_codes()}
     for row in rows:
         counts[row["skill_cd"]] = row["count"]
@@ -159,12 +172,22 @@ async def list_session(
     bands: list[int],
     status: SolvedStatus,
     exclude_bluebook: bool,
+    question_ids: Sequence[str] = (),
 ) -> list[SatSessionRow]:
     """The whole launched session as light rows, ``ORDER BY question_id``
-    (plan §4.2, §5.4) — an empty ``skills``/``bands`` means *all* (F20)."""
+    (plan §4.2, §5.4) — an empty ``skills``/``bands`` means *all* (F20).
+
+    ``question_ids`` narrows to exactly this set when non-empty; see
+    ``get_counts`` above — same test-scoping rationale."""
     async with pool.acquire() as conn:
         rows = await conn.fetch(
-            _SESSION_SQL, user_id, bands, exclude_bluebook, status, skills
+            _SESSION_SQL,
+            user_id,
+            bands,
+            exclude_bluebook,
+            status,
+            skills,
+            list(question_ids),
         )
     return [_session_row_from_record(row) for row in rows]
 
