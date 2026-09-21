@@ -13,9 +13,9 @@ It is two pieces, both in this repo:
 
 | Path | What lives here |
 |------|-----------------|
-| `domain/` | The pure honesty core — value/caveat types, events, and render specs. No I/O. Also `domain/cds/`: the parked extraction pipeline's pure types (ADR 0036, PARKED.md). |
-| `app/` | Agent orchestration — the turn lifecycle, step/thinking emission, turn registry, transcript builder, runtime wiring. Also `app/facts/`: the CollegeData crawl, crosswalk, and Explore/admin services (ADR 0038); `app/cds/`: the parked extraction/review/approval flow. |
-| `adapters/` | External integrations — Tavily search, email, model-provider seams. `adapters/collegedata/`: the CollegeData fetcher/parser. `adapters/facts_store.py` + `adapters/*facts_queries.py`: the `cds_library` facts write/read layer. Also `adapters/cds_*`: the parked extraction pipeline's PDF parsing and LLM call. |
+| `domain/` | The pure honesty core — value/caveat types, events, and render specs. No I/O. Also `domain/cds/`: the parked extraction pipeline's pure types (ADR 0036, PARKED.md); `domain/sat/`: SAT practice's ported pure logic — grading, question normalization, statistics, the SPR rationale-key extractor, the progress-file codec (ADR 0043). |
+| `app/` | Agent orchestration — the turn lifecycle, step/thinking emission, turn registry, transcript builder, runtime wiring. Also `app/facts/`: the CollegeData crawl, crosswalk, and Explore/admin services (ADR 0038); `app/cds/`: the parked extraction/review/approval flow; `app/sat/`: the SAT question-bank fetch/build/audit/sync pipeline and its services — read by no agent tool. |
+| `adapters/` | External integrations — Tavily search, email, model-provider seams. `adapters/collegedata/`: the CollegeData fetcher/parser. `adapters/facts_store.py` + `adapters/*facts_queries.py`: the `cds_library` facts write/read layer. Also `adapters/cds_*`: the parked extraction pipeline's PDF parsing and LLM call; `adapters/collegeboard/`: the SAT question-bank fetch client. |
 | `counselle_db/` | In-process service layer only (no MCP server) — four read-only tools over the facts store's six `cds_library` reader views. |
 | `api/` | The FastAPI service — routers, auth (fastapi-users), the SSE protocol, rate limiting, lifespan. |
 | `config/` | The typed Settings surface (`settings.py`) + versioned data assets (prompts, subreddit menu, season table) in `config/assets/`. |

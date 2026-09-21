@@ -117,6 +117,22 @@ is accepted, computed with `fractions.Fraction`/`Decimal`, never floats. This ru
 acceptances — it never overrides (a)–(c) into a rejection — and is pinned by hand-derived vectors
 built from every fraction key in the bank plus College Board's own published accept/reject table.
 
+### Free-response keys for the legacy disclosed corpus
+
+The ~29 legacy disclosed items (§3.1 of the plan) predate College Board's structured question bank
+and carry no key field at all for free-response items — the answer exists only as prose inside the
+rationale (e.g. "The correct answer is 75."), and for a fractional or radical answer, sometimes only
+inside an `<img>`'s spoken-math `alt` text. `domain/sat/spr_answers.py` ports liprep's rationale-key
+extractor to propose a key for each; every proposal, and every reviewer-authored key where the
+extractor proposed nothing, is recorded in `config/assets/sat/spr_keys.yaml` with its source
+(`rationale`, `manual`, or `added` for a G10 cross-check finding) and the quoted sentence or `alt`
+text it came from. **As shipped, this adjudication was performed by an AI agent, not a human
+reviewer** (`spr_keys.yaml`'s own header: "Keys adjudicated by an AI agent on 2026-09-19; owner
+spot-check pending" — plan risk R11) — a divergence from the plan's stated "every one is confirmed
+by a person." `build` still fails while any legacy SPR item lacks an entry, so nothing ships
+unadjudicated, but the confirming party is not yet a person. Closing R11 with an owner or reviewer
+spot-check of the ~70 adjudicated entries is open work, not assumed done.
+
 ### The bank: a seed file, not a live dependency
 
 The bank is fetched once by an offline CLI pipeline (`fetch → build → audit → bank-sync`), never at
@@ -138,6 +154,16 @@ own manifest and upserts it into `counselle.sat_questions` / `sat_question_conte
 on whatever bank it already has. The sync never deletes rows: attempts and bookmarks reference
 question ids, so a question absent from a refreshed bank is marked `retired_at` and kept, not
 dropped.
+
+**A retirement safety guard, added beyond the plan's original design.** `bank_sync.py` refuses (and
+aborts the whole sync, changing nothing, the same as any other sync failure) to retire more than
+30% of a populated `sat_questions` table (50+ live rows) in one pass — the signature of the wrong
+file being synced against real data (a fixture bank, a build that silently produced an
+empty/truncated file), not a real College Board refresh, which retires at most a handful of stale
+ids per run. Below 50 live rows the check does not apply, so a small dev/test table can still be
+freely rebuilt end to end. This guard exists only in code (`app/sat/bank_sync.py`), not in the
+plan's original design, which described the retire-on-absence rule but not a bound on how much of
+the table a single sync may retire.
 
 Whether `bank.jsonl.gz` itself is committed to the repository is owner decision **O5** — see "Risk
 R0" below. Until that is answered, the file sits at the same path, gitignored, and every code path
@@ -292,6 +318,14 @@ covered separately above.
 - The honesty-critical grading rule now exists in exactly one place (`domain/sat/grading.py`),
   server-side, following the same pattern ADR 0006 established for citations — no client-trusted
   answer key exists anywhere in the payloads the browser receives.
+- **Stated plainly, without softening: the ~70 legacy free-response answer keys that decide whether
+  a student's typed answer is graded right or wrong were confirmed by an AI agent, not by a human
+  reviewer**, contrary to this plan's own design ("every one is confirmed by a person," §3.5) —
+  `config/assets/sat/spr_keys.yaml`'s own header records the adjudication date and that an owner or
+  reviewer spot-check is still pending (plan risk R11). This sits inside the one part of the feature
+  this ADR calls honesty-critical, so it is not a minor process footnote: until that spot-check
+  happens, "server-side grading is the one honesty-critical core" is true of the *code path*, not
+  yet fully true of the *data* that path grades against for these ~70 items.
 - A new, narrow exception to this codebase's otherwise-unlimited-GET convention exists
   (`sat_question_reads_per_minute`), justified specifically by the enumerable, licensed nature of the
   question bank this feature serves.
@@ -302,6 +336,22 @@ covered separately above.
 - The question bank is a seed artifact with a defined refresh path (`fetch → build → audit →
   bank-sync`), not a live dependency — College Board's endpoints going away or changing shape after a
   successful build has no runtime effect on the shipped product.
+- **The Counselle agent has no access to SAT practice data at all — not even read-only.** Unlike the
+  facts store, where the agent is a scoped reader (ADR 0038), `counselle.sat_*` has no agent tool of
+  any kind pointed at it; `app/sat/` exists as the seam a later plan would use, and none exists yet.
+  This is a stricter isolation than the facts-store read boundary, not an instance of it.
+- A sanitiser hardening pass beyond the plan's original `sat-html.ts` design — found by a security
+  review during P4, not anticipated in `plan.md` §6.2 — forbids `<form>`, `<input>`, `<button>`,
+  `<select>`, `<textarea>`, and `<option>` outright (College Board's own default DOMPurify profile
+  allowances would otherwise let a `<form action="https://…">` render and submit, or an orphaned
+  `<input>`/`<button>` bind to one via a bare `form="…"` attribute, straight out of question
+  content — a native, no-JavaScript phishing vector with no legitimate use in passages, stems,
+  options, or rationales); `action`/`method` attributes are forbidden as defense in depth. The one
+  legitimate use MathML makes of a `form` attribute (`<mo form="prefix">`, a stretchy fence's
+  open/close direction) is preserved by scoping that attribute, via a `uponSanitizeAttribute` hook,
+  to the MathML tag set only — DOMPurify's `ADD_ATTR` allow-list is flat and not element-scoped, so
+  without that hook `form` would still survive on any element, including the forbidden ones' would-be
+  descendants.
 - **This ADR cannot be moved to Accepted while O5 is unanswered.** Development, testing, and review
   of the feature can and does proceed against a locally-built, gitignored bank in the meantime;
   committing the bank file and any production deployment are the two points where O5's answer

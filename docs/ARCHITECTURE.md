@@ -54,6 +54,8 @@
 39. [The essay surface & the suggestion lifecycle](#39-the-essay-surface--the-suggestion-lifecycle)
 40. [The CollegeData facts crawl pipeline & admin surface](#40-the-collegedata-facts-crawl-pipeline--admin-surface)
 41. [The Explore admit-rate estimate](#41-the-explore-admit-rate-estimate)
+42. [Goal mode: an independent-judge iteration loop](#42-goal-mode-an-independent-judge-iteration-loop)
+43. [SAT practice](#43-sat-practice)
 
 ---
 
@@ -2010,6 +2012,175 @@ measurement, not demonstrated long-run stability.
 See ADR 0041 for the full decision record and `plans/goal-mode-plan.md` for the complete
 design and its adversarial-review history.
 
+## 43. SAT practice
+
+`/app/sat` is a Bluebook-style SAT practice surface: a dashboard with per-skill filter
+counts, a full-viewport practice screen with a calculator and reference sheet, and an
+analytics suite. It is a **port** of the open-source liprep project
+(`github.com/liprep/liprep`, MIT), not an embed or a copied-and-refactored fork: liprep's
+*behaviour* is reproduced from a row-by-row parity inventory; its *code* is not vendored.
+The system has no relationship to the CollegeData facts store or the parked CDS extraction
+pipeline (§8, §38, §40) beyond sharing this repo's layering conventions — it is its own
+question bank, its own schema, its own read/write path, and, deliberately, **the agent has
+no tool that reads or writes any of it.** `app/sat/` is a seam a later plan could use to
+change that; none does today.
+
+### 43.1 The question bank pipeline
+
+The bank is not fetched at request time. A CLI (`python -m app.sat fetch | build | audit |
+bank-sync`, `app/sat/__main__.py`) runs offline and produces a versioned seed artifact:
+
+1. **`fetch`** (`app/sat/fetch.py`, `adapters/collegeboard/client.py`) pulls College Board's
+   four unauthenticated Question Bank JSON endpoints through a rate-limited `httpx` client
+   (one token bucket shared across both hosts), writing every response verbatim to a
+   gitignored, lossless raw archive under `artifacts/sat-practice/raw/`. It is resumable and
+   idempotent — a rerun skips what is already on disk — and a stub whose detail response
+   never succeeds fails the run.
+2. **`build`** (`app/sat/bank_build.py`) is pure and deterministic: raw responses go through
+   `domain/sat/normalize.py` into `deploy/seed/sat/bank.jsonl.gz`, sorted by question id with
+   stable key order and fixed gzip metadata. It makes no network or npm call.
+3. **`audit`** (`app/sat/bank_audit.py`, invoked by `build`) runs a battery of gates —
+   coverage, the assessment-superset check, content-id identity, MCQ/SPR key correctness,
+   HTML-render fidelity against the real frontend sanitiser, taxonomy parity, Bluebook-flag
+   reconciliation, drift against the previous manifest, normalizer parity against a
+   differential test harness run directly against liprep's own code
+   (`tests/domain/sat/upstream/`), and free-response key adjudication — and writes every
+   assertion to `deploy/seed/sat/AUDIT.md` and `MANIFEST.json`, not asserting anything away
+   silently. A build that fails any gate is not a build.
+4. **`bank-sync`** (`app/sat/bank_sync.py`) runs on every application boot
+   (`scripts/entrypoint.sh`, after migrations; `scripts/dev.py`'s `run_stack`), on
+   `COUNSELLE_DB_APP_DSN`, inside one transaction guarded by an advisory lock so two
+   instances starting together serialize instead of racing. It is a no-op when the bank
+   file's hash and row count already match `sat_bank_meta`; otherwise it verifies the file's
+   hash against its own manifest and upserts it into `counselle.sat_questions` /
+   `sat_question_content` / `sat_question_aliases`, in that FK order. A missing bank file is
+   a boot-time warning, never a failure. The sync never deletes: a question absent from a
+   refreshed bank is marked `retired_at` and kept, because attempts and bookmarks reference
+   question ids. A **retirement safety guard** refuses (and aborts, changing nothing) to
+   retire more than 30% of a populated (50+ row) live table in one pass — the signature of a
+   wrong file being synced, not a real refresh.
+
+Free-response ("SPR") answer keys need two different sources. College Board's structured
+question-bank items carry an official key (`correct_answer`), enumerating accepted forms;
+`domain/sat/spr_answers.py`'s rationale extractor runs only as a *cross-check* against that
+key, adding a value only when it finds a genuine second answer the official key is missing.
+The ~29 legacy disclosed items predate the structured bank and carry **no key field at all**
+— the answer exists only as prose in the rationale, sometimes only inside an `<img>`'s
+spoken-math `alt` text. Every proposed or authored key for those items is recorded in
+`config/assets/sat/spr_keys.yaml` with its source and the quoted text it came from, and a
+build fails while any legacy free-response item lacks an entry.
+
+### 43.2 Schema
+
+Two per-question tables split metadata from content, so the endpoints hit on every filter
+click (`/counts`, `/session`) scan a narrow table and never touch TOASTed HTML:
+
+- `counselle.sat_questions` — one row per question: identity (`question_id`, the natural
+  keys `external_id`/`ibn`), classification (`module`, `domain_cd`, `skill_cd`,
+  `score_band`, `difficulty`), `in_bluebook`, and `retired_at`.
+- `counselle.sat_question_content` — the wide HTML: `stimulus`, `stem`, `answer_options`,
+  `correct_answers`, `rationale`.
+- `counselle.sat_question_aliases` — a duplicate content id filed under two source
+  `question_id`s resolves to one canonical row plus an alias, so any id a student's imported
+  progress file or a deep link names still resolves.
+- `counselle.sat_bank_meta` — a single row recording the currently-synced bank's hash, row
+  count, and timestamps; what `bank-sync`'s no-op check reads.
+- `counselle.sat_attempts` — one row per graded attempt: `user_id`, a `client_attempt_id`
+  (retry-safe submission — a lost-response retry of the same press must not create a second
+  attempt), the graded verdict, and the question's classification **at the time of the
+  attempt**. There is deliberately no foreign key to `sat_questions`: an attempt is a
+  historical fact about what the student saw, and a later reclassification must never
+  rewrite past analytics.
+- `counselle.sat_bookmarks` — one row per bookmarked question per student.
+
+Every `question_id`-typed column is `COLLATE "C"`, independent of the database locale, so
+joins and ordering agree regardless of server collation. See `docs/DATABASE_GUIDE.md` for
+the full column-by-column contract.
+
+### 43.3 Backend — services, grading, statistics
+
+`domain/sat/` is the pure honesty core (ADR 0017): `types.py` (`SatQuestion`, `Attempt`,
+`Bookmark`), `normalize.py` (raw College Board shapes to `SatQuestion`), `grading.py`,
+`spr_answers.py`, `stats.py`, and `progress_file.py` (the `.liprep` export/import codec).
+`app/sat/` is orchestration: `service_questions.py`, `service_attempts.py`,
+`service_progress.py`, each taking `(pool, user_id, …)` with `user_id` only ever coming from
+`Depends(current_active_user)` — authorization lives in the tool, never the caller.
+`api/routes/sat.py` mounts a thin HTTP layer under `/v1/sat/…`, all auth-required, with its
+own error mapping (`map_sat_errors`) so a SAT validation failure never reads like a
+workspace-item error.
+
+**Grading is server-side, and it is the one honesty-critical rule in this feature.** `GET
+/questions/{id}` never returns a key or a rationale; `POST /questions/{id}/attempts` is the
+only place a verdict is produced — it grades with `domain/sat/grading.is_correct`, inserts
+the attempt (`ON CONFLICT (user_id, client_attempt_id) DO NOTHING RETURNING …`, then a
+`SELECT` of the existing row on conflict, so the *first* press is always authoritative), and
+returns the verdict, key, rationale, and the attempt list in one round trip. `is_correct`
+reproduces liprep's own grading rule in order — case-insensitive string match against any
+accepted key, leading-zero equivalence, and numeric equivalence within `1e-6` for
+free-response items, each computed with `fractions.Fraction`, never a float — plus one
+acceptance path liprep lacks: College Board's own published free-response entry rule (an
+answer that fills the entry field and equals the key's one unambiguous exact value,
+truncated toward zero or rounded half-away-from-zero, is accepted even when the scraped key
+happens not to list that literal form). This fourth rule only ever adds acceptances; it
+never overrides the first three into a rejection.
+
+**Statistics are a pure Python function over the attempt log**, not a SQL aggregate:
+`domain/sat/stats.py::compute_user_stats(attempts, today)` reproduces liprep's own
+`getUserStatistics` number-for-number, quirks included — JavaScript's half-up `Math.round`
+(ported as `floor(x + 0.5)`, since Python's `round` rounds half to even), `ORDER BY
+solved_at, id` as the one definition of "latest" used everywhere a latest attempt matters,
+and a calendar-day streak walk. A pure function over the log is what makes the result
+checkable against generated reference vectors; a SQL aggregate would not be.
+
+**Rate limiting.** SAT reads and writes have their own budgets
+(`sat_writes_per_minute`, `sat_question_reads_per_minute`), separate from the workspace's,
+so answering questions never shares a budget with editing tasks or essays. `GET
+/questions/{id}` carries a read limit that no other GET endpoint in this codebase has — a
+deliberate exception, because it is the one endpoint through which a signed-in account could
+otherwise walk the entire licensed question bank one request at a time.
+
+### 43.4 The bank as data, not code — free provisioning, licence risk
+
+The bank file (`deploy/seed/sat/bank.jsonl.gz`, ~13–14MB) is a data artifact, not source
+code: `sat_bank_path` (a Settings value) points at it, and `bank-sync` is the only thing that
+reads it. Whether the file itself is committed to the repository is an unresolved owner
+decision, because it is derived from College Board's Educator Question Bank, whose own terms
+do not appear to authorize storing and serving it inside a commercial product. This is not
+something engineering can resolve — see ADR 0043's Risk R0. Until it is resolved, the file
+sits gitignored at the same on-disk path either way, and nothing about local development,
+testing, or the sync path depends on whether it is ever committed.
+
+### 43.5 Frontend — content rendering and tools
+
+The practice screen (`frontend/src/features/sat/`) renders question content through a single
+pipeline: `normalizeSatHtml` (liprep's string transforms plus a `<mfenced>` MathML rewrite,
+ported unchanged) then a dedicated `DOMPurify` instance (`sat-html.ts`) whose hooks scope
+figure `<style>` blocks to their own `<svg>` and harden the allow-list beyond what liprep's
+own upstream configuration does — `<form>`, `<input>`, `<button>`, `<select>`, `<textarea>`,
+and `<option>` are forbidden outright, `action`/`method` attributes are forbidden as defense
+in depth, and the MathML `form` attribute (needed for a stretchy fence's open/close
+direction) is scoped by hook to MathML elements only, since DOMPurify's `ADD_ATTR` allow-list
+is flat and not element-scoped. A build gate (`npm run sat:audit-html`, driving
+`sat-html.corpus.test.ts` against the real bank file) runs this exact renderer over every
+HTML field in the whole bank and fails if it strips anything unreviewed — there is no second
+copy of the allow-list to drift from what actually ships.
+
+The launched practice session is fetched once per mount and held in its own state
+(`useSatSession`), not the TanStack Query cache — the session's answers, eliminations, and
+per-question submit results live for the life of that visit, matching liprep's own
+load-once-per-visit IndexedDB session lifetime rather than being silently revalidated
+mid-session by a background refetch. Highlighting stores offsets, not DOM mutation, and
+paints with the CSS Custom Highlight API rather than wrapping text nodes in `<mark>`
+elements. The calculator is the official Bluebook Desmos embed (`sat_desmos_embed_url`, a
+Settings value), never liprep's own unlicensed bundle — one non-reparented `<iframe>`, moved
+by CSS custom properties, never remounted between its floating, docked, and hidden states.
+
+See `plans/sat-practice/plan.md` for the full technical design (bank pipeline measurements,
+audit gate definitions, the differential test harness, state-management rationale, and the
+complete parity inventory), `plans/sat-practice/ui-spec.md` for the UI/UX specification, and
+ADR 0043 for the decision record — including Risk R0, which the ADR's status line reflects by
+staying Proposed/Draft rather than Accepted.
+
 ---
 
-*Companions: `specs/mvp1/PRD.md` (agent service product spec), `specs/mvp2/PRD.md` (full-stack app product spec), `specs/user-onboarding/plan/` (onboarding plan and phase record), `specs/school-data-v3/` (the graduated facts-store plan and its divergence record), `specs/essay-ai-panel/` (the essay AI panel's graduated plan and divergence record), `docs/DATABASE_GUIDE.md` (the facts-store data contract — the six reader views, fact states, and honesty rules), `PARKED.md` (the parked CDS system's file list, import edges, and revival steps), `docs/DEPLOY.md` (the deploy runbook), `docs/adr/` (decisions — Part I added ADRs 0016–0019; Part II added ADRs 0020–0031; hardening added ADR 0025; workspace/service and run/message parity added ADRs 0026–0030; profile/document/memory added ADR 0031; db-rewire to the CDS Library added ADR 0032; onboarding's reserved-settings-namespace and locked merge added ADR 0033; counselor response modes added ADR 0034; the in-app CDS extraction pipeline and admin write path added ADR 0036; the per-turn agent surface and the essay suggestion layer added ADR 0037, amending ADRs 0013 and 0030; the CollegeData facts store, in-process DB tools, and CDS-parking decision added ADR 0038; the admissions-fit Explore estimate added ADR 0039, superseded by ADR 0040, which cut the estimate back to the admit rate alone; goal mode's independent-judge iteration loop added ADR 0041, still Proposed pending the plan's real-student dogfood gate), `docs/research/` (stack survey). Keep this current as decisions change.*
+*Companions: `specs/mvp1/PRD.md` (agent service product spec), `specs/mvp2/PRD.md` (full-stack app product spec), `specs/user-onboarding/plan/` (onboarding plan and phase record), `specs/school-data-v3/` (the graduated facts-store plan and its divergence record), `specs/essay-ai-panel/` (the essay AI panel's graduated plan and divergence record), `docs/DATABASE_GUIDE.md` (the facts-store data contract — the six reader views, fact states, and honesty rules), `PARKED.md` (the parked CDS system's file list, import edges, and revival steps), `docs/DEPLOY.md` (the deploy runbook), `docs/adr/` (decisions — Part I added ADRs 0016–0019; Part II added ADRs 0020–0031; hardening added ADR 0025; workspace/service and run/message parity added ADRs 0026–0030; profile/document/memory added ADR 0031; db-rewire to the CDS Library added ADR 0032; onboarding's reserved-settings-namespace and locked merge added ADR 0033; counselor response modes added ADR 0034; the in-app CDS extraction pipeline and admin write path added ADR 0036; the per-turn agent surface and the essay suggestion layer added ADR 0037, amending ADRs 0013 and 0030; the CollegeData facts store, in-process DB tools, and CDS-parking decision added ADR 0038; the admissions-fit Explore estimate added ADR 0039, superseded by ADR 0040, which cut the estimate back to the admit rate alone; goal mode's independent-judge iteration loop added ADR 0041, still Proposed pending the plan's real-student dogfood gate; SAT practice — a ported liprep, College Board's own question bank, server-side grading — added ADR 0043, still Proposed/Draft pending the O5 question-bank-licence owner decision), `docs/research/` (stack survey). Keep this current as decisions change.*

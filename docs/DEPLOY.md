@@ -32,6 +32,38 @@ Under school-data-v3 the `cds_library` schema holds the **CollegeData facts stor
 
 Snapshot bodies are byte-stable per page (verified), so `page_snapshots` grows only on an actual content change, capped at 3 retained snapshots per page in-pass. The plan's measured estimate (`../specs/school-data-v3/plan/school-data-v3.md` §6c, R5): **≈95 MB of jsonb after the first full pass**, growing with steady-state changed pages toward **≈300 MB worst case**. Check the managed provider's plan against that before turning the worker on — this was not re-measured against a live production pass, it's the plan's own estimate.
 
+### SAT practice: the question bank file, provisioning, and Desmos
+
+`counselle.sat_*` (ADR 0043, `docs/DATABASE_GUIDE.md` §11) is populated by `bank-sync`, not
+by `deploy/seed/cds_library_schema.sql` or `seed_reader_db.py` — it needs no schema-seeding
+step of its own, since `migrations/0021_sat_practice.sql` creates the tables and
+`bank-sync` (run by `scripts/entrypoint.sh` on every boot, after `yoyo apply`) does the
+data load. What it does need is the bank file itself to be present in the image at
+`sat_bank_path` (Settings; default `deploy/seed/sat/bank.jsonl.gz`, ~13–14MB).
+
+**Whether that file is ever committed to this repository, or shipped in a deploy image at
+all, is unresolved owner decision O5** (ADR 0043's Risk R0: the bank's content is College
+Board's Educator Question Bank, and its own terms do not appear to authorize this use). As
+of this writing the file is gitignored and exists only where it has been built locally — no
+deploy target has it. If O5 is answered "commit it," no image change is needed beyond the
+normal build (`COPY` picks it up like any other repo file). If O5 says "don't commit it,"
+the deploy pipeline needs its own step to place a file at `sat_bank_path` before boot (e.g.
+copied in as a build artifact, or mounted from object storage) — that step does not exist
+yet and is not part of any deploy target today. Either way, a missing bank file is a
+boot-time warning, not a failure (§ Database first is stricter — the `cds_library` seed is
+required at boot; SAT practice degrades gracefully instead, since it is a newer, optional
+surface with no other feature depending on its tables being populated).
+
+**Content Security Policy.** This deploy does not configure a CSP today — see `docs/adr/`
+for whether one has been adopted since this was written. If one is introduced, SAT
+practice's two third-party embeds need explicit allowances: `frame-src
+https://www.desmos.com` for the calculator iframe (`sat_desmos_embed_url`, the official
+College Board Bluebook embed — see ADR 0043) and `img-src data:` for the legacy disclosed
+corpus's inline base64 `data:image/png` figures (§3.1 of `plans/sat-practice/plan.md`;
+`frontend/src/features/sat/sat-html.ts`'s sanitiser already restricts `data:` URIs to
+`image/png|jpeg|gif` on `<img>` only, but a CSP's `img-src` is a separate, independent
+allowance a browser also enforces).
+
 ### The Render Starter + Supabase staging path
 
 This is the small staging/demo target. The web service must be an **always-on paid instance**, not Render's free tier: a free instance sleeps on inactivity, and the in-process facts crawl worker (`COUNSELLE_FACTS_WORKER_ENABLED`) never gets a chance to run a pass if the process isn't running. The checked-in `render.yaml` sets `plan: 0.5c-512mb` (Render's current paid-tier plan id for what used to be called "Starter" — legacy plan names like `starter` still resolve, but `render.yaml` uses the current id) for exactly this reason; do not downgrade it back to `free` without re-reading this paragraph.
@@ -130,6 +162,22 @@ A first deploy easily forgets the agent-core half. The complete set:
 - `COUNSELLE_FACTS_CRAWL_RPS` (default `1.0`), `COUNSELLE_FACTS_CRAWL_CONCURRENCY` (default `1`) — the crawl rate against collegedata.com; the plan's Q9 default is 1 req/s with adaptive backoff
 - `COUNSELLE_FACTS_CRAWL_INTERVAL_HOURS` (default `24`), `COUNSELLE_FACTS_WORKER_POLL_SECONDS` (default `30`), `COUNSELLE_FACTS_CRAWL_LEASE_SECONDS` (default `180`)
 - `COUNSELLE_FACTS_STALE_DAYS` (default `120`) — when a school's facts flip to the stale caveat
+
+**SAT practice (all optional — sane defaults ship in `config/settings.py`; see ADR 0043,
+`docs/DATABASE_GUIDE.md` §11, and § "SAT practice: the question bank file" above)**
+- `COUNSELLE_SAT_BANK_PATH` (default `deploy/seed/sat/bank.jsonl.gz`) — where `bank-sync`
+  looks for the question bank file. A missing file is a boot-time warning, not a failure.
+- `COUNSELLE_SAT_DESMOS_EMBED_URL` (default the official College Board Bluebook embed) —
+  swap for a partner Desmos API key's URL if one is ever obtained (risk R4).
+- `COUNSELLE_SUPPORT_EMAIL` — the `mailto:` target for the practice screen's "Report an
+  issue" link.
+- `COUNSELLE_SAT_WRITES_PER_MINUTE` (default `120`), `COUNSELLE_SAT_QUESTION_READS_PER_MINUTE`
+  (default `600`) — SAT's own rate-limit buckets, separate from the workspace's.
+- `COUNSELLE_SAT_ATTEMPT_MAX_SECONDS` (default `86,400`), `COUNSELLE_SAT_IMPORT_MAX_BYTES`
+  (default `12MiB`) — grading/import input bounds.
+- `COUNSELLE_SAT_FETCH_REQUESTS_PER_SECOND` (default `4.0`), `COUNSELLE_SAT_FETCH_USER_AGENT`
+  — used only by the offline `python -m app.sat fetch` CLI, never at application runtime;
+  irrelevant to a deploy image unless that CLI is run from it.
 
 **Models / GCP**
 - Application Default Credentials (preferred): a workload identity or

@@ -74,7 +74,7 @@ shortcut. Imported in this order by `frontend/src/index.css`:
 |---|---|---|---|
 | **1 — Primitives** | `styles/primitives.css` | Raw OKLCH literals. Named by scale position, never by usage. **The only file in the codebase allowed a colour literal.** | nothing |
 | **2 — Semantic** | `styles/semantic.css`, `styles/elevation.css` | Role tokens. Every value is a `var()` onto a primitive, or a `color-mix()` of two such vars. | tier 1 only |
-| **3 — Families** | `styles/shell.css`, `workspace.css`, `task.css`, `essay.css`, `activity.css`, `profile.css`, `schools.css`, `onboarding.css`, `shadcn.css` | Per-feature alias blocks. | tier 2, or a sibling token in the same tier |
+| **3 — Families** | `styles/shell.css`, `workspace.css`, `task.css`, `essay.css`, `activity.css`, `profile.css`, `schools.css`, `onboarding.css`, `shadcn.css`, `sat.css` | Per-feature alias blocks. | tier 2, or a sibling token in the same tier |
 | **4 — Theme** | `styles/theme.css` | The Tailwind v4 `@theme inline` binding that turns tokens into utility classes (`bg-primary`, `border-border`). | tiers 2–3 |
 
 Custom-property resolution is lazy, so this order is for human readability, not
@@ -111,6 +111,14 @@ use them anywhere.
 | `--brand-scale-*` | an **ordered** scale — three intensities of the one hue |
 | neutral | everything else, **including every in-progress state** |
 
+**One documented exception: the SAT practice highlighter (`--sat-highlight`, aliased to
+`--warning-surface`).** A student's own passage/stem highlight is drawn in yellow because a
+highlighter is yellow by universal convention, not because anything under it is `warning` —
+no warning state is ever drawn there, the mark sits only under body text in one feature's
+reading surface, and the choice is recorded in `sat.css` beside its token. This is the one
+place in the app where a status hue's fill is reused for a claim other than its own; it does
+not license a second one.
+
 Before this rule, amber was simultaneously the `Med` priority, the `Waiting` status,
 the `Aid` category and the `Reach` school — and all four could land in one table row.
 When you reach for a colour, name the one claim it makes. If the answer is "so you can
@@ -146,6 +154,11 @@ Corollaries:
 - **An inset surface never draws a rim.** A recessed fill that also has a border reads
   as embossed. The fill step is the entire signal.
 - **Interaction states are one rule, not a value per component** (§11.1).
+- **`--chrome` is chrome by function, not only by location.** The SAT practice screen's
+  top and bottom bars sit on `--chrome`, the same token as the sidebar rail, because they
+  are a fixed control strip framing a focus surface — not an object carrying content — even
+  though they render at the top/bottom of a full-viewport route rather than down the side.
+  The role follows what the surface *does*.
 
 ### 2.3 Naming
 
@@ -161,9 +174,22 @@ Corollaries:
   can make to this system (§3.1).
 - **New role** (a new kind of surface, ink, or state)? Add it to `semantic.css`.
 - **New feature area with its own recurring colours?** Give it a family file, prefixed
-  by the feature, resolving only through `semantic.css` / `workspace.css`.
+  by the feature, resolving only through `semantic.css` / `workspace.css`. SAT practice's
+  `sat.css` is the worked example: a `--sat-*` tier-3 family (highlight, a five-step heat
+  scale for the streak calendar, and the prose sizing/line-height/max-width/math-image
+  tokens `.sat-content` renders College Board's sanitised HTML through), resolving only
+  through tier 2 — `--sat-highlight` aliases `--warning-surface`, the heat scale
+  `color-mix()`es `--brand-scale-3` against `--surface-inset`.
 - **Extending an existing family?** Add to that family's file; keep its naming pattern.
 - Split a family file once it passes ~300 lines.
+- **Two tier-2 roles were added for SAT practice, both reusable beyond it:**
+  `--image-outline` (`semantic.css`) — a faint hairline drawn around any inline image
+  sitting directly on a surface with no card chrome of its own, first needed for the
+  bank's own figures and base64 math images; and `--on-ink` (`semantic.css`, `--gray-0`,
+  16.6:1 on `--ink`) — ink meant to sit on a fill of `--ink` itself, first needed for the
+  practice screen's question-number badge (a filled `--ink` pill carrying the number).
+  Both are semantic roles, not SAT-specific tokens, so they live in tier 2 rather than
+  `sat.css`.
 
 ---
 
@@ -591,6 +617,15 @@ rule behind the split. *(Four literal widths still exist outside the vocabulary:
 `max-w-3xl` in the chat transcript, `max-w-md` in error panels. The chat and essay
 widths are justified by measure, not layout — see §6.5.)*
 
+**Three more literal widths, added for SAT practice**, a full-viewport route outside
+`PageContainer` (§9.4) where neither `full` nor `wide` applies: `max-w-[860px]` for the
+practice screen's centered reading column when a question has no passage (Math, or R&W
+with no stimulus) — an upstream constant, kept because it is also the breakpoint below
+which the layout drops to one column; `max-w-[480px]` for the question-info dialog; and
+`max-w-[400px]` for the question navigator popover. None of these are `PageContainer`
+surfaces, so they are not folded into `full`/`wide`/`panel` — they are the same kind of
+justified-by-content literal as the four above, not a fourth vocabulary tier.
+
 ---
 
 ## 9. Layout & the shell
@@ -721,6 +756,8 @@ on screen when the document is meant to be the only one that floats.
 | `/app/activities` | activities + honors | ” |
 | `/app/profile` | profile | ” |
 | `/app/calendar` | stub | ” |
+| `/app/sat` | SAT practice dashboard (inside the shell) | ” |
+| `/app/sat/practice/:questionId?` | SAT practice screen — **full-viewport, outside the shell**: no sidebar, no `PageContainer`. The optional id segment supports a deep link into one question; the launched filter otherwise lives in the URL's query string, not the path | auth + onboarding (a sibling of `/app`, not a `WorkspaceShell` child) |
 | `/onboarding` | wizard (outside the shell) | auth |
 | `/dev/*` | galleries | dev builds only |
 
@@ -1341,6 +1378,16 @@ reported GPA buckets and SAT/ACT ranges.
 - An unrecognised spec version renders "This visualization requires a newer client."
   inside the normal frame, so it reads as forward-compatibility rather than breakage.
 
+**SAT practice analytics is the app's second sanctioned Recharts surface**, under the
+same rules School Compare (§15.5.1) established as the deliberate exception to "no
+charting library": every plot is wrapped in the accessible `ChartFigure` shell
+(`aria-hidden` on the plot itself, an sr-only `figcaption` carrying a generated summary
+sentence built from the same data the chart renders), every value it shows is also
+present as text in an adjacent legend, list, or table, and no series or category is told
+apart by decorative colour alone — shape, stroke style, and position carry that instead.
+A radar, a pace scatter plot, a score-bands composed chart, and a donut all follow this
+contract; see `plans/sat-practice/ui-spec.md` §7 for the per-chart encoding.
+
 ### 15.5.1 School Compare
 
 `Compare` is the product vocabulary for the school-detail academic comparison (the
@@ -1677,11 +1724,32 @@ the school workspace.
 (archive), and activities (delete) via the shared `useUndoableDelete`.
 *(Tasks' bulk keyboard delete has no undo — that is a gap, not a variant.)*
 
+**One named exception: erasing or replacing a student's entire practice history.**
+SAT practice's progress reset (delete every attempt and bookmark) and progress import
+(replace the whole attempt/bookmark log with an imported file) both confirm through a
+`Dialog role="alertdialog"` naming the exact count about to be destroyed — reset behind
+a three-press-then-confirm guard — rather than the optimistic-plus-undo pattern above. A
+count in the thousands, with no reasonable per-row undo, is not what a 5-second toast is
+for; this is a **confirm-first** action, not a destructive-then-reversible one, and it is
+named here so it reads as a deliberate second pattern rather than a missed adoption of
+`useUndoableDelete`.
+
 ### 17.5 Drag and drop
 
 Native HTML5 DnD everywhere. No dnd-kit, no react-beautiful-dnd. Drags are **armed by
 pointerdown on a grip handle only**, so clicking a row never starts one. Drag-over
 **live-reorders in real time** with a preview committed on drop or discarded on Escape.
+
+**One named exception: the SAT practice tool windows (calculator, reference sheet).**
+Moving and resizing a floating tool window is **pointer-driven** — `setPointerCapture`
+on the window's header at `pointerdown`, geometry written as `transform`/size on every
+`pointermove`, released on `pointerup`/`pointercancel` — not HTML5 DnD. Two reasons DnD
+cannot express this: a continuous, low-latency drag reading live pointer coordinates is
+not what the HTML5 DnD API is built for (it is an item-transfer model, not a live-follow
+one), and the calculator's contents are a cross-origin `<iframe>` that a native drag's
+`dragover`/`drop` events do not reliably fire over — the drag would appear to drop the
+moment the pointer crossed into the frame. Pointer capture keeps every move event
+targeted at the header regardless of what the pointer is currently over.
 
 ### 17.6 Tables
 

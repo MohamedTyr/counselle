@@ -606,3 +606,105 @@ that is not this student's inserts nothing and matches nothing, and the caller g
 rows, so an essay's panel thread never appears in the main chat list, and
 `POST /v1/sessions/{id}/messages` refuses an essay-surface turn whose request names a
 different essay than the session row does.
+
+## 11. SAT practice — `counselle.sat_*`
+
+A third, fully independent data region alongside the two above: not `cds_library`, and
+not the workspace tables §10 describes contracts for. It is owned by
+`COUNSELLE_DB_APP_DSN` (`counselle_app`, the same role that owns every other
+`counselle.*` table — no new DSN, no new grant) and defined by
+`migrations/0021_sat_practice.sql`. **The agent has no tool that reads or writes any of
+it** — this is stricter than the read-only boundary the rest of this document describes;
+there is no reader role for SAT data at all today, because nothing needs one.
+
+### Schema
+
+Two tables split a question's identity/classification from its content, so the
+counts/session endpoints — hit on every filter click — scan a narrow table and never
+touch TOASTed HTML:
+
+| Table | Holds |
+|---|---|
+| `sat_questions` | Identity (`question_id`, `external_id`/`ibn` as natural keys), classification (`module`, `domain_cd`, `skill_cd`, `score_band`, `difficulty`, `program`, `item_type`), `in_bluebook`, source timestamps, `content_sha256`, `retired_at` |
+| `sat_question_content` | `stimulus`, `stem`, `answer_options` (jsonb), `correct_answers` (`text[]`), `rationale` — one row per question, FK'd to `sat_questions` |
+| `sat_question_aliases` | A non-canonical `question_id` for a content id filed twice under the source bank, resolving to its canonical row |
+| `sat_bank_meta` | A single row: the currently-synced bank's `content_sha256`, `question_count`, `fetched_at`, `synced_at` |
+| `sat_attempts` | One row per graded attempt: `user_id`, `client_attempt_id` (a retry-safe uniqueness key, `UNIQUE (user_id, client_attempt_id)`), the question's classification **denormalized at attempt time**, the graded verdict, timing, `local_date` |
+| `sat_bookmarks` | `(user_id, question_id)` primary key |
+
+Every `question_id`-typed column is `text COLLATE "C"` — independent of the server's
+locale, so joins, `ORDER BY`, and `DISTINCT ON` never disagree about ordering; every id
+in the bank is 8 lower-case hex characters, for which any collation would agree, but the
+explicit collation makes that a guarantee rather than an accident.
+
+`sat_attempts` and `sat_bookmarks` deliberately carry **no foreign key** to
+`sat_questions`. An attempt is a historical fact about what the student saw — a later
+College Board reclassification of a question's skill or band must never silently rewrite
+past analytics — and an imported `.liprep` progress file may name question ids the
+current bank does not hold. The one place integrity is enforced is at write time:
+`POST /questions/{id}/attempts` can only insert an id it just loaded from the live
+schema.
+
+Enumerated columns (`module`, `source`, `item_type`, `difficulty`) are validated in
+application code (`Literal` types), matching every other `counselle.*` table.
+`sat_attempts.module` / `domain_cd` / `skill_cd` are the deliberate exception: they are
+free text, because an imported progress log may carry unknown or empty classification
+codes, and the statistics function has defined behavior for both (an unrecognized code
+does not contribute to the eight-domain rollup; an empty code is its own bucket).
+
+### The write path: `bank-sync`
+
+`counselle.sat_*` has exactly one writer path, and it is not a live crawler. A CLI
+pipeline (`python -m app.sat fetch | build | audit`, run offline, entirely outside the
+running application) produces a versioned seed file, `deploy/seed/sat/bank.jsonl.gz`
+(`sat_bank_path` in Settings). `bank-sync` (`app/sat/bank_sync.py`) is what actually
+writes the database, and it runs on **every application boot**
+(`scripts/entrypoint.sh`, after migrations apply; `scripts/dev.py`'s `run_stack`) — never
+at request time, never on a schedule, never in response to student activity.
+
+The whole sync is one transaction, opened under
+`pg_advisory_xact_lock(hashtextextended('sat_bank_sync', 0))` so two application
+instances booting concurrently serialize instead of racing on the upsert; the lock
+releases automatically at commit or rollback. It is a no-op — two cheap `SELECT`s,
+nothing else — when the bank file's sha256 and row count already match
+`sat_bank_meta`. Otherwise it verifies the file's hash against its own `MANIFEST.json`,
+then `executemany`-upserts questions → content → aliases in that FK order (never one
+giant multi-row statement over ~13MB of HTML, which would risk the connection pool's
+statement timeout), sets `retired_at` on any live row absent from the new bank, clears
+`retired_at` on any row that returns, and writes the `sat_bank_meta` row. **It never
+deletes a row** — attempts and bookmarks reference question ids, and a retired question
+stays fully readable by direct id lookup (`/questions/{id}`, `/session?question=`), it
+just drops out of filtered listings and counts.
+
+A missing bank file is a boot-time warning, not a failure — the application starts on
+whatever bank it already has in the database.
+
+### The retirement safety guard
+
+`_check_retirement_is_safe` (`app/sat/bank_sync.py`) refuses — raising, aborting the
+whole sync transaction, changing nothing — to retire more than **30%** of a populated
+`sat_questions` table (50 or more live rows) in a single sync. A real College Board
+refresh retires at most a handful of stale ids per pass; retiring a large share of a
+populated live table in one sync is the signature of the wrong file being synced against
+real data (a fixture bank, a build that silently produced an empty or truncated file),
+not an intended refresh. Below the 50-row floor the check does not apply, so a small
+dev or test database can still be freely rebuilt end to end. A refusal is caught the
+same way `bank-sync` catches every other sync failure: logged, nothing changed, boot
+continues on the bank already in place — never a reason to fail the boot.
+
+This guard exists only in code, as a pair of module constants in `bank_sync.py`
+(`_RETIREMENT_GUARD_MIN_LIVE_ROWS = 50`, `_RETIREMENT_GUARD_MAX_RATIO = 0.3`), not as
+`Settings` fields — unlike the structurally similar `facts_retirement_max_fraction` /
+`facts_retirement_min_floor` pair §8 documents for the CollegeData facts crawler, which
+this guard is modeled on.
+
+### Relation to the reader/writer role split
+
+Every other data region in this document is split across at least two Postgres roles —
+`cds_library_reader` for the agent's read path, `cds_library_app` for a writer — because
+the agent needs to read what a separate writer produces. SAT practice has no such split
+because it has no reader on the agent side at all: `bank-sync` and every
+`api/routes/sat.py` route run on the same `counselle_app` role/DSN that owns every other
+`counselle.*` table, the same way `counselle.tasks`, `counselle.essays`, and the rest of
+the workspace schema do. The isolation that matters here is not role-based; it is that
+no code path anywhere hands `counselle.sat_*` access to the agent's tool surface.
