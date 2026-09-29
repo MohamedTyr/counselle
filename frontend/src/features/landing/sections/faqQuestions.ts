@@ -24,7 +24,7 @@ export const QUESTIONS = [
   },
   {
     q: "Is it allowed by schools and the Common App?",
-    a: "Yes. Applications must be the student’s own work, and Acceptra suggests but never writes. Every change to your essay is a suggestion you accept or reject, and it never submits anything on your behalf.",
+    a: "Applications must be the student’s own work, and Acceptra is built around that rule: it suggests but never writes. Every change to your essay is a suggestion you accept or reject, and it never submits anything on your behalf.",
   },
   {
     q: "Does it replace our school counselors?",

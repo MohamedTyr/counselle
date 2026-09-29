@@ -49,11 +49,15 @@ export function initAnalytics(): void {
       });
       return posthog;
     });
+  // A chunk that fails to load drops analytics, never the page.
+  client.catch(() => undefined);
 }
 
 export function track<E extends keyof Events>(
   event: E,
   properties: Events[E],
 ): void {
-  void client?.then((posthog) => posthog.capture(event, properties));
+  void client
+    ?.then((posthog) => posthog.capture(event, properties))
+    .catch(() => undefined);
 }
