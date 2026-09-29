@@ -10,6 +10,8 @@ const root = path.resolve(import.meta.dirname, "..");
 const dist = path.join(root, "dist-landing");
 const ssrOut = path.join(root, "node_modules/.prerender-landing");
 const ROOT_DIV = '<div id="root"></div>';
+const STYLESHEET =
+  /<link rel="stylesheet"[^>]*href="(\/assets\/[^"]+\.css)"[^>]*>/g;
 /** The two faces the H1 needs; the others load when their text renders. */
 const PRELOAD_FONTS = [
   /^inter-latin-wght-normal-.*\.woff2$/,
@@ -19,6 +21,20 @@ const PRELOAD_FONTS = [
 function fail(message) {
   console.error(`prerender-landing: ${message}`);
   process.exit(1);
+}
+
+/**
+ * The page's one stylesheet goes inline: it is the only render-blocking
+ * request, so the first paint no longer waits on a second round trip.
+ */
+async function inlineStylesheet(html) {
+  const links = [...html.matchAll(STYLESHEET)];
+  if (links.length !== 1)
+    fail(`expected one stylesheet, found ${links.length}`);
+  const [tag, href] = links[0];
+  const css = await readFile(path.join(dist, href), "utf8");
+  await rm(path.join(dist, href));
+  return html.replace(tag, () => `<style>${css}</style>`);
 }
 
 await build({
@@ -48,7 +64,7 @@ const preloads = PRELOAD_FONTS.map((pattern) => {
 // React hints every eager <img> as a preload; the browser finds them in the
 // HTML anyway, and they would compete with the fonts the H1 needs.
 const page = render().replace(/<link rel="preload" as="image"[^>]*\/>/g, "");
-const html = template
+const html = (await inlineStylesheet(template))
   .replace("</title>", `</title>\n    ${preloads.join("\n    ")}`)
   .replace(ROOT_DIV, `<div id="root">${page}</div>`);
 
