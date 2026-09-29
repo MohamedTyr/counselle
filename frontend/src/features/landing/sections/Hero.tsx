@@ -46,8 +46,8 @@ function HeroNav() {
   const links = useNavGlide();
   return (
     <header className="lp-nav" ref={nav} data-state="rest">
-      <a className="lp-brand" href="/" aria-label="Acceptra home">
-        <img src={wordmark} width={122} height={37} alt="" />
+      <a className="lp-brand" href="/">
+        <img src={wordmark} width={122} height={37} alt="Acceptra" />
       </a>
       <nav className="lp-nav-links" ref={links} aria-label="Main navigation">
         <span className="lp-nav-glide" aria-hidden="true" />
@@ -79,12 +79,12 @@ function HeroNav() {
 function HeroHeadline() {
   return (
     <h1 className="lp-headline">
+      {/* The spaces keep the words apart in raw HTML; flex layout ignores them. */}
       <span className="lp-headline-line lp-headline-line-1">
-        <span>AI College</span>
-        <span>counseling</span>
-      </span>
+        <span>AI College</span> <span>counseling</span>
+      </span>{" "}
       <span className="lp-headline-line lp-headline-line-2">
-        <span>For your next</span>
+        <span>For your next</span>{" "}
         <span className="lp-headline-serif">Chapter</span>
       </span>
     </h1>

@@ -1,0 +1,35 @@
+# Acceptra
+
+> Acceptra is an AI college counselor for students, parents, school counselors and school officials: essay feedback, a college list matched to you, scholarships, activities, SAT practice and every deadline in one place, checked against 2,700+ schools.
+
+Acceptra opens soon. It is taking sign-ups on a waitlist at https://acceptra.ai/#waitlist, and schools can book a walkthrough from https://acceptra.ai/#schools.
+
+## Who it is for
+
+- Students applying to US colleges
+- Parents helping them
+- School counselors, who see where each student stands
+- School officials bringing AI college counseling to a high school
+
+## What it does
+
+- Essay feedback, line by line: it marks up what the student wrote, and every note is a suggestion they accept or reject. It never writes the essay or invents a detail about the student's life.
+- A college list matched to the student's grades, budget and goals, sorted into reach, target and safety.
+- Scholarships the student qualifies for.
+- Research, competitions and summer programs that fit the student.
+- Official SAT practice questions, with an explanation of each mistake.
+- Every school's deadlines, next to the student's own tasks.
+- Two 20-minute calls a month with a mentor who got in recently, on paid plans.
+
+## Pricing
+
+- Free: $0 a month. 20 questions a month, 1 essay draft with feedback, a school list for 3 schools, deadlines and tasks.
+- Monthly: $20 a month, cancel any time. Unlimited questions and essay feedback, two mentor calls a month, deadlines, tasks and scholarships.
+- Yearly: $99 a year, one payment from junior spring through decision day. Everything in Monthly, plus activities and summer programs.
+
+## Links
+
+- Home: https://acceptra.ai/
+- Privacy Policy: https://acceptra.ai/privacy
+- Terms of Service: https://acceptra.ai/terms
+- Contact: hello@acceptra.ai

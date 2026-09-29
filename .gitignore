@@ -8,6 +8,7 @@ __pycache__/
 .venv/
 node_modules/
 dist/
+dist-landing/
 build/
 test-results/
 playwright-report/

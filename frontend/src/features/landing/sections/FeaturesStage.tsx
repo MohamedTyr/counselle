@@ -233,10 +233,10 @@ export function FeaturesStage() {
                 style={{ background: color }}
                 aria-hidden="true"
               />
-              <h3>{title}</h3>
-              <p>
+              <span className="lp-stage-title">{title}</span>{" "}
+              <span className="lp-stage-blurb">
                 <span>{blurb}</span>
-              </p>
+              </span>
             </button>
           );
         })}

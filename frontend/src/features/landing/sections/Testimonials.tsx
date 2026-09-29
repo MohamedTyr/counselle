@@ -1,7 +1,7 @@
-import worldMap from "../assets/world-map.png";
-import avatarMaya from "../assets/avatar-maya.png";
-import avatarDaniel from "../assets/avatar-daniel.png";
-import avatarPriya from "../assets/avatar-priya.png";
+import worldMap from "../assets/world-map.avif";
+import avatarMaya from "../assets/avatar-maya.webp";
+import avatarDaniel from "../assets/avatar-daniel.webp";
+import avatarPriya from "../assets/avatar-priya.webp";
 import "./testimonials.css";
 
 const TESTIMONIALS = [
@@ -41,8 +41,7 @@ export function Testimonials() {
         className="lp-heading lp-testimonials-heading"
         id="testimonials-heading"
       >
-        Students who tested it
-        <br />
+        Students who tested it <br />
         wish they’d had it
       </h2>
       <ul className="lp-testimonial-cards">

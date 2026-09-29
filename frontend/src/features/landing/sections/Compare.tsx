@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { BadgeCheck, BadgeMinus, BadgeX } from "lucide-react";
-import acceptra from "../assets/counselle.svg";
+import acceptra from "../assets/acceptra-glyph.svg";
 import chatgpt from "../assets/compare-chatgpt.svg";
 import "./compare.css";
 
@@ -197,7 +197,7 @@ export function Compare() {
                   <th key={id} role="columnheader" scope="col" data-option={id}>
                     {logo && (
                       <span className="lp-compare-logo" data-option={id}>
-                        <img src={logo} alt="" />
+                        <img src={logo} width={28} height={28} alt="" />
                       </span>
                     )}
                     {name}

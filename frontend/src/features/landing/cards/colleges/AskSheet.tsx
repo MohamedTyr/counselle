@@ -1,5 +1,6 @@
 import { Check, Sparkles } from "lucide-react";
 import { SCHOOLS, tierLabel } from "./data";
+import { SCHOOL_COUNT } from "../../brand";
 import "./colleges.css";
 import "./ask.css";
 
@@ -28,7 +29,7 @@ export function AskSheet() {
         </p>
         <p className="lp-cx-ask-step">
           <Sparkles size={13} />
-          <span>Read your activities, checked 2,700+ schools</span>
+          <span>Read your activities, checked {SCHOOL_COUNT} schools</span>
           <Check className="lp-cx-ask-step-done" size={13} strokeWidth={2.5} />
         </p>
         <p className="lp-cx-ask-text">

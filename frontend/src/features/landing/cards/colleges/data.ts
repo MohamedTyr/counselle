@@ -1,7 +1,7 @@
 import logoHarvard from "../../assets/row-logo-harvard.png";
-import logoGeorgiaTech from "../../assets/row-logo-georgia-tech.png";
+import logoGeorgiaTech from "../../assets/row-logo-georgia-tech.webp";
 import logoUmich from "../../assets/row-logo-umich.png";
-import logoStanford from "../../assets/row-logo-stanford.png";
+import logoStanford from "../../assets/row-logo-stanford.webp";
 import logoPurdue from "../../assets/row-logo-purdue.png";
 
 export type Tier = "reach" | "target" | "safety";

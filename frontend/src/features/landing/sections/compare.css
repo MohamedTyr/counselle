@@ -106,11 +106,6 @@
   height: 28px;
   object-fit: contain;
 }
-.lp-compare-logo[data-option="acceptra"] img {
-  /* The ink mark, recoloured to the brand green. */
-  filter: brightness(0) invert(24%) sepia(38%) saturate(1200%)
-    hue-rotate(108deg) brightness(92%);
-}
 
 .lp-compare-table tbody :where(th, td) {
   height: 66px;

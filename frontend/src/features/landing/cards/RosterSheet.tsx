@@ -1,9 +1,9 @@
 import { CircleAlert, CircleCheck, Clock } from "lucide-react";
-import logoGeorgiaTech from "../assets/mark-georgia-tech.png";
-import logoHarvard from "../assets/mark-harvard.png";
-import logoPurdue from "../assets/mark-purdue.png";
-import logoStanford from "../assets/mark-stanford.png";
-import logoUmich from "../assets/mark-umich.png";
+import logoGeorgiaTech from "../assets/mark-georgia-tech.webp";
+import logoHarvard from "../assets/mark-harvard.webp";
+import logoPurdue from "../assets/mark-purdue.webp";
+import logoStanford from "../assets/mark-stanford.webp";
+import logoUmich from "../assets/mark-umich.webp";
 import { useRosterMotion } from "../useRosterMotion";
 import "./roster-sheet.css";
 

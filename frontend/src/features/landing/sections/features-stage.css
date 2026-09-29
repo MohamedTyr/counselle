@@ -52,7 +52,8 @@
 .lp-stage-tab:last-child {
   border-bottom: 1px solid var(--lp-hairline);
 }
-.lp-stage-tab h3 {
+.lp-stage-tab .lp-stage-title {
+  display: block;
   font-weight: 500;
   font-size: 17px;
   line-height: 1.2;
@@ -61,10 +62,10 @@
   text-wrap: balance;
   transition: color 200ms ease-out;
 }
-.lp-stage-tab-active h3 {
+.lp-stage-tab-active .lp-stage-title {
   color: var(--lp-ink);
 }
-.lp-stage-tab p {
+.lp-stage-tab .lp-stage-blurb {
   display: grid;
   grid-template-rows: 0fr;
   font-size: 14px;
@@ -76,11 +77,11 @@
     grid-template-rows 360ms var(--lp-ease-entrance),
     opacity var(--lp-duration-state, 200ms) ease-out;
 }
-.lp-stage-tab p > span {
+.lp-stage-tab .lp-stage-blurb > span {
   min-height: 0;
   overflow: hidden;
 }
-.lp-stage-tab-active p {
+.lp-stage-tab-active .lp-stage-blurb {
   grid-template-rows: 1fr;
   opacity: 1;
 }
@@ -177,14 +178,13 @@
   height: calc(var(--stage-sheet-height) / 1.2);
 }
 /* The lists' lower veils follow the sheet's floor, whatever its height. */
-.lp-stage-art-third
-  :is(.lp-activities-fade, .lp-stream-fade-bottom) {
+.lp-stage-art-third :is(.lp-activities-fade, .lp-stream-fade-bottom) {
   top: auto;
   bottom: 0;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .lp-stage-tab p,
+  .lp-stage-tab .lp-stage-blurb,
   .lp-stage-panel {
     transition: none;
   }
@@ -212,12 +212,12 @@
   outline: 2px solid var(--lp-green);
   outline-offset: 3px;
 }
-.lp-stage[data-keyboard-motion="true"] .lp-stage-tab h3,
-.lp-stage[data-keyboard-motion="true"] .lp-stage-tab p {
+.lp-stage[data-keyboard-motion="true"] .lp-stage-tab .lp-stage-title,
+.lp-stage[data-keyboard-motion="true"] .lp-stage-tab .lp-stage-blurb {
   transition: none;
 }
 @media (hover: hover) and (pointer: fine) {
-  .lp-stage-tab:hover h3 {
+  .lp-stage-tab:hover .lp-stage-title {
     color: var(--lp-ink);
   }
   .lp-stage-playback:hover {

@@ -6,6 +6,8 @@ import { Pricing } from "./sections/Pricing";
 import { Schools } from "./sections/Schools";
 import { Faq } from "./sections/Faq";
 import { Footer } from "./sections/Footer";
+import { Testimonials } from "./sections/Testimonials";
+import { StructuredData } from "./StructuredData";
 import { useLandingMotion } from "./useLandingMotion";
 import { WaitlistDialog } from "./waitlist/WaitlistDialog";
 import { useWaitlistDialog } from "./waitlist/useWaitlistDialog";
@@ -16,6 +18,7 @@ export function LandingPage() {
   const waitlist = useWaitlistDialog();
   return (
     <div className="lp" ref={landingRef}>
+      <StructuredData />
       <a className="lp-skip" href="#features">
         Skip to content
       </a>
@@ -23,7 +26,7 @@ export function LandingPage() {
         <Hero />
         <main className="lp-main">
           <Features />
-          {/* Testimonials (sections/Testimonials.tsx) return once real, consented quotes exist. */}
+          <Testimonials />
           <Compare />
           <Pricing />
           <Schools />

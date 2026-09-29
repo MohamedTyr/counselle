@@ -9,7 +9,7 @@ const PRODUCT_LINKS = [
   { label: "Features", href: "#features" },
   { label: "Compare", href: "#compare" },
   { label: "Pricing", href: "#pricing" },
-  { label: "For schools", href: "#schools" },
+  { label: "Testimonials", href: "#testimonials-heading" },
 ];
 const COMPANY_LINKS = [
   { label: "FAQ", href: "#faq" },

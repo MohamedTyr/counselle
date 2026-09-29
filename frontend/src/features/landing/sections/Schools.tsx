@@ -34,8 +34,8 @@ export function Schools() {
           Know which students need you <em>this week</em>
         </h2>
         <p className="lp-schools-lede">
-          Every student gets all of Acceptra. Their school counselor sees where
-          each one stands.
+          AI college counseling for high schools. Every student gets all of
+          Acceptra, and school counselors see where each one stands.
         </p>
       </div>
       <div className="lp-schools-stage">

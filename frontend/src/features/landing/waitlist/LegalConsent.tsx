@@ -1,5 +1,5 @@
-export const PRIVACY_URL = "/privacy.html";
-export const TERMS_URL = "/terms.html";
+export const PRIVACY_URL = "/privacy";
+export const TERMS_URL = "/terms";
 
 export function LegalConsent({ className }: { className: string }) {
   return (

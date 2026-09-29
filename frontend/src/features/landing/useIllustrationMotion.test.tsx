@@ -158,9 +158,7 @@ it("keeps illustrations visible without WAAPI", () => {
 it("confirms the list is saved before its schools arrive", () => {
   render(<Example feature="colleges" />);
   const delayOf = (index: number) => Number(calls()[index][1].delay);
-  const saved = targets().findIndex((node) =>
-    node.matches(".lp-cx-ask-saved"),
-  );
+  const saved = targets().findIndex((node) => node.matches(".lp-cx-ask-saved"));
   const rows = targets().flatMap((node, index) =>
     node.matches(".lp-cx-ask-row") ? [index] : [],
   );

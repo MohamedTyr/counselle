@@ -29,7 +29,7 @@
   .lp-stage-tab:last-child {
     border-bottom: 0;
   }
-  .lp-stage-tab p {
+  .lp-stage-tab .lp-stage-blurb {
     display: none;
   }
   .lp-stage-description {
@@ -71,7 +71,7 @@
     min-height: 76px;
     padding: 12px 4px;
   }
-  .lp-stage-tab h3 {
+  .lp-stage-tab .lp-stage-title {
     font-size: 15px;
     line-height: 1.3;
   }

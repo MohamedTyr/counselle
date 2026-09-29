@@ -1,11 +1,11 @@
 import umich from "../assets/row-logo-umich.png";
-import georgiaTech from "../assets/row-logo-georgia-tech.png";
-import stanford from "../assets/row-logo-stanford.png";
+import georgiaTech from "../assets/row-logo-georgia-tech.webp";
+import stanford from "../assets/row-logo-stanford.webp";
 import mit from "../assets/tile-mit.png";
-import rsi from "../assets/activity-logo-rsi.png";
-import regeneron from "../assets/activity-logo-regeneron.png";
-import mites from "../assets/activity-logo-mites.png";
-import usaco from "../assets/activity-logo-usaco.png";
+import rsi from "../assets/activity-logo-rsi.webp";
+import regeneron from "../assets/activity-logo-regeneron.webp";
+import mites from "../assets/activity-logo-mites.webp";
+import usaco from "../assets/activity-logo-usaco.webp";
 import ring91 from "../assets/ring-91.svg";
 import ring88 from "../assets/ring-88.svg";
 import ring64 from "../assets/ring-64.svg";
@@ -154,7 +154,7 @@ function MatchesCard() {
         {MATCHES.map(({ name, logo, tier, ring, fit, cover }) => (
           <div key={name} className="lp-hc-match">
             <span className="lp-hc-logo lp-hc-logo-school" data-cover={cover}>
-              <img src={logo} alt="" />
+              <img src={logo} width={32} height={32} alt="" />
             </span>
             <div className="lp-hc-match-name">
               <p>{name}</p>
@@ -192,8 +192,7 @@ function SatCard() {
         <p className="lp-hc-answer-note">Your answer</p>
       </div>
       <p className="lp-hc-sat-explain">
-        You found 6x = 36.
-        <br />
+        You found 6x = 36. <br />
         Subtract 5 to get 31.
       </p>
       <p className="lp-hc-chip">Ask Acceptra</p>
@@ -244,7 +243,7 @@ function ActivitiesCard() {
         {ACTIVITIES.map(({ name, logo, picked }) => (
           <div key={name} className="lp-hc-activity" data-picked={picked}>
             <span className="lp-hc-logo lp-hc-logo-activity" data-cover="true">
-              <img src={logo} alt="" />
+              <img src={logo} width={26} height={26} alt="" />
             </span>
             <p className="lp-hc-activity-name">{name}</p>
             {picked ? (

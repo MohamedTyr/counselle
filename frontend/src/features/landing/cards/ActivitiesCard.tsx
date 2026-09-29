@@ -1,13 +1,13 @@
-import logoRsi from "../assets/activity-logo-rsi.png";
-import logoRegeneron from "../assets/activity-logo-regeneron.png";
-import logoMites from "../assets/activity-logo-mites.png";
-import logoUsaco from "../assets/activity-logo-usaco.png";
-import logoSimons from "../assets/activity-logo-simons.png";
-import logoIsef from "../assets/activity-logo-isef.png";
-import logoYygs from "../assets/activity-logo-yygs.png";
-import logoScholastic from "../assets/activity-logo-scholastic.png";
-import logoCongressional from "../assets/activity-logo-congressional-award.png";
-import logoNhsmun from "../assets/activity-logo-nhsmun.png";
+import logoRsi from "../assets/activity-logo-rsi.webp";
+import logoRegeneron from "../assets/activity-logo-regeneron.webp";
+import logoMites from "../assets/activity-logo-mites.webp";
+import logoUsaco from "../assets/activity-logo-usaco.webp";
+import logoSimons from "../assets/activity-logo-simons.webp";
+import logoIsef from "../assets/activity-logo-isef.webp";
+import logoYygs from "../assets/activity-logo-yygs.webp";
+import logoScholastic from "../assets/activity-logo-scholastic.webp";
+import logoCongressional from "../assets/activity-logo-congressional-award.webp";
+import logoNhsmun from "../assets/activity-logo-nhsmun.webp";
 import plus from "../assets/plus-small.svg";
 import "./activities-card.css";
 

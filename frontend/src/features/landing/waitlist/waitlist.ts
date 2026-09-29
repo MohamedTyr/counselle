@@ -18,7 +18,7 @@ const BOOKING_SCHEDULE =
 /** `gv` is Google's own embed switch; without it the page refuses a frame. */
 export const BOOKING_EMBED_URL = `${BOOKING_SCHEDULE}?gv=true`;
 export const BOOKING_PAGE_URL = "https://calendar.app.google/9Aaj4ivuMh1LSWWJ9";
-export const CONTACT_EMAIL = "hello@acceptra.ai";
+export { CONTACT_EMAIL } from "../brand";
 
 const PREVIEW_DELAY_MS = 700;
 const EMAIL_SHAPE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
