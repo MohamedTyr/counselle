@@ -10,9 +10,9 @@ export const SITE_URL = "https://acceptra.ai";
 export const SITE_HOST = new URL(SITE_URL).hostname;
 export const BRAND = "Acceptra";
 export const CONTACT_EMAIL = "hello@acceptra.ai";
-export const SCHOOL_COUNT = "2,700+";
+export const SCHOOL_COUNT = "2,200+";
 
-export const DEFINITION = `${BRAND} is an AI college counselor for students, parents, school counselors and school officials: essay feedback, a college list matched to you, scholarships, activities, SAT practice and every deadline in one place, checked against ${SCHOOL_COUNT} schools.`;
+export const DEFINITION = `${BRAND} is an AI college admissions counselor for students, parents, school counselors and school officials: essay feedback, a college list matched to you, scholarships, activities, SAT practice and every deadline in one place, checked against ${SCHOOL_COUNT} schools.`;
 
 /** Separates the brand from same-named products in other categories. */
 export const DISAMBIGUATION =

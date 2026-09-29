@@ -12,13 +12,16 @@ import { PLANS, type Plan } from "./sections/plans";
 
 const ORG_ID = `${SITE_URL}/#org`;
 /** Each plan's billing period, as a UN/CEFACT unit and an ISO 8601 duration. */
-const BILLING: Record<string, { unitCode: string; billingDuration: string }> = {
-  "/month": { unitCode: "MON", billingDuration: "P1M" },
-  "/year": { unitCode: "ANN", billingDuration: "P1Y" },
+const BILLING: Record<
+  Plan["period"],
+  { unitCode: string; billingDuration: string }
+> = {
+  month: { unitCode: "MON", billingDuration: "P1M" },
+  year: { unitCode: "ANN", billingDuration: "P1Y" },
 };
 
 function offer(plan: Plan) {
-  const price = Number(plan.price.replace(/[^0-9.]/g, ""));
+  const price = plan.amount;
   return {
     "@type": "Offer",
     name: plan.tier,

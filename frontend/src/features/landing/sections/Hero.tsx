@@ -10,13 +10,15 @@ import { SchoolsMarquee } from "./SchoolsMarquee";
 import { PROMPTS, useComposerTypewriter } from "../useComposerTypewriter";
 import { useNavScroll } from "../useNavScroll";
 import { useNavGlide } from "../useNavGlide";
+import { CONTACT_EMAIL } from "../brand";
+import { WAITLIST_HREF } from "../waitlist/useWaitlistDialog";
 import "./hero.css";
 
 const NAV_LINKS = [
   { label: "Home", href: "/" },
   { label: "Features", href: "#features" },
   { label: "Pricing", href: "#pricing" },
-  { label: "Contact", href: "mailto:hello@acceptra.ai" },
+  { label: "Contact", href: `mailto:${CONTACT_EMAIL}` },
 ];
 
 /** An arrow up and to the right, the two wings of its head curving in to
@@ -41,7 +43,8 @@ export function CtaArrow() {
   );
 }
 
-function HeroNav() {
+/** The site header: first in the page, fixed over the hero. */
+export function HeroNav() {
   const nav = useNavScroll();
   const links = useNavGlide();
   return (
@@ -65,7 +68,11 @@ function HeroNav() {
         <a className="lp-nav-secondary" href="#schools">
           For schools
         </a>
-        <a className="lp-nav-cta" href="#waitlist" data-waitlist-source="nav">
+        <a
+          className="lp-nav-cta"
+          href={WAITLIST_HREF}
+          data-waitlist-source="nav"
+        >
           Join waitlist
           <span className="lp-nav-cta-chip" aria-hidden="true">
             <CtaArrow />
@@ -95,7 +102,7 @@ function HeroComposer() {
   const request = useRef<HTMLSpanElement>(null);
   useComposerTypewriter(request);
   return (
-    <div className="lp-composer" aria-hidden="true">
+    <div className="lp-composer" aria-hidden="true" data-nosnippet>
       <div className="lp-composer-input">
         <span className="lp-token">/goal</span>
         <span className="lp-token">@user-profile</span>
@@ -127,7 +134,7 @@ function HeroComposer() {
 
 export function Hero() {
   return (
-    <section className="lp-hero-section" aria-label="Acceptra">
+    <section className="lp-hero-section" id="top" aria-label="Acceptra">
       <div className="lp-hero">
         <HeroBackdrop />
         <div className="lp-hero-body">
@@ -137,7 +144,6 @@ export function Hero() {
         <div className="lp-hero-grain" aria-hidden="true" />
         <HeroCards />
         <div className="lp-hero-glow" aria-hidden="true" />
-        <HeroNav />
       </div>
       <SchoolsMarquee />
     </section>

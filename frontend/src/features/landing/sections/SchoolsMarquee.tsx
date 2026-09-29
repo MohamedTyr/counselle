@@ -45,17 +45,17 @@ const TILES: Tile[] = [
   { name: "Yale University", src: markYale, width: 131 },
 ];
 
+const MARQUEE_LABEL = `Including ${new Intl.ListFormat("en", {
+  type: "conjunction",
+}).format(TILES.map((tile) => tile.name))}`;
+
 export function SchoolsMarquee() {
   return (
     <div className="lp-marquee-block">
       <p className="lp-marquee-label">
         Matched against {SCHOOL_COUNT} schools, including
       </p>
-      <div
-        className="lp-marquee"
-        role="img"
-        aria-label="Logos of schools Acceptra matches against"
-      >
+      <div className="lp-marquee" role="img" aria-label={MARQUEE_LABEL}>
         <div className="lp-marquee-track">
           {[0, 1, 2, 3].map((pass) =>
             TILES.map((tile) => (

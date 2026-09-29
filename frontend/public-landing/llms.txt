@@ -1,8 +1,8 @@
 # Acceptra
 
-> Acceptra is an AI college counselor for students, parents, school counselors and school officials: essay feedback, a college list matched to you, scholarships, activities, SAT practice and every deadline in one place, checked against 2,700+ schools.
+> Acceptra is an AI college admissions counselor for students, parents, school counselors and school officials: essay feedback, a college list matched to you, scholarships, activities, SAT practice and every deadline in one place, checked against 2,200+ schools.
 
-Acceptra opens soon. It is taking sign-ups on a waitlist at https://acceptra.ai/#waitlist, and schools can book a walkthrough from https://acceptra.ai/#schools.
+Acceptra opens soon. It is taking sign-ups on a waitlist: sign up at https://acceptra.ai (the Join waitlist button). Schools can book a walkthrough from the For schools section of the same page.
 
 ## Who it is for
 
@@ -27,9 +27,23 @@ Acceptra opens soon. It is taking sign-ups on a waitlist at https://acceptra.ai/
 - Monthly: $20 a month, cancel any time. Unlimited questions and essay feedback, two mentor calls a month, deadlines, tasks and scholarships.
 - Yearly: $99 a year, one payment from junior spring through decision day. Everything in Monthly, plus activities and summer programs.
 
+## FAQ
+
+### Does Acceptra write the essay for me?
+
+No. It reads what you wrote, marks it up line by line, and suggests changes you accept or reject. It never invents a detail about your life. When something is missing, it asks you, so every word stays yours.
+
+### Where does the school data come from?
+
+From published admissions, cost and aid figures for each school, checked for changes every day. Nothing is estimated or made up, and a number we don’t have is shown as missing rather than guessed.
+
+### Is my data sold or used for advertising?
+
+No. We do not sell your personal information, and we do not share it for advertising. Acceptra isn’t open yet; before it opens we will publish an updated privacy policy that covers accounts and essays, and email everyone on the waitlist.
+
 ## Links
 
-- Home: https://acceptra.ai/
-- Privacy Policy: https://acceptra.ai/privacy
-- Terms of Service: https://acceptra.ai/terms
-- Contact: hello@acceptra.ai
+- [Home](https://acceptra.ai/)
+- [Privacy Policy](https://acceptra.ai/privacy)
+- [Terms of Service](https://acceptra.ai/terms)
+- [Contact](mailto:hello@acceptra.ai)

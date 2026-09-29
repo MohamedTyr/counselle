@@ -43,7 +43,7 @@ check "two font preloads" '[ "$(grep -o "as=\"font\"" <<<"$page" | wc -l)" -eq 2
 check "no <noscript>" '! has "<noscript"'
 check "no Cloudflare email obfuscation" '! has "/cdn-cgi/l/email-protection"'
 check "no 400+ schools" '! has "400+ schools"'
-check "2,700+ schools" 'has "2,700+"'
+check "2,200+ schools" 'has "2,200+"'
 check "no noindex meta" '! grep -qi "name=\"robots\"[^>]*noindex" <<<"$page"'
 check "no X-Robots-Tag on production host" '! curl -sI "$BASE/" | grep -qi "^x-robots-tag"'
 

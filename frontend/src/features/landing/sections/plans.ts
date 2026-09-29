@@ -4,8 +4,9 @@ import type { PlanId } from "../waitlist/contract";
 export type Plan = {
   id: PlanId;
   tier: string;
-  price: string;
-  period: string;
+  /** US dollars per period. */
+  amount: number;
+  period: "month" | "year";
   note: string;
   features: string[];
 };
@@ -14,8 +15,8 @@ export const PLANS: Plan[] = [
   {
     id: "free",
     tier: "Free",
-    price: "$0",
-    period: "/month",
+    amount: 0,
+    period: "month",
     note: "For getting a feel for it. No card needed.",
     features: [
       "20 questions a month",
@@ -27,8 +28,8 @@ export const PLANS: Plan[] = [
   {
     id: "monthly",
     tier: "Monthly",
-    price: "$20",
-    period: "/month",
+    amount: 20,
+    period: "month",
     note: "Billed monthly. Cancel any time.",
     features: [
       "Unlimited questions",
@@ -40,8 +41,8 @@ export const PLANS: Plan[] = [
   {
     id: "yearly",
     tier: "Yearly",
-    price: "$99",
-    period: "/year",
+    amount: 99,
+    period: "year",
     note: "Billed once. About $8 a month, less than five months of Monthly.",
     features: [
       "Everything in Monthly",

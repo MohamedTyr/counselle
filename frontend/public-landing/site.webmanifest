@@ -1,7 +1,7 @@
 {
   "name": "Acceptra",
   "short_name": "Acceptra",
-  "description": "AI college counselor for students, parents and schools.",
+  "description": "AI college admissions counselor for students, parents and schools: essay feedback, college lists, scholarships, SAT practice and deadlines. Join the waitlist.",
   "start_url": "/",
   "display": "browser",
   "theme_color": "#f7fbf9",

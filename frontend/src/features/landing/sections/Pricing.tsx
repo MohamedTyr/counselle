@@ -1,5 +1,6 @@
 import check from "../assets/plan-check-circle.svg";
 import { PLANS, type Plan } from "./plans";
+import { WAITLIST_HREF } from "../waitlist/useWaitlistDialog";
 import "./pricing.css";
 
 function PlanCard({ plan }: { plan: Plan }) {
@@ -8,13 +9,13 @@ function PlanCard({ plan }: { plan: Plan }) {
       <div className="lp-plan-top">
         <h3 className="lp-plan-tier">{plan.tier}</h3>
         <p className="lp-plan-price-row">
-          <span className="lp-plan-price">{plan.price}</span>
-          <span className="lp-plan-period">{plan.period}</span>
+          <span className="lp-plan-price">${plan.amount}</span>
+          <span className="lp-plan-period">/{plan.period}</span>
         </p>
         <p className="lp-plan-note">{plan.note}</p>
         <a
           className="lp-plan-button"
-          href="#waitlist"
+          href={WAITLIST_HREF}
           data-waitlist-source="plan"
           data-waitlist-plan={plan.id}
         >

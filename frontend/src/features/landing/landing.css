@@ -124,6 +124,14 @@
   outline: 2px solid var(--lp-green);
   outline-offset: 2px;
 }
+/* The hero bleeds to the gutter; the sections after it keep the content width. */
+.lp-page {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--lp-section-gap);
+}
 .lp-main {
   width: 100%;
   max-width: var(--lp-content);

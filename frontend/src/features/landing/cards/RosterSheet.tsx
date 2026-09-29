@@ -203,7 +203,7 @@ function Row({ student, index }: { student: Student; index: number }) {
 export function RosterSheet() {
   const figure = useRosterMotion();
   return (
-    <div className="lp-roster" ref={figure} aria-hidden="true">
+    <div className="lp-roster" ref={figure} aria-hidden="true" data-nosnippet>
       <div className="lp-sheet lp-roster-sheet">
         <div className="lp-roster-header">
           <p className="lp-roster-title">

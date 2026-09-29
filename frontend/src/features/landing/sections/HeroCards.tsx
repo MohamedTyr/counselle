@@ -264,7 +264,7 @@ function ActivitiesCard() {
 /** The workspace at a glance: static illustrations, stacked in paint order. */
 export function HeroCards() {
   return (
-    <div className="lp-hero-cards" aria-hidden="true">
+    <div className="lp-hero-cards" aria-hidden="true" data-nosnippet>
       <div className="lp-hc-slot lp-hc-slot-tasks">
         <TasksCard />
       </div>

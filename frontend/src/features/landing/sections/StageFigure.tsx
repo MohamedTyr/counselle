@@ -104,6 +104,7 @@ export function StageFigure({
       className={`lp-stage-figure lp-stage-figure-${feature.size}${
         leaving ? " lp-stage-figure-leaving" : ""
       }`}
+      data-nosnippet
     >
       <div className={`lp-stage-art lp-stage-art-${feature.size}`}>
         <Sheet />

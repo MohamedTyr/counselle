@@ -1,5 +1,6 @@
 import { RosterSheet } from "../cards/RosterSheet";
 import { CtaArrow } from "./Hero";
+import { SCHOOLS_HREF } from "../waitlist/useWaitlistDialog";
 import "./schools.css";
 
 const POINTS = [
@@ -51,7 +52,7 @@ export function Schools() {
       </ul>
       <a
         className="lp-nav-cta lp-schools-cta"
-        href="#waitlist-schools"
+        href={SCHOOLS_HREF}
         data-waitlist-source="schools"
       >
         Book a walkthrough

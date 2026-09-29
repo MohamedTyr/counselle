@@ -2,6 +2,7 @@ import wordmark from "../assets/wordmark-footer.svg";
 import arrow from "../assets/footer-arrow.svg";
 import { useId, useState, type FormEvent } from "react";
 import { track } from "../analytics";
+import { CONTACT_EMAIL } from "../brand";
 import {
   emailProblem,
   failureStatus,
@@ -18,7 +19,7 @@ const PRODUCT_LINKS = [
 ];
 const COMPANY_LINKS = [
   { label: "FAQ", href: "#faq" },
-  { label: "Contact", href: "mailto:hello@acceptra.ai" },
+  { label: "Contact", href: `mailto:${CONTACT_EMAIL}` },
   { label: "Privacy", href: PRIVACY_URL },
   { label: "Terms", href: TERMS_URL },
 ];

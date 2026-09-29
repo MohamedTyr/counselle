@@ -1,6 +1,6 @@
 import { lazy, Suspense } from "react";
 import "./landing.css";
-import { Hero } from "./sections/Hero";
+import { Hero, HeroNav } from "./sections/Hero";
 import { Features } from "./sections/Features";
 import { Compare } from "./sections/Compare";
 import { Pricing } from "./sections/Pricing";
@@ -26,18 +26,21 @@ export function LandingPage() {
   return (
     <div className="lp" ref={landingRef}>
       <StructuredData />
-      <a className="lp-skip" href="#features">
+      <a className="lp-skip" href="#top">
         Skip to content
       </a>
       <div className="lp-canvas">
-        <Hero />
-        <main className="lp-main">
-          <Features />
-          <Testimonials />
-          <Compare />
-          <Pricing />
-          <Schools />
-          <Faq />
+        <HeroNav />
+        <main className="lp-page">
+          <Hero />
+          <div className="lp-main">
+            <Features />
+            <Testimonials />
+            <Compare />
+            <Pricing />
+            <Schools />
+            <Faq />
+          </div>
         </main>
         <Footer />
       </div>
