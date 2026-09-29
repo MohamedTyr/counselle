@@ -1,6 +1,6 @@
 import type { ComponentType } from "react";
 import { EssaySheet } from "../cards/EssayCard";
-import { AskSheet } from "../cards/colleges/AskSheet";
+import { AskSheet } from "../cards/AskSheet";
 import { ScholarshipsSheet } from "../cards/ScholarshipsCard";
 import { ActivitiesSheet } from "../cards/ActivitiesCard";
 import { SatSheet } from "../cards/SatCard";

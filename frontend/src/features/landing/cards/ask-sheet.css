@@ -1,3 +1,14 @@
+/* The school-matching sheet: a student asks with their story, the agent
+   answers with it and saves the list. */
+.lp-cx {
+  --cx-reach: #4b3bb0;
+  --cx-target: var(--lp-green-deep);
+  --cx-safety: #4a5250;
+  --cx-violet: #3d3183;
+  color: var(--lp-ink);
+  font-size: 13px;
+  line-height: 18px;
+}
 .lp-cx-ask {
   display: grid;
   grid-template-columns: 360px minmax(0, 1fr);

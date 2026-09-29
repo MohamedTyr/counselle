@@ -4,7 +4,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { burstTime, useIllustrationMotion } from "./useIllustrationMotion";
 import { SatSheet } from "./cards/SatCard";
 import { DeadlinesSheet } from "./cards/DeadlinesCard";
-import { AskSheet } from "./cards/colleges/AskSheet";
+import { AskSheet } from "./cards/AskSheet";
 
 type Call = [Keyframe[], KeyframeAnimationOptions];
 const calls = () => animate.mock.calls as unknown as Call[];
