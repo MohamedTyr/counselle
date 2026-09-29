@@ -69,40 +69,48 @@ type PopupProps = {
   onSide: (side: Side) => void;
 };
 
-function WaitlistPopup({ request, trigger, onSide }: PopupProps) {
-  const [side, setSide] = useState<Side>(request.side);
-  const [shown, setShown] = useState<Side>(request.side);
-  const [leaving, setLeaving] = useState(false);
-  const popup = useRef<HTMLDivElement>(null);
-  const wash = useRef<HTMLDivElement>(null);
-  const body = useRef<HTMLDivElement>(null);
-  const email = useRef<HTMLInputElement>(null);
-  const swap = useRef<ReturnType<typeof setTimeout>>(undefined);
-  const reduced = useMediaQuery(REDUCED_MOTION);
-  // The popup and its wash are sized to the content, so CSS can ease between sides.
+type Ref = RefObject<HTMLDivElement | null>;
+
+/**
+ * The popup and its wash are sized to the content in pixels, so CSS can ease
+ * between the two sides' shapes.
+ */
+function usePopupFit(popupRef: Ref, washRef: Ref, bodyRef: Ref, shown: Side) {
   useLayoutEffect(() => {
-    const content = body.current;
+    const content = bodyRef.current;
     const slot = content?.querySelector<HTMLElement>(".lp-wl-slot");
     if (!content || !slot || typeof ResizeObserver === "undefined") return;
     const fit = () => {
-      if (!popup.current || !wash.current) return;
-      const frame = popup.current.offsetWidth - popup.current.clientWidth;
-      const style = getComputedStyle(popup.current);
+      if (!popupRef.current || !washRef.current) return;
+      const frame = popupRef.current.offsetWidth - popupRef.current.clientWidth;
+      const style = getComputedStyle(popupRef.current);
       const padX =
         parseFloat(style.paddingLeft) + parseFloat(style.paddingRight);
       const padY =
         parseFloat(style.paddingTop) + parseFloat(style.paddingBottom);
-      popup.current.style.width = `${content.offsetWidth + padX + frame}px`;
-      popup.current.style.height = `${content.offsetHeight + padY}px`;
-      wash.current.style.width = `${slot.offsetWidth}px`;
-      wash.current.style.height = `${slot.offsetHeight}px`;
+      popupRef.current.style.width = `${content.offsetWidth + padX + frame}px`;
+      popupRef.current.style.height = `${content.offsetHeight + padY}px`;
+      washRef.current.style.width = `${slot.offsetWidth}px`;
+      washRef.current.style.height = `${slot.offsetHeight}px`;
     };
     fit();
     const observer = new ResizeObserver(fit);
     observer.observe(content);
     observer.observe(slot);
     return () => observer.disconnect();
-  }, [shown]);
+  }, [popupRef, washRef, bodyRef, shown]);
+}
+
+/**
+ * The chosen side and the side on show: the old side leaves first, then the
+ * new one replaces it. Choosing back before it has gone just stays.
+ */
+function useSideSwap(initial: Side, onSide: (side: Side) => void) {
+  const [side, setSide] = useState<Side>(initial);
+  const [shown, setShown] = useState<Side>(initial);
+  const [leaving, setLeaving] = useState(false);
+  const swap = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const reduced = useMediaQuery(REDUCED_MOTION);
   useEffect(() => () => clearTimeout(swap.current), []);
 
   function choose(next: Side) {
@@ -110,12 +118,9 @@ function WaitlistPopup({ request, trigger, onSide }: PopupProps) {
     clearTimeout(swap.current);
     setSide(next);
     onSide(next);
-    if (next === shown) {
-      setLeaving(false);
-      return;
-    }
-    if (reduced) {
+    if (next === shown || reduced) {
       setShown(next);
+      setLeaving(false);
       return;
     }
     setLeaving(true);
@@ -124,6 +129,31 @@ function WaitlistPopup({ request, trigger, onSide }: PopupProps) {
       setLeaving(false);
     }, SWAP_OUT_MS);
   }
+  return { side, shown, leaving, choose };
+}
+
+function CloseButton() {
+  return (
+    <Dialog.Close className="lp-wl-close" aria-label="Close">
+      <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
+        <path
+          d="M1.5 1.5l9 9m0-9l-9 9"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+        />
+      </svg>
+    </Dialog.Close>
+  );
+}
+
+function WaitlistPopup({ request, trigger, onSide }: PopupProps) {
+  const { side, shown, leaving, choose } = useSideSwap(request.side, onSide);
+  const popup = useRef<HTMLDivElement>(null);
+  const wash = useRef<HTMLDivElement>(null);
+  const body = useRef<HTMLDivElement>(null);
+  const email = useRef<HTMLInputElement>(null);
+  usePopupFit(popup, wash, body, shown);
 
   const entry = { side: shown, source: request.source, plan: request.plan };
   return (
@@ -151,16 +181,7 @@ function WaitlistPopup({ request, trigger, onSide }: PopupProps) {
           <ForSchool entry={entry} />
         )}
       </div>
-      <Dialog.Close className="lp-wl-close" aria-label="Close">
-        <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
-          <path
-            d="M1.5 1.5l9 9m0-9l-9 9"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-          />
-        </svg>
-      </Dialog.Close>
+      <CloseButton />
     </Dialog.Popup>
   );
 }

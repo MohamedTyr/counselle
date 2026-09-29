@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef } from "react";
+import { useLayoutEffect, useRef, type RefObject } from "react";
 import type { Feature } from "./featureList";
 import { ENTRANCE } from "../motion";
 import { useIllustrationMotion } from "../useIllustrationMotion";
@@ -23,42 +23,24 @@ type StageFigureProps = {
   paused: boolean;
 };
 
-/** One sheet on the stage: it arrives, demonstrates its feature, and leaves. */
-export function StageFigure({
-  feature,
-  run,
-  entrance,
-  leaving,
-  onGone,
-  keyboard,
-  reduced,
-  inView,
-  hidden,
-  paused,
-}: StageFigureProps) {
-  const figure = useRef<HTMLDivElement>(null);
-  const arrival = useRef<Animation | undefined>(undefined);
-  const { Sheet } = feature;
-  useIllustrationMotion(figure, {
-    feature: feature.id,
-    keyboard,
-    reduced,
+type Arrival = RefObject<Animation | undefined>;
+
+/** A replacing sheet rises in, once, as it appears. */
+function useArrival(
+  figure: RefObject<HTMLDivElement | null>,
+  arrivalRef: Arrival,
+  {
+    entrance,
     inView,
     hidden,
-    paused: paused || leaving,
-  });
-
+    reduced,
+  }: Pick<StageFigureProps, "entrance" | "inView" | "hidden" | "reduced">,
+) {
   useLayoutEffect(() => {
     const node = figure.current;
-    if (
-      !entrance ||
-      !node ||
-      !inView ||
-      hidden ||
-      typeof node.animate !== "function"
-    )
-      return;
-    arrival.current = node.animate(
+    if (!entrance || !node || !inView || hidden) return;
+    if (typeof node.animate !== "function") return;
+    arrivalRef.current = node.animate(
       reduced
         ? [{ opacity: 0 }, { opacity: 1 }]
         : [
@@ -67,11 +49,23 @@ export function StageFigure({
           ],
       { duration: reduced ? REDUCED_MS : ENTER_MS, easing: ENTRANCE },
     );
-    return () => arrival.current?.cancel();
+    return () => arrivalRef.current?.cancel();
     // The arrival belongs to the moment the sheet appears, not to later changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+}
 
+/** A replaced sheet sinks away, then asks to be removed. */
+function useExit(
+  figure: RefObject<HTMLDivElement | null>,
+  arrivalRef: Arrival,
+  {
+    leaving,
+    reduced,
+    run,
+    onGone,
+  }: Pick<StageFigureProps, "leaving" | "reduced" | "run" | "onGone">,
+) {
   useLayoutEffect(() => {
     if (!leaving) return;
     const node = figure.current;
@@ -81,7 +75,7 @@ export function StageFigure({
     }
     // Leave from wherever the arrival had got to, so a quick second choice never snaps.
     const { opacity, transform } = getComputedStyle(node);
-    arrival.current?.cancel();
+    arrivalRef.current?.cancel();
     const exit = node.animate(
       [
         { opacity, transform },
@@ -96,7 +90,26 @@ export function StageFigure({
     const gone = () => onGone(run);
     exit.finished.then(gone, gone);
     return () => exit.cancel();
-  }, [leaving, reduced, onGone, run]);
+  }, [figure, arrivalRef, leaving, reduced, onGone, run]);
+}
+
+/** One sheet on the stage: it arrives, demonstrates its feature, and leaves. */
+export function StageFigure(props: StageFigureProps) {
+  const { feature, entrance, leaving, keyboard, reduced, inView, hidden } =
+    props;
+  const figure = useRef<HTMLDivElement>(null);
+  const arrival = useRef<Animation | undefined>(undefined);
+  const { Sheet } = feature;
+  useIllustrationMotion(figure, {
+    feature: feature.id,
+    keyboard,
+    reduced,
+    inView,
+    hidden,
+    paused: props.paused || leaving,
+  });
+  useArrival(figure, arrival, { entrance, inView, hidden, reduced });
+  useExit(figure, arrival, props);
 
   return (
     <div

@@ -108,3 +108,6 @@ export const FEATURES: Feature[] = [
     Sheet: DeadlinesSheet,
   },
 ];
+
+/** The id of a feature's tab, which its panel is labelled by. */
+export const stageTabId = (feature: Feature) => `lp-stage-tab-${feature.id}`;

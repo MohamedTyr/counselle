@@ -76,17 +76,15 @@ function Chips<Value extends string>({
 }
 
 type Answers = { role?: Role; classOf?: ClassYear };
+type Entry = Omit<WaitlistEntry, "email">;
 
-type Props = {
-  entry: Omit<WaitlistEntry, "email">;
-  inputRef: RefObject<HTMLInputElement | null>;
-};
-
-export function ForMe({ entry, inputRef }: Props) {
-  const [joined, setJoined] = useState<string | null>(null);
+/**
+ * The optional details, saved as each is chosen. A failed save puts the
+ * previous answers back and says so.
+ */
+function useDetails(entry: Entry, joined: string | null) {
   const [answers, setAnswers] = useState<Answers>({});
   const [unsaved, setUnsaved] = useState(false);
-
   async function answer(next: Answers) {
     if (!joined) return;
     const before = answers;
@@ -96,42 +94,85 @@ export function ForMe({ entry, inputRef }: Props) {
       await submitWaitlist({ ...entry, ...next, email: joined });
       track("waitlist_details", { role: next.role, class_of: next.classOf });
     } catch (error) {
-      track("waitlist_failed", {
-        side: entry.side,
-        source: entry.source,
-        step: "details",
-        status: failureStatus(error),
-      });
+      const { side, source } = entry;
+      const status = failureStatus(error);
+      track("waitlist_failed", { side, source, step: "details", status });
       setAnswers(before);
       setUnsaved(true);
     }
   }
+  return { answers, unsaved, answer, reset: () => setAnswers({}) };
+}
 
+/** The heading swaps to the receipt once the email is on the list. */
+function Heading({ joined }: { joined: boolean }) {
+  const swap = joined ? " lp-wl-swap" : "";
+  return (
+    <>
+      <Dialog.Title
+        className={`lp-wl-title${swap}`}
+        key={joined ? "joined" : "open"}
+      >
+        {joined ? (
+          <>
+            You&rsquo;re on the <em>list</em>
+          </>
+        ) : (
+          <>
+            Get in <em>early</em>
+          </>
+        )}
+      </Dialog.Title>
+      <p className={`lp-wl-lede${swap}`} key={joined ? "joined-lede" : "lede"}>
+        {joined ? "We'll email you when we open." : "One email, when we open."}
+      </p>
+    </>
+  );
+}
+
+/** Who they are, asked once they are on the list; every answer is optional. */
+function Details({ answers, unsaved, answer }: ReturnType<typeof useDetails>) {
+  return (
+    <div className="lp-wl-rest lp-wl-swap">
+      <Chips
+        label="I'm a"
+        options={ROLE_OPTIONS}
+        value={answers.role}
+        onChange={(role) => void answer({ ...answers, role })}
+      />
+      {answers.role !== "counselor" && (
+        <Chips
+          label="Class of"
+          options={CLASS_OPTIONS}
+          value={answers.classOf}
+          onChange={(classOf) => void answer({ ...answers, classOf })}
+        />
+      )}
+      <p className="lp-wl-problem" role="alert">
+        {unsaved ? "We couldn't save that. Try again." : null}
+      </p>
+      <Dialog.Close className="lp-wl-done">Done</Dialog.Close>
+    </div>
+  );
+}
+
+type Props = {
+  entry: Entry;
+  inputRef: RefObject<HTMLInputElement | null>;
+};
+
+export function ForMe({ entry, inputRef }: Props) {
+  const [joined, setJoined] = useState<string | null>(null);
+  const details = useDetails(entry, joined);
+  const undo = () => {
+    setJoined(null);
+    details.reset();
+    requestAnimationFrame(() => inputRef.current?.focus());
+  };
   return (
     <>
       <div className="lp-wl-slot">
-        <Dialog.Title
-          className={joined ? "lp-wl-title lp-wl-swap" : "lp-wl-title"}
-          key={joined ? "joined" : "open"}
-        >
-          {joined ? (
-            <>
-              You&rsquo;re on the <em>list</em>
-            </>
-          ) : (
-            <>
-              Get in <em>early</em>
-            </>
-          )}
-        </Dialog.Title>
-        <p
-          className={joined ? "lp-wl-lede lp-wl-swap" : "lp-wl-lede"}
-          key={joined ? "joined-lede" : "lede"}
-        >
-          {joined
-            ? "We'll email you when we open."
-            : "One email, when we open."}
-        </p>
+        <Heading joined={joined !== null} />
         <EmailField
           entry={entry}
           label="Email address"
@@ -144,37 +185,14 @@ export function ForMe({ entry, inputRef }: Props) {
           <button
             type="button"
             className="lp-wl-link lp-wl-undo"
-            onClick={() => {
-              setJoined(null);
-              setAnswers({});
-              requestAnimationFrame(() => inputRef.current?.focus());
-            }}
+            onClick={undo}
           >
             Wrong email?
           </button>
         )}
       </div>
       {joined ? (
-        <div className="lp-wl-rest lp-wl-swap">
-          <Chips
-            label="I'm a"
-            options={ROLE_OPTIONS}
-            value={answers.role}
-            onChange={(role) => void answer({ ...answers, role })}
-          />
-          {answers.role !== "counselor" && (
-            <Chips
-              label="Class of"
-              options={CLASS_OPTIONS}
-              value={answers.classOf}
-              onChange={(classOf) => void answer({ ...answers, classOf })}
-            />
-          )}
-          <p className="lp-wl-problem" role="alert">
-            {unsaved ? "We couldn't save that. Try again." : null}
-          </p>
-          <Dialog.Close className="lp-wl-done">Done</Dialog.Close>
-        </div>
+        <Details {...details} />
       ) : (
         <div className="lp-wl-rest">
           <CheckRows rows={POINTS} />

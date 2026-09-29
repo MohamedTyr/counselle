@@ -7,6 +7,7 @@ import {
   type WaitlistEntry,
 } from "./waitlist";
 import { LegalConsent } from "./LegalConsent";
+import { TrapField } from "./TrapField";
 
 type Props = {
   entry: Omit<WaitlistEntry, "email">;
@@ -40,15 +41,8 @@ export function DrawnCheck() {
   );
 }
 
-export function EmailField({
-  entry,
-  label,
-  action,
-  joined,
-  onJoined,
-  inputRef,
-}: Props) {
-  const id = useId();
+/** Validate, send unless the trap was filled, and report either outcome. */
+function useEmailSubmit({ entry, joined, onJoined }: Props) {
   const [email, setEmail] = useState("");
   const [sending, setSending] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
@@ -58,35 +52,33 @@ export function EmailField({
     if (sending || joined) return;
     const value = email.trim();
     const invalid = emailProblem(value);
-    if (invalid) {
-      setProblem(invalid);
-      return;
-    }
+    setProblem(invalid);
+    if (invalid) return;
     const trap = new FormData(event.currentTarget).get("website");
-    setProblem(null);
+    const { side, source, plan } = entry;
     setSending(true);
     try {
       // A filled trap field is a bot; it is told it joined and nothing is sent.
       if (!trap) {
         await submitWaitlist({ ...entry, email: value });
-        const { side, source, plan } = entry;
         track("waitlist_joined", { side, source, plan });
       }
       onJoined(value);
     } catch (error) {
-      const { side, source } = entry;
-      track("waitlist_failed", {
-        side,
-        source,
-        step: "join",
-        status: failureStatus(error),
-      });
+      const status = failureStatus(error);
+      track("waitlist_failed", { side, source, step: "join", status });
       setProblem("We couldn't reach the list. Try again.");
     } finally {
       setSending(false);
     }
   }
+  return { email, setEmail, sending, problem, submit };
+}
 
+export function EmailField(props: Props) {
+  const { label, action, joined, inputRef } = props;
+  const id = useId();
+  const { email, setEmail, sending, problem, submit } = useEmailSubmit(props);
   return (
     <form className="lp-wl-form" onSubmit={submit} noValidate>
       <div
@@ -115,14 +107,7 @@ export function EmailField({
           aria-describedby={problem ? `${id}-problem` : undefined}
           onChange={(event) => setEmail(event.target.value)}
         />
-        <input
-          className="lp-wl-trap"
-          name="website"
-          type="text"
-          tabIndex={-1}
-          autoComplete="off"
-          aria-hidden="true"
-        />
+        <TrapField />
         <button
           className="lp-wl-submit"
           type="submit"
