@@ -1,0 +1,219 @@
+.lp-card-sat {
+  height: 327px;
+  background: #16336b;
+}
+.lp-sat-sheet {
+  height: 279px;
+}
+.lp-question {
+  position: absolute;
+  left: 24px;
+  top: 16px;
+  width: 488px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.lp-question-strap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 3px 8px 3px 3px;
+  background: rgba(18, 18, 20, 0.05);
+  border-radius: 10px;
+  font-size: 12.5px;
+}
+.lp-question-number {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  background: var(--lp-ink);
+  border-radius: 6px;
+  font-weight: 500;
+  color: #fff;
+}
+.lp-question-review {
+  flex: 1 0 0;
+  min-width: 1px;
+  color: rgba(18, 18, 20, 0.8);
+}
+.lp-question-eliminate {
+  padding: 3px 6px;
+  background: var(--lp-ink);
+  border-radius: 6px;
+  font-weight: 500;
+  font-size: 10.5px;
+  color: #fff;
+  text-decoration: line-through;
+}
+.lp-question-text {
+  font-size: 16px;
+  color: var(--lp-ink);
+}
+.lp-choices {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.lp-choice {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px 8px 8px;
+  background: #fff;
+  border: 1px solid rgba(18, 18, 20, 0.14);
+  border-radius: 10px;
+  font-size: 14px;
+  color: var(--lp-ink);
+  white-space: nowrap;
+}
+.lp-choice-letter {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border: 1px solid rgba(18, 18, 20, 0.35);
+  border-radius: 10px;
+  font-weight: 500;
+  font-size: 10.5px;
+}
+.lp-choice-dim {
+  opacity: 0.42;
+}
+.lp-choice-correct {
+  background: var(--lp-green-tint);
+  border-color: var(--lp-green-deep);
+}
+.lp-choice-correct .lp-choice-letter {
+  background: var(--lp-green-deep);
+  border: 0;
+  color: #fff;
+}
+.lp-choice-correct .lp-choice-verdict {
+  color: var(--lp-green-deep);
+}
+.lp-choice-wrong {
+  background: #fdedec;
+  border: 1.5px solid #b22121;
+}
+.lp-choice-wrong .lp-choice-letter {
+  background: #b22121;
+  border: 0;
+  color: #fff;
+}
+.lp-choice-wrong .lp-choice-verdict {
+  color: #b22121;
+}
+.lp-choice-verdict {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-weight: 500;
+  font-size: 12.5px;
+}
+.lp-sat-divider {
+  position: absolute;
+  left: 536px;
+  top: 0;
+  width: 1px;
+  height: 279px;
+  background: var(--lp-hairline);
+}
+.lp-ask {
+  position: absolute;
+  top: 22px;
+  width: 228px;
+  height: 235px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  right: 24px;
+}
+.lp-ask-header {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-weight: 500;
+  font-size: 13px;
+  color: var(--lp-ink);
+  white-space: nowrap;
+}
+.lp-ask-conversation {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.lp-ask-user-row {
+  display: flex;
+  justify-content: flex-end;
+}
+.lp-ask-bubble {
+  padding: 6px 11px;
+  background: var(--lp-ink);
+  border-radius: 14px;
+  font-size: 12.5px;
+  color: #fff;
+  white-space: nowrap;
+}
+.lp-ask-answer-slot {
+  position: relative;
+}
+.lp-ask-answer {
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--lp-ink);
+}
+.lp-ask-answer .lp-word {
+  display: inline-block;
+}
+/* The reply's thinking dots; visible only while the showcase streams it. */
+.lp-ask-typing {
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 20px;
+  opacity: 0;
+  pointer-events: none;
+}
+.lp-ask-typing i {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--lp-muted-3);
+}
+.lp-ask-composer {
+  display: flex;
+  align-items: center;
+  height: 32px;
+  padding: 4px 4px 4px 13px;
+  background: #fff;
+  border: 1px solid rgba(18, 18, 20, 0.14);
+  border-radius: 16px;
+  font-size: 12.5px;
+  color: var(--lp-muted-2);
+}
+.lp-ask-composer > span:first-child {
+  flex: 1 0 0;
+  min-width: 1px;
+}
+.lp-ask-send {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  background: #16336b;
+  border-radius: 12px;
+}
+.lp-sat-fade {
+  top: 241px;
+  width: 536px;
+  height: 38px;
+  background: linear-gradient(180deg, rgba(255, 255, 253, 0) 0%, #fffffd 100%);
+}

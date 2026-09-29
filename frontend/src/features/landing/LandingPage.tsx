@@ -1,59 +1,48 @@
-import { ArrowUpRight, Play } from "lucide-react";
-import { CounselleLogo } from "@/features/shell/CounselleLogo";
-import { PlanDemo } from "./PlanDemo";
 import "./landing.css";
+import { Hero } from "./sections/Hero";
+import { Features } from "./sections/Features";
+import { CollegesLab } from "./sections/CollegesLab";
+import { COLLEGES_PARAM } from "./cards/colleges/variants";
+import { Testimonials } from "./sections/Testimonials";
+import { Compare } from "./sections/Compare";
+import { Pricing } from "./sections/Pricing";
+import { Schools } from "./sections/Schools";
+import { Faq } from "./sections/Faq";
+import { Footer } from "./sections/Footer";
+import { useLandingMotion } from "./useLandingMotion";
+import { WaitlistDialog } from "./waitlist/WaitlistDialog";
+import { useWaitlistDialog } from "./waitlist/useWaitlistDialog";
+import "./responsive.css";
 
 export function LandingPage() {
-  function showExample() {
-    const example = document.getElementById("example");
-    example?.scrollIntoView({ behavior: "instant", block: "nearest" });
-    example?.focus({ preventScroll: true });
-  }
-
+  const landingRef = useLandingMotion();
+  const waitlist = useWaitlistDialog();
   return (
-    <div className="landing-page">
-      <a className="landing-skip" href="#hero-content">
+    <div className="lp" ref={landingRef}>
+      <a className="lp-skip" href="#features">
         Skip to content
       </a>
-      <header className="landing-nav">
-        <a className="landing-wordmark" href="/" aria-label="Counselle home">
-          <CounselleLogo />
-          <span>counselle</span>
-        </a>
-        <nav aria-label="Main navigation">
-          <button className="landing-nav-example" onClick={showExample}>
-            How it works
-          </button>
-          <a className="landing-signin" href="/login">
-            Sign in <ArrowUpRight size={16} aria-hidden="true" />
-          </a>
-        </nav>
-      </header>
-      <main className="landing-hero" id="hero-content">
-        <div className="hero-title">
-          <h1>
-            Your college ambitions.
-            <br />
-            <span>A plan that fits you.</span>
-          </h1>
-        </div>
-        <div className="hero-copy">
-          <p>
-            Your AI college counselor for choosing schools, strengthening
-            essays, and knowing what to do next.
-          </p>
-          <div className="hero-actions">
-            <a className="landing-primary" href="/register">
-              Build my plan <ArrowUpRight size={19} aria-hidden="true" />
-            </a>
-            <button className="landing-secondary" onClick={showExample}>
-              <Play size={13} fill="currentColor" aria-hidden="true" />
-              See an example
-            </button>
-          </div>
-        </div>
-        <PlanDemo />
-      </main>
+      <div className="lp-canvas">
+        <Hero />
+        <main className="lp-main">
+          <Features />
+          {COLLEGES_PARAM === "compare" && <CollegesLab />}
+          <Testimonials />
+          <Compare />
+          <Pricing />
+          <Schools />
+          <Faq />
+        </main>
+        <Footer />
+      </div>
+      <WaitlistDialog
+        open={waitlist.open}
+        request={waitlist.request}
+        trigger={waitlist.trigger}
+        container={landingRef}
+        onClose={waitlist.close}
+        onSide={waitlist.showSide}
+      />
     </div>
   );
 }

@@ -1914,26 +1914,60 @@ bypassed somewhere upstream — find that instead.
 *When this document and the code disagree, the code is the bug — unless the code is
 right, in which case this document is the bug. Fix whichever it is in the same PR.*
 
-## 22. Admissions landing hero
+## 22. Public landing page
 
-The public landing hero has an approved marketing-specific visual system, separate
-from workspace tokens. Its purpose is to show a student question becoming a useful
-next step. The direction is a full persimmon canvas with charcoal display type,
-Switzer regular/semibold, a broad two-line opening, and a dimensional question
-and plan composition with a short, replayable explanation. Source tokens live in
-`frontend/src/features/landing/landing.css`; the standalone Vite entry is
-`frontend/landing.html`. The product workspace retains its existing system.
+The public landing page is the Figma frame "Desktop - 6" (file
+`V66rN97MQiP3ezpNpLL7MD`) reproduced as code, one to one. It has its own
+marketing system, separate from workspace tokens: page `#f7fbf9`, ink
+`#121214`, primary CTA `#0a6b3d`, bright green `#21b86b`, hairline strokes at
+`#121214` 8%, no drop shadows anywhere, Geist Variable throughout (the wordmark
+is Geom Regular, shipped as outlined SVG), 46px section headings, 20px card
+radius, 12px illustration sheets, 999px pills, and a 160px section rhythm. The
+tokens live in `frontend/src/features/landing/landing.css`; the sections and
+illustrated cards are the components under `frontend/src/features/landing/`,
+and the standalone Vite entry is `frontend/landing.html`.
 
-The hero has one primary action, **Build my plan**, leading to the existing
-registration/onboarding flow. Three explicitly labeled illustrative examples
-show school research, essay guidance, and planning. They contain no invented
-admission odds, university facts, or user outcomes. Demo actions change only the
-local example; they never create real workspace records.
+The page is authored at the design's native 1440px width and scaled down
+proportionally on narrower viewports rather than reflowed, so the composition
+never departs from the approved frame. The illustrated feature cards (essay
+notes, college matches, scholarships, activities, SAT practice, deadlines) are
+static illustrations, hidden from assistive technology; the nav, plan buttons,
+FAQ accordion, newsletter field and footer links are the interactive surface.
+The product workspace retains its existing system.
 
-Use one semantic accent family, 12px surface corners, 8px controls, readable
-contrast, and 44px interaction targets. The initial copy and final example are
-available without waiting for motion. Explanatory motion plays once, can be
-replayed, and stops under reduced motion. Keyboard example changes are instant.
-On narrow screens, copy and CTA precede a front-facing compact example,
-with one task visible and a disclosure for the next two steps. This
-marketing surface uses its own system-preference dark palette.
+The hero is the exception to that system: it is the "Desktop - 9" hero frame
+(node `538:116`), near-black `#070809` with 22 emerald light columns, a fine
+grain, Inter for the headline, nav and workspace cards, Instrument Serif
+Italic for the one accent word, and soft shadows on the CTA, composer and
+cards. It is exact at the 1392×892 frame; the headline scales below 860px and
+the six workspace cards scale as one stage pinned to the hero's bottom edge.
+`sections/hero.css` and `sections/hero-cards.css` hold its values.
+
+The nav has three states, written to `data-state` by `useNavScroll.ts`. At the
+top of the page it rests in the hero with no frame. Scrolling down slides it
+out of view (240ms). The first scroll up brings it back (360ms) as a near-black
+pill with a 16px backdrop blur, which is the one blur on the page and is there
+for legibility over the light sections. Links, brand and button never move
+between states; only the frame behind them fades. Keyboard focus inside the
+nav keeps it on screen, and reduced motion replaces the slide with a fade.
+Below 1024px "Home" and the secondary "For schools" button leave, and "For
+schools" joins the links. Below 800px the brand, links and button no longer fit
+one row: at rest the links sit on a row of their own under the brand and the
+button, and the floating pill carries only the brand and the button, so a phone
+always has the waitlist one scroll up away. On phones (under 600px) the
+headline keeps its two designed lines by sizing to the width it has, down to
+27px.
+
+The schools section (`sections/Schools.tsx`, id `schools`) sits between pricing
+and the FAQ. Its heading is centred like the sections around it; below it the
+counselor's roster sheet stands on the showcase's pastel wash (20px radius)
+and runs off the stage's bottom edge, then the four points sit in a row and
+the button closes the section. The button is the nav button in the plan
+buttons' black. The roster is `cards/RosterSheet.tsx`. "For schools" in the
+nav scrolls to the section; its own button opens the schools dialog. The "For schools" pill
+is the only label above a heading on the page. The roster plays one
+demonstration when it scrolls into view (`useRosterMotion.ts`): the class dots
+take their colours, statuses stamp on, the list sorts so the students who are
+behind rise to the top. The markup is the sorted,
+finished state, so reduced motion and browsers without the Web Animations API
+show it as is. Status is a word and an icon before it is a colour.

@@ -1,0 +1,11 @@
+<svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="1040" height="704" viewBox="0 0 1040 704" fill="none" xmlns="http://www.w3.org/2000/svg">
+<rect id="Map fade mask" width="1040" height="704" fill="url(#paint0_linear_0_7)"/>
+<defs>
+<linearGradient id="paint0_linear_0_7" x1="520" y1="0" x2="520" y2="704" gradientUnits="userSpaceOnUse">
+<stop stop-opacity="0"/>
+<stop offset="0.14"/>
+<stop offset="0.55"/>
+<stop offset="0.82" stop-opacity="0"/>
+</linearGradient>
+</defs>
+</svg>

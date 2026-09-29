@@ -1,0 +1,568 @@
+/* The hero is the Figma "Desktop - 9" hero frame without its call to
+   action, which lives in the nav: 1392×795 at the design width. Its height
+   is the content plus the strip the workspace cards rise into, so the two
+   stay in step when the cards scale down. On a screen
+   shorter than the frame the whole composition scales by --lp-hero-fit, so
+   the hero ends one gutter above the fold and reads as a framed card. */
+.lp-hero-section {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 49px;
+}
+.lp-hero {
+  --lp-hero-fit: 1;
+  --lp-hero-cards-scale: min(
+    var(--lp-hero-fit),
+    clamp(0.62, tan(atan2(100vw - 2 * var(--lp-gutter), 1392px)), 1)
+  );
+  --lp-hero-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='256' height='256'%3E%3Cfilter id='n' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.4' numOctaves='1' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.024 0 0 0 0 0.165 0 0 0 0 0.106 1 0 0 0 0'/%3E%3CfeComponentTransfer%3E%3CfeFuncA type='discrete' tableValues='0 0 0 0 1 1 1 1 1'/%3E%3C/feComponentTransfer%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  position: relative;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: calc(151px * var(--lp-hero-fit)) 0
+    calc(71px * var(--lp-hero-fit) + 247px * var(--lp-hero-cards-scale));
+  background: #070809;
+  border-radius: 22px;
+  font-family: var(--lp-font-hero);
+  overflow: clip;
+}
+
+/* Light columns: 22 bars on a 68px pitch, tallest at the edges. Horizontal
+   measures are fractions of the 1392px frame so the set always spans the hero. */
+.lp-hero-backdrop {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.lp-hero-column-slot {
+  position: absolute;
+  left: calc((var(--lp-column) * 68 - 39) / 1392 * 100%);
+  bottom: calc(-38px * var(--lp-hero-fit));
+  width: calc(70 / 1392 * 100%);
+  height: calc(var(--lp-column-height) * var(--lp-hero-fit));
+}
+.lp-hero-column {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    rgb(var(--lp-column-from) / 0) 0%,
+    rgb(var(--lp-column-from) / 0.02) 12%,
+    rgb(var(--lp-column-from) / 0.65) 35%,
+    rgb(var(--lp-column-to) / 0.94) 64%,
+    rgb(var(--lp-column-to)) 100%
+  );
+}
+.lp-hero-column-a {
+  --lp-column-from: 20 93 59;
+  --lp-column-to: 37 135 86;
+}
+.lp-hero-column-b {
+  --lp-column-from: 10 107 61;
+  --lp-column-to: 37 135 86;
+}
+.lp-hero-column-c {
+  --lp-column-from: 10 107 61;
+  --lp-column-to: 31 124 77;
+}
+.lp-hero-column-d {
+  --lp-column-from: 13 87 55;
+  --lp-column-to: 31 107 69;
+}
+.lp-hero-column-edge {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: calc(9 / 70 * 100%);
+  height: 100%;
+  background: linear-gradient(
+    180deg,
+    rgba(3, 31, 19, 0) 0%,
+    rgba(3, 31, 19, 0) 28%,
+    rgba(3, 31, 19, 0.16) 60%,
+    rgba(3, 31, 19, 0.1) 100%
+  );
+  filter: blur(1.5px);
+  opacity: 0.78;
+}
+.lp-hero-bloom {
+  position: absolute;
+  left: calc(-50 / 1392 * 100%);
+  bottom: -92px;
+  width: 100%;
+  height: 190px;
+  background: linear-gradient(
+    180deg,
+    rgba(22, 130, 79, 0) 0%,
+    rgba(83, 170, 118, 0.24) 100%
+  );
+  filter: blur(20px);
+}
+/* Fine monotone grain over the light columns; the composer and the cards
+   sit above it. */
+.lp-hero-grain {
+  position: absolute;
+  inset: 0;
+  background-image: var(--lp-hero-grain);
+  opacity: 0.07;
+  mask-image: linear-gradient(180deg, transparent 38%, #000 62%);
+  pointer-events: none;
+}
+/* Emerald light over the cards' lower edge. */
+.lp-hero-glow {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 100%;
+  height: 47px;
+  background: linear-gradient(
+    180deg,
+    rgba(40, 131, 84, 0) 0%,
+    rgba(41, 128, 82, 0.54) 100%
+  );
+  pointer-events: none;
+}
+
+/* The links centre on the headline whatever the brand and the button weigh.
+   The nav rests in the hero, slides away as the page is read, and returns on
+   the first scroll up as a dark pill that holds its own over any section.
+   Nothing inside it moves between the two: only the frame behind it fades. */
+.lp-nav {
+  --lp-nav-inset: var(--lp-panel-inset);
+  height: 50px;
+  --lp-nav-lift: calc(var(--lp-gutter) + 5px);
+  position: fixed;
+  left: calc(var(--lp-gutter) + var(--lp-nav-inset));
+  right: calc(var(--lp-gutter) + var(--lp-nav-inset));
+  top: calc(var(--lp-gutter) + 24px);
+  z-index: var(--lp-z-nav);
+  width: auto;
+  max-width: 1264px;
+  margin-inline: auto;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  isolation: isolate;
+  transform: none;
+  transition:
+    translate 360ms var(--lp-ease-entrance),
+    opacity var(--lp-duration-state) ease-out,
+    visibility 0s;
+}
+.lp-nav::before {
+  content: "";
+  position: absolute;
+  inset: -7px -8px -7px -24px;
+  z-index: -1;
+  border-radius: 999px;
+  /* The hero's own black, lit from below by the same emerald its columns
+     carry, so the pill reads as a piece of the hero over any section. */
+  background:
+    radial-gradient(
+      46% 140% at 50% 150%,
+      rgba(33, 184, 107, 0.34),
+      rgba(33, 184, 107, 0) 72%
+    ),
+    rgba(4, 12, 8, 0.95);
+  backdrop-filter: blur(16px) saturate(1.4);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.07),
+    inset 0 0 0 1px rgba(150, 226, 186, 0.1),
+    0 1px 2px rgba(0, 12, 6, 0.2),
+    0 10px 28px -10px rgba(0, 12, 6, 0.45);
+  opacity: 0;
+  transition: opacity var(--lp-duration-state) ease-out;
+}
+.lp-nav:not([data-state="rest"]) {
+  translate: 0 calc(-1 * var(--lp-nav-lift));
+}
+.lp-nav:not([data-state="rest"])::before {
+  opacity: 1;
+}
+/* Leaving is quicker than arriving, and the frame waits until the nav has
+   gone before it is drawn, so the nav leaves the hero as it stood in it. */
+.lp-nav[data-state="hidden"] {
+  translate: 0 calc(-100% - var(--lp-gutter) - 40px);
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    translate 240ms var(--lp-ease-entrance),
+    opacity var(--lp-duration-feedback) ease-out,
+    visibility 0s 240ms;
+}
+.lp-nav[data-state="hidden"]::before {
+  transition-delay: 240ms;
+}
+@media (prefers-reduced-motion: reduce) {
+  .lp-nav,
+  .lp-nav[data-state="hidden"] {
+    translate: 0 0;
+    transition:
+      opacity var(--lp-duration-feedback) ease-out,
+      visibility 0s var(--lp-duration-feedback);
+  }
+  .lp-nav:not([data-state="rest"]) {
+    translate: 0 calc(-1 * var(--lp-nav-lift));
+  }
+}
+.lp .lp-nav-links {
+  margin: 0;
+}
+/* The mark's text box carries more room above the letters than below. */
+.lp-brand {
+  margin-top: 0;
+  translate: 0 1px;
+}
+.lp .lp-nav-actions {
+  justify-self: end;
+  margin-left: 0;
+}
+.lp-brand {
+  flex: none;
+  margin-top: -4px;
+  padding: 6px 0;
+  border-radius: 6px;
+  transition: opacity var(--lp-duration-feedback) var(--lp-ease-feedback);
+}
+/* Each link carries its own share of the 34px rhythm as padding, so the
+   hover target is continuous along the row and the glide never drops out
+   between two neighbours. */
+.lp-nav-links {
+  --lp-nav-link-pad: 14px;
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  align-items: center;
+  gap: calc(34px - 2 * var(--lp-nav-link-pad));
+  margin: 2px 0 0 auto;
+  font-size: 17px;
+  line-height: 23px;
+  color: rgba(255, 255, 255, 0.7);
+  white-space: nowrap;
+}
+/* Figma seats 17/23 text a pixel lower than the browser's half-leading. */
+.lp-nav-links a {
+  position: relative;
+  padding: 13px var(--lp-nav-link-pad) 11px;
+  border-radius: 999px;
+  transition: color var(--lp-duration-feedback) var(--lp-ease-feedback);
+}
+.lp-nav-glide {
+  position: absolute;
+  inset: 6px 0;
+  z-index: -1;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+  clip-path: inset(0 100% 0 0 round 999px);
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    clip-path 260ms var(--lp-ease-entrance),
+    opacity var(--lp-duration-feedback) var(--lp-ease-feedback);
+}
+.lp-nav-glide[data-snap="true"] {
+  transition: opacity var(--lp-duration-feedback) var(--lp-ease-feedback);
+}
+.lp-nav-glide[data-on="true"] {
+  opacity: 1;
+}
+.lp-nav-actions {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+}
+.lp-nav-schools-link {
+  display: none;
+}
+/* The quiet half of the pair: plain text that brightens on hover. */
+.lp-nav-secondary {
+  padding: 13px 12px;
+  border-radius: 99px;
+  font-size: 17px;
+  line-height: 23px;
+  color: rgba(255, 255, 255, 0.7);
+  white-space: nowrap;
+  transition:
+    color var(--lp-duration-feedback) var(--lp-ease-feedback),
+    scale var(--lp-duration-feedback) var(--lp-ease-feedback);
+}
+.lp-nav-secondary:active {
+  scale: 0.96;
+}
+.lp-nav-cta {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 6px 6px 22px;
+  background: linear-gradient(180deg, #fff 0%, #f7fbf9 70%, #e4f2e9 100%);
+  border-radius: 99px;
+  box-shadow:
+    inset 0 1px 0 #fff,
+    inset 0 -1px 0 rgba(10, 107, 61, 0.14),
+    0 6px 20px -6px rgba(33, 184, 107, 0);
+  font-weight: 600;
+  font-size: 17px;
+  line-height: 22px;
+  letter-spacing: -0.015em;
+  color: var(--lp-green-dark);
+  white-space: nowrap;
+  overflow: clip;
+  transition:
+    box-shadow var(--lp-duration-state) var(--lp-ease-feedback),
+    scale var(--lp-duration-feedback) var(--lp-ease-feedback);
+}
+/* The hero CTA's green, in miniature. */
+.lp-nav-cta-chip {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #15824c 0%, #0a6b3d 52%, #1f8b54 100%);
+  box-shadow: inset 0 1px 2px rgba(207, 237, 218, 0.55);
+  color: #fff;
+  overflow: clip;
+}
+/* A green wash reads as mint on the white pill, where ink read as grey. */
+.lp .lp-nav-cta::after {
+  background: var(--lp-green);
+}
+.lp-nav-cta:active {
+  scale: 0.96;
+}
+@media (hover: hover) and (pointer: fine) {
+  .lp-nav-links a:hover {
+    color: #fff;
+  }
+  .lp-brand:hover {
+    opacity: 0.78;
+  }
+  .lp-nav-secondary:hover {
+    color: #fff;
+  }
+  /* The hero CTA's emerald light rises under the button. */
+  .lp-nav-cta:hover {
+    box-shadow:
+      inset 0 1px 0 #fff,
+      inset 0 -1px 0 rgba(10, 107, 61, 0.14),
+      0 6px 20px -6px rgba(33, 184, 107, 0.6);
+  }
+}
+.lp-nav-links a:active {
+  color: #fff;
+}
+@media (prefers-reduced-motion: reduce) {
+  .lp-nav-glide {
+    transition: opacity var(--lp-duration-feedback) var(--lp-ease-feedback);
+  }
+  .lp-nav-cta {
+    transition: box-shadow var(--lp-duration-state) var(--lp-ease-feedback);
+  }
+  .lp-nav-cta:active,
+  .lp-nav-secondary:active {
+    scale: none;
+  }
+}
+
+.lp-hero-body {
+  position: relative;
+  width: 100%;
+  zoom: var(--lp-hero-fit);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+/* Every headline measure is in em of the 72px display size. */
+.lp-headline {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-weight: 400;
+  font-size: 72px;
+  line-height: calc(84 / 72);
+  letter-spacing: -0.035em;
+  color: #fdfdfd;
+  white-space: nowrap;
+}
+.lp-headline-line {
+  display: flex;
+}
+/* The gaps are word spaces, so a line can wrap between its parts. */
+.lp-headline-line-1 {
+  align-items: baseline;
+  gap: calc(18em / 72);
+}
+.lp-headline-line-2 {
+  align-items: baseline;
+  gap: calc(15em / 72);
+}
+.lp-headline-serif {
+  font-family: var(--lp-font-serif);
+  font-style: italic;
+  font-size: calc(78em / 72);
+  line-height: calc(85 / 78);
+  letter-spacing: -0.02em;
+}
+
+/* The composer is an illustration of the product, in the product's type. */
+.lp-composer {
+  position: relative;
+  /* Above the hero grain, so the composer reads as a clean surface. */
+  z-index: 1;
+  width: 584px;
+  margin-top: 48px;
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(180deg, #fff 0%, #f6f9f7 100%);
+  border-radius: 18px;
+  /* A faint light rim sets the composer off the dark hero, a lit top edge
+     gives it thickness, and one shadow lifts it off the page. That shadow
+     is pulled in from the sides, so it falls under the middle of the
+     composer. There is no stroke and no shaded bottom edge: on the rounded
+     corners both drew a dark crescent. */
+  box-shadow:
+    0 0 0 6px rgba(255, 255, 255, 0.07),
+    inset 0 1px 0 #fff,
+    0 36px 56px -36px rgba(0, 20, 10, 0.5);
+  font-family: var(--lp-font);
+  overflow: clip;
+}
+/* A trace of the hero's grain, far fainter than the background's, so the
+   composer keeps some depth without reading as noisy. */
+.lp-composer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: var(--lp-hero-grain);
+  opacity: 0.01;
+  pointer-events: none;
+}
+.lp-composer-input {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 16px 16px 22px;
+  white-space: nowrap;
+}
+.lp-token {
+  padding: 2px 7px;
+  background: var(--lp-green-tint);
+  border-radius: 6px;
+  font-weight: 500;
+  color: var(--lp-green-deep);
+}
+/* The request is the student's own words, so it is set in its own face,
+   a step heavier than the product's. */
+.lp-composer-request {
+  min-width: 0;
+}
+/* Selecting the request, before the next one replaces it, tints the box
+   the words stand in. */
+.lp-composer-text {
+  margin: 0 -3px;
+  padding: 2px 3px;
+  border-radius: 5px;
+  font-family: var(--lp-font-request);
+  font-weight: 500;
+  font-size: 17px;
+  letter-spacing: -0.01em;
+  color: var(--lp-ink);
+  transition: background-color 120ms ease-out;
+}
+.lp-composer[data-selected="true"] .lp-composer-text {
+  background: rgba(33, 184, 107, 0.22);
+}
+/* Each letter comes into focus as it is typed. */
+.lp-char {
+  animation: lp-char-in 200ms cubic-bezier(0.23, 1, 0.32, 1) both;
+}
+@keyframes lp-char-in {
+  from {
+    opacity: 0;
+    filter: blur(3px);
+  }
+}
+.lp-composer-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 0 16px 14px 14px;
+}
+.lp-mode-toggle {
+  display: flex;
+  align-items: center;
+  padding: 2px 14px 2px 2px;
+  background: var(--lp-panel);
+  border-radius: 999px;
+}
+.lp-mode-knob {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  position: relative;
+  padding: 5.5px 11.5px 5.5px 10.5px;
+  background: #fff;
+  border-radius: 999px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  font-weight: 500;
+  font-size: 12.5px;
+  line-height: 16px;
+  color: var(--lp-ink-soft);
+  white-space: nowrap;
+}
+/* A 1.5px ring that fades out to the right, drawn inside the knob. */
+.lp-mode-knob::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  padding: 1.5px;
+  border-radius: inherit;
+  background: linear-gradient(
+    90deg,
+    #21b86b 0%,
+    rgba(125, 219, 164, 0.75) 55%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  mask:
+    linear-gradient(#000 0 0) content-box exclude,
+    linear-gradient(#000 0 0);
+  pointer-events: none;
+}
+.lp-composer-divider {
+  width: 1px;
+  height: 20px;
+  background: var(--lp-border);
+}
+.lp-composer-spacer {
+  flex: 1 0 0;
+  height: 1px;
+}
+.lp-send {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: var(--lp-green-dark);
+  border-radius: 10px;
+}
+
+@media (min-width: 900px) {
+  .lp-hero {
+    --lp-hero-fit: clamp(
+      0.72,
+      tan(atan2(100svh - 2 * var(--lp-gutter), 795px)),
+      1
+    );
+  }
+}

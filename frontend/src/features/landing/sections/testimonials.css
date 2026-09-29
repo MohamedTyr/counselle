@@ -1,0 +1,159 @@
+.lp-testimonials {
+  position: relative;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  /* The tilted cards reach a few pixels above their row. */
+  gap: calc(var(--lp-heading-gap) + 12px);
+}
+.lp-world-map {
+  position: absolute;
+  left: calc(50% - 520px);
+  top: 54px;
+  width: 1040px;
+  height: 704px;
+  opacity: 0.42;
+  mask-image: linear-gradient(
+    180deg,
+    transparent 0%,
+    #000 14%,
+    #000 55%,
+    transparent 82%
+  );
+  -webkit-mask-image: linear-gradient(
+    180deg,
+    transparent 0%,
+    #000 14%,
+    #000 55%,
+    transparent 82%
+  );
+  pointer-events: none;
+}
+.lp-world-map img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.lp-testimonials-heading {
+  position: relative;
+  text-align: center;
+}
+.lp-testimonial-cards {
+  position: relative;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  gap: clamp(16px, 1.7vw, 24px);
+}
+.lp-testimonial-wrap {
+  flex: 0 1 360px;
+  min-width: 0;
+  display: flex;
+}
+.lp-testimonial-wrap-maya .lp-testimonial {
+  --lp-tilt: 2deg;
+}
+/* The middle card stands a little proud of its neighbours. */
+.lp-testimonial-wrap-daniel {
+  translate: 0 -9px;
+}
+.lp-testimonial-wrap-daniel .lp-testimonial {
+  --lp-tilt: -1.5deg;
+}
+.lp-testimonial-wrap-priya .lp-testimonial {
+  --lp-tilt: 1deg;
+}
+.lp-testimonial {
+  flex: 1 1 auto;
+  transform: rotate(var(--lp-tilt, 0deg));
+  transition:
+    transform 220ms var(--lp-ease-entrance),
+    background-color 220ms ease-out,
+    border-color 220ms ease-out;
+  min-width: 0;
+  min-height: 372px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 28px 26px 24px;
+  border: 1px solid;
+  border-radius: 17px;
+  overflow: clip;
+}
+.lp-testimonial blockquote {
+  margin: 0;
+  font-size: 19px;
+  line-height: 1.32;
+  letter-spacing: -0.19px;
+}
+.lp-testimonial-maya {
+  background: #ffece0;
+  border-color: rgba(244, 209, 186, 0.9);
+  color: #462408;
+}
+.lp-testimonial-maya .lp-person-role {
+  color: #7c5336;
+}
+.lp-testimonial-daniel {
+  background: #e4f6e8;
+  border-color: rgba(194, 227, 201, 0.9);
+  color: #0e371d;
+}
+.lp-testimonial-daniel .lp-person-role {
+  color: #3e694a;
+}
+.lp-testimonial-priya {
+  background: #e2f3ff;
+  border-color: rgba(188, 222, 247, 0.9);
+  color: #04314b;
+}
+.lp-testimonial-priya .lp-person-role {
+  color: #366381;
+}
+.lp-person {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.lp-person-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  white-space: nowrap;
+}
+.lp-person-name {
+  font-weight: 500;
+  font-size: 15px;
+}
+.lp-person-role {
+  font-size: 12px;
+}
+
+/* A card keeps its tilt, rises a little and its paper deepens a shade. */
+@media (hover: hover) and (pointer: fine) {
+  .lp-testimonial-wrap:hover .lp-testimonial {
+    transform: rotate(var(--lp-tilt, 0deg)) translateY(-5px);
+  }
+  .lp-testimonial-wrap:hover .lp-testimonial-maya {
+    background: #ffe2d0;
+    border-color: #efc5a8;
+  }
+  .lp-testimonial-wrap:hover .lp-testimonial-daniel {
+    background: #d6f0dc;
+    border-color: #aed8b9;
+  }
+  .lp-testimonial-wrap:hover .lp-testimonial-priya {
+    background: #d3ecfc;
+    border-color: #a6d0ef;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .lp-testimonial {
+    transition: none;
+  }
+  .lp-testimonial-wrap:hover .lp-testimonial {
+    transform: rotate(var(--lp-tilt, 0deg));
+  }
+}

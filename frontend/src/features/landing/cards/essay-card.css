@@ -1,0 +1,187 @@
+.lp-card-essay {
+  height: 288px;
+  background: #121214;
+}
+.lp-essay-sheet {
+  height: 240px;
+  font-size: 15px;
+}
+.lp-essay-header {
+  position: absolute;
+  left: 24px;
+  top: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  white-space: nowrap;
+}
+.lp-essay-header img {
+  border-radius: 4px;
+  object-fit: contain;
+}
+.lp-essay-school {
+  font-weight: 500;
+  color: var(--lp-ink);
+}
+.lp-essay-prompt {
+  color: var(--lp-muted);
+}
+.lp-essay {
+  position: absolute;
+  left: 24px;
+  top: 48px;
+  display: flex;
+  flex-direction: column;
+  color: var(--lp-ink-soft);
+  white-space: pre;
+}
+.lp-essay-line {
+  display: flex;
+  align-items: center;
+  height: 26px;
+}
+.lp-space {
+  display: inline-block;
+  width: 4px;
+  height: 4px;
+}
+.lp-hl {
+  position: relative;
+  isolation: isolate;
+  background: transparent;
+  padding: 1px 3px;
+  border-radius: 4px;
+  color: var(--lp-ink);
+}
+.lp-hl-background {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+}
+.lp-hl-g .lp-hl-background {
+  background: #d0f0dd;
+}
+.lp-hl-v .lp-hl-background {
+  background: #e4dcff;
+}
+.lp-hl-a .lp-hl-background {
+  background: #fbe3ae;
+}
+.lp-essay-strike {
+  position: relative;
+  color: var(--lp-muted-3);
+  text-decoration: none;
+}
+.lp-essay-strike::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 1px;
+  background: currentColor;
+  transform-origin: left;
+}
+/* Clipped while it is written in; at rest it is simply its own width. */
+.lp-essay-fix {
+  flex: none;
+  overflow: hidden;
+  white-space: nowrap;
+  font-weight: 500;
+  color: var(--lp-green-deep);
+}
+.lp-essay-margin {
+  position: absolute;
+  left: 536px;
+  top: 16px;
+  width: 1px;
+  height: 208px;
+  background: var(--lp-hairline);
+}
+.lp-notes-heading {
+  position: absolute;
+  top: 16px;
+  width: 227px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 5px 6px 5px 14px;
+  background: #15171a;
+  border-radius: 10px;
+  font-weight: 500;
+  font-size: 12.5px;
+  color: #fff;
+  white-space: nowrap;
+  right: 25px;
+}
+.lp-notes-counts {
+  display: flex;
+  gap: 4px;
+}
+.lp-count {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 20px;
+  border-radius: 6px;
+  font-size: 11.5px;
+}
+.lp-count-strength {
+  background: #d0f0dd;
+  color: var(--lp-green-deep);
+}
+.lp-count-suggestion {
+  background: #e4dcff;
+  color: #2a1b6b;
+}
+.lp-count-tighten {
+  background: #fbe3ae;
+  color: #7a4a00;
+}
+.lp-note {
+  position: absolute;
+  width: 227px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 12px 9px;
+  border-radius: 10px;
+  right: 25px;
+}
+.lp-note-label {
+  font-weight: 500;
+  font-size: 11.5px;
+  white-space: nowrap;
+}
+.lp-note-body {
+  font-size: 12.5px;
+  line-height: 18px;
+  color: var(--lp-ink-soft);
+}
+.lp-note-strength {
+  background: #e9f8ef;
+}
+.lp-note-strength .lp-note-label {
+  color: var(--lp-green-deep);
+}
+.lp-note-suggestion {
+  background: #eee9ff;
+}
+.lp-note-suggestion .lp-note-label {
+  color: #2a1b6b;
+}
+.lp-note-tighten {
+  background: #fcefd2;
+}
+.lp-note-tighten .lp-note-label {
+  color: #7a4a00;
+}
+.lp-essay-fade {
+  top: 196px;
+  width: 536px;
+  height: 44px;
+  background: linear-gradient(0deg, #fffffd 0%, rgba(255, 255, 253, 0) 100%);
+}

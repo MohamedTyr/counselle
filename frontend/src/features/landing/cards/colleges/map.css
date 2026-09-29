@@ -1,0 +1,206 @@
+.lp-cx-map {
+  display: grid;
+  grid-template-columns: 200px minmax(0, 1fr);
+}
+.lp-cx-map-profile {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 20px 20px 0 22px;
+  border-right: 1px solid var(--lp-hairline);
+  white-space: nowrap;
+}
+.lp-cx-map-title {
+  padding-bottom: 2px;
+  font-weight: 500;
+  font-size: 14px;
+}
+.lp-cx-map-field {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.lp-cx-map-field span {
+  font-size: 11.5px;
+}
+.lp-cx-map-field b {
+  font-weight: 500;
+  font-size: 13.5px;
+}
+.lp-cx-map-count {
+  margin-top: 6px;
+  padding-top: 12px;
+  border-top: 1px solid var(--lp-hairline);
+  font-size: 12px;
+}
+.lp-cx-map-count b {
+  font-weight: 600;
+  color: var(--lp-ink);
+}
+/* The plot: one soft surface. Tiers are faint zones, not boxes; the fit
+   line splits the schools that were checked from the ones that fit. */
+.lp-cx-map-plot {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  gap: 12px;
+  height: 332px;
+  padding: 16px 22px 16px 20px;
+}
+.lp-cx-map-area {
+  position: relative;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #fbfbfd;
+}
+.lp-cx-map-zone {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: linear-gradient(180deg, var(--zone) 0%, transparent 85%);
+}
+.lp-cx-map-zone-reach {
+  --zone: #f1eeff;
+}
+.lp-cx-map-zone-target {
+  --zone: #eaf6ef;
+}
+.lp-cx-map-zone-safety {
+  --zone: #f0f1f1;
+}
+.lp-cx-map-dot {
+  position: absolute;
+  width: 5px;
+  height: 5px;
+  margin: 0 0 -2.5px -2.5px;
+  border-radius: 50%;
+  background: rgba(61, 49, 131, 0.16);
+}
+.lp-cx-map-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 0;
+  border-top: 1px dashed rgba(61, 49, 131, 0.35);
+  transform-origin: left;
+}
+.lp-cx-map-line b {
+  position: absolute;
+  right: 10px;
+  top: -10px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 0 0 0 1px rgba(61, 49, 131, 0.14);
+  font-weight: 500;
+  font-size: 10.5px;
+  line-height: 16px;
+  color: var(--cx-violet);
+}
+.lp-cx-map-pin {
+  position: absolute;
+  transform: translate(-50%, 50%);
+}
+.lp-cx-map-pin .lp-cx-logo {
+  border: 0;
+  border-radius: 50%;
+  box-shadow:
+    0 0 0 1px rgba(18, 18, 20, 0.06),
+    0 2px 6px rgba(18, 18, 20, 0.1);
+}
+.lp-cx-map-pin .lp-cx-logo img {
+  width: 64%;
+  height: 64%;
+}
+.lp-cx-map-pin-featured .lp-cx-logo {
+  box-shadow:
+    0 0 0 2px #fff,
+    0 0 0 3.5px var(--cx-violet),
+    0 6px 14px rgba(61, 49, 131, 0.28);
+}
+/* The callout sits beside its school, with a caret pointing back at it. */
+.lp-cx-map-label {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin-left: 34px;
+  padding: 7px 11px 8px;
+  transform: translateY(50%);
+  border-radius: 9px;
+  background: var(--lp-ink);
+  color: #fff;
+  white-space: nowrap;
+  box-shadow: 0 6px 16px -6px rgba(18, 18, 20, 0.35);
+}
+.lp-cx-map-label::before {
+  content: "";
+  position: absolute;
+  left: -4px;
+  top: 50%;
+  width: 8px;
+  height: 8px;
+  margin-top: -4px;
+  border-radius: 1.5px;
+  background: var(--lp-ink);
+  transform: rotate(45deg);
+}
+.lp-cx-map-label b {
+  font-weight: 600;
+  font-size: 12.5px;
+  line-height: 16px;
+}
+.lp-cx-map-label span {
+  font-size: 11.5px;
+  line-height: 15px;
+  color: rgba(255, 255, 255, 0.72);
+}
+.lp-cx-map-axis-y {
+  position: absolute;
+  left: 12px;
+  top: 10px;
+  font-weight: 500;
+  font-size: 10.5px;
+  color: var(--lp-muted-2);
+}
+.lp-cx-map-axis-y::after {
+  content: " ↑";
+}
+/* Chances: the tiers as one scale under the plot. */
+.lp-cx-map-scale {
+  display: grid;
+  grid-template-columns: 36fr 34fr 30fr;
+  column-gap: 4px;
+  position: relative;
+}
+.lp-cx-map-step {
+  padding-top: 8px;
+  border-top: 3px solid var(--step);
+  font-weight: 500;
+  font-size: 11px;
+  color: var(--step-ink);
+}
+.lp-cx-map-step:first-child {
+  border-top-left-radius: 2px;
+}
+.lp-cx-map-step-reach {
+  --step: #c9c1ff;
+  --step-ink: var(--cx-reach);
+}
+.lp-cx-map-step-target {
+  --step: #9fdcb7;
+  --step-ink: var(--cx-target);
+}
+.lp-cx-map-step-safety {
+  --step: #d5d9d8;
+  --step-ink: var(--cx-safety);
+}
+.lp-cx-map-axis-x {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  font-size: 11px;
+  color: var(--lp-muted-2);
+}
+.lp-cx-map-axis-x::after {
+  content: " →";
+}

@@ -1,0 +1,51 @@
+/* Shared by every school-matching variant: tier pills and logo tiles. */
+.lp-cx {
+  --cx-reach: #4b3bb0;
+  --cx-reach-tint: #f1eeff;
+  --cx-target: var(--lp-green-deep);
+  --cx-target-tint: #ebf7ef;
+  --cx-safety: #4a5250;
+  --cx-safety-tint: #f0f2f1;
+  --cx-violet: #3d3183;
+  color: var(--lp-ink);
+  font-size: 13px;
+  line-height: 18px;
+}
+.lp-cx-tier {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 7px;
+  border-radius: 5px;
+  font-size: 11px;
+  line-height: 16px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.lp-cx-tier-reach {
+  background: var(--cx-reach-tint);
+  color: var(--cx-reach);
+}
+.lp-cx-tier-target {
+  background: var(--cx-target-tint);
+  color: var(--cx-target);
+}
+.lp-cx-tier-safety {
+  background: var(--cx-safety-tint);
+  color: var(--cx-safety);
+}
+.lp-cx-logo {
+  flex: none;
+  display: grid;
+  place-items: center;
+  background: #fff;
+  border: 1px solid var(--lp-hairline);
+  border-radius: 8px;
+}
+.lp-cx-logo img {
+  width: 72%;
+  height: 72%;
+  object-fit: contain;
+}
+.lp-cx-muted {
+  color: var(--lp-muted-2);
+}
