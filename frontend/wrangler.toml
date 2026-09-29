@@ -7,5 +7,5 @@ pages_build_output_dir = "dist-landing"
 [[d1_databases]]
 binding = "DB"
 database_name = "acceptra-waitlist"
-database_id = "REPLACE_WITH_D1_DATABASE_ID"
+database_id = "759094ce-221d-4aee-9d6e-60522441d4fd"
 migrations_dir = "migrations-landing"
