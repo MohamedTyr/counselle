@@ -1,6 +1,8 @@
 // Loads the landing pages in a real browser and fails on any Content-Security-
 // Policy violation: the three pages, the waitlist dialog on both sides, and the
-// school side's booking calendar. Run by verify-landing.sh; usage:
+// school side's booking calendar. Violations inside the calendar's own frame
+// are Google's and never reach this page. Analytics start only on acceptra.ai,
+// so only a production run covers /ingest. Run by verify-landing.sh; usage:
 //   node scripts/check-csp.mjs https://acceptra.ai
 import { chromium } from "@playwright/test";
 
@@ -34,10 +36,15 @@ try {
         window.__csp.push(`${event.violatedDirective} ${event.blockedURI}`),
       );
     });
-    await page.goto(`${base}${path}`, { waitUntil: "load" });
-    await page.locator(ready).first().waitFor({ state: "visible" });
-    await page.waitForTimeout(SETTLE_MS);
-    const found = await page.evaluate(() => window.__csp);
+    let found;
+    try {
+      await page.goto(`${base}${path}`, { waitUntil: "load" });
+      await page.locator(ready).first().waitFor({ state: "visible" });
+      await page.waitForTimeout(SETTLE_MS);
+      found = await page.evaluate(() => window.__csp);
+    } catch (error) {
+      found = [`never showed ${ready}: ${error.message.split("\n")[0]}`];
+    }
     if (found.length) {
       violations += found.length;
       console.log(`  FAIL  CSP ${path}`);

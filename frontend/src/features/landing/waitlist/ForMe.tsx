@@ -1,4 +1,4 @@
-import { useState, type KeyboardEvent, type RefObject } from "react";
+import { useRef, useState, type KeyboardEvent, type RefObject } from "react";
 import { Dialog } from "@base-ui/react/dialog";
 import { EmailField } from "./EmailField";
 import { CheckRows } from "./CheckRows";
@@ -78,19 +78,19 @@ function Chips<Value extends string>({
 type Answers = { role?: Role; classOf?: ClassYear };
 type Entry = Omit<WaitlistEntry, "email">;
 
-const ANSWER_KEYS = ["role", "classOf"] as const;
-
 /**
- * The optional details, saved as each is chosen. A failed save puts back only
- * the answer it changed, and only if no newer choice has replaced it, so a
- * save that succeeded in the meantime stays on screen.
+ * The optional details, saved as each is chosen. Every save carries all the
+ * answers so far, so only the latest one may undo: a failed save puts back
+ * the answers from before it and says so, unless a newer save has replaced it.
  */
 function useDetails(entry: Entry, joined: string | null) {
   const [answers, setAnswers] = useState<Answers>({});
   const [unsaved, setUnsaved] = useState(false);
+  const latest = useRef(0);
   async function answer(next: Answers) {
     if (!joined) return;
     const before = answers;
+    const save = ++latest.current;
     setAnswers(next);
     setUnsaved(false);
     const { side, source } = entry;
@@ -109,13 +109,8 @@ function useDetails(entry: Entry, joined: string | null) {
         step: "details",
         ...failure(error),
       });
-      setAnswers((current) => {
-        const restored = { ...current };
-        for (const key of ANSWER_KEYS)
-          if (next[key] !== before[key] && current[key] === next[key])
-            Object.assign(restored, { [key]: before[key] });
-        return restored;
-      });
+      if (save !== latest.current) return;
+      setAnswers(before);
       setUnsaved(true);
     }
   }
