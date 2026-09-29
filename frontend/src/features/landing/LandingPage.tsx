@@ -1,7 +1,6 @@
 import "./landing.css";
 import { Hero } from "./sections/Hero";
 import { Features } from "./sections/Features";
-import { Testimonials } from "./sections/Testimonials";
 import { Compare } from "./sections/Compare";
 import { Pricing } from "./sections/Pricing";
 import { Schools } from "./sections/Schools";
@@ -24,7 +23,7 @@ export function LandingPage() {
         <Hero />
         <main className="lp-main">
           <Features />
-          <Testimonials />
+          {/* Testimonials (sections/Testimonials.tsx) return once real, consented quotes exist. */}
           <Compare />
           <Pricing />
           <Schools />

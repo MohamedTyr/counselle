@@ -6,10 +6,10 @@ import { LegalConsent, PRIVACY_URL, TERMS_URL } from "../waitlist/LegalConsent";
 import "./footer.css";
 
 const PRODUCT_LINKS = [
-  { label: "Features +", href: "#features" },
+  { label: "Features", href: "#features" },
+  { label: "Compare", href: "#compare" },
   { label: "Pricing", href: "#pricing" },
-  { label: "Technology", href: "#features" },
-  { label: "Testimonials", href: "#testimonials-heading" },
+  { label: "For schools", href: "#schools" },
 ];
 const COMPANY_LINKS = [
   { label: "FAQ", href: "#faq" },
@@ -87,11 +87,11 @@ export function Footer() {
   return (
     <footer className="lp-footer">
       <div className="lp-footer-inner">
-        <a className="lp-footer-wordmark" href="/" aria-label="Acceptra home">
-          <img src={wordmark} width={90} height={28} alt="" />
+        <a className="lp-footer-wordmark" href="/">
+          <img src={wordmark} width={90} height={28} alt="Acceptra" />
         </a>
         <p className="lp-footer-tagline">
-          <span>All-in-one college counseling,</span>
+          <span>All-in-one college counseling,</span>{" "}
           <span className="lp-footer-tagline-soft">
             without the $10,000 price tag.
           </span>

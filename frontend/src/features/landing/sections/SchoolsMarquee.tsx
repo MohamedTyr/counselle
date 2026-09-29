@@ -44,7 +44,7 @@ export function SchoolsMarquee() {
   return (
     <div className="lp-marquee-block">
       <p className="lp-marquee-label">
-        Matched against 400+ schools, including
+        Matched against 2,700+ schools, including
       </p>
       <div
         className="lp-marquee"

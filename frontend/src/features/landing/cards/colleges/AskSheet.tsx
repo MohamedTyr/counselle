@@ -28,7 +28,7 @@ export function AskSheet() {
         </p>
         <p className="lp-cx-ask-step">
           <Sparkles size={13} />
-          <span>Read your activities, checked 400+ schools</span>
+          <span>Read your activities, checked 2,700+ schools</span>
           <Check className="lp-cx-ask-step-done" size={13} strokeWidth={2.5} />
         </p>
         <p className="lp-cx-ask-text">
