@@ -31,7 +31,7 @@ await build({
     copyPublicDir: false,
   },
 });
-const { render } = await import(
+const { render, llmsText } = await import(
   pathToFileURL(path.join(ssrOut, "entry-server.js")).href
 );
 
@@ -58,7 +58,8 @@ const missing = [...html.matchAll(/\/assets\/[^"'\s)]+/g)]
 if (missing.length) fail(`missing assets:\n  ${missing.join("\n  ")}`);
 
 await writeFile(path.join(dist, "index.html"), html);
+await writeFile(path.join(dist, "llms.txt"), llmsText());
 
 await rm(path.join(dist, "landing.html"));
 await rm(ssrOut, { recursive: true, force: true });
-console.log("prerender-landing: wrote dist-landing/index.html");
+console.log("prerender-landing: wrote dist-landing/index.html and llms.txt");
