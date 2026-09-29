@@ -1,4 +1,3 @@
-import { lazy, Suspense } from "react";
 import "./landing.css";
 import { Hero, HeroNav } from "./sections/Hero";
 import { Features } from "./sections/Features";
@@ -15,17 +14,14 @@ import {
   useWarmWaitlist,
 } from "./waitlist/useWaitlistDialog";
 
-/** Nothing renders until the first open, so the dialog loads on demand. */
+/** The dialog is its own chunk, loaded on intent or idle, never up front. */
 const loadDialog = () => import("./waitlist/WaitlistDialog");
-const WaitlistDialog = lazy(() =>
-  loadDialog().then((module) => ({ default: module.WaitlistDialog })),
-);
 import "./responsive.css";
 
 export function LandingPage() {
   const landingRef = useLandingMotion();
   const waitlist = useWaitlistDialog();
-  useWarmWaitlist(loadDialog);
+  const dialog = useWarmWaitlist(loadDialog, waitlist.request !== null);
   // The dialog portals beside the canvas, so making the page inert leaves
   // only the dialog reachable. React drops it in the same commit that closes
   // the dialog, before focus goes back to the trigger.
@@ -51,17 +47,15 @@ export function LandingPage() {
         </main>
         <Footer />
       </div>
-      {waitlist.request && (
-        <Suspense fallback={null}>
-          <WaitlistDialog
-            open={waitlist.open}
-            request={waitlist.request}
-            trigger={waitlist.trigger}
-            container={landingRef}
-            onClose={waitlist.close}
-            onSide={waitlist.showSide}
-          />
-        </Suspense>
+      {waitlist.request && dialog && (
+        <dialog.WaitlistDialog
+          open={waitlist.open}
+          request={waitlist.request}
+          trigger={waitlist.trigger}
+          container={landingRef}
+          onClose={waitlist.close}
+          onSide={waitlist.showSide}
+        />
       )}
     </div>
   );

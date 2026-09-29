@@ -17,22 +17,28 @@ function sideOf(hash: string): Side | null {
 const WARM_EVENTS = ["pointerenter", "touchstart", "focusin"];
 
 /**
- * Starts loading the dialog on the first sign of intent toward any waitlist
- * link, and on idle after load, so the first open never waits on the network.
+ * Loads a module (the dialog) on the first sign of intent toward any waitlist
+ * link, on idle after load, or once it is needed, and returns it when ready.
+ * Rendering the loaded module directly, rather than through React.lazy, means
+ * an open after the warm-up never waits on a Suspense reveal.
  */
-export function useWarmWaitlist(load: () => Promise<unknown>) {
+export function useWarmWaitlist<T>(
+  load: () => Promise<T>,
+  needed: boolean,
+): T | null {
+  const [loaded, setLoaded] = useState<T | null>(null);
+  const started = useRef(false);
+  const warm = useCallback(() => {
+    if (started.current) return;
+    started.current = true;
+    // A failed chunk lets the next intent try again.
+    load().then(setLoaded, () => {
+      started.current = false;
+    });
+  }, [load]);
+
   useEffect(() => {
-    let done = false;
-    const stop = () => {
-      done = true;
-      for (const type of WARM_EVENTS)
-        document.removeEventListener(type, onIntent, true);
-    };
-    const warm = () => {
-      if (done) return;
-      stop();
-      void load().catch(() => undefined);
-    };
+    let live = true;
     function onIntent(event: Event) {
       if ((event.target as Element).closest?.('a[href^="#waitlist"]')) warm();
     }
@@ -41,9 +47,21 @@ export function useWarmWaitlist(load: () => Promise<unknown>) {
         capture: true,
         passive: true,
       });
-    void afterLoadAndIdle().then(warm);
-    return stop;
-  }, [load]);
+    void afterLoadAndIdle().then(() => {
+      if (live) warm();
+    });
+    return () => {
+      live = false;
+      for (const type of WARM_EVENTS)
+        document.removeEventListener(type, onIntent, true);
+    };
+  }, [warm]);
+
+  useEffect(() => {
+    if (needed) warm();
+  }, [needed, warm]);
+
+  return loaded;
 }
 
 function writeHash(hash: string) {
