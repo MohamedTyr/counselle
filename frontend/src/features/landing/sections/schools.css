@@ -53,7 +53,8 @@
     radial-gradient(70% 40% at 45% 0%, #a5e3ac 0%, transparent 100%),
     radial-gradient(55% 40% at 100% 100%, #93d99c 0%, transparent 100%), #e4fbe8;
   border-radius: 20px;
-  overflow: clip;
+  /* Not clip: axe counts a clipped box as a scroll region without focus. */
+  overflow: hidden;
 }
 .lp-schools-points {
   width: 100%;

@@ -29,7 +29,8 @@
   background: #070809;
   border-radius: 22px;
   font-family: var(--lp-font-hero);
-  overflow: clip;
+  /* Not clip: axe counts a clipped box as a scroll region without focus. */
+  overflow: hidden;
 }
 
 /* Light columns: 22 bars on a 68px pitch, tallest at the edges. Horizontal

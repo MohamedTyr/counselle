@@ -93,7 +93,7 @@
   max-width: 580px;
   font-size: 15.5px;
   line-height: 1.5;
-  color: #6b7270;
+  color: var(--lp-muted);
 }
 /* The space above the answer folds away with it. */
 .lp-faq-answer::before {

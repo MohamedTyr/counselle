@@ -15,7 +15,8 @@
   position: relative;
   width: 100%;
   height: 60px;
-  overflow: clip;
+  /* Not clip: axe counts a clipped box as a scroll region without focus. */
+  overflow: hidden;
 }
 .lp-marquee-track {
   position: absolute;
