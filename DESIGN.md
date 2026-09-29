@@ -795,21 +795,20 @@ lineage a file uses before adding to it, because the state attributes differ
 | `card.tsx` | adds a `CardFrame*` family using `clip-path` to weld stacked cards into one frame | stacked-card layouts |
 | `table.tsx` | adds `variant="card"` | card-shaped data |
 | `empty.tsx` | two rotated ghost copies behind `variant="icon"` | depth without a shadow |
-| `code-block.tsx` | pinned to `github-light-default` | the previous theme's identifiers cleared only 3.49:1 |
 | `number-field.tsx` | field fill moved to `--field-surface`; `dark:` variants dropped | one field appearance; light-only app |
 | `sonner.tsx` | `theme="light"` hardcoded | §3.4 |
 
-### 10.5 The AI Elements directory is mostly vendored scaffolding
+### 10.5 The AI Elements directory holds only what is imported
 
-`components/ai-elements/` contains 11 files. **Only two are actually imported:**
-`message.tsx` (Message, MessageContent, MessageResponse/Streamdown, MessageActions) and
-`inline-citation.tsx`. The other nine — `artifact`, `code-block`, `chain-of-thought`,
-`conversation`, `prompt-input`, `reasoning`, `shimmer`, `sources`, `task` — have **zero
-importers**. `tool.tsx` and `suggestion.tsx` have been deleted.
+`components/ai-elements/` contains two files, both imported: `message.tsx` (Message,
+MessageContent, MessageResponse/Streamdown, MessageActions) and `inline-citation.tsx`.
+The other vendored files (`artifact`, `code-block`, `chain-of-thought`, `conversation`,
+`prompt-input`, `reasoning`, `shimmer`, `sources`, `task`, `tool`, `suggestion`) had no
+importers and have been deleted.
 
 **Do not treat that directory as representative of the design system.** The real chat
 system is the bespoke stack in §15. If you need a work-visibility component, extend
-`ToolBeat`, not `chain-of-thought.tsx`.
+`ToolBeat` rather than re-adding a registry scaffold.
 
 **A vendored file is not automatically reusable — check it against *our* primitives.**
 `suggestion.tsx` was deleted at the one moment it finally had a caller (the essay panel's
@@ -1782,7 +1781,7 @@ Ranked. Each is small; none is speculative.
 | 7 | **Reduced-motion gaps on spinners** — `spinner.tsx:12`, `sonner.tsx:24`, `AgentRunView.tsx:42`, `ChatMessage.tsx:67` | app-wide |
 | 8 | **Two dropdown-menu implementations** — `ui/menu.tsx` (Base UI, aliased as `DropdownMenu*`, 3 importers) and `ui/dropdown-menu.tsx` (Radix, 10 importers). Same import name, different library. | ui |
 | 9 | **`AiComposer.tsx` and `ChatComposer.tsx`** are ~280-line near-duplicates | ai-composer, ai-chat |
-| 10 | **Nine unused `ai-elements` files** with zero importers | components/ai-elements |
+| 10 | ~~Nine unused `ai-elements` files~~ **Closed** — deleted. | ~~components/ai-elements~~ |
 | 11 | **Disabled opacity split** 50 vs 64 | ui |
 | 12 | **Focus ring width split** 2px vs 3px on form controls | ui |
 | 13 | **`text-[13px]` scattered** in 22 places; promote to a `text-chrome` token. **Partially closed:** `--text-chrome` (`theme.css`) now exists and Tasks uses it in its five sites (group headers, scheduler rows, hint chips, nudge, footer). The other sites app-wide still need the sweep. | app-wide |
@@ -1790,7 +1789,7 @@ Ranked. Each is small; none is speculative.
 | 15 | **No `aria-busy`** on streaming regions | ai-chat |
 | 16 | **Popup chrome copy-pasted** across `menu`/`popover`/`select` | ui |
 | 17 | ~~`zIndex: 2147483647` off the `--z-*` scale~~ **Closed** — `useTaskDrag.ts` is deleted; the tasks redesign has no drag code. | ~~`useTaskDrag.ts:110`~~ |
-| 18 | **Duplicated constants** — `UNDO_WINDOW_MS`, `MIN/MAX_CYCLE_YEAR`, `86_400_000` | activities, schools, tasks |
+| 18 | **Duplicated constants** — `MIN/MAX_CYCLE_YEAR`, `86_400_000` | activities, schools, tasks |
 | 19 | ~~`dayDiff <= 6` vs `<= 7` — two definitions of "this week" in one feature~~ **Closed** — one `getDeadlineState` in `task-dates.ts` (`<= 7` for "normal", `<= 2` for "due soon") is now the single definition; the second copy is gone. | ~~tasks~~ |
 | 20 | ~~No undo on task bulk delete~~ **Moot** — bulk actions and multi-select are deleted; there is no bulk delete to undo. | ~~tasks~~ |
 | 21 | **Two colour literals** — `AppSidebar.tsx:164`, `number-field.tsx:141` | shell, ui |
