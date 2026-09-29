@@ -1,14 +1,31 @@
 # TODOS
 
-## Landing launch: what the landing-seo branch left open
+## Landing launch: what is left after the launch pass
 
-The engineering side of `plans/landing-seo-plan.md` is built (prerendered landing-only build, head tags, JSON-LD, crawl files, Pages headers/redirects/404, `scripts/verify-landing.sh`). Open items, each with the reason it is open:
+The engineering side of `plans/landing-seo-plan.md`, `plans/landing-backend-plan.md` and PR 1 of `plans/landing-launch-plan.md` is built. The owner's go-live steps (DNS, D1 remote migration, Pages project, PostHog settings, zone settings, verification, indexing) are the runbook in `plans/landing-launch-plan.md` §5. Open items, each with the reason it is open:
 
+- **PR 2 (cleanliness) is not started.** `plans/landing-launch-plan.md` §3: generate `llms.txt`, inline the CSS and drop Instrument Sans for mobile PSI ≥ 90, flatten `cards/colleges/`, move `playEssaySequence`, shared motion hooks, split `FeaturesStage`, the remaining single sources, the upsert check as a `node:sqlite` test, and enforcing the CSP. It starts once production verification (§5.7) passes; the 7.5 browser pass found no report-only CSP violations on `/`, `/privacy` or `/terms`, which is its evidence for enforcing.
 - **Founders and profiles are empty.** `FOUNDERS` and `PROFILES` in `frontend/src/features/landing/brand.ts` drive the "Who is behind Acceptra?" FAQ entry, `Organization.founder` and `Organization.sameAs`; nothing renders until they are filled in with real names, LinkedIn URLs and official profile URLs. Add `twitter:site` to `landing.html` once the X handle exists.
-- **The site icon is derived, not designed.** `public-landing/icon.svg` (and every PNG/ICO generated from it) and `assets/acceptra-glyph.svg` are the wordmark's "A" on the brand green, standing in for the square mark the plan asks design for (D5). Regenerate the PNG set from the designed mark when it exists.
-- **Lighthouse mobile Performance is ~76 locally, not the plan's 90.** SEO 100, Best Practices 100, CLS 0, and a real Chromium under 4x CPU paints the H1 (the LCP) at 0.3-0.8 s, but Lighthouse's simulation reports LCP ~3.8 s against a local Wrangler server. PostHog alone costs ~10 points of TBT even though it loads after `load` + idle (86 without it); loading it on first interaction instead would likely clear 90 at the cost of losing visitors who bounce without interacting. That is an owner call. Re-measure with PageSpeed Insights against production before deciding.
-- **Five landing e2e tests fail, all pre-existing.** `e2e/landing-motion.spec.ts` fails the same five at the as-committed landing (`1a764912`): the 390px nav CTA is under 44px tall, three tests time out on `scrollIntoViewIfNeeded` for the essay sheet, and the stage height differs between two sheets (468 vs 447px). None were introduced by the SEO work; each needs its own look.
-- **Enforce the CSP after a clean report period.** `_headers` ships `Content-Security-Policy-Report-Only`; switch to enforcing only once production reports show no violations from the page's own resources.
+- **The site icon is derived, not designed.** `public-landing/icon.svg` (and every PNG/ICO generated from it) and `assets/acceptra-glyph.svg` are the wordmark's "A" on the brand green, standing in for a designed square mark. Regenerate the PNG set from the designed mark when it exists.
+- **Lighthouse: 95 mobile (median of 96, 95, 94), 99 desktop, locally.** SEO 100, Best Practices 100, CLS 0, against `npm run preview:landing` with analytics off (it runs only on `acceptra.ai`), so this is an upper bound. Under CPU load from other processes the same build scored 76–96: the H1's render delay flips between ~0.3 s and ~1.3 s, which PR 2's size-matched font fallback and inlined CSS target. PageSpeed Insights mobile on production is the baseline from launch on; record it here (runbook §5.9.5), and PR 2's ≥ 90 gate is measured against it. Accessibility is 97 because of contrast inside the `aria-hidden` illustrations (below).
+- **The landing e2e suite passes 19/19.** The five failures recorded before the launch pass are resolved: the 390px nav CTA and compare picker are 44px, every stage blurb shares one grid cell so the stage keeps one height, and three specs that assumed the essay tab opens first now choose it. One more spec failed about one run in four under the dev server's StrictMode double mount, before this branch too; it now compares against what mounting created.
+- **The app build still renders `LandingPage`** (`src/app/router.tsx`), where `/api/waitlist` doesn't exist, so a signup there shows the generic error. No worse than before, and the app isn't deployed; decide at B6.
+- **Deferred from the launch pass** (`plans/landing-launch-plan.md` §8), none of them needed to launch:
+  - Turnstile on the waitlist, if the WAF rate limit and host check prove not enough.
+  - A separate preview D1, only if preview signups must work (today the host check refuses them).
+  - Merging Geist and Inter (a design call).
+  - Optional analytics events (`faq_opened`, `section_viewed`).
+  - Stream-limiting chunked request bodies in the waitlist Function (it measures the body after reading it).
+  - `worker-src` and the toolbar origin in the CSP, if replay or the toolbar is ever enabled under the enforced CSP.
+  - posthog-js `module.slim` and `advanced_disable_feature_flags_on_first_load`.
+  - Pausing the typewriter and marquee off screen, and moving the composer animation off `background-color`.
+  - WebP for the three PNG logo tiles.
+  - A `<details>` FAQ for no-JS visitors (the answers are in the HTML, but collapsed without JS).
+  - A server-side honeypot check (today the client drops a filled trap).
+  - Spreadsheet-safe CSV export of the list.
+  - Contrast in the decorative, `aria-hidden` illustrations (what holds Lighthouse Accessibility at 97).
+  - Trimming the ~40 kB of inline SVG data URIs.
+  - The 37px "Skip to content" link, accepted: it is a keyboard target, not a touch target.
 
 ## `cds_library.school_explore` view ownership drifted from the seed (live DB fix applied, source not)
 - **What:** the live v3 database's `cds_library.school_explore` view was owned by `postgres`
