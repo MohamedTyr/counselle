@@ -129,6 +129,7 @@ function WaitlistPopup({ request, trigger, onSide }: PopupProps) {
     <Dialog.Popup
       ref={popup}
       className="lp-wl-popup"
+      aria-modal="true"
       data-side={side}
       data-wide={shown === "school" ? "" : undefined}
       initialFocus={(type) => (type === "touch" ? true : email.current)}

@@ -10,26 +10,33 @@ import { Footer } from "./sections/Footer";
 import { Testimonials } from "./sections/Testimonials";
 import { StructuredData } from "./StructuredData";
 import { useLandingMotion } from "./useLandingMotion";
-import { useWaitlistDialog } from "./waitlist/useWaitlistDialog";
+import {
+  useWaitlistDialog,
+  useWarmWaitlist,
+} from "./waitlist/useWaitlistDialog";
 
 /** Nothing renders until the first open, so the dialog loads on demand. */
+const loadDialog = () => import("./waitlist/WaitlistDialog");
 const WaitlistDialog = lazy(() =>
-  import("./waitlist/WaitlistDialog").then((module) => ({
-    default: module.WaitlistDialog,
-  })),
+  loadDialog().then((module) => ({ default: module.WaitlistDialog })),
 );
 import "./responsive.css";
 
 export function LandingPage() {
   const landingRef = useLandingMotion();
   const waitlist = useWaitlistDialog();
+  useWarmWaitlist(loadDialog);
+  // The dialog portals beside the canvas, so making the page inert leaves
+  // only the dialog reachable. React drops it in the same commit that closes
+  // the dialog, before focus goes back to the trigger.
+  const behindDialog = waitlist.open;
   return (
     <div className="lp" ref={landingRef}>
       <StructuredData />
-      <a className="lp-skip" href="#top">
+      <a className="lp-skip" href="#top" inert={behindDialog}>
         Skip to content
       </a>
-      <div className="lp-canvas">
+      <div className="lp-canvas" inert={behindDialog}>
         <HeroNav />
         <main className="lp-page">
           <Hero />

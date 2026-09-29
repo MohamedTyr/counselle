@@ -30,7 +30,8 @@ const IDLE_TIMEOUT_MS = 3000;
 /** Loaded once the page is loaded and idle, so the SDK never competes with it. */
 let client: Promise<PostHog> | null = null;
 
-function afterLoadAndIdle(): Promise<void> {
+/** Resolves once the page has loaded and the main thread is idle. */
+export function afterLoadAndIdle(): Promise<void> {
   return new Promise((resolve) => {
     const idle = () => {
       if ("requestIdleCallback" in window)

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { track } from "../analytics";
+import { afterLoadAndIdle, track } from "../analytics";
 import { isSource, type PlanId, type Side, type Source } from "./contract";
 
 /** Any link to these anchors opens the dialog, so the buttons stay links. */
@@ -12,6 +12,38 @@ function sideOf(hash: string): Side | null {
   if (hash === SCHOOLS_HREF) return "school";
   if (hash === WAITLIST_HREF) return "me";
   return null;
+}
+
+const WARM_EVENTS = ["pointerenter", "touchstart", "focusin"];
+
+/**
+ * Starts loading the dialog on the first sign of intent toward any waitlist
+ * link, and on idle after load, so the first open never waits on the network.
+ */
+export function useWarmWaitlist(load: () => Promise<unknown>) {
+  useEffect(() => {
+    let done = false;
+    const stop = () => {
+      done = true;
+      for (const type of WARM_EVENTS)
+        document.removeEventListener(type, onIntent, true);
+    };
+    const warm = () => {
+      if (done) return;
+      stop();
+      void load().catch(() => undefined);
+    };
+    function onIntent(event: Event) {
+      if ((event.target as Element).closest?.('a[href^="#waitlist"]')) warm();
+    }
+    for (const type of WARM_EVENTS)
+      document.addEventListener(type, onIntent, {
+        capture: true,
+        passive: true,
+      });
+    void afterLoadAndIdle().then(warm);
+    return stop;
+  }, [load]);
 }
 
 function writeHash(hash: string) {

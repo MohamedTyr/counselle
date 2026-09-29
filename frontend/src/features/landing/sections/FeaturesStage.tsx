@@ -48,6 +48,21 @@ function subscribeVisibility(onChange: () => void) {
 }
 type Selection = Shown & { keyboard: boolean; leaving: Shown | null };
 
+/**
+ * Every blurb in one grid cell, only the shown one visible, so the cell is
+ * always as tall as the longest and the stage never changes height.
+ */
+function Blurbs({ shown }: { shown: number }) {
+  return FEATURES.map(({ id, blurb }, index) => {
+    const hidden = index !== shown || undefined;
+    return (
+      <span key={id} aria-hidden={hidden} data-nosnippet={hidden}>
+        {blurb}
+      </span>
+    );
+  });
+}
+
 /** One immediately selectable feature; automatic advance only while unattended. */
 export function FeaturesStage() {
   const [{ active, run, keyboard, leaving }, setSelection] =
@@ -211,7 +226,7 @@ export function FeaturesStage() {
         aria-label="Features"
         onKeyDown={onKeyDown}
       >
-        {FEATURES.map(({ id, title, blurb, color }, index) => {
+        {FEATURES.map(({ id, title, color }, index) => {
           const selected = index === active;
           return (
             <button
@@ -235,14 +250,19 @@ export function FeaturesStage() {
               />
               <span className="lp-stage-title">{title}</span>{" "}
               <span className="lp-stage-blurb">
-                <span>{blurb}</span>
+                <span className="lp-stage-blurbs">
+                  <Blurbs shown={index} />
+                </span>
               </span>
             </button>
           );
         })}
       </div>
-      <p className="lp-stage-description" id="lp-stage-description">
-        {feature.blurb}
+      <p
+        className="lp-stage-description lp-stage-blurbs"
+        id="lp-stage-description"
+      >
+        <Blurbs shown={active} />
       </p>
       <div
         ref={panel}

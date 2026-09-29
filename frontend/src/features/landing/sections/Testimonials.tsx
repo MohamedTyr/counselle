@@ -1,4 +1,5 @@
 import worldMap from "../assets/world-map.avif";
+import worldMapSmall from "../assets/world-map-1040.avif";
 import avatarMaya from "../assets/avatar-maya.webp";
 import avatarDaniel from "../assets/avatar-daniel.webp";
 import avatarPriya from "../assets/avatar-priya.webp";
@@ -35,7 +36,13 @@ export function Testimonials() {
   return (
     <section className="lp-testimonials" aria-labelledby="testimonials-heading">
       <div className="lp-world-map" aria-hidden="true">
-        <img src={worldMap} alt="" loading="lazy" />
+        <img
+          src={worldMap}
+          srcSet={`${worldMapSmall} 1040w, ${worldMap} 2080w`}
+          sizes="(max-width: 1039px) 100vw, 1040px"
+          alt=""
+          loading="lazy"
+        />
       </div>
       <h2
         className="lp-heading lp-testimonials-heading"

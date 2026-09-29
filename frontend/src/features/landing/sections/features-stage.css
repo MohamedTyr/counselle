@@ -85,6 +85,15 @@
   grid-template-rows: 1fr;
   opacity: 1;
 }
+.lp-stage-blurbs {
+  display: grid;
+}
+.lp-stage-blurbs > span {
+  grid-area: 1 / 1;
+}
+.lp-stage-blurbs > [aria-hidden] {
+  visibility: hidden;
+}
 /* The top rule of the active item doubles as its timer, in the feature's
    colour. The stage's clock draws it, so it holds still whenever the
    showcase waits and carries on from the same place. */
