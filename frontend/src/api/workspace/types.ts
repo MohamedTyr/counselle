@@ -70,6 +70,8 @@ export type Application = {
   archived_at: string | null;
 };
 
+export type DeadlineSource = "student" | "facts";
+
 export type ApplicationView = Application & {
   school_name: string;
   school_city: string | null;
@@ -77,6 +79,14 @@ export type ApplicationView = Application & {
   website_url: string | null;
   progress: Rollup;
   essays: Rollup;
+  deadline_source: DeadlineSource | null;
+  deadline_checked_at: string | null;
+  deadline_inherited_date: string | null;
+  deadline_inherited_checked_at: string | null;
+  aid_deadline_source: DeadlineSource | null;
+  aid_deadline_checked_at: string | null;
+  aid_deadline_inherited_date: string | null;
+  aid_deadline_inherited_checked_at: string | null;
 };
 
 export type SchoolSearchResult = {

@@ -27,6 +27,16 @@ class RunHandle:
     emissions_len_at_snapshot: int = 0
     steering_queue: deque[SteeringMessage] = field(default_factory=deque)
     queued_at_terminal: list[SteeringMessage] = field(default_factory=list)
+    # Why the running task is about to be cancelled — read from inside the run
+    # (goal mode's `CancelledError` handler) to tell the student's Stop apart
+    # from a shutdown drain or a watchdog timeout, which cancel the same task
+    # with nothing on the exception to distinguish them (BC-15).
+    #
+    # The signal is POSITIVE and fail-safe by construction: only the student's
+    # own cancel path sets it, so every other cause — and an unset/absent
+    # handle — reads False and claims nothing. A cause that never learns about
+    # this field can therefore never be mistaken for a student pressing Stop.
+    cancelled_by_user: bool = False
 
     def queue_steer(self, message: SteeringMessage) -> None:
         self.steering_queue.append(message)

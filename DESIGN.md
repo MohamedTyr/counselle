@@ -716,7 +716,7 @@ on screen when the document is meant to be the only one that floats.
 | `/app/ai` | composer landing | ” |
 | `/app/ai/:sessionId` | chat | ” |
 | `/app/tasks` | task board / table | ” |
-| `/app/schools`, `/app/schools/:unitid` | list; school page (About + Your application). Keyed by school, so a school you have not added still has a page; an application id in the slot redirects to the canonical URL | ” |
+| `/app/schools`, `/app/schools/:unitid` | list; school page (About + Compare + Your application). Keyed by school, so a school you have not added still has a page; an application id in the slot redirects to the canonical URL | ” |
 | `/app/essays`, `/app/essays/:id` | library, editor | ” |
 | `/app/activities` | activities + honors | ” |
 | `/app/profile` | profile | ” |
@@ -1111,6 +1111,62 @@ that drove it.
 - Character budget: `empty` → `--ink-faint`, `ok` → muted, `near` (≥90%) → warning,
   `over` → danger + `font-medium`.
 
+**Goal mode** (`domain/goal.py::GoalStatus`, six terminal states plus the agent's own
+`awaiting_input` pause, a running state, and an interrupted state — engineering-complete,
+product-unvalidated; see
+`docs/ARCHITECTURE.md` §42, ADR 0041) is not a badge: a goal run's state is one line of
+toned text beside the word "Goal" (`goal-status.ts::goalStatusPresentation`). It uses
+three tones — neutral (`text-muted-foreground`), `--success-fg`, `--warning-fg` — and
+**never `destructive`**, because a goal run stopping short is never rendered as the run
+having failed:
+
+| Status | Headline | Tone |
+|---|---|---|
+| sent, no `goal` step yet | `Working out what done looks like` | neutral |
+| running | `Working` | neutral |
+| running, after N checks | `Checked once, still working` (`twice`, `N times`) | neutral |
+| `achieved` | `All done` | success |
+| `partial` | `Partly done` | warning |
+| `stopped_budget` | `Stopped at the run limit` | warning |
+| `stopped_no_progress` | `Stopped, no longer making progress` | warning |
+| `stopped_user`, or the turn's own `cancelled` status | `You stopped it` | neutral |
+| `stopped_check_failed` | `Couldn't be checked` | warning |
+| `awaiting_input` | `Waiting for your answer` | neutral |
+| no `phase="final"` step reached (crash/interrupt) | `Interrupted before it finished` | neutral |
+
+**One progress list, not two.** A goal message stacks, top to bottom: the goal line, the
+agent's own `PlanChecklist`, its tool beats, a check note between rounds, and — once a
+verdict exists — the result. The agent's plan is the run's *only* checklist. The frozen
+criteria the independent check uses are the finish line, not a to-do list, so while the
+run is live they sit behind a closed `Done when` disclosure on the goal line, and they
+are laid out in full exactly once, in the result. Rendering them as an open checklist
+above the plan is the defect this layout replaces: two stacked cards, each with a count
+pill, a meter and a list, that a student could not tell apart.
+
+- **The goal line does not repeat the goal.** The student's own message sits directly
+  above it, so the statement is `sr-only`; the line shows the mark, "Goal", and the state.
+- **The check note never claims the run kept going.** The backend emits a `check` step
+  *before* it decides whether to continue, so `GoalCheckBeat` states only what the check
+  found ("Checked the goal: 2 of 4 done. Still missing:") and lists each outstanding
+  reason. A check that found everything met renders nothing — the result below says so.
+- **The result carries no developer numbers.** Elapsed time, plus "Checked N times" when
+  the run was sent back to work. Requests and dollars are not the student's concern.
+- **The goal line appears on the first frame.** The turn engine knows a send was a
+  `/goal` run (`liveTurnIsGoal`, set on every send path so a regenerate or retry can never
+  inherit it), so the live message shows the pending goal line instead of the generic
+  starting beat while the backend is still deriving criteria.
+
+`GoalHeader` and `GoalVerdictCard` render from the same `detail.goal.status` field so the
+two never contradict each other. The last table row is the crash rule: a hard process
+kill can never run "emit the final step before exiting," so a goal message that is not
+the client's actively-streaming turn and whose latest `goal` step has `status == null`
+reads **Interrupted before it finished** rather than a frozen "Working" — a derivation
+from what the frontend already knows, not a new backend signal. A run the student
+stopped is the exception: it can also end with no `final` step, and calling their own
+deliberate action an interruption would be a false statement about what happened.
+`warning` covers four structurally different stop reasons; the tone alone does not
+distinguish which — the headline text and the per-criterion breakdown do that work.
+
 ### 14.3 Status is never colour alone
 
 Every status badge contains the **word**. Where severity matters, add a **glyph**:
@@ -1271,8 +1327,11 @@ Two competing right rails is worse than one that swaps.
 
 ### 15.5 Visualisations
 
-There is **no charting library.** "Viz" means typed tabular render specs:
+Server-sent **viz** has no charting library: its typed render specs are
 `stat_block` (a `<dl>`) and `comparison_table` (schools as columns, metrics as rows).
+The school page's `Compare` tab is the deliberate exception: it reuses the installed
+Recharts primitives through the facts feature's accessible `ChartFigure` shell for
+reported GPA buckets and SAT/ACT ranges.
 
 - **Every cell is a citation envelope.** Unavailable cells render *"not available"* in
   muted italic — never blank, never a dash.
@@ -1281,6 +1340,27 @@ There is **no charting library.** "Viz" means typed tabular render specs:
   §1.1 forbids.
 - An unrecognised spec version renders "This visualization requires a newer client."
   inside the normal frame, so it reads as forward-compatibility rather than breakage.
+
+### 15.5.1 School Compare
+
+`Compare` is the product vocabulary for the school-detail academic comparison (the
+route/query implementation may use `chances` internally). It says where a student's
+saved GPA, SAT sections, or ACT composite sits against reported entering-class data;
+it never says chance, odds, probability, confidence, Reach, Target, or Safety.
+
+The school detail is one `PageContainer` `panel` surface. Its route owns the single
+school-facts read and passes that response to the About and Compare tabs; Compare is
+not a second facts fetch. The Compare panel is one raised frame with flat internal
+groups and hairlines—no nested cards—and renders one selected metric at a time.
+
+Compare is read-only in the honest product sense: selecting a metric and moving or
+resetting an Explore scenario changes local view state only. It issues no Profile
+`PATCH`, application mutation, estimator request, or feature-owned persistence. The
+existing Profile `GET` is lazy and begins only when Compare is selected (and may
+initialize the established empty Profile row); About never requests it. Missing,
+incompatible, stale, or partial values remain explicitly labeled rather than being
+filled, normalized, or turned into an admission claim. Every graphic has a complete
+text-equivalent description and does not rely on hover or color.
 
 ### 15.6 Tracked changes
 
@@ -1833,3 +1913,63 @@ bypassed somewhere upstream — find that instead.
 
 *When this document and the code disagree, the code is the bug — unless the code is
 right, in which case this document is the bug. Fix whichever it is in the same PR.*
+
+## 22. Public landing page
+
+The public landing page is the Figma frame "Desktop - 6" (file
+`V66rN97MQiP3ezpNpLL7MD`) reproduced as code, one to one. It has its own
+marketing system, separate from workspace tokens: page `#f7fbf9`, ink
+`#121214`, primary CTA `#0a6b3d`, bright green `#21b86b`, hairline strokes at
+`#121214` 8%, no drop shadows anywhere, Geist Variable throughout (the wordmark
+is Geom Regular, shipped as outlined SVG), 46px section headings, 20px card
+radius, 12px illustration sheets, 999px pills, and a 160px section rhythm. The
+tokens live in `frontend/src/features/landing/landing.css`; the sections and
+illustrated cards are the components under `frontend/src/features/landing/`,
+and the standalone Vite entry is `frontend/landing.html`.
+
+The page is authored at the design's native 1440px width and scaled down
+proportionally on narrower viewports rather than reflowed, so the composition
+never departs from the approved frame. The illustrated feature cards (essay
+notes, college matches, scholarships, activities, SAT practice, deadlines) are
+static illustrations, hidden from assistive technology; the nav, plan buttons,
+FAQ accordion, newsletter field and footer links are the interactive surface.
+The product workspace retains its existing system.
+
+The hero is the exception to that system: it is the "Desktop - 9" hero frame
+(node `538:116`), near-black `#070809` with 22 emerald light columns, a fine
+grain, Inter for the headline, nav and workspace cards, Instrument Serif
+Italic for the one accent word, and soft shadows on the CTA, composer and
+cards. It is exact at the 1392×892 frame; the headline scales below 860px and
+the six workspace cards scale as one stage pinned to the hero's bottom edge.
+`sections/hero.css` and `sections/hero-cards.css` hold its values.
+
+The nav has three states, written to `data-state` by `useNavScroll.ts`. At the
+top of the page it rests in the hero with no frame. Scrolling down slides it
+out of view (240ms). The first scroll up brings it back (360ms) as a near-black
+pill with a 16px backdrop blur, which is the one blur on the page and is there
+for legibility over the light sections. Links, brand and button never move
+between states; only the frame behind them fades. Keyboard focus inside the
+nav keeps it on screen, and reduced motion replaces the slide with a fade.
+Below 1024px "Home" and the secondary "For schools" button leave, and "For
+schools" joins the links. Below 800px the brand, links and button no longer fit
+one row: at rest the links sit on a row of their own under the brand and the
+button, and the floating pill carries only the brand and the button, so a phone
+always has the waitlist one scroll up away. On phones (under 600px) the
+headline keeps its two designed lines by sizing to the width it has, down to
+27px.
+
+The schools section (`sections/Schools.tsx`, id `schools`) sits between pricing
+and the FAQ. Its heading is centred like the sections around it; below it the
+counselor's roster sheet stands on the showcase's pastel wash (20px radius)
+and runs off the stage's bottom edge, then the four points sit in a row and
+the button closes the section. The button is the nav button in the plan
+buttons' black. The roster is `cards/RosterSheet.tsx`. "For schools" in the
+nav scrolls to the section; its own button opens the schools dialog. The "For schools" pill
+is the only label above a heading on the page. The roster plays one
+demonstration when it scrolls into view (`useRosterMotion.ts`): the class dots
+take their colours, statuses stamp on, the list sorts so the students who are
+behind rise to the top. The markup is the sorted,
+finished state, so reduced motion and browsers without the Web Animations API
+show it as is. Status is a word and an icon before it is a colour.
+
+The production page is prerendered to HTML and hydrated (`scripts/prerender-landing.mjs`), so a component may not read `window`, `document`, `matchMedia` or the URL while rendering: read them in an effect, or through `useSyncExternalStore` with a server value, so the server render and the first client render agree. Adjacent inline text inside flex or `<br />` layouts carries a literal space, because crawlers read the raw HTML text, not the laid-out page.

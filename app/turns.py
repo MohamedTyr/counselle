@@ -252,6 +252,10 @@ class _Turn:
     surface: Surface = Surface.CHAT
     essay_id: str | None = None
     essay_selection: str | None = None
+    # Harness mode (plans/goal-mode-plan.md D10): drives goal budgets/timeout
+    # selection in _drive and the separate goal_max_concurrent_turns ceiling.
+    # True for an A2 continuation exactly when it resumes a paused goal run.
+    goal_mode: bool = False
     task: asyncio.Task[None] | None = None
     trace_id: str = ""
     ids: dict[str, Any] | None = None  # {message_id, user_message_id} from meta
@@ -364,6 +368,7 @@ class TurnRegistry:
         surface: Surface = Surface.CHAT,
         essay_id: str | None = None,
         essay_selection: str | None = None,
+        goal_mode: bool = False,
     ) -> AsyncIterator[tuple[Event, int]]:
         """Claim the session, spawn the detached turn, return an attach handle.
 
@@ -415,6 +420,7 @@ class TurnRegistry:
         max_turns = self._settings.max_concurrent_turns
         if len(self._turns) >= max_turns:
             raise TooManyTurns(session_id)
+        self._require_goal_slot(session_id, goal_mode)
         buffer = _RingBuffer(
             self._settings.agent_stream_buffer_size,
             on_charge=self._charge_bytes,
@@ -429,6 +435,7 @@ class TurnRegistry:
             surface=surface,
             essay_id=essay_id,
             essay_selection=essay_selection,
+            goal_mode=goal_mode,
         )
         handle_store = getattr(self._deps, "run_handles", None)
         if handle_store is not None:
@@ -540,11 +547,17 @@ class TurnRegistry:
         Call immediately after :meth:`accept_clarification` succeeds — the
         durable A1-answered + ContinuationIntent write has already landed;
         this only spawns A2's task and buffer.
+
+        A goal run that paused on ``ask_student`` resumes here as a goal
+        turn (``prepared.inherited_goal``), under the goal watchdog and the
+        goal concurrency ceiling, exactly as if it had been started fresh.
         """
+        goal_mode = prepared.inherited_goal is not None
         if session_id in self._turns:
             raise StreamActive(session_id)
         if len(self._turns) >= self._settings.max_concurrent_turns:
             raise TooManyTurns(session_id)
+        self._require_goal_slot(session_id, goal_mode)
         self._require_response_mode_available(response_mode)
         buffer = _RingBuffer(
             self._settings.agent_stream_buffer_size,
@@ -561,6 +574,7 @@ class TurnRegistry:
             response_mode_inherited=True,
             buffer=buffer,
             is_continuation=True,
+            goal_mode=goal_mode,
             continuation_of=prepared.root_message_id,
             project_user=prepared.project_user,
             response_origin=prepared.origin,
@@ -616,6 +630,19 @@ class TurnRegistry:
         if observed is not None:
             turn.buffer.append(observed)
         return user_message_id
+
+    def _require_goal_slot(self, session_id: str, goal_mode: bool) -> None:
+        """A tighter, separate ceiling for goal turns (§2.12/R10): one can
+        hold a slot and a disproportionate share of the shared stream-buffer
+        byte pool for up to goal_turn_timeout_s. Filtered count over the same
+        dict, inside the same synchronous claim window — no maintained
+        counter needed at n <= max_concurrent_turns.
+        """
+        if not goal_mode:
+            return
+        goal_turns = sum(1 for t in self._turns.values() if t.goal_mode)
+        if goal_turns >= self._settings.goal_max_concurrent_turns:
+            raise TooManyTurns(session_id)
 
     @staticmethod
     def _is_steerable(turn: _Turn | None) -> bool:
@@ -759,7 +786,13 @@ class TurnRegistry:
 
     async def _drive(self, turn: _Turn, source_config: SourceConfig | None) -> None:
         start_mono = time.monotonic()
-        timeout_s = self._settings.agent_turn_timeout_s
+        # D14/§2.10: a goal turn runs under a longer watchdog than an ordinary
+        # turn (90 min vs 60), since it works across many model rounds.
+        timeout_s = (
+            self._settings.goal_turn_timeout_s
+            if turn.goal_mode
+            else self._settings.agent_turn_timeout_s
+        )
         handle_store = getattr(self._deps, "run_handles", None)
         try:
             try:
@@ -777,6 +810,8 @@ class TurnRegistry:
                         run_kwargs["surface"] = turn.surface
                         run_kwargs["essay_id"] = turn.essay_id
                         run_kwargs["essay_selection"] = turn.essay_selection
+                    if turn.goal_mode:
+                        run_kwargs["goal_mode"] = True
                     events = cast(
                         "AsyncGenerator[Event, None]",
                         self._run_turn(
@@ -837,7 +872,11 @@ class TurnRegistry:
         error/timeout route through the SAME terminal-persistence owner).
         """
         start_mono = time.monotonic()
-        timeout_s = self._settings.agent_turn_timeout_s
+        timeout_s = (
+            self._settings.goal_turn_timeout_s
+            if turn.goal_mode
+            else self._settings.agent_turn_timeout_s
+        )
         handle_store = getattr(self._deps, "run_handles", None)
         try:
             try:
@@ -1068,6 +1107,13 @@ class TurnRegistry:
         task = turn.task
         if task is None:  # guarded by the caller; defensive (asserts strip under -O)
             return
+        if turn.run_handle is not None:
+            # This cancel — and only this one — is the student's own Stop, so
+            # the run can honestly report it as such. Set BEFORE `cancel()`,
+            # synchronously, so the flag is already visible when the
+            # `CancelledError` surfaces inside the run. No other termination
+            # path sets it (BC-15's shutdown drain and the watchdog must not).
+            turn.run_handle.cancelled_by_user = True
         task.cancel()
         try:
             await task

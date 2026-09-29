@@ -10,6 +10,25 @@ user_description: Classify reach, target, and likely odds without fake predictio
 
 Source: `plans/research-counselor-judgment.md` (triage instinct; chances playbook).
 
+## Explore card estimate
+
+The Explore card's code-owned band is not this skill's individualized chancing
+judgment and is never an admission probability. It is a planning category derived
+from the school's overall observed admit rate and nothing else:
+
+- below 20%: `Reach`;
+- 20% to below 50%: `Target`; and
+- 50% or above: `Safety`.
+
+It shows no band at all without a usable overall admit rate. Nothing about the
+student moves it — not the saved Profile, not scores the student typed into Explore —
+so never describe it as personalized, as a read of this student's application, or as
+a percentage chance. Do not treat its category as an instruction to edit
+`Application.list_type`.
+
+The conversational `sub-25%` rule below is deliberately broader advice for a full
+chancing discussion. It does not override the Explore card's exact `<20%` Reach guard.
+
 ## The hidden decision
 
 "What are my chances at X?" is never a statistics request. It is one of:

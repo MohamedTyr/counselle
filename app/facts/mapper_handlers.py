@@ -187,14 +187,57 @@ def bar_graph_distribution(
     return facts
 
 
-def text_fallback_date(raw: str, *, base_key: str, cycle_year: int | None) -> list[MappedFact]:
+def _anchored_month_day(
+    month: int, day: int, display: str, *, cycle_year: int, base_key: str
+) -> MappedFact:
+    """One bare month-day rolled onto `cycle_year`, ready-keyed as a `MappedFact`."""
+    resolved = P.resolve_deadline_date(month, day, cycle_year)
+    period = P.deadline_reported_period(cycle_year)
+    value = NormalizedValue(kind="date", display=display.strip(), value_date=resolved)
+    return MappedFact(
+        base_key, value, reported_period=period, reported_period_year=cycle_year - 1
+    )
+
+
+def _split_two_dates(
+    raw: str, *, base_key: str, second_key: str, cycle_year: int
+) -> list[MappedFact] | None:
+    """The `second_key` rung of `text_fallback_date`'s ladder: a `"November 1,
+    January 1"`-shaped pair of bare month-days, one comma, both halves
+    parseable — CollegeData's ED I/ED II and EA I/EA II shape (plan §3 A1).
+    Returns `None` (never partial output) whenever the shape does not hold,
+    so the caller falls through to the ordinary single-value ladder."""
+    if raw.count(",") != 1:
+        return None
+    first_raw, second_raw = (half.strip() for half in raw.split(","))
+    first = P.parse_bare_month_day(first_raw)
+    second = P.parse_bare_month_day(second_raw)
+    if first is None or second is None:
+        return None
+    return [
+        _anchored_month_day(*first, first_raw, cycle_year=cycle_year, base_key=base_key),
+        _anchored_month_day(*second, second_raw, cycle_year=cycle_year, base_key=second_key),
+    ]
+
+
+def text_fallback_date(
+    raw: str,
+    *,
+    base_key: str,
+    cycle_year: int | None,
+    second_key: str | None = None,
+) -> list[MappedFact]:
     """A bare month-day deadline/date field: anchor when possible, else plain text.
 
-    Absence first; then `"2027-01-02"`-shaped ISO dates; then a bare
-    month-day rolled onto `cycle_year` (plan §4.4's year-roll rule); anything
-    else (a real but oddly-shaped string like a bare month name, observed
-    live at UGA's "Due in Admissions Office" column) survives as text rather
-    than becoming unmapped for a label the mapper recognized.
+    Absence first; then `"2027-01-02"`-shaped ISO dates; then, when
+    `second_key` is configured and the raw value is a one-comma pair of bare
+    month-days, two facts (plan §3 A1: ED I/ED II, EA I/EA II printed
+    together); then a single bare month-day rolled onto `cycle_year` (plan
+    §4.4's year-roll rule); anything else (a real but oddly-shaped string
+    like a bare month name, observed live at UGA's "Due in Admissions
+    Office" column, or a pair with no `second_key` configured, or a pair
+    with no `cycle_year`) survives as text rather than becoming unmapped
+    for a label the mapper recognized.
     """
     absence = absence_display(raw)
     if absence is not None:
@@ -203,15 +246,16 @@ def text_fallback_date(raw: str, *, base_key: str, cycle_year: int | None) -> li
         return [MappedFact(base_key, N.normalize_date(raw))]
     except NormalizeError:
         pass
+    if second_key is not None and cycle_year is not None:
+        pair = _split_two_dates(
+            raw, base_key=base_key, second_key=second_key, cycle_year=cycle_year
+        )
+        if pair is not None:
+            return pair
     month_day = P.parse_bare_month_day(raw)
     if month_day is not None and cycle_year is not None:
         month, day = month_day
-        resolved = P.resolve_deadline_date(month, day, cycle_year)
-        period = P.deadline_reported_period(cycle_year)
-        value = NormalizedValue(kind="date", display=raw.strip(), value_date=resolved)
-        return [
-            MappedFact(base_key, value, reported_period=period, reported_period_year=cycle_year - 1)
-        ]
+        return [_anchored_month_day(month, day, raw, cycle_year=cycle_year, base_key=base_key)]
     return [MappedFact(base_key, N.normalize_text(raw))]
 
 

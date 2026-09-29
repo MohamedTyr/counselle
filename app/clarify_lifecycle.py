@@ -38,6 +38,7 @@ from enum import StrEnum
 from typing import Any, Literal
 from uuid import uuid4
 
+from app.goal_loop import NOT_GOAL_EVIDENCE_KINDS
 from app.records import replace_latest_pending_v2
 from app.turn_persistence import AGENT_NODE
 from domain.clarification import (
@@ -139,6 +140,31 @@ class PreparedContinuation:
     inherited_surface: Surface = Surface.CHAT
     inherited_essay_id: str | None = None
     inherited_essay_selection: str | None = None
+    # Set when A1 was a goal run that paused on ask_student: the goal it was
+    # working toward, frozen at goal start, plus every tool receipt from the
+    # runs before this one. A2 is then itself a goal turn.
+    inherited_goal: dict[str, Any] | None = None
+
+
+def _inherited_goal(latest: Mapping[str, Any]) -> dict[str, Any] | None:
+    """The goal A2 resumes, or ``None`` for an ordinary clarify.
+
+    A1's own receipts join the ones it inherited; step ids are per-turn
+    counters (``s1``, ``s2``…), so they are prefixed with A1's message id to
+    stay unique across the chain.
+    """
+    goal = latest.get("goal")
+    if not isinstance(goal, dict):
+        return None
+    prefix = str(latest.get("message_id") or "")[:8]
+    own_steps = [
+        {**step, "step_id": f"{prefix}-{step.get('step_id')}"}
+        for step in latest.get("steps") or []
+        if isinstance(step, dict)
+        and step.get("status") != "start"
+        and step.get("kind") not in NOT_GOAL_EVIDENCE_KINDS
+    ]
+    return {**goal, "prior_steps": [*(goal.get("prior_steps") or []), *own_steps]}
 
 
 def _inherited_surface(values: Mapping[str, Any]) -> tuple[Surface, str | None, str | None]:
@@ -260,6 +286,7 @@ async def accept_clarification(
         dict(inherited_source_config_raw) if isinstance(inherited_source_config_raw, dict) else None
     )
     inherited_surface, inherited_essay_id, inherited_essay_selection = _inherited_surface(values)
+    inherited_goal = _inherited_goal(latest)
 
     a2_message_id = str(uuid4())
     trigger_request_id = str(uuid4())
@@ -318,6 +345,7 @@ async def accept_clarification(
         inherited_surface=inherited_surface,
         inherited_essay_id=inherited_essay_id,
         inherited_essay_selection=inherited_essay_selection,
+        inherited_goal=inherited_goal,
     )
 
 

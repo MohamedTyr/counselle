@@ -137,7 +137,9 @@ _LABEL_OVERRIDES: dict[str, str] = {
     "deadlines.regular": "Regular decision deadline",
     "admissions.regular_deadline_is_rolling": "Rolling admission",
     "deadlines.early_decision": "Early decision deadline",
+    "deadlines.early_decision_2": "Early decision II deadline",
     "deadlines.early_action": "Early action deadline",
+    "deadlines.early_action_2": "Early action II deadline",
     "deadlines.financial_aid": "Financial aid deadline",
     "deadlines.reply_by": "Reply-by date",
     "identity.website": "School website",
@@ -196,7 +198,6 @@ _SECTIONS_SOURCE: list[dict[str, Any]] = [
             {
                 "id": "test-detail",
                 "title": "Test scores in detail",
-                "foot_ref": "BAND_CAPTION",
                 "facts": [
                     "class_profile.sat_math_p25",
                     "class_profile.sat_math_p75",
@@ -635,7 +636,9 @@ _SECTIONS_SOURCE: list[dict[str, Any]] = [
                     "deadlines.regular",
                     "admissions.regular_deadline_is_rolling",
                     "deadlines.early_decision",
+                    "deadlines.early_decision_2",
                     "deadlines.early_action",
+                    "deadlines.early_action_2",
                     "deadlines.financial_aid",
                     "deadlines.test_due_sat_or_act",
                     "deadlines.test_due_sat_only",
@@ -703,7 +706,7 @@ def _candidates(rule: dict[str, Any]) -> list[str]:
     if "fact_key" in rule:
         out.append(rule["fact_key"])
     out.extend(rule.get("produces", []))
-    for field in ("pct_key", "count_key"):
+    for field in ("pct_key", "count_key", "second_key"):
         if field in rule:
             out.append(rule[field])
     return out

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
+from datetime import date as Date
 from typing import Literal, overload
 from uuid import UUID
 
@@ -17,6 +19,7 @@ from app.workspace.models import (
     ApplicationView,
     ChangeEvent,
     ChangeOp,
+    DeadlineSource,
     EssaySummary,
     ObjectType,
     Rollup,
@@ -26,9 +29,16 @@ from app.workspace.models import (
     WorkspaceValidationError,
 )
 from app.workspace.service_reference import get_school_reference
-from app.workspace.service_utils import SchoolIdentity, publish_events, school_identities
+from app.workspace.service_utils import (
+    SchoolIdentity,
+    publish_events,
+    school_deadline_facts,
+    school_identities,
+)
+from config.settings import get_settings
 from counselle_db.catalog import Catalog
 from counselle_db.service import search_school_names
+from domain.facts.inherit import AID_FACT_KEY, ROUND_FACT_KEY, DeadlineFact, inherited_date
 
 _LIST_SQL = """
 WITH task_counts AS (
@@ -533,11 +543,52 @@ def _website_url(catalog: Catalog, unitid: int) -> str | None:
 
 
 async def _views_from_rows(catalog: Catalog, rows: list[asyncpg.Record]) -> list[ApplicationView]:
-    identities = await school_identities(catalog, [row["school_unitid"] for row in rows])
-    return [_view_from_row(row, identities.get(row["school_unitid"])) for row in rows]
+    unitids = [row["school_unitid"] for row in rows]
+    identities = await school_identities(catalog, unitids)
+    facts = await school_deadline_facts(catalog, unitids)
+    settings = getattr(catalog, "settings", None) or get_settings()
+    stale_days = settings.facts_stale_days
+    now = datetime.now(UTC)
+    return [
+        _view_from_row(
+            row, identities.get(row["school_unitid"]), facts, stale_days=stale_days, now=now
+        )
+        for row in rows
+    ]
 
 
-def _view_from_row(row: asyncpg.Record, school: SchoolIdentity | None) -> ApplicationView:
+def _effective_deadline(
+    own_value: Date | None,
+    fact: DeadlineFact | None,
+    *,
+    cycle_year: int | None,
+    stale_days: int,
+    now: datetime,
+) -> tuple[Date | None, DeadlineSource | None, Date | None, Date | None, Date | None]:
+    """One deadline column's effective value: the student's own date when set
+    (source `student`), else the matching facts date (source `facts`), else
+    nothing to inherit (source `None`). The would-be-inherited date and its
+    checked-on date are computed and returned regardless of whether an
+    override exists, so the UI can offer a real fallback rather than a blind
+    `null` patch (plan §4 B2)."""
+    inherited = inherited_date(fact, cycle_year=cycle_year, stale_days=stale_days, now=now)
+    inherited_value = inherited.date if inherited is not None else None
+    inherited_checked_at = inherited.checked_at if inherited is not None else None
+    if own_value is not None:
+        return own_value, "student", None, inherited_value, inherited_checked_at
+    if inherited is None:
+        return None, None, None, None, None
+    return inherited.date, "facts", inherited.checked_at, inherited_value, inherited_checked_at
+
+
+def _view_from_row(
+    row: asyncpg.Record,
+    school: SchoolIdentity | None,
+    facts: dict[tuple[int, str], DeadlineFact],
+    *,
+    stale_days: int,
+    now: datetime,
+) -> ApplicationView:
     data = dict(row)
     data["school_name"] = school.name if school else f"School {row['school_unitid']}"
     data["school_city"] = school.city if school else None
@@ -545,6 +596,41 @@ def _view_from_row(row: asyncpg.Record, school: SchoolIdentity | None) -> Applic
     data["website_url"] = school.website_url if school else None
     data["progress"] = Rollup(completed=row["task_completed"], total=row["task_total"])
     data["essays"] = Rollup(completed=row["essay_completed"], total=row["essay_total"])
+
+    unitid = row["school_unitid"]
+    cycle_year = row["cycle_year"]
+    round_fact_key = ROUND_FACT_KEY.get(row["round"])
+    deadline_fact = facts.get((unitid, round_fact_key)) if round_fact_key else None
+    aid_fact = facts.get((unitid, AID_FACT_KEY))
+
+    (
+        deadline,
+        deadline_source,
+        deadline_checked_at,
+        deadline_inherited_date,
+        deadline_inherited_checked_at,
+    ) = _effective_deadline(
+        row["deadline"], deadline_fact, cycle_year=cycle_year, stale_days=stale_days, now=now
+    )
+    (
+        aid_deadline,
+        aid_source,
+        aid_checked_at,
+        aid_inherited_date,
+        aid_inherited_checked_at,
+    ) = _effective_deadline(
+        row["aid_deadline"], aid_fact, cycle_year=cycle_year, stale_days=stale_days, now=now
+    )
+    data["deadline"] = deadline
+    data["deadline_source"] = deadline_source
+    data["deadline_checked_at"] = deadline_checked_at
+    data["deadline_inherited_date"] = deadline_inherited_date
+    data["deadline_inherited_checked_at"] = deadline_inherited_checked_at
+    data["aid_deadline"] = aid_deadline
+    data["aid_deadline_source"] = aid_source
+    data["aid_deadline_checked_at"] = aid_checked_at
+    data["aid_deadline_inherited_date"] = aid_inherited_date
+    data["aid_deadline_inherited_checked_at"] = aid_inherited_checked_at
     return ApplicationView.model_validate(data)
 
 

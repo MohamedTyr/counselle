@@ -1,0 +1,135 @@
+.lp-footer {
+  width: 100%;
+  background: var(--lp-ink);
+  border-radius: 24px;
+  overflow: clip;
+  color: #fff;
+}
+/* Three columns on one row: the pitch and two lists, the lists ruled off.
+   Links share a row height, so they line up. */
+.lp-footer-inner {
+  --lp-footer-row: 46px;
+  max-width: var(--lp-content);
+  margin: 0 auto;
+  padding: var(--lp-panel-inset);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-rows: auto auto auto 1fr auto auto;
+}
+.lp-footer-wordmark,
+.lp-footer-tagline,
+.lp-footer-newsletter,
+.lp-footer-email,
+.lp-footer-problem,
+.lp-footer-consent {
+  grid-column: 1;
+  justify-self: start;
+}
+.lp-footer-wordmark {
+  color: #f7f7f7;
+}
+.lp-footer-tagline {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  font-weight: 300;
+  font-size: clamp(26px, 2.3vw, 32px);
+  line-height: calc(37 / 32);
+  color: #cbcaca;
+  white-space: nowrap;
+}
+.lp-footer-tagline-soft {
+  color: #929191;
+}
+.lp-footer-newsletter {
+  margin-top: 36px;
+  font-size: 17px;
+  color: #bebdbd;
+  white-space: nowrap;
+}
+.lp-footer-email {
+  align-self: end;
+  width: 300px;
+  height: 46px;
+  margin-top: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 9px 9px 9px 19px;
+  background: var(--lp-ink);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 999px;
+}
+.lp-footer-email input {
+  flex: 1 0 0;
+  min-width: 1px;
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  font-size: 15px;
+  color: #fff;
+  outline: none;
+}
+.lp-footer-email input::placeholder {
+  color: #727272;
+  opacity: 1;
+}
+.lp-footer-joined {
+  flex: 1 0 0;
+  font-size: 15px;
+  color: #fff;
+}
+.lp-footer-submit {
+  position: relative;
+  width: 28px;
+  height: 28px;
+  background: var(--lp-green);
+  border-radius: 14px;
+}
+.lp-footer-submit img {
+  position: absolute;
+  left: 8px;
+  top: 8px;
+}
+.lp-footer-divider {
+  display: none;
+}
+.lp-footer-links {
+  grid-row: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+.lp-footer-links {
+  align-items: flex-start;
+  font-size: 17px;
+  line-height: 20.5px;
+  color: #b6b6b6;
+  white-space: nowrap;
+}
+.lp-footer-links-product {
+  grid-column: 2;
+  padding: 0 clamp(64px, 12vw, 190px) 0 clamp(40px, 4.4vw, 64px);
+  border-left: 1px solid rgba(255, 255, 255, 0.12);
+}
+.lp-footer-links-company {
+  grid-column: 3;
+}
+.lp-footer-problem {
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--lp-red-on-dark);
+}
+.lp-footer-problem:not(:empty) {
+  margin-top: 10px;
+}
+.lp-footer-consent {
+  margin-top: 12px;
+  font-size: 13px;
+  color: #929191;
+}
+.lp-footer-consent a {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}

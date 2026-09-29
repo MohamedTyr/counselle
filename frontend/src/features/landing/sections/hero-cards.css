@@ -1,0 +1,500 @@
+/* The workspace cards under the composer. They are laid out on the design's
+   1392×892 stage, pinned to the hero's bottom edge, and the stage scales as
+   one piece on narrower screens so the overlaps never change. */
+.lp-hero-cards {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  width: 1392px;
+  height: 892px;
+  margin-left: -696px;
+  transform: scale(var(--lp-hero-cards-scale));
+  transform-origin: 50% 100%;
+  font-family: var(--lp-font-hero);
+  white-space: nowrap;
+  pointer-events: none;
+  user-select: none;
+}
+.lp-hc-slot {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.lp-hc-slot-tasks {
+  left: 435.29px;
+  top: 783px;
+  width: 242.398px;
+  height: 273.626px;
+}
+.lp-hc-slot-essay {
+  left: 487px;
+  top: 645px;
+  width: 440px;
+  height: 372px;
+}
+.lp-hc-slot-matches {
+  left: 251px;
+  top: 684.41px;
+  width: 326.384px;
+  height: 333.35px;
+}
+.lp-hc-slot-sat {
+  left: 840px;
+  top: 706.19px;
+  width: 293.909px;
+  height: 315.676px;
+}
+.lp-hc-slot-scholarships {
+  left: 77.78px;
+  top: 778px;
+  width: 326.579px;
+  height: 299.879px;
+}
+.lp-hc-slot-activities {
+  left: 1021px;
+  top: 774px;
+  width: 292px;
+  height: 290px;
+}
+
+.lp-hc {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  background: #fff;
+  border: 1px solid #e3ebe6;
+  border-radius: 20px;
+  box-shadow: 0 8px 20px rgba(6, 42, 27, 0.1);
+  color: #171b22;
+  overflow: clip;
+}
+.lp-hc-head {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.lp-hc-title {
+  font-weight: 600;
+  font-size: 19px;
+  line-height: 24px;
+  letter-spacing: -0.19px;
+}
+.lp-hc-title-small {
+  font-size: 17px;
+  line-height: 25px;
+  letter-spacing: 0;
+}
+.lp-hc-title-large {
+  font-size: 22px;
+  line-height: 28px;
+  letter-spacing: -0.22px;
+}
+.lp-hc-title-sat {
+  line-height: 23.75px;
+  letter-spacing: 0;
+}
+.lp-hc-badge {
+  padding: 3px 8px;
+  background: #f2f4f6;
+  border-radius: 7px;
+  font-weight: 500;
+  font-size: 11px;
+  line-height: 14px;
+}
+.lp-hc-badge-rose {
+  background: #f9e8ec;
+  color: #6b2233;
+}
+.lp-hc-chip {
+  padding: 3px 7px;
+  background: #eaf5ee;
+  border-radius: 5px;
+  font-weight: 500;
+  font-size: 10px;
+  line-height: 12.5px;
+  color: #0a6b3d;
+}
+.lp-hc-logo {
+  position: relative;
+  flex: none;
+  border: 1px solid rgba(23, 27, 34, 0.08);
+  border-radius: 7px;
+}
+.lp-hc-logo img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: 7px;
+  object-fit: contain;
+}
+.lp-hc-logo[data-cover="true"] img {
+  object-fit: cover;
+}
+.lp-hc-logo-school {
+  width: 32px;
+  height: 32px;
+}
+.lp-hc-logo-activity {
+  width: 26px;
+  height: 26px;
+}
+.lp-hc-stream {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* Tasks and deadlines */
+.lp-hc-tasks {
+  width: 229px;
+  height: 262px;
+  gap: 12px;
+  padding: 21px 18px 22px;
+  transform: rotate(3deg);
+}
+.lp-hc-tasks-head {
+  width: 193px;
+  height: 25px;
+}
+.lp-hc-task {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  line-height: 13.75px;
+  color: #464e58;
+}
+.lp-hc-checkbox {
+  flex: none;
+  width: 11px;
+  height: 11px;
+  background: #fff;
+  border: 1px solid #cbd1d8;
+  border-radius: 3px;
+}
+.lp-hc-task[data-done="true"] {
+  color: #8b949b;
+  text-decoration: line-through;
+  text-decoration-skip-ink: none;
+}
+.lp-hc-task[data-done="true"] .lp-hc-checkbox {
+  background: #168a61;
+  border-color: #168a61;
+}
+.lp-hc-tasks .lp-hc-chip {
+  color: #225c3d;
+}
+
+/* Essay feedback */
+.lp-hc-essay {
+  width: 440px;
+  height: 372px;
+  gap: 8px;
+  padding: 20px 22px 22px;
+}
+.lp-hc-notes {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 4px 3px 8px;
+  background: #f2f4f6;
+  border-radius: 7px;
+  font-weight: 500;
+  font-size: 11px;
+  line-height: 14px;
+}
+.lp-hc-counts {
+  display: flex;
+  gap: 3px;
+  font-size: 10px;
+  line-height: 13px;
+  text-align: center;
+}
+.lp-hc-counts span {
+  width: 18px;
+  padding: 2px 0;
+  border-radius: 5px;
+}
+.lp-hc-count-strength {
+  background: #d0f0dd;
+  color: #0a6b3d;
+}
+.lp-hc-count-suggestion {
+  background: #e4dcff;
+  color: #5c4096;
+}
+.lp-hc-count-tighten {
+  background: #fbe3ae;
+  color: #7a4a00;
+}
+.lp-hc-essay-meta {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  line-height: 16px;
+  color: #68717e;
+}
+.lp-hc-essay-meta img {
+  border-radius: 3px;
+  object-fit: contain;
+}
+.lp-hc-essay-school {
+  font-weight: 500;
+  color: #171b22;
+}
+.lp-hc-essay-body {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  font-size: 13px;
+  line-height: 20px;
+  color: #2a2f2d;
+  white-space: pre;
+}
+.lp-hc-essay-body p {
+  display: flex;
+  align-items: center;
+}
+.lp-hc-essay-body .lp-hc-essay-fix {
+  gap: 4px;
+}
+.lp-hc-essay-body .lp-hc-essay-spaced {
+  gap: 3px;
+}
+.lp-hc-essay-body s {
+  color: #7c8582;
+  text-decoration-skip-ink: none;
+}
+.lp-hc-essay-body ins {
+  font-weight: 500;
+  color: #0a6b3d;
+  text-decoration: none;
+}
+.lp-hc-essay-body mark {
+  padding: 1px 3px;
+  border-radius: 4px;
+  color: #171b22;
+}
+.lp-hc-strength {
+  background: #d0f0dd;
+}
+.lp-hc-suggestion {
+  background: #e4dcff;
+}
+.lp-hc-tighten {
+  background: #fbe3ae;
+}
+
+/* College matches */
+.lp-hc-matches {
+  width: 292px;
+  height: 300px;
+  gap: 6px;
+  padding: 20px 20px 18px;
+  transform: rotate(-7deg);
+}
+.lp-hc-match-list {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+}
+.lp-hc-match {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(23, 27, 34, 0.07);
+  font-weight: 500;
+  font-size: 13px;
+  line-height: 16px;
+}
+.lp-hc-match:last-child {
+  border-bottom: 0;
+}
+.lp-hc-match-name {
+  flex: 1 0 0;
+  min-width: 1px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+}
+.lp-hc-tier {
+  padding: 2px 7px;
+  border-radius: 5px;
+  font-size: 10px;
+  line-height: 13px;
+}
+.lp-hc-tier[data-tier="Target"] {
+  background: #e6f5ed;
+  color: #0a6b3d;
+}
+.lp-hc-tier[data-tier="Reach"] {
+  background: #eee9ff;
+  color: #5c4096;
+}
+.lp-hc-match-fit {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* SAT practice */
+.lp-hc-sat {
+  width: 261px;
+  height: 286px;
+  gap: 10px;
+  padding: 21px 18px 22px;
+  transform: rotate(-7deg);
+}
+.lp-hc-sat-head {
+  width: 225px;
+  height: 25px;
+}
+.lp-hc-sat-question {
+  font-weight: 500;
+  font-size: 13px;
+  line-height: 19px;
+  color: #353c47;
+}
+.lp-hc-answer {
+  flex: none;
+  width: 225px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 8px;
+  border-radius: 7px;
+}
+.lp-hc-answer[data-correct="true"] {
+  background: #e6f6ed;
+  color: #24825b;
+}
+.lp-hc-answer[data-correct="false"] {
+  background: #fbe9eb;
+  color: #ad4c58;
+}
+.lp-hc-answer-letter {
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 13.75px;
+}
+.lp-hc-answer-value {
+  font-size: 12px;
+  line-height: 15px;
+  color: #38424e;
+}
+.lp-hc-answer-note {
+  font-size: 10px;
+  line-height: 12.5px;
+}
+.lp-hc-sat-explain {
+  font-size: 12px;
+  line-height: 18px;
+  color: #6b7481;
+}
+
+/* Scholarship matches */
+.lp-hc-scholarships {
+  width: 300px;
+  height: 270px;
+  gap: 10px;
+  padding: 20px 20px 18px;
+  transform: rotate(6deg);
+}
+.lp-hc-award {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 10px;
+  font-size: 12.5px;
+  line-height: 17px;
+  color: #a5abb4;
+}
+.lp-hc-award[data-matched="true"] {
+  background: #f9e8ec;
+  border-radius: 8px;
+  font-weight: 500;
+  color: #6b2233;
+}
+.lp-hc-award-space {
+  flex: none;
+  width: 10px;
+  height: 10px;
+}
+.lp-hc-award-name {
+  flex: 1 0 0;
+  min-width: 1px;
+}
+
+/* Activities for you */
+.lp-hc-activities {
+  width: 292px;
+  height: 290px;
+  gap: 10px;
+  padding: 20px 20px 18px;
+}
+.lp-hc-filters {
+  display: flex;
+  align-items: flex-start;
+  gap: 5px;
+  font-size: 11px;
+  line-height: 14px;
+  color: #78808b;
+}
+.lp-hc-filters p {
+  padding: 4px 9px;
+  background: #f0f2f5;
+  border-radius: 11px;
+}
+.lp-hc-filters p[data-active="true"] {
+  background: #171b22;
+  font-weight: 500;
+  color: #fff;
+}
+.lp-hc-activity {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 6px 8px;
+  border-radius: 10px;
+  font-weight: 500;
+}
+.lp-hc-activity[data-picked="true"] {
+  background: #fdf2e6;
+}
+.lp-hc-activity-name {
+  flex: 1 0 0;
+  min-width: 1px;
+  font-size: 12.5px;
+  line-height: 16px;
+  white-space: normal;
+  overflow-wrap: break-word;
+}
+.lp-hc-free {
+  font-size: 11px;
+  line-height: 14px;
+  color: #0a6b3d;
+}
+.lp-hc-add {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding: 4px 10px 4px 8px;
+  background: #171b22;
+  border-radius: 11px;
+  font-size: 11px;
+  line-height: 14px;
+  color: #fff;
+}
+.lp-hc-add span:first-child {
+  font-size: 12px;
+}

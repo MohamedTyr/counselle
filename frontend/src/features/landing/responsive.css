@@ -1,0 +1,428 @@
+@import "./responsive-stage.css";
+
+/* Keep the desktop composition; reflow real copy and controls at smaller
+   widths. Illustration sheets adapt independently, never by zooming the page. */
+.lp-canvas {
+  min-width: 0;
+}
+.lp-heading {
+  white-space: normal;
+  text-wrap: balance;
+}
+/* The hero holds its design sizes down to 800px, then the headline scales
+   with the viewport and the composer takes the width it is given. */
+.lp-hero-body {
+  padding: 0 16px;
+}
+.lp-headline {
+  font-size: clamp(36px, 8.4vw, 72px);
+}
+.lp-composer {
+  width: min(584px, 100%);
+}
+.lp-features-copy {
+  max-width: 65ch;
+}
+.lp-faq {
+  gap: clamp(32px, 5vw, 90px);
+}
+.lp-faq-intro {
+  flex: 0 1 460px;
+  min-width: 0;
+}
+.lp-faq-heading,
+.lp-faq-support p {
+  width: 100%;
+}
+.lp-faq-list {
+  min-width: 0;
+  flex: 1 1 60%;
+}
+.lp-faq-toggle {
+  min-height: 44px;
+}
+.lp-footer-submit {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+}
+.lp-footer-submit img {
+  left: 16px;
+  top: 16px;
+}
+.lp-footer-email {
+  height: 56px;
+  padding: 5px 5px 5px 19px;
+}
+.lp-footer-email input::placeholder {
+  color: #a8a8a8;
+}
+.lp-footer-wordmark,
+.lp-footer-links a {
+  min-height: var(--lp-footer-row);
+  display: inline-flex;
+  align-items: center;
+}
+/* The mark is centred in its 46px target; the column starts at its cap line. */
+.lp-footer-wordmark {
+  margin-top: -16px;
+}
+
+/* Illustration sheets fill the column below the design width. */
+@media (max-width: 1399px) {
+  .lp-sheet-wide {
+    width: 100%;
+    max-width: 812px;
+    align-self: center;
+  }
+  .lp-sheet-third {
+    flex: none;
+  }
+}
+
+/* The product sheets remain readable two-column compositions on tablets. */
+@media (max-width: 1199px) {
+  .lp-sheet-wide {
+    width: 100%;
+  }
+  .lp-essay-sheet,
+  .lp-sat-sheet {
+    max-width: 812px;
+    align-self: center;
+  }
+  .lp-plans {
+    width: 100%;
+    gap: 20px;
+    justify-content: center;
+    align-items: stretch;
+  }
+  .lp-plan-monthly {
+    zoom: 1;
+  }
+  .lp-plan {
+    width: calc((100% - 40px) / 3);
+  }
+}
+
+@media (max-width: 899px) {
+  .lp-canvas {
+    --lp-gutter: 16px;
+    --lp-section-gap: 80px;
+  }
+  .lp-heading {
+    font-size: 38px;
+  }
+  .lp-features-header {
+    white-space: normal;
+  }
+  .lp-features-copy br {
+    display: none;
+  }
+  .lp-testimonials {
+    gap: 64px;
+  }
+  .lp-testimonial-cards {
+    display: grid;
+    grid-template-columns: 1fr;
+    max-width: 600px;
+    gap: 32px;
+    padding: 0 16px;
+  }
+  .lp-testimonial-wrap-daniel {
+    translate: none;
+  }
+  .lp-testimonial {
+    min-height: 0;
+    padding: 28px;
+  }
+  .lp-world-map {
+    left: 0;
+    width: 100%;
+    height: 100%;
+  }
+  /* Four columns hold down to 752px; any narrower they scroll sideways under
+     a pinned label until the picker takes over. */
+  .lp-compare-scroll {
+    overflow-x: auto;
+  }
+  .lp-compare-frame {
+    min-width: 720px;
+  }
+  .lp-compare {
+    --lp-compare-label: 150px;
+    --lp-compare-own: 200px;
+  }
+  .lp-compare-table :where(th, td):first-child {
+    position: sticky;
+    left: 0;
+    z-index: 1;
+    padding-left: 12px;
+    background: var(--lp-bg);
+  }
+  .lp-compare-table tbody th {
+    font-size: 15px;
+    line-height: 20px;
+  }
+  .lp-compare-table thead th:first-child {
+    font-size: 20px;
+    line-height: 24px;
+  }
+  .lp-plans {
+    flex-wrap: wrap;
+    gap: 24px;
+  }
+  .lp-plan {
+    width: min(100%, 360px);
+  }
+  .lp-features {
+    width: 100%;
+  }
+  .lp-faq {
+    width: 100%;
+    flex-direction: column;
+    gap: 32px;
+  }
+  .lp-faq-intro {
+    flex: none;
+    width: 100%;
+    height: auto;
+    gap: 24px;
+  }
+  .lp-faq-list {
+    max-width: none;
+  }
+  .lp-faq-support {
+    gap: 16px;
+  }
+  .lp-faq-list {
+    width: 100%;
+  }
+  .lp-footer-inner {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-rows: none;
+    padding: 32px;
+    gap: 0 24px;
+  }
+  .lp-footer-wordmark,
+  .lp-footer-tagline,
+  .lp-footer-newsletter,
+  .lp-footer-email,
+  .lp-footer-problem,
+  .lp-footer-consent {
+    grid-column: 1 / -1;
+  }
+  .lp-footer-wordmark {
+    margin-top: 0;
+  }
+  .lp-footer-tagline {
+    font-size: 26px;
+    line-height: 1.2;
+    white-space: normal;
+    margin-top: 12px;
+  }
+  .lp-footer-newsletter {
+    margin-top: 28px;
+    white-space: normal;
+  }
+  .lp-footer-email {
+    margin-top: 12px;
+    max-width: 100%;
+  }
+  .lp-footer-links {
+    padding: 0;
+    border: 0;
+    justify-content: flex-start;
+  }
+  .lp-footer-links {
+    grid-row: auto;
+    margin-top: 32px;
+    gap: 15px;
+  }
+  .lp-footer-links-product {
+    grid-column: 1;
+  }
+  .lp-footer-links-company {
+    grid-column: 2;
+  }
+}
+
+@media (max-width: 599px) {
+  .lp-canvas {
+    --lp-gutter: 12px;
+    --lp-section-gap: 64px;
+  }
+  .lp-hero-section {
+    gap: 28px;
+    padding-bottom: 0;
+  }
+  .lp-headline-line {
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  .lp-composer-input {
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 14px;
+    font-size: 13px;
+  }
+  .lp-composer-request {
+    flex-basis: 100%;
+  }
+  .lp-composer-text {
+    font-size: 16px;
+  }
+  .lp-composer-toolbar {
+    gap: 10px;
+    padding: 0 12px 12px;
+  }
+  .lp-mode-toggle {
+    padding-right: 2px;
+  }
+  .lp-mode-knob {
+    padding-right: 7px;
+    padding-left: 7px;
+    font-size: 11px;
+  }
+  .lp-marquee-label {
+    white-space: normal;
+    padding: 0 12px;
+    line-height: 1.5;
+  }
+  .lp-marquee-fade {
+    width: 64px;
+  }
+  .lp-heading {
+    font-size: 32px;
+    letter-spacing: -0.8px;
+  }
+  .lp-features {
+    gap: 32px;
+  }
+  .lp-features-header {
+    padding: 0 12px;
+  }
+  .lp-features-copy {
+    font-size: 16px;
+  }
+  .lp-testimonials {
+    gap: 36px;
+  }
+  .lp-testimonial-cards {
+    padding: 0 8px;
+    gap: 24px;
+  }
+  .lp-testimonial {
+    padding: 24px;
+  }
+  .lp-testimonial blockquote {
+    font-size: 18px;
+  }
+  .lp-compare,
+  .lp-pricing {
+    gap: 32px;
+  }
+  .lp-faq-item {
+    --faq-pad-y: 16px;
+    --faq-pad-x: 18px;
+    --faq-pad-end: 52px;
+    border-radius: 12px;
+  }
+  .lp-faq-toggle img {
+    right: 18px;
+  }
+  .lp-faq-question {
+    font-size: 16px;
+  }
+  .lp-faq-answer,
+  .lp-faq-support p {
+    color: var(--lp-muted);
+  }
+  .lp-footer {
+    border-radius: 16px;
+  }
+  .lp-footer-inner {
+    padding: 28px 24px;
+  }
+  .lp-footer-tagline {
+    font-size: 24px;
+  }
+}
+
+/* Two buttons and the full link row do not fit: the brand already goes
+   home, and schools join the links. */
+@media (max-width: 1023px) {
+  .lp .lp-nav {
+    --lp-nav-inset: 24px;
+  }
+  .lp-nav-links {
+    --lp-nav-link-pad: 10px;
+    gap: 0;
+  }
+  .lp-nav-links a:first-of-type,
+  .lp-nav-secondary {
+    display: none;
+  }
+  .lp .lp-nav-schools-link {
+    display: block;
+  }
+}
+
+/* Too narrow for the brand, the links and the button in one row: the nav
+   keeps only the brand and the waitlist button, at rest and floating. */
+@media (max-width: 799px) {
+  .lp .lp-nav {
+    --lp-nav-inset: 14px;
+    top: calc(var(--lp-gutter) + 16px);
+  }
+  .lp-nav::before {
+    inset: -6px -8px -6px -14px;
+  }
+  .lp .lp-nav-links {
+    display: none;
+  }
+  .lp .lp-nav-actions {
+    grid-column: 3;
+  }
+}
+
+/* Phones. The hero keeps its two designed lines, sized to the width they
+   have. */
+@media (max-width: 599px) {
+  .lp-headline {
+    font-size: clamp(27px, (100vw - 56px) / 9.8, 72px);
+  }
+  /* The part gaps are word spaces; a wrapped part takes the line height. */
+  .lp-headline-line {
+    row-gap: 0;
+  }
+  /* Both stay 44px tall targets when the mark and button shrink. */
+  .lp-brand {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+  }
+  .lp-brand img {
+    width: 104px;
+    height: auto;
+  }
+  .lp-nav-cta {
+    gap: 10px;
+    padding: 6px 6px 6px 16px;
+    font-size: 15px;
+  }
+  .lp-nav-cta-chip {
+    width: 32px;
+    height: 32px;
+  }
+  .lp-plan {
+    flex: 1 1 100%;
+    max-width: 440px;
+  }
+  .lp-footer-links {
+    gap: 0;
+  }
+  .lp-footer-tagline {
+    text-wrap: pretty;
+  }
+}

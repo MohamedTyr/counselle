@@ -242,6 +242,65 @@ function isWorkspacePreviewItems(value: unknown) {
   return Array.isArray(value) && value.every(isWorkspacePreviewItem);
 }
 
+function isGoalPhase(value: unknown) {
+  return value === "criteria" || value === "check" || value === "final";
+}
+
+function isGoalStatus(value: unknown) {
+  return (
+    value === "achieved" ||
+    value === "partial" ||
+    value === "stopped_budget" ||
+    value === "stopped_no_progress" ||
+    value === "stopped_user" ||
+    value === "stopped_check_failed" ||
+    value === "awaiting_input"
+  );
+}
+
+function isGoalCriterionView(value: unknown) {
+  if (!isPlainRecord(value)) {
+    return false;
+  }
+  return (
+    typeof value.id === "string" &&
+    typeof value.text === "string" &&
+    (value.met === null || typeof value.met === "boolean") &&
+    typeof value.checked === "boolean" &&
+    (value.reason === null || typeof value.reason === "string") &&
+    isStringArray(value.evidence_step_ids)
+  );
+}
+
+function isGoalStepDetail(value: unknown) {
+  if (!isPlainRecord(value)) {
+    return false;
+  }
+  return (
+    isGoalPhase(value.phase) &&
+    typeof value.statement === "string" &&
+    (value.status === null || isGoalStatus(value.status)) &&
+    isNumber(value.iteration) &&
+    isNumber(value.max_iterations) &&
+    Array.isArray(value.criteria) &&
+    value.criteria.every(isGoalCriterionView) &&
+    (!("critique" in value) ||
+      value.critique === null ||
+      typeof value.critique === "string") &&
+    isNumber(value.met_count) &&
+    isNumber(value.total_count) &&
+    isNumber(value.unchecked_count) &&
+    typeof value.not_checked_note === "string" &&
+    isNumber(value.requests_used) &&
+    isNumber(value.requests_limit) &&
+    isNumber(value.tokens_used) &&
+    isNumber(value.tokens_limit) &&
+    (value.est_cost_usd === null || isNumber(value.est_cost_usd)) &&
+    (value.cost_limit_usd === null || isNumber(value.cost_limit_usd)) &&
+    isNumber(value.elapsed_s)
+  );
+}
+
 function isStepDetail(value: unknown) {
   if (!isPlainRecord(value)) {
     return false;
@@ -266,7 +325,10 @@ function isStepDetail(value: unknown) {
     (!("next_actions" in value) || isStringArray(value.next_actions)) &&
     (!("workspace_items" in value) ||
       isWorkspacePreviewItems(value.workspace_items)) &&
-    (!("error" in value) || typeof value.error === "string")
+    (!("error" in value) || typeof value.error === "string") &&
+    (!("goal" in value) ||
+      value.goal === null ||
+      isGoalStepDetail(value.goal))
   );
 }
 

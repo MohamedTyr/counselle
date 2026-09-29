@@ -77,6 +77,12 @@ class FakeSettings:
     response_mode_think_enabled = True
     agent_max_model_requests = 80
     agent_max_total_tokens = 2_000_000
+    # Compaction (plans/goal-mode-plan.md §4.2/§6.1): agent_node reads these
+    # unconditionally for the every-turn `ClearToolResults` capability — the
+    # stub MUST carry them or Agent construction raises AttributeError.
+    compaction_clear_tool_results_after_messages: int = 40
+    compaction_clear_tool_keep_pairs: int = 3
+    compaction_min_clear_tokens: int = 20_000
     vertex_api_key = None
     source_web_default = True
     source_reddit_default = True
@@ -625,16 +631,13 @@ def _google_thinking_config(model_settings: Any) -> dict[str, Any] | None:
 async def test_agent_node_thinking_config_follows_response_mode(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Quick is always MINIMAL/no-thoughts; Think is HIGH and requests provider
-    thoughts only when settings.effective_thinking_stream is on (plan
-    plans/quick-think-response-mode.md §5.2) — the node never re-derives this
-    from a global default, only from counselor_model_selection(response_mode)."""
+    """The selected model family owns the wire shape; mode owns its intent."""
     quick_settings = FakeSettings()
     quick_model_settings = await _run_node_capturing_model_settings(
         monkeypatch, quick_settings, response_mode="quick"
     )
     assert _google_thinking_config(quick_model_settings) == {
-        "thinking_level": "MINIMAL",
+        "thinking_budget": 0,
         "include_thoughts": False,
     }
 
@@ -3274,14 +3277,15 @@ async def test_budget_after_final_partial_preserves_visible_viz_and_prose(
     assert _text(events).count("tool budget") == 1
     values = await _state_values(rig, session_id)
     record = values["turn_records"][-1]
-    assert [part["type"] for part in record["parts"]] == ["text", "viz", "text"]
+    # Goal-mode Phase 3 (plans/goal-mode-plan.md §6.0/S7): `flush_final()` is
+    # no longer called inside the per-iteration budget-exceeded path — it is
+    # genuinely turn-terminal (a spike-confirmed correction to the plan's own
+    # C7 text) and now runs exactly once, after the budget delta is written,
+    # not before it. The staged viz card therefore flushes AFTER both text
+    # deltas (which merge into one "text" part) rather than between them.
+    assert [part["type"] for part in record["parts"]] == ["text", "viz"]
     assert prose_of(record["parts"]) == _text(events)
-    assert [segment["kind"] for segment in record["segments"]] == [
-        "step",
-        "delta",
-        "viz",
-        "delta",
-    ]
+    assert [segment["kind"] for segment in record["segments"]] == ["step", "delta", "viz"]
     assert len(values["viz_emitted"]) == 1
 
 

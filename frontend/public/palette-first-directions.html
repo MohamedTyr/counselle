@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<link rel="icon" href="data:,">
+<title>Counselle · Color directions</title>
+<style>
+/* Isolated palette proposals, not production theme tokens. */
+:root {
+  --neutral-25:oklch(99% 0 0); --neutral-50:oklch(97% 0 0); --neutral-200:oklch(88% 0 0);
+  --neutral-700:oklch(43% 0 0); --neutral-950:oklch(19% 0 0);
+  --surface:var(--neutral-25); --canvas:var(--neutral-50); --edge:var(--neutral-200);
+  --ink:var(--neutral-950); --muted:var(--neutral-700);
+  --field:oklch(69% .2 36); --field-ink:var(--ink); --accent:oklch(49% .16 36); --tint:oklch(95% .025 36);
+  --cta:var(--ink); --on-cta:var(--field); --z-toolbar:10; --ease-out:cubic-bezier(.23,1,.32,1);
+}
+* { box-sizing:border-box; }
+body { margin:0; font:15px/1.5 Arial,Helvetica,sans-serif; color:var(--ink); background:var(--canvas); }
+button,input { font:inherit; } button,a { -webkit-tap-highlight-color:transparent; }
+button { cursor:pointer; } a { color:inherit; text-underline-offset:4px; }
+:where(button,a,input):focus-visible { outline:3px solid currentColor; outline-offset:4px; }
+h1,h2,h3,p { margin:0; } h1,h2,h3 { text-wrap:balance; font-weight:600; } p { text-wrap:pretty; }
+.lab { position:sticky; top:0; z-index:var(--z-toolbar); background:var(--surface); border-bottom:1px solid var(--edge); padding:16px 32px; }
+.lab-top { display:flex; justify-content:space-between; align-items:center; gap:16px; margin-bottom:12px; }
+.lab-title { font-size:15px; font-weight:600; } .lab-top p { color:var(--muted); font-size:12px; }
+fieldset { border:0; margin:0; padding:0; min-width:0; }
+.sr-only { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }
+.choices { display:flex; flex-wrap:wrap; gap:8px; }
+.choice { position:relative; cursor:pointer; } .choice input { position:absolute; width:1px; height:1px; opacity:0; }
+.choice-body { display:flex; align-items:center; gap:9px; min-height:44px; padding:9px 14px; border:1px solid var(--edge); border-radius:8px; font-size:13px; }
+.choice input:checked + .choice-body { border-color:var(--ink); box-shadow:inset 0 0 0 1px var(--ink); font-weight:600; }
+.choice input:focus-visible + .choice-body { outline:3px solid var(--ink); outline-offset:3px; }
+.chip { width:18px; height:18px; border-radius:50%; background:var(--chip); flex-shrink:0; }
+.choice input:checked + .choice-body::after { content:'✓'; }
+.choice-body::after { content:''; width:12px; }
+.hero { background:var(--field); color:var(--field-ink); }
+.container { width:min(1320px,calc(100% - 96px)); margin:auto; }
+.nav { height:88px; display:flex; justify-content:space-between; align-items:center; }
+.logo { font-size:30px; font-weight:600; letter-spacing:-.04em; text-decoration:none; }
+.nav-links { display:flex; gap:32px; align-items:center; font-size:14px; }
+.nav-links a { text-decoration:none; padding-block:12px; }
+.hero-content { display:grid; grid-template-columns:1.15fr 1fr; gap:64px; padding:48px 0 72px; align-items:center; }
+h1 { font-size:clamp(48px,5.4vw,80px); letter-spacing:-.04em; line-height:1.04; }
+.intro { max-width:36ch; font-size:18px; margin-top:26px; }
+.actions { display:flex; align-items:center; flex-wrap:wrap; gap:24px; margin-top:32px; }
+.button { display:inline-flex; align-items:center; justify-content:space-between; gap:28px; padding:15px 22px; min-height:50px; border:0; border-radius:8px; background:var(--cta); color:var(--on-cta); text-decoration:none; font-weight:600; font-size:14px; transition:transform 150ms var(--ease-out); }
+.button:focus-visible { outline-color:var(--field-ink); transition:none; } .button:active:not(:focus-visible) { transform:scale(.96); }
+.secondary { font-size:14px; padding-block:12px; }
+.demo { background:var(--surface); color:var(--ink); border-radius:12px; box-shadow:0 20px 48px color-mix(in oklab,var(--ink) 18%,transparent); padding:30px; }
+.demo-top { display:flex; justify-content:space-between; gap:12px; color:var(--muted); font-size:12px; }
+.demo h2 { font-size:25px; letter-spacing:-.03em; margin:30px 0 10px; }
+.demo > p { color:var(--muted); font-size:14px; } .demo ul { list-style:none; padding:0; margin:26px 0 0; }
+.demo li { display:flex; gap:14px; padding-block:17px; border-top:1px solid var(--edge); font-size:14px; }
+.step { color:var(--muted); font-size:12px; padding-top:2px; } .demo li small { display:block; color:var(--muted); margin-top:4px; }
+.demo-link { display:flex; justify-content:space-between; background:var(--tint); color:var(--accent); padding:14px 16px; margin-top:15px; border-radius:8px; text-decoration:none; font-size:14px; font-weight:600; }
+.direction { display:flex; align-items:center; justify-content:space-between; gap:32px; padding:24px 0; border-bottom:1px solid var(--edge); }
+.direction h2 { font-size:20px; letter-spacing:-.02em; } .direction p { font-size:14px; color:var(--muted); margin-top:4px; }
+.colors { display:flex; flex-shrink:0; } .color { min-width:94px; padding:12px; background:var(--swatch); color:var(--swatch-ink); font:11px/1.5 monospace; text-align:center; }
+.color:first-child { border-radius:6px 0 0 6px; } .color:last-child { border-radius:0 6px 6px 0; }
+.workspace-section { padding:48px 0 64px; scroll-margin-top:180px; }
+.section-heading { display:flex; justify-content:space-between; align-items:end; gap:24px; margin-bottom:24px; }
+.section-heading h2 { font-size:28px; letter-spacing:-.03em; } .section-heading p { color:var(--muted); font-size:13px; }
+.workspace { display:grid; grid-template-columns:210px 1fr; border:1px solid var(--edge); border-radius:12px; overflow:hidden; background:var(--surface); }
+.sidebar { background:var(--tint); padding:26px 18px; border-right:1px solid var(--edge); }
+.sidebar .logo { font-size:23px; margin:0 12px 28px; display:block; } .sidebar p { padding:10px 12px; margin:4px 0; font-size:14px; }
+.sidebar .selected { color:var(--surface); background:var(--accent); border-radius:7px; font-weight:600; }
+.workspace-content { padding:34px 40px; } .workspace-head { display:flex; justify-content:space-between; gap:20px; align-items:center; margin-bottom:28px; }
+.workspace-head h3 { font-size:22px; letter-spacing:-.02em; } .workspace-head p { color:var(--muted); font-size:13px; margin-top:5px; }
+.workspace .button { background:var(--accent); color:var(--surface); min-height:44px; padding:11px 16px; }
+.workspace .button:focus-visible { outline-color:var(--ink); }
+.task { display:flex; gap:14px; align-items:center; min-height:66px; border-top:1px solid var(--edge); cursor:pointer; font-size:14px; }
+.task input { width:19px; height:19px; accent-color:var(--accent); flex-shrink:0; }
+.task small { margin-left:auto; color:var(--muted); white-space:nowrap; }
+.task input:checked + span { text-decoration:line-through; color:var(--muted); }
+.fineprint { margin-top:24px; font-size:12px; color:var(--muted); }
+footer { padding:22px 0; border-top:1px solid var(--edge); font-size:12px; color:var(--muted); display:flex; justify-content:space-between; gap:20px; }
+@media (hover:hover) and (pointer:fine) { .choice-body:hover { background:var(--canvas); } .button:hover,.demo-link:hover { text-decoration:underline; } }
+@media (prefers-reduced-motion:reduce) { .button { transition:none; } .button:active:not(:focus-visible) { transform:none; } }
+@media (max-width:1000px) { .container { width:calc(100% - 48px); } .hero-content { gap:32px; } .direction { flex-direction:column; align-items:start; gap:16px; } .workspace-content { padding:28px; } }
+@media (max-width:700px) {
+  .lab { padding:12px 16px; } .lab-top { margin-bottom:8px; } .lab-top p { display:none; }
+  .choices { flex-wrap:nowrap; overflow-x:auto; padding:4px 3px 8px; } .choice { flex-shrink:0; }
+  .container { width:calc(100% - 40px); } .nav { height:72px; } .nav-links { gap:16px; } .nav-links a:first-child { display:none; }
+  .hero-content { grid-template-columns:1fr; padding:28px 0 40px; gap:40px; } h1 { font-size:clamp(44px,9.5vw,64px); }
+  .intro { font-size:17px; } .demo { padding:24px; } .demo h2 { margin-top:24px; }
+  .colors { width:100%; } .color { min-width:0; flex:1; padding:12px 4px; font-size:10px; }
+  .section-heading { align-items:start; flex-direction:column; gap:8px; } .workspace { grid-template-columns:1fr; }
+  .sidebar { border-right:0; border-bottom:1px solid var(--edge); padding:14px; } .sidebar .logo { display:none; }
+  .sidebar p { display:inline-block; padding:8px 10px; margin:0; } .workspace-content { padding:24px 18px; }
+  .workspace-head { align-items:start; flex-wrap:wrap; } .task { flex-wrap:wrap; padding-block:14px; gap:10px; }
+  .task span { flex:1; } .task small { width:100%; padding-left:33px; } footer { flex-direction:column; gap:6px; }
+}
+</style>
+</head>
+<body>
+<header class="lab">
+  <div class="lab-top"><span class="lab-title">Counselle / Color directions</span><p>Choose a palette. Same layout, different personality.</p></div>
+  <fieldset><legend class="sr-only">Choose a color direction</legend><div class="choices" id="choices"></div></fieldset>
+</header>
+<main>
+<section class="hero" aria-label="Landing page preview"><div class="container">
+  <nav class="nav" aria-label="Preview navigation"><a class="logo" href="#">counselle</a><div class="nav-links"><a href="#workspace">How it works</a><a href="#workspace">Your workspace ↗</a></div></nav>
+  <div class="hero-content">
+    <div><h1>Your college<br>ambitions.<br>A plan that<br>fits you.</h1><p class="intro">Your AI college counselor for choosing schools, strengthening essays, and knowing what to do next.</p><div class="actions"><a class="button" href="#workspace">Build my plan <span aria-hidden="true">↗</span></a><a class="secondary" href="#workspace">See an example</a></div></div>
+    <article class="demo"><div class="demo-top"><span>Your next chapter</span><span>Illustrative plan</span></div><h2>Let’s make a start.</h2><p>You don’t need every answer today.<br>Just a good next step.</p><ul><li><span class="step">01</span><div>Find what matters to you<small>Build a school list around your priorities.</small></div></li><li><span class="step">02</span><div>Find the story only you can tell<small>Turn a small moment into a strong essay.</small></div></li><li><span class="step">03</span><div>Give your next step a date<small>Make room for the work, one task at a time.</small></div></li></ul><a class="demo-link" href="#workspace">Open your workspace <span aria-hidden="true">↗</span></a></article>
+  </div>
+</div></section>
+<div class="container">
+  <section class="direction" aria-label="Selected palette"><div><h2 id="direction-name">Signal orange</h2><p id="direction-description">A sharper orange, black ink, and clean white surfaces.</p></div><div class="colors" id="colors" aria-label="Palette hex values"></div></section>
+  <section class="workspace-section" id="workspace" aria-labelledby="workspace-heading">
+    <div class="section-heading"><h2 id="workspace-heading">And when you settle in.</h2><p>The selected palette, inside the workspace.</p></div>
+    <div class="workspace"><aside class="sidebar" aria-label="Illustrative sidebar"><span class="logo">counselle</span><p>Schools</p><p class="selected">Tasks · selected</p><p>Essays</p><p>Activities</p></aside><div class="workspace-content"><div class="workspace-head"><div><h3>Today</h3><p>Three small steps forward.</p></div><button class="button" id="reset-tasks" type="button">Reset example <span aria-hidden="true">↺</span></button></div><label class="task"><input type="checkbox"><span>Choose a story for your personal essay</span><small>Today</small></label><label class="task"><input type="checkbox"><span>Write down what matters in a college</span><small>Today</small></label><label class="task"><input type="checkbox"><span>Make time for a first draft</span><small>This week</small></label><p class="fineprint">Interactive example · Nothing here changes your real workspace.</p></div></div>
+  </section>
+  <footer><span>Six directions. One Counselle.</span><span id="announcement" role="status" aria-live="polite">Signal orange selected.</span></footer>
+</div>
+</main>
+<noscript><p>Enable JavaScript to switch between the six palettes.</p></noscript>
+<script>
+const palettes = [
+  { id:'original', name:'Original hero', description:'The existing persimmon, kept here as your comparison point.', field:'oklch(70.1% .177 38)', ink:'oklch(19% 0 0)', accent:'oklch(49% .157 36)', tint:'oklch(95% .025 38)' },
+  { id:'signal', name:'Signal orange', description:'A sharper orange, black ink, and clean white surfaces.', field:'oklch(69% .2 36)', ink:'oklch(19% 0 0)', accent:'oklch(49% .16 36)', tint:'oklch(95% .025 36)' },
+  { id:'tangerine', name:'Tangerine', description:'A golden orange with more sunlight and a dark, grounded action color.', field:'oklch(76% .17 60)', ink:'oklch(19% 0 0)', accent:'oklch(46% .11 60)', tint:'oklch(96% .025 60)' },
+  { id:'cobalt', name:'Cobalt', description:'A saturated blue field, bright lettering, and crisp blue actions.', field:'oklch(49% .25 265)', ink:'oklch(99% 0 0)', accent:'oklch(49% .25 265)', tint:'oklch(96% .015 265)' },
+  { id:'racing', name:'Racing green', description:'Deep green at full scale, with a bright chartreuse call to action.', field:'oklch(35% .065 165)', ink:'oklch(99% 0 0)', accent:'oklch(39% .07 165)', tint:'oklch(96% .015 165)', cta:'oklch(89% .19 115)', onCta:'oklch(19% 0 0)' },
+  { id:'citron', name:'Citron', description:'A vivid yellow-green field with near-black typography and olive actions.', field:'oklch(90% .19 115)', ink:'oklch(19% 0 0)', accent:'oklch(41% .08 115)', tint:'oklch(97% .025 115)' }
+];
+const root = document.documentElement;
+const canvas = document.createElement('canvas');
+canvas.width = canvas.height = 1;
+const context = canvas.getContext('2d', { willReadFrequently:true });
+function hex(color) {
+  context.fillStyle = color; context.fillRect(0,0,1,1);
+  return '#' + Array.from(context.getImageData(0,0,1,1).data).slice(0,3).map(value => value.toString(16).padStart(2,'0')).join('').toUpperCase();
+}
+function selectPalette(palette) {
+  // No color transitions: comparisons must show the chosen colors immediately.
+  root.style.setProperty('--field',palette.field); root.style.setProperty('--field-ink',palette.ink);
+  root.style.setProperty('--accent',palette.accent); root.style.setProperty('--tint',palette.tint);
+  root.style.setProperty('--cta',palette.cta || palette.ink); root.style.setProperty('--on-cta',palette.onCta || palette.field);
+  document.getElementById('direction-name').textContent = palette.name;
+  document.getElementById('direction-description').textContent = palette.description;
+  document.getElementById('announcement').textContent = palette.name + ' selected.';
+  const swatches = [['Hero',palette.field,palette.ink],['Ink',palette.ink,palette.field],['Action',palette.accent,'oklch(99% 0 0)'],['Selection',palette.tint,palette.accent]];
+  document.getElementById('colors').replaceChildren(...swatches.map(([name,color,ink]) => {
+    const swatch = document.createElement('div'); swatch.className = 'color';
+    swatch.style.setProperty('--swatch',color); swatch.style.setProperty('--swatch-ink',ink);
+    const role = document.createElement('span'); role.className = 'sr-only'; role.textContent = name + ': ';
+    swatch.append(role,document.createTextNode(hex(color))); swatch.title = name + ': ' + color;
+    return swatch;
+  }));
+}
+for (const palette of palettes) {
+  const label = document.createElement('label'); label.className = 'choice';
+  const radio = document.createElement('input'); radio.type = 'radio'; radio.name = 'palette'; radio.value = palette.id; radio.checked = palette.id === 'signal';
+  radio.setAttribute('aria-label',palette.name);
+  const body = document.createElement('span'); body.className = 'choice-body';
+  const chip = document.createElement('span'); chip.className = 'chip'; chip.style.setProperty('--chip',palette.field); chip.setAttribute('aria-hidden','true');
+  body.append(chip,document.createTextNode(palette.name)); label.append(radio,body);
+  radio.addEventListener('change',() => { if (radio.checked) selectPalette(palette); });
+  document.getElementById('choices').append(label);
+}
+document.getElementById('reset-tasks').addEventListener('click',() => {
+  document.querySelectorAll('.task input').forEach(input => { input.checked = false; });
+  document.getElementById('announcement').textContent = 'Example tasks reset.';
+});
+selectPalette(palettes[1]);
+</script>
+</body>
+</html>

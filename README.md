@@ -78,7 +78,9 @@ cp .env.example .env
 # Required to start the server:
 #   COUNSELLE_DB_RO_DSN     — LOGIN member of cds_library_reader (six views only)
 #   COUNSELLE_DB_APP_DSN    — read-write DSN for Counselle's own counselle.* schema
-#   COUNSELLE_VERTEX_API_KEY — Vertex express-mode API key (or GOOGLE_APPLICATION_CREDENTIALS)
+#   ADC (recommended): run `gcloud auth application-default login`, then set
+#   COUNSELLE_GOOGLE_CLOUD_PROJECT. COUNSELLE_VERTEX_API_KEY remains supported
+#   for Express Mode; GOOGLE_APPLICATION_CREDENTIALS is optional service-account ADC.
 #   COUNSELLE_JWT_SECRET    — JWT cookie signing secret, ≥32 bytes
 #                             generate: python -c "import secrets; print(secrets.token_urlsafe(48))"
 # Required only when an external source is enabled:

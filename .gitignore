@@ -8,9 +8,11 @@ __pycache__/
 .venv/
 node_modules/
 dist/
+dist-landing/
 build/
 test-results/
 playwright-report/
+frontend/playwright/.auth/
 *.egg-info/
 .gstack/
 .playwright-mcp/
@@ -53,9 +55,18 @@ plans/.local/
 /*REPORT*.md
 /*ONBOARDING*.md
 
-# Coverage artifacts (06-L8 adds pytest-cov; don't commit run output).
+# Coverage artifacts (06-L8 adds pytest-cov; don't commit run output). Also
+# covers Vitest's own `coverage/` output dir (frontend/coverage/) — same
+# rule, same reason: regenerated test-run scratch, never source.
 .coverage
 .coverage.*
 htmlcov/
 coverage.xml
+coverage/
 
+
+# Vite dependency cache from an ad-hoc fixture server
+frontend/.vite-school-chances-fixture/
+
+# Wrangler local state (D1 local database, dev cache)
+.wrangler/

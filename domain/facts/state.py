@@ -5,9 +5,9 @@ the explore exclusion accounting all call these; nothing downstream
 re-derives a state from raw statuses on its own.
 
 Also hosts the code-owned, backend-authored strings this module accumulates
-across phases — `BAND_CAPTION` and `ENTRANCE_DIFFICULTY_NOTE` landed in
-Phase 1/2 because `config/assets/facts_sections.yaml` already references
-them by name via `foot_ref:`. `MAJORS_MATCH_NOTE` lands in Phase 3
+across phases — `ENTRANCE_DIFFICULTY_NOTE` landed in Phase 1/2 because
+`config/assets/facts_sections.yaml` already references it by name via
+`foot_ref:`. `MAJORS_MATCH_NOTE` lands in Phase 3
 (school-data-v3): it is the one canonical "matches on printed
 program name" sentence, imported by both `app/facts/service_explore.py`
 (the `/majors`/`/explore` HTTP responses) and `counselle_db/sql_guard.py`
@@ -36,8 +36,8 @@ def _status_class(status: PageStatus) -> _StatusClass:
         return "not_found"
     return "not_fetched"  # http_error | build_id_rotated | parse_error | never_fetched
 
+
 __all__ = [
-    "BAND_CAPTION",
     "ENTRANCE_DIFFICULTY_NOTE",
     "MAJORS_MATCH_NOTE",
     "NEVER_CHECKED_CAUSE",
@@ -54,13 +54,6 @@ __all__ = [
 # read and a page never attempted never share one sentence.
 NOT_FETCHED_CAUSE = "The page carrying this item could not be read on the last check"
 NEVER_CHECKED_CAUSE = "Counselle has not checked the page carrying this item yet"
-
-# plan §5.2's group `foot_ref: BAND_CAPTION` (getting-in/test-detail) — one
-# authored copy, delivered on the wire everywhere a score band appears.
-BAND_CAPTION = (
-    "This band holds the middle half of the enrolled students who reported a score. "
-    "We don't know how many reported one — treat it as context, not a cutoff."
-)
 
 # plan §5.2's group `foot_ref: ENTRANCE_DIFFICULTY_NOTE` (getting-in/selectivity-rating).
 ENTRANCE_DIFFICULTY_NOTE = (

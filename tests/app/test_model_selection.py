@@ -8,6 +8,7 @@ from app.model_selection import (
     CounselorModelSelection,
     UnsupportedCounselorProvider,
     counselor_model_selection,
+    google_thinking_config,
 )
 from config.settings import Settings
 from domain.response_mode import ResponseMode
@@ -59,6 +60,36 @@ class TestCounselorModelSelection:
             ResponseMode.QUICK, _settings(thinking_stream=True)
         )
         assert selection.include_thoughts is False
+
+    def test_gemini_2_5_quick_uses_a_zero_thinking_budget(self) -> None:
+        selection = counselor_model_selection(
+            ResponseMode.QUICK,
+            _settings(model_counselor="google-vertex:gemini-2.5-flash"),
+        )
+
+        assert google_thinking_config(selection) == {
+            "thinking_budget": 0,
+            "include_thoughts": False,
+        }
+
+    def test_gemini_2_5_think_uses_automatic_thinking_budget(self) -> None:
+        selection = counselor_model_selection(
+            ResponseMode.THINK,
+            _settings(model_counselor_think="google-vertex:gemini-2.5-pro"),
+        )
+
+        assert google_thinking_config(selection) == {
+            "thinking_budget": -1,
+            "include_thoughts": True,
+        }
+
+    def test_gemini_3_uses_thinking_levels(self) -> None:
+        selection = counselor_model_selection(ResponseMode.QUICK, _settings())
+
+        assert google_thinking_config(selection) == {
+            "thinking_level": "MINIMAL",
+            "include_thoughts": False,
+        }
 
     def test_selection_is_frozen(self) -> None:
         selection = counselor_model_selection(ResponseMode.QUICK, _settings())

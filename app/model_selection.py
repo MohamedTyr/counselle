@@ -34,6 +34,25 @@ def model_name_from_setting(model_setting: str) -> str:
     return model_setting.split(":", 1)[-1]
 
 
+def google_thinking_config(selection: CounselorModelSelection) -> dict[str, object]:
+    """Return the provider-shaped thinking settings for a resolved counselor mode.
+
+    Gemini 2.5 uses numeric ``thinking_budget`` values; its Vertex endpoint
+    rejects Gemini 3's ``thinking_level`` field with HTTP 400. Later model
+    families keep the level-based protocol until Google documents otherwise.
+    """
+    model_name = model_name_from_setting(selection.model_setting)
+    if model_name.startswith("gemini-2.5-"):
+        return {
+            "thinking_budget": -1 if selection.response_mode is ResponseMode.THINK else 0,
+            "include_thoughts": selection.include_thoughts,
+        }
+    return {
+        "thinking_level": selection.thinking_level,
+        "include_thoughts": selection.include_thoughts,
+    }
+
+
 @dataclass(frozen=True)
 class CounselorModelSelection:
     """The immutable, fully-resolved model configuration for one turn."""
@@ -60,6 +79,40 @@ def _require_vertex_prefix(model_setting: str) -> None:
             f"{_VERTEX_PREFIX!r} prefix; provider-generic construction is not "
             "implemented"
         )
+
+
+def goal_agent_model_setting(settings: Settings) -> str:
+    """Resolve the model setting for the goal-mode agent's own iterations
+    (plans/goal-mode-plan.md §2.10, D15). Empty ``settings.goal_model`` falls
+    back to ``settings.model_cheap`` — the SAME ADR 0011 seam as
+    :func:`goal_judge_model_setting`/:func:`goal_criteria_model_setting`, so
+    all three goal-mode model knobs are resolved in one place rather than
+    inline in ``app/agent_node.py``.
+    """
+    return settings.goal_model or settings.model_cheap
+
+
+def goal_judge_model_setting(settings: Settings) -> str:
+    """Resolve the model setting for the goal-mode judge call (plans/goal-mode-plan.md
+    §3, D15). Empty ``settings.model_goal_judge`` falls back to ``settings.model_cheap``
+    — the plan's default, made an explicit knob rather than inherited by accident.
+
+    R2 (plans/goal-mode-plan.md §7.1): a cheap-tier judge is the model MOST
+    vulnerable to verbosity/padding attacks (MT-Bench measured a 91.3% fool
+    rate on weak judges vs. 8.7% on a strong one). Raising ``model_goal_judge``
+    to a stronger tier than the agent itself is a live, argued-for owner
+    option (§9(b)) — this seam is what makes that a config change, not a
+    rewrite.
+    """
+    return settings.model_goal_judge or settings.model_cheap
+
+
+def goal_criteria_model_setting(settings: Settings) -> str:
+    """Resolve the model setting for the goal-mode criteria-derivation call
+    (plans/goal-mode-plan.md §3.2, D15). Empty ``settings.model_goal_criteria``
+    falls back to ``settings.model_cheap``.
+    """
+    return settings.model_goal_criteria or settings.model_cheap
 
 
 def counselor_model_selection(

@@ -190,6 +190,70 @@ class Settings(BaseSettings):
     agent_model_retry_attempts: int = 3
     agent_max_model_requests: int = 80
     agent_max_total_tokens: int = 2_000_000
+
+    # --- Compaction (also closes plans/agent-loop-hardening.md §1) ---
+    # `ClearToolResults` (pydantic-ai-harness==0.4.0, D3) is mounted for EVERY
+    # turn, goal or not (D11, plans/goal-mode-plan.md §4.2/§4.4) — cheap,
+    # zero-LLM, in-place blanking of old tool results. The `goal_compaction_*`
+    # knobs configure the goal-only `SummarizingCompaction` tier behind it.
+    compaction_clear_tool_results_after_messages: int = Field(default=40, ge=1)
+    compaction_clear_tool_keep_pairs: int = Field(default=3, ge=0)
+    compaction_min_clear_tokens: int = Field(default=20_000, ge=0)  # OpenCode's PRUNE_MINIMUM
+    # The token budget a goal turn escalates on: above it the cheap tier runs
+    # again and, if that is not enough, a summary is paid for. It is the whole
+    # headroom knob — a separate "reserve" subtracted from it would only ever
+    # be equivalent to setting it lower, so there is one number, not two.
+    # MUST stay < 200_000 (price cliff)
+    goal_compaction_target_tokens: int = Field(default=100_000, gt=0)
+    goal_compaction_keep_tokens: int = Field(default=8_000, ge=0)  # OpenCode's DEFAULT_KEEP_TOKENS
+
+    # --- Goal mode (plans/goal-mode-plan.md §2.10; Phase 2 knobs. The
+    # compaction_*/goal_compaction_* knobs above shipped in Phase 1;
+    # goal_max_concurrent_turns ships in Phase 3. This is the single source
+    # of truth for which phase ships which knob.) ---
+    goal_model: str = ""  # "" => model_cheap (D15). Resolved through
+    # app/model_selection.py, the SAME ADR 0011 seam as
+    # model_goal_judge/model_goal_criteria — not inline in agent_node, so
+    # all three stay consistent. (Consumed by Phase 3's agent construction.)
+    goal_max_cost_usd: float = Field(default=3.00, gt=0)  # THE primary budget
+    # (D14), but a SOFT one: UsageLimits understands requests/tokens, not
+    # dollars, so this is enforced as a projection checked before each
+    # iteration, by Phase 3's GoalLoopController — a single unusually
+    # expensive iteration can overshoot it before the next checkpoint fires.
+    goal_max_model_requests: int = Field(default=90, gt=0)  # DERIVED: at
+    # model_cheap and a ~55k average context, 90 requests ~ 4.95M input +
+    # ~72k output ~ $1.67 - about 44% headroom under the $3.00 cap for the
+    # judge, criteria, and wrap-up calls. Re-derive whenever goal_model or
+    # the cap moves. Passed to pydantic-ai's own `UsageLimits` per SEGMENT
+    # (an `ask_student` pause starts a fresh `UsageLimits`, unlike cost/
+    # iterations/wall-clock, which carry across the pause via the ledger) —
+    # these two are the library's per-run safety stops, not the run's
+    # budget; the cost cap above is what a resumed run is actually judged
+    # against end to end.
+    goal_max_total_tokens: int = Field(default=10_000_000, gt=0)  # backstop
+    # ONLY, sized so cost genuinely binds first: $3.00 at model_cheap's
+    # $0.30/1M input is ~10M input-equivalent tokens. Also per-segment, same
+    # reason as goal_max_model_requests above.
+    goal_max_iterations: int = Field(default=6, gt=0)  # judge rounds
+    goal_wrapup_reserve_requests: int = Field(default=3, ge=0)
+    goal_max_wall_clock_s: float = Field(default=3600.0, gt=0)  # 60 min,
+    # inside goal_turn_timeout_s
+    goal_turn_timeout_s: int = Field(default=5400, gt=0)  # 90 min watchdog
+    # (vs 3600 normal)
+    goal_stall_iterations: int = Field(default=2, gt=0)
+    goal_max_consecutive_tool_errors: int = Field(default=3, gt=0)
+    goal_judge_retries: int = Field(default=2, ge=0)  # then stopped_check_failed (C12)
+    # "" => model_cheap. A cheap-tier judge is the model MOST vulnerable to
+    # verbosity/padding attacks (R2, plans/goal-mode-plan.md §7.1) — raising
+    # this to a stronger tier than the agent is a live owner option (§9(b)),
+    # made a config change rather than a rewrite by this knob existing.
+    model_goal_judge: str = ""
+    model_goal_criteria: str = ""  # "" => model_cheap
+    goal_max_criteria: int = Field(default=6, gt=0)
+    goal_judge_evidence_max_chars: int = Field(
+        default=30_000, gt=0
+    )  # §3.3 — bounded, was unbounded
+
     # Native provider thought output. Gemini exposes this through
     # include_thoughts; it is the rawest trace Google exposes through the API,
     # not private internal CoT tokens. Counselle displays that provider output
@@ -406,10 +470,9 @@ class Settings(BaseSettings):
     reddit_max_results: int = 12
 
     # --- GCP ---
-    # Auth: the pipeline's Vertex express-mode API key (genai.Client(vertexai=True,
-    # api_key=...)) — mirrored from the pipeline repo. Service-account auth via the
-    # standard GOOGLE_APPLICATION_CREDENTIALS var also works (documented in
-    # .env.example); the API key wins when both are set.
+    # Auth: an optional Vertex Express-mode API key. When it is unset, the Google
+    # SDK discovers Application Default Credentials (ADC) from the environment.
+    # The key takes precedence to preserve existing local-development setups.
     vertex_api_key: str | None = None
     google_cloud_project: str | None = None
     google_cloud_location: str = "us-central1"
@@ -455,6 +518,12 @@ class Settings(BaseSettings):
     # memory-exhaustion guard (over the cap → 503). Per-user caps + rate
     # limiting are B4; this is only the process-wide ceiling.
     max_concurrent_turns: int = 50
+    # A goal turn can hold a slot (and a disproportionate share of the shared
+    # stream_buffer_bytes pool) for up to goal_turn_timeout_s — far longer
+    # than an ordinary turn. A separate, tighter ceiling on how many may run
+    # at once, checked alongside max_concurrent_turns in the same synchronous
+    # claim window (plans/goal-mode-plan.md §2.12, R10).
+    goal_max_concurrent_turns: int = 5
     # Per-turn consumer ceiling: how many streams may attach to one turn's
     # ring buffer at once (over the cap → 429). A cheap abuse guard.
     max_consumers_per_turn: int = 8

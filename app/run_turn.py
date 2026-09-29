@@ -54,7 +54,11 @@ from pydantic_ai.messages import (
 
 from app.clarification import latest_awaiting_v2_clarify_spec
 from app.graph import GraphDeps
-from app.model_selection import UnsupportedCounselorProvider, counselor_model_selection
+from app.model_selection import (
+    UnsupportedCounselorProvider,
+    counselor_model_selection,
+    goal_agent_model_setting,
+)
 from app.records import Emission, FinalEmissionDeduper
 from app.sessions import get_session, touch_session
 from app.skills import SelectedSkillValidationError, validate_selected_skills
@@ -596,6 +600,14 @@ async def run_continuation_turn(
     user_message_id = prepared.user_message_id or prepared.trigger_request_id
     config = {"configurable": {"thread_id": session_id}}
 
+    # A continuation is a goal turn exactly when the run it resumes was one
+    # that paused on ask_student — always explicit (same shape as run_turn's
+    # own key). A goal turn actually runs on the goal-mode agent model
+    # (`app/agent_node.py::_run_goal_loop`), never the counselor's Quick/Think
+    # selection, so the recorded/streamed model must say so too.
+    is_goal_turn = prepared.inherited_goal is not None
+    turn_model = goal_agent_model_setting(settings) if is_goal_turn else selection.model_setting
+
     turn_ids: dict[str, Any] = {
         "message_id": message_id,
         "user_message_id": user_message_id,
@@ -603,7 +615,7 @@ async def run_continuation_turn(
         "user_id": user_id,
         "selected_skills": list(prepared.inherited_skills),
         "response_mode": selection.response_mode.value,
-        "model": selection.model_setting,
+        "model": turn_model,
         # Phase 3 identity additions (plan "SSE additions" / "Turn-record
         # identity"): read by the agent node to restrict A2's output type and
         # by the record builder to stamp ``continuation_of``.
@@ -615,7 +627,10 @@ async def run_continuation_turn(
         # record-building branch) — None for widget origin, U2's exact text
         # for reply origin. Never the server-rendered model_input_text.
         "record_user_text": prepared.record_user_text if prepared.project_user else None,
+        "goal_mode": is_goal_turn,
     }
+    if prepared.inherited_goal is not None:
+        turn_ids["goal"] = prepared.inherited_goal
     if prepared.inherited_surface is not Surface.CHAT:
         # A2 inherits A1's surface (plans/essay-ai-panel.md Part 1 §1) — same
         # system prompt, same narrowed tool profile. Written only for a
@@ -790,6 +805,7 @@ async def run_turn(
     surface: Surface = Surface.CHAT,
     essay_id: str | None = None,
     essay_selection: str | None = None,
+    goal_mode: bool = False,
 ) -> AsyncIterator[Event]:
     """Run one counselor turn on ``thread_id = session_id``, yielding wire events."""
     settings = getattr(deps, "settings", None) or get_settings()
@@ -884,7 +900,16 @@ async def run_turn(
         # re-resolves the model from response_mode rather than trusting this
         # string directly; it rides turn_ids purely for record/audit fidelity.
         "response_mode": selection.response_mode.value,
-        "model": selection.model_setting,
+        # A goal turn actually runs on the goal-mode agent model
+        # (`app/agent_node.py::_run_goal_loop`), never the counselor's
+        # Quick/Think selection above — the recorded/streamed model must
+        # say so too.
+        "model": goal_agent_model_setting(settings) if goal_mode else selection.model_setting,
+        # D10: the harness mode this turn runs under (plans/goal-mode-plan.md
+        # §2.4) — read by the agent node to select the goal budgets/prompt/
+        # output_type. Always present (unlike surface below) so an absent key
+        # never silently means "goal" on a malformed checkpoint read.
+        "goal_mode": goal_mode,
     }
     if surface is not Surface.CHAT:
         # Flat msgpack-plain scalars (plan Part 0 C2) — the nested wire

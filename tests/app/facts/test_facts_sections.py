@@ -61,9 +61,7 @@ def test_every_foot_ref_names_an_existing_non_empty_state_constant() -> None:
         assert hasattr(state_module, ref), f"domain.facts.state has no {ref!r}"
         value = getattr(state_module, ref)
         assert isinstance(value, str) and value.strip(), ref
-    # Both constants state.py's own docstring promises this phase needs are
-    # actually used somewhere (not just present-but-unreferenced).
-    assert {"BAND_CAPTION", "ENTRANCE_DIFFICULTY_NOTE"} <= seen_refs
+    assert "ENTRANCE_DIFFICULTY_NOTE" in seen_refs
 
 
 def test_every_facts_entry_tab_equals_facts_keys_yamls_owning_tab() -> None:

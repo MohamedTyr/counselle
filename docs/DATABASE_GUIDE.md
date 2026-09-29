@@ -32,7 +32,7 @@ schema-qualified, parameterized SQL. The reader can select exactly these views:
 | View | Contract |
 |---|---|
 | `cds_library.school_profiles` | One row per school: typed identity columns, `basic_profile`, per-field `profile_provenance`, and profile version/snapshot/hash. |
-| `cds_library.current_school_facts` | One row per school × reported fact, including the raw `value` jsonb — the one relation `get_facts` reads; never reachable through `query_database`. |
+| `cds_library.current_school_facts` | One row per school × reported fact, including the raw `value` jsonb — read only through the typed DB service (`get_facts` and the code-owned Explore fit batch), never reachable through `query_database`. |
 | `cds_library.school_facts_sql` | The same current fact rows, jsonb-free: typed `value_num`/`value_text`/`value_bool`/`value_date`, `display`, `unit`, `observed_at` — the one facts relation `query_database` may touch. |
 | `cds_library.school_explore` | One row per school: ~100 typed, nullable filter/metric columns (admit rate, cost, test bands, majors, and more) for cross-school filtering and joins that don't need a `fact_key`. |
 | `cds_library.school_data_status` | One row per school, including a school with no crawl yet at all: `has_collegedata`, `facts_updated_at`, `fact_count`, and per-tab fetch status. |
@@ -54,6 +54,23 @@ Counselle's own application state in the `counselle` schema (users, sessions, ch
 workspace, feedback, and checkpointer); it has zero grants on `cds_library` and must
 never be used to bridge to it. Never substitute one DSN for another, or import
 facts-store adapter code to bridge them.
+
+### The Explore card's admit-rate band
+
+Explore's card category is a code-owned planning band, not an individual admission
+probability, and it reads exactly one column: `cds_library.school_explore.admit_rate`.
+`<20` is Reach, `<50` is Target, every other valid rate is Safety. A rate that is
+absent, non-numeric, or outside `[0,100]` is Unknown, and an Unknown card claims no
+band at all. Nothing else is an input — not the saved student Profile, not the
+browser's score assumptions, not `current_school_facts`' entering-class comparables —
+so the band is a statement about the school, never a prediction about the reader
+(ADR 0040, superseding ADR 0039).
+
+One Explore result page is one call to `counselle_db.service.explore`: the code-owned
+page statement plus its ancillary count/option statements, in a single read-only
+transaction. There is no per-page facts batch, no application-database Profile read,
+and no evidence-export seam on this path. No estimate is persisted, and an estimate
+never reads or writes `Application.list_type`.
 
 ### The write path — the facts crawler, walled off by role and DSN
 

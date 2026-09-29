@@ -74,7 +74,6 @@ sections:
       tab: admission
   - id: test-detail
     title: Test scores in detail
-    foot_ref: BAND_CAPTION
     facts:
     - key: class_profile.sat_math_p25
       label: SAT Math 25th percentile
@@ -904,8 +903,14 @@ sections:
     - key: deadlines.early_decision
       label: Early decision deadline
       tab: admission
+    - key: deadlines.early_decision_2
+      label: Early decision II deadline
+      tab: admission
     - key: deadlines.early_action
       label: Early action deadline
+      tab: admission
+    - key: deadlines.early_action_2
+      label: Early action II deadline
       tab: admission
     - key: deadlines.financial_aid
       label: Financial aid deadline

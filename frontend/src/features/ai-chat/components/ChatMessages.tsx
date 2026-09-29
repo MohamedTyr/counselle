@@ -29,6 +29,15 @@ export type ChatMessagesProps = {
   clarifyDraft?: ClarifyDraftController;
   skillLabelForName?: (name: string) => string | undefined;
   modeSkillNames?: readonly string[];
+  /** The `messageId` of the turn this client is actively streaming, from
+   *  `useTurnEngine`'s `liveTurn.assistantMessageId` (or `null` when no turn
+   *  is live). Threaded to every `ChatMessage` so `isInterruptedGoal` can ask
+   *  "is this the live turn" by id instead of by a same-message heuristic.
+   *  Omitting it leaves `ChatMessage`'s own fallback in place. */
+  liveMessageId?: string | null;
+  /** Whether the live turn was sent as a `/goal` run — lets the live message
+   *  show its goal line before the backend emits the first `goal` step. */
+  liveTurnIsGoal?: boolean;
 };
 
 /**
@@ -51,6 +60,8 @@ export function ChatMessages({
   clarifyDraft,
   skillLabelForName,
   modeSkillNames = [],
+  liveMessageId,
+  liveTurnIsGoal = false,
 }: ChatMessagesProps) {
   const {
     scrollableRef,
@@ -106,6 +117,8 @@ export function ChatMessages({
               }
               key={message.messageId}
               isLatestMessage={index === latestMessageIndex}
+              liveMessageId={liveMessageId}
+              liveTurnIsGoal={liveTurnIsGoal}
               clarifyDraft={
                 index === latestMessageIndex ? clarifyDraft : undefined
               }

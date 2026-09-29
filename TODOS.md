@@ -1,5 +1,32 @@
 # TODOS
 
+## Landing launch: what is left after the launch pass
+
+The engineering side of `plans/landing-seo-plan.md`, `plans/landing-backend-plan.md` and PR 1 of `plans/landing-launch-plan.md` is built. The owner's go-live steps (DNS, D1 remote migration, Pages project, PostHog settings, zone settings, verification, indexing) are the runbook in `plans/landing-launch-plan.md` §5. Open items, each with the reason it is open:
+
+- **PR 2 (cleanliness) is not started.** `plans/landing-launch-plan.md` §3: generate `llms.txt`, inline the CSS and drop Instrument Sans for mobile PSI ≥ 90, flatten `cards/colleges/`, move `playEssaySequence`, shared motion hooks, split `FeaturesStage`, the remaining single sources, the upsert check as a `node:sqlite` test, and enforcing the CSP. It starts once production verification (§5.7) passes; the 7.5 browser pass found no report-only CSP violations on `/`, `/privacy` or `/terms`, which is its evidence for enforcing.
+- **Founders and profiles are empty.** `FOUNDERS` and `PROFILES` in `frontend/src/features/landing/brand.ts` drive the "Who is behind Acceptra?" FAQ entry, `Organization.founder` and `Organization.sameAs`; nothing renders until they are filled in with real names, LinkedIn URLs and official profile URLs. Add `twitter:site` to `landing.html` once the X handle exists.
+- **The site icon is derived, not designed.** `public-landing/icon.svg` (and every PNG/ICO generated from it) and `assets/acceptra-glyph.svg` are the wordmark's "A" on the brand green, standing in for a designed square mark. Regenerate the PNG set from the designed mark when it exists.
+- **Lighthouse: 95 mobile (median of 96, 95, 94), 99 desktop, locally.** SEO 100, Best Practices 100, CLS 0, against `npm run preview:landing` with analytics off (it runs only on `acceptra.ai`), so this is an upper bound. Under CPU load from other processes the same build scored 76–96: the H1's render delay flips between ~0.3 s and ~1.3 s, which PR 2's size-matched font fallback and inlined CSS target. PageSpeed Insights mobile on production is the baseline from launch on; record it here (runbook §5.9.5), and PR 2's ≥ 90 gate is measured against it. Accessibility is 97 because of contrast inside the `aria-hidden` illustrations (below).
+- **The landing e2e suite passes 19/19.** The five failures recorded before the launch pass are resolved: the 390px nav CTA and compare picker are 44px, every stage blurb shares one grid cell so the stage keeps one height, and three specs that assumed the essay tab opens first now choose it. One more spec failed about one run in four under the dev server's StrictMode double mount, before this branch too; it now compares against what mounting created.
+- **The app build still renders `LandingPage`** (`src/app/router.tsx`), where `/api/waitlist` doesn't exist, so a signup there shows the generic error. No worse than before, and the app isn't deployed; decide at B6.
+- **Deferred from the launch pass** (`plans/landing-launch-plan.md` §8), none of them needed to launch:
+  - Turnstile on the waitlist, if the WAF rate limit and host check prove not enough.
+  - A separate preview D1, only if preview signups must work (today the host check refuses them).
+  - Merging Geist and Inter (a design call).
+  - Optional analytics events (`faq_opened`, `section_viewed`).
+  - Stream-limiting chunked request bodies in the waitlist Function (it measures the body after reading it).
+  - `worker-src` and the toolbar origin in the CSP, if replay or the toolbar is ever enabled under the enforced CSP.
+  - posthog-js `module.slim` and `advanced_disable_feature_flags_on_first_load`.
+  - Pausing the typewriter and marquee off screen, and moving the composer animation off `background-color`.
+  - WebP for the three PNG logo tiles.
+  - A `<details>` FAQ for no-JS visitors (the answers are in the HTML, but collapsed without JS).
+  - A server-side honeypot check (today the client drops a filled trap).
+  - Spreadsheet-safe CSV export of the list.
+  - Contrast in the decorative, `aria-hidden` illustrations (what holds Lighthouse Accessibility at 97).
+  - Trimming the ~40 kB of inline SVG data URIs.
+  - The 37px "Skip to content" link, accepted: it is a keyboard target, not a touch target.
+
 ## `cds_library.school_explore` view ownership drifted from the seed (live DB fix applied, source not)
 - **What:** the live v3 database's `cds_library.school_explore` view was owned by `postgres`
   instead of `cds_library_owner`, so `cds_library_reader`'s (checked-in) `GRANT SELECT` never
@@ -777,3 +804,159 @@ follow-up in the same phase; this entry is closed on the backend side.
   `_write_mode`, `_load_turn_essay`), `app/workspace/agent_tools_shared.py` (`ToolCtx`),
   `config/assets/prompts/essay_partner.md` § "You only work on this essay".
 - *(Logged 2026-09-08, found while correcting the applied-vs-proposed prose.)*
+
+## `app/agent_node.py` is over its 800-line cap; the plan's own C6 stop condition tripped
+- **What:** the file is now ~1,847 lines. C6 (`plans/goal-mode-plan.md`) revised Phase 3's
+  budget upward from a fictional "~40-line extraction" to an honest "~150-250 net new lines
+  across `app/agent_node.py` and `app/steps.py`, including the iteration lifecycle in C7" —
+  and this batch's review found actual net growth from Phase 3 running roughly +485 lines
+  against that stated 150-250, well past what C6 itself expected. The plan is explicit that
+  splitting this file is its own branch, not something to fold into a fix batch, so nothing
+  here attempts it.
+- **The concrete split a reviewer proposed**, to do in that follow-up branch:
+  - `app/goal_loop_runner.py` — `_run_goal_loop`, `_goal_step`, `_update_goal_ledger_totals`
+    (and its `_usage_tokens`/`_price_usage_delta` pricing helpers), `_goal_wrapup_prompt`.
+  - `app/agent_iteration.py` — `_run_once`, `_RunOnceResult`, the steer helpers
+    (`_emit_injected_steers`, `_record_uninjected_steers`, `record_replayable_snapshot`).
+  - `app/final_content_writer.py` — the viz placer/writer (`_FinalContentPlacementWriter`
+    and friends).
+  - `app/compaction_beat.py` — `_CompactionBeat`, `_SummarizingBeat`,
+    `_make_compaction_beat_emitter`, `_clear_tool_results_tier`,
+    `compaction_capabilities`.
+- **Context:** `app/agent_node.py`; `plans/goal-mode-plan.md` §5.3 correction C6.
+- *(Logged from the goal-mode Phase 3 review-fix batch, 2026-09-16.)*
+
+## Non-goal tool-budget path: the viz card now renders after the budget message, not before
+- **What:** when an ordinary (non-goal) turn hits its tool budget, the student now sees the
+  "I hit my tool budget" message before any viz card the turn had staged, rather than after.
+  This fell out of Phase 3 consolidating `flush_final()` down to the single terminal call
+  described in `_run_once`'s docstring (`app/agent_node.py`) — previously turn-terminal
+  flushing could happen at more than one point, and this ordering was one of the side effects
+  of collapsing that to one call.
+- **Why it's recorded rather than fixed:** a reviewer confirmed the new ordering is
+  architecturally correct — `flush_final()` is genuinely turn-terminal and firing it earlier
+  would reintroduce the multiple-terminal-flush hazard the consolidation removed. This is an
+  intentional, user-visible product change (message-then-card instead of card-then-message on
+  the tool-budget path), not a bug, and it should be acknowledged as an accepted change rather
+  than left as an unexplained diff in a test assertion.
+- **Context:** `app/agent_node.py` (`_run_once`'s docstring, `_TOOL_BUDGET_MESSAGE`,
+  `flush_final`).
+- *(Logged from the goal-mode Phase 3 review-fix batch, 2026-09-16.)*
+
+## Goal mode (Part 8 non-goals) — deferred by the plan itself, not by omission
+- **What:** `plans/goal-mode-plan.md` Part 8 records a list of non-goals for `/goal`
+  Phases 0–5, all deliberate and none accidental:
+  - **Sub-agents / delegation** and **durable, crash-proof goal runs** — both are now
+    reachable via `pydantic-ai-harness==0.4.0`'s `experimental/subagents` and
+    `experimental/step_persistence` without a PydanticAI 2.x upgrade (a correction to
+    `specs/agent-mode/plan/agent-mode-architecture-plan.md`'s assumption that 2.x was
+    required), but neither is built. A crash mid-run still loses the run today, same as
+    any turn.
+  - **A goals list page / `counselle.goal_runs` table.** No new table shipped (D8) —
+    a goal run is only visible in its own chat message.
+  - **Bulk undo of a goal run.** The plan's own §6.8 (Phase 8) sketches this as a
+    follow-up on its own branch; not started.
+  - **Re-deriving criteria after a steer.** A mid-run steer redirects *how* the agent
+    works, never *what* it is judged against — criteria are frozen at goal start.
+  - **A domain-specific `summary_prompt`** for the compaction summarizing tier (e.g.
+    preserving school names/UNITIDs/deadlines/citation markers verbatim). Deferred until
+    real goal-run traces exist to tune against — the shipped default summary prompt
+    (`## Intent`/`## Key decisions`/`## Artifacts`/`## Current state`/`## Next
+    steps`/`## Open questions`) is unmodified.
+  - **Merging the two composers, splitting `app/agent_node.py`.** The line-budget entry
+    above (`app/agent_node.py is over its 800-line cap`) already tracks the split
+    proposal; this is the same debt, not a new one.
+  - **An output validator.** Not deferred — **forbidden** (D5; see ADR 0041, `AGENTS.md`
+    "No output validator was added and none may be").
+- **Four Part 9 owner decisions were never made**, and were shipped at the plan's stated
+  `Settings` defaults instead: (a) whether to add a one-time approval gate before a goal
+  run's first tool call (shipped unattended); (b) which model tier judges (shipped on
+  `model_cheap`, contrary to the MT-Bench literature the plan cites, though the measured
+  adversarial eval result — 6/6 correct — did not reproduce that literature's failure
+  mode); (d) a cost ceiling per student per month, as opposed to per run (not set); (e)
+  the agent's own model tier for goal turns (shipped on `model_cheap` rather than the
+  counselor tier — a real quality-for-cost trade on the student-facing work itself).
+  Each is a `Settings` knob, so none of this requires a code change to revisit.
+- **Phase 7 — the plan's own kill-gate — has not run.** No real student's raw goal
+  statement has been tested against the shipped system. The plan states plainly that if
+  most real statements decompose into vacuous or out-of-scope criteria, the right answer
+  is a cheap, read-only "what's incomplete across my workspace" pass instead of more
+  judge tuning — this has not been decided either way.
+- **No real-browser verification.** Neither the plan's §7.4 live acceptance script nor
+  the Phase 5 gate's dev-gallery check (nine `GoalStatus` fixtures at 1440px/390px) ran
+  in an actual browser during this work; everything on the frontend is verified at the
+  jsdom/unit level only.
+- **The judge eval's TPR=1.000 is one clean run, not demonstrated stability.** A
+  confirmation re-run under the same pinned settings (`temperature=0.0`) was launched to
+  rule out a lucky draw and did not finish before the measuring session ended — see
+  `evals/goal_judge/REPORT-20260916T160355Z.md`'s own closing section. Re-run the gate at
+  least once more before treating the number as stable.
+- **The §2.10 budget defaults are a projection, not a measurement** — the loop did not
+  exist yet when the cost spike that produced `goal_max_cost_usd`/`goal_max_model_requests`
+  and the rest of that table ran (Phase 0's S8). Re-derive them against a real run's
+  logged spend once Phase 7 produces one.
+- **Context:** `plans/goal-mode-plan.md` Part 8 (non-goals) and Part 9 (open owner
+  decisions); `docs/adr/0041-goal-mode.md` Consequences; `docs/ARCHITECTURE.md` §42.7.
+- *(Logged from the goal-mode Phase 6 documentation pass, 2026-09-16. `plans/goal-mode-plan.md`
+  stays in `plans/` — it graduates to `specs/goal-mode/` only after owner acceptance, per
+  the planning-workflow rule; it was NOT moved as part of this entry.)*
+
+## The goal-only summarizing compaction tier has never run against a real model
+- **What:** the `SummarizingCompaction` tier (D11) is mounted, disclosed, and tested, but
+  every test drives it through a `FunctionModel` — no live goal run has yet crossed
+  `goal_compaction_target_tokens` and paid for a real summary. So three things are
+  built-and-unmeasured rather than verified: (1) whether a real summary keeps a goal run
+  coherent across the cut (the plan's Phase 6 scenario E), (2) whether 100,000 /
+  8,000 (`goal_compaction_target_tokens` / `goal_compaction_keep_tokens`) are the right
+  numbers — they are ported from OpenCode's defaults, not measured here, and the same
+  caveat as the §2.10 budget defaults applies, and (3) what a real summary costs inside
+  the ledger, which now carries it at the agent's own rate.
+- **Also still open:** the domain-specific `summary_prompt` (school names, UNITIDs,
+  deadlines, citation markers verbatim) that `plans/goal-mode-plan.md` §4.3 defers until
+  real traces exist — already recorded above under the Part 8 non-goals, and the same
+  traces close both items.
+- **Why it's recorded rather than fixed:** it needs a real, long goal run, which is
+  Phase 6/7 dogfood work and costs real money; guessing at the numbers first is exactly
+  what §4.3 says not to do.
+- **Context:** `app/agent_node.py` (`compaction_capabilities`, `_SummarizingBeat`);
+  `config/settings.py` (`goal_compaction_*`); `tests/app/test_agent_node_compaction.py`.
+- *(Logged when the summarizing tier was built, 2026-09-16.)*
+
+## Goal mode: opening a long goal run mid-flight shows a blank "Starting response…"
+- **What:** reloading, or opening from the sidebar, a goal run that is still in progress
+  can show only the student's message and the generic starting beat — no goal line, no
+  plan, no tool beats — until the run ends and the transcript is persisted. Short goal
+  runs are unaffected once finished: a settled run replays correctly from the transcript.
+- **Observed (2026-09-18):** a live goal run ~25 minutes in. `GET /sessions/{id}` returned
+  a transcript holding only the user message; `GET /sessions/{id}/stream` returned 200
+  (so the registry had an active turn) and replayed no events, several times closing
+  within ~6ms. Reproduced on a fresh page load with no dev hot-reload involved.
+- **Likely cause, not confirmed from logs:** `app/turns.py::_follow` terminates a consumer
+  that "fell off the buffer head" rather than skip events. The replay buffer is
+  byte-budgeted (`stream_buffer_bytes`), so a long goal run evicts its early events; a
+  fresh attach from seq 0 then falls off the head, and the client's transcript fallback
+  has nothing to show because a live turn's assistant message is not persisted yet.
+  That rule is right for a short turn and a real hole for a run designed to last up to
+  an hour. Confirm by looking for `consumer fell off the buffer head` in the server log.
+- **Why it was not fixed here:** it is the turn registry's replay contract, not the goal
+  UI. The honest fix is structural — e.g. keep the latest `goal` and `write_plan` steps
+  replayable regardless of eviction, or persist a partial transcript for long turns —
+  and deserves its own change, not a patch smuggled into a UI pass.
+- *(Logged from the goal-mode UI/UX pass, 2026-09-18.)*
+
+## Goal mode: the agent runs on the cheap tier, not the student's selected mode
+- **What:** `goal_agent_model_setting` falls back to `model_cheap` (D15), so a goal turn
+  ignores Quick/Think. In live runs on 2026-09-18 the cheap tier planned myopically (a
+  2-step plan for a 3-school goal, grown to 6 as it went) and, once, gave up and asked the
+  student for dates despite the prompt's "state assumptions, don't ask" rule — the check
+  then correctly sent it back. Setting `COUNSELLE_GOAL_MODEL` is a one-line change, but
+  `goal_max_model_requests` and `goal_max_total_tokens` are derived from cheap-tier
+  pricing under the $3.00 cap, so raising the model means re-deriving both. Owner call.
+- *(Logged from the goal-mode UI/UX pass, 2026-09-18.)*
+
+## `search_school_site` searched the wrong school's website
+- **What:** during a goal run, a beat read "Searching Dalton State College's website:
+  'Emory University Regular Decision deadline 2027'" and returned federalregister.gov
+  and Dalton State results. The `.edu` search resolved Emory to the wrong institution.
+  Unrelated to goal mode — seen there only because goal runs do a lot of searching.
+- *(Logged from the goal-mode UI/UX pass, 2026-09-18.)*

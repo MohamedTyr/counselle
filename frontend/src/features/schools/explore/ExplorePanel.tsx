@@ -2,9 +2,16 @@ import { SearchX } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
-import type { ExploreQueryInput, ExploreSchoolCard } from "@/api/schools/explore";
+import type {
+  ExploreQueryInput,
+  ExploreSchoolCard,
+} from "@/api/schools/explore";
 import { useExplore } from "@/api/schools/explore";
-import { useAddApplication, useApplications, useArchiveApplication } from "@/api/workspace/hooks";
+import {
+  useAddApplication,
+  useApplications,
+  useArchiveApplication,
+} from "@/api/workspace/hooks";
 import type { Round } from "@/api/workspace/types";
 import { Button } from "@/components/ui/button";
 import { ErrorCard } from "@/components/ui/error-card";
@@ -23,10 +30,12 @@ import { ExploreFilterPanel } from "@/features/schools/explore/ExploreFilterPane
 import { ExploreResultsHeader } from "@/features/schools/explore/ExploreResultsHeader";
 import { ExploreSearchField } from "@/features/schools/explore/ExploreSearchField";
 import type { Narrowest } from "@/api/schools/explore";
-import type { ExploreFilters, RangeKey } from "@/features/schools/explore/explore-types";
+import type {
+  ExploreFilters,
+  RangeKey,
+} from "@/features/schools/explore/explore-types";
 import { SchoolResultCard } from "@/features/schools/explore/SchoolResultCard";
 import { SchoolResultCardSkeleton } from "@/features/schools/explore/SchoolResultCardSkeleton";
-import { hasScoreBand } from "@/features/schools/explore/VerdictBand";
 import { useExploreFilters } from "@/features/schools/explore/useExploreFilters";
 
 /*
@@ -38,7 +47,6 @@ import { useExploreFilters } from "@/features/schools/explore/useExploreFilters"
  * list onto the response for the on-list badge, and render.
  */
 
-const BAND_CAPTION_ID = "explore-band-caption";
 /** Stagger is capped so a large result set doesn't become a slideshow. */
 const STAGGER_CAP = 8;
 const STAGGER_STEP_MS = 30;
@@ -67,9 +75,9 @@ export function ExplorePanel() {
     filters,
     loadMore,
     page,
-    profile,
+    assumptions,
     setFilters,
-    setProfile,
+    setAssumptions,
     setRange,
     setSort,
     sort,
@@ -82,7 +90,7 @@ export function ExplorePanel() {
 
   const queryInput: ExploreQueryInput = useMemo(
     () => ({
-      act: profile.act,
+      act: assumptions.act,
       admit_max: filters.ranges.admit.max,
       admit_min: filters.ranges.admit.min,
       calendar: filters.calendar,
@@ -98,7 +106,7 @@ export function ExplorePanel() {
       grad_six_max: filters.ranges.gradSix.max,
       grad_six_min: filters.ranges.gradSix.min,
       hbcu: filters.hbcu,
-      home_state: profile.homeState,
+      home_state: assumptions.homeState,
       housing_max: filters.ranges.housing.max,
       housing_min: filters.ranges.housing.min,
       hsi: filters.hsi,
@@ -125,8 +133,8 @@ export function ExplorePanel() {
       retention_max: filters.ranges.retention.max,
       retention_min: filters.ranges.retention.min,
       rolling_admission: filters.rollingAdmission,
-      sat_ebrw: profile.satEbrw,
-      sat_math: profile.satMath,
+      sat_ebrw: assumptions.satEbrw,
+      sat_math: assumptions.satMath,
       score_fit: filters.scoreFit,
       size_bucket: filters.sizeBucket,
       sort: `${sort.key}:${sort.direction}`,
@@ -134,7 +142,7 @@ export function ExplorePanel() {
       test_policy: filters.testPolicy === "any" ? null : filters.testPolicy,
       tribal: filters.tribal,
     }),
-    [debouncedQuery, filters, profile, sort],
+    [assumptions, debouncedQuery, filters, sort],
   );
 
   const explore = useExplore(queryInput, page);
@@ -154,15 +162,18 @@ export function ExplorePanel() {
 
   const schools = data?.schools ?? [];
   const activeCount = useMemo(() => countActiveFilters(filters), [filters]);
-  const showBandCaption = schools.some((school) => hasScoreBand(school.fields, profile));
 
   /* Stagger the opening view and nothing else. Cards are keyed by unitid,
    * so a card that survives a filter change keeps its DOM node. */
   const shouldStagger = activeCount === 0 && filters.query === "" && page === 1;
 
   async function handleAdd(school: ExploreSchoolCard) {
-    const { deadline_regular, is_rolling, offers_early_decision, offers_early_action } =
-      school.fields;
+    const {
+      deadline_regular,
+      is_rolling,
+      offers_early_decision,
+      offers_early_action,
+    } = school.fields;
     const round: Round = is_rolling
       ? "Rolling"
       : offers_early_decision
@@ -209,13 +220,19 @@ export function ExplorePanel() {
       <div className="flex flex-col gap-3">
         <ExploreFilterBar
           activeCount={activeCount}
-          controlCounts={data?.control_counts ?? { private: 0, private_for_profit: 0, public: 0 }}
+          controlCounts={
+            data?.control_counts ?? {
+              private: 0,
+              private_for_profit: 0,
+              public: 0,
+            }
+          }
           filters={filters}
           onChange={setFilters}
           onRangeChange={setRange}
           onTogglePanel={() => setPanelOpen((open) => !open)}
           panelOpen={panelOpen}
-          profile={profile}
+          assumptions={assumptions}
           regionOptions={data?.filter_options.region ?? []}
         />
         <ExploreFilterPanel
@@ -229,7 +246,9 @@ export function ExplorePanel() {
           onRangeChange={setRange}
           open={panelOpen}
           religiousAffiliationNote={data?.religious_affiliation_note ?? null}
-          religiousAffiliationOptions={data?.filter_options.religious_affiliation ?? []}
+          religiousAffiliationOptions={
+            data?.filter_options.religious_affiliation ?? []
+          }
         />
       </div>
 
@@ -241,17 +260,12 @@ export function ExplorePanel() {
         />
       ) : (
         <ExploreResultsHeader
-          bandCaption={data?.band_caption ?? ""}
-          bandCaptionId={BAND_CAPTION_ID}
-          browsableTotal={data?.browsable_total ?? 0}
-          catalogTotal={data?.catalog_total ?? 0}
           exclusions={data?.exclusions ?? []}
           factsObservedFrom={data?.facts_observed_from ?? null}
           onIncludeMissing={toggleIncludeMissing}
-          onProfileChange={setProfile}
+          onAssumptionsChange={setAssumptions}
           onSortChange={setSort}
-          profile={profile}
-          showBandCaption={showBandCaption}
+          assumptions={assumptions}
           sort={sort}
           sortedNullTail={data?.sorted_null_tail ?? null}
           total={data?.total ?? 0}
@@ -286,12 +300,11 @@ export function ExplorePanel() {
                 }}
               >
                 <SchoolResultCard
-                  bandCaptionId={showBandCaption ? BAND_CAPTION_ID : null}
                   href={`/app/schools/${school.unitid}`}
                   isAdding={addingUnitid === school.unitid}
                   onAdd={handleAdd}
                   onList={applicationIdByUnitid.has(school.unitid)}
-                  profile={profile}
+                  assumptions={assumptions}
                   school={school}
                 />
               </div>
@@ -301,7 +314,8 @@ export function ExplorePanel() {
           {schools.length < data.total ? (
             <div className="flex items-center justify-between gap-4">
               <p className="text-xs text-[var(--ink-muted)] tabular-nums">
-                Showing {schools.length} of {data.total_is_capped ? `${data.total}+` : data.total}
+                Showing {schools.length} of{" "}
+                {data.total_is_capped ? `${data.total}+` : data.total}
               </p>
               <Button onClick={loadMore} variant="outline">
                 Load more
@@ -326,13 +340,16 @@ function ResultsGrid({ children }: { children: React.ReactNode }) {
  *  not a client-invented one, so it always exists on `ExploreFilters`. A
  *  range key relaxes to no bound; every other kind relaxes to its own
  *  default. `satMath`/`satEbrw`/`act` name the score-fit predicate, not
- *  the profile scores themselves -- relaxing them turns `scoreFit` back to
+ *  the Explore-assumption scores themselves -- relaxing them turns `scoreFit` back to
  *  "any" rather than clearing the student's own numbers. */
 function relaxFilter(filters: ExploreFilters, key: string): ExploreFilters {
   if (rangeDescriptors.some((descriptor) => descriptor.key === key)) {
     return {
       ...filters,
-      ranges: { ...filters.ranges, [key as RangeKey]: { max: null, min: null } },
+      ranges: {
+        ...filters.ranges,
+        [key as RangeKey]: { max: null, min: null },
+      },
     };
   }
 
@@ -417,9 +434,15 @@ function NoResults({
       </EmptyHeader>
       <EmptyContent>
         {narrowest ? (
-          <Button onClick={() => onRelax(narrowest.key)}>Relax {narrowest.label.toLowerCase()}</Button>
+          <Button onClick={() => onRelax(narrowest.key)}>
+            Relax {narrowest.label.toLowerCase()}
+          </Button>
         ) : null}
-        <Button disabled={activeCount === 0} onClick={onClearAll} variant="outline">
+        <Button
+          disabled={activeCount === 0}
+          onClick={onClearAll}
+          variant="outline"
+        >
           Clear all filters
         </Button>
       </EmptyContent>

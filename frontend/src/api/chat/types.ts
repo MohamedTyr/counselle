@@ -241,11 +241,75 @@ export type KnownStepKind =
   | "research"
   | "write_plan"
   | "workspace"
-  | "memory";
+  | "memory"
+  | "compaction"
+  | "goal";
 
 export type StepKind = KnownStepKind | (string & {});
 
 export type StepTier = "official" | "community" | null;
+
+// ---------------------------------------------------------------------------
+// Goal mode (plans/goal-mode-plan.md §2.6) — mirrors domain/events.py's
+// GoalPhase/GoalCriterionView/GoalStepDetail and domain/goal.py's GoalStatus
+// field-for-field. Goal beats ride the existing `step` event (kind: "goal");
+// there is no separate protocol event type.
+// ---------------------------------------------------------------------------
+
+/** Which round of a goal run this beat reports on — the discriminator the
+ * frontend suppresses/renders on. */
+export type GoalPhase = "criteria" | "check" | "final";
+
+/** THE single source of truth for the terminal states, mirrored from
+ * domain/goal.py's GoalStatus. Populated only on `phase: "final"`.
+ * `awaiting_input` is a pause, not a verdict: the agent asked the student a
+ * question and the run resumes with their answer. */
+export type GoalStatus =
+  | "achieved"
+  | "partial"
+  | "stopped_budget"
+  | "stopped_no_progress"
+  | "stopped_user"
+  | "stopped_check_failed"
+  | "awaiting_input";
+
+/** One frozen criterion's current judged state, already code-corrected
+ * before it reaches the wire — never the judge's raw claim. */
+export type GoalCriterionView = {
+  id: string;
+  text: string;
+  /** `null` = not yet judged. */
+  met: boolean | null;
+  /** `false` = never attempted ("not checked"). */
+  checked: boolean;
+  reason: string | null;
+  evidence_step_ids: string[];
+};
+
+/** The code-owned ledger + criteria state for one `kind: "goal"` beat. Never
+ * model-authored: every field here is computed by the backend goal loop. */
+export type GoalStepDetail = {
+  phase: GoalPhase;
+  statement: string;
+  /** Populated on `phase: "final"` only. */
+  status: GoalStatus | null;
+  iteration: number;
+  max_iterations: number;
+  criteria: GoalCriterionView[];
+  critique: string | null;
+  met_count: number;
+  total_count: number;
+  unchecked_count: number;
+  /** Required at the wire boundary, never omitted. */
+  not_checked_note: string;
+  requests_used: number;
+  requests_limit: number;
+  tokens_used: number;
+  tokens_limit: number;
+  est_cost_usd: number | null;
+  cost_limit_usd: number | null;
+  elapsed_s: number;
+};
 
 export type WorkspacePreviewItem = {
   kind: "task" | "school" | "essay" | "activity" | "honor" | "document";
@@ -288,6 +352,8 @@ export type StepDetail = {
    * missing/invalid `mutation` is a CURRENT corrupted receipt (never legacy
    * fallback); marker absent is pre-feature history (§6.7). */
   mutation_contract?: 1;
+  /** Goal-mode ledger/criteria payload (§2.6) — `kind: "goal"` steps only. */
+  goal?: GoalStepDetail;
 };
 
 // ---------------------------------------------------------------------------
@@ -784,6 +850,11 @@ export type StartTurnResult =
       ok: true;
       sessionId: string;
       responseMode: ResponseMode;
+      /** Echoes the `goalMode` the caller passed to `submit` — session
+       * creation carries no goal_mode field of its own (D10: it rides the
+       * first message, not the session). Callers thread this into the
+       * first-turn `SendMessageInput.goalMode`. */
+      goalMode: boolean;
     }
   | {
       ok: false;
@@ -817,6 +888,12 @@ export type SendMessageInput = {
   responseMode?: ResponseMode;
   inReplyTo?: string;
   clarifyResponse?: WidgetClarifyResponseV2;
+  /** Set only by an explicit `/goal` selection from the slash-command menu
+   * (goal-mode plan §5.5) — never derived from raw composer text. Omitted
+   * (never sent) on a clarification continuation: the backend rejects
+   * `goal_mode` there, because a clarification answer can't change turn
+   * settings. */
+  goalMode?: boolean;
 };
 
 export type SteerMessageInput = {

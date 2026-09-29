@@ -22,7 +22,7 @@ export function useUpdateProfile() {
     onError: (error, _patch, _snapshot, context) => {
       handleMutationError(error, context);
     },
-    onSuccess: (profile, _patch, _snapshot, context) => {
+    onSuccess: async (profile, _patch, _snapshot, context) => {
       context.client.setQueryData(workspaceKeys.profile.detail(), profile);
     },
   });

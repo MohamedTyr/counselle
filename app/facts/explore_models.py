@@ -19,6 +19,7 @@ CampusSettingFamily = Literal["City", "Suburb", "Town", "Rural"]
 SizeBucket = Literal["lt2k", "2k-10k", "10k-25k", "gt25k"]
 ScoreFit = Literal["any", "at_or_above_p25", "inside_band", "at_or_above_p75"]
 ExclusionReason = Literal["missing", "not_reported"]
+FitCategory = Literal["Reach", "Target", "Safety", "Unknown"]
 
 # plan §5.3's `RangeKey` union, minus the columns Phase 1's explore
 # projection never populates (net price, out-of-state %, admit rate by home
@@ -107,6 +108,18 @@ class ExploreQuery(BaseModel):
     page_size: int | None = Field(default=None, ge=1)
 
 
+class FitEstimate(FrozenModel):
+    """The card's admit-rate planning category and the rate behind it.
+
+    ``admit_rate`` is the validated percentage the category was derived
+    from -- the card prints this number, not the raw column, so the badge
+    and the figure beside it can never disagree.
+    """
+
+    category: FitCategory
+    admit_rate: float | None
+
+
 class ExploreSchoolCard(FrozenModel):
     """One `school_explore` row, verbatim by column name -- deliberately not a
     100-field hand-typed mirror (one source of truth: `adapters.facts_store.EXPLORE_COLUMNS`).
@@ -118,6 +131,7 @@ class ExploreSchoolCard(FrozenModel):
     state: str | None
     website_url: str | None
     fields: dict[str, object]
+    fit: FitEstimate
 
 
 class Exclusion(FrozenModel):
@@ -156,15 +170,12 @@ class ExploreResponse(FrozenModel):
     page_size: int
     total: int
     total_is_capped: bool
-    browsable_total: int
-    catalog_total: int
     exclusions: tuple[Exclusion, ...]
     sorted_null_tail: NullTail | None
     control_counts: dict[Control, int]
     narrowest: Narrowest | None
     filter_options: FilterOptions
     facts_observed_from: str | None
-    band_caption: str
     entrance_difficulty_note: str
     majors_match_note: str
     religious_affiliation_note: str

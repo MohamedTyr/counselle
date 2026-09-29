@@ -1,0 +1,83 @@
+/* At narrower widths the chooser becomes a compact grid above the product
+   preview. The preview is the desktop sheet scaled as one picture to the
+   panel it stands in, never reflowed, so every feature keeps its composition
+   and the panel keeps one height for all of them. Page text never scales. */
+.lp-stage-description {
+  display: none;
+}
+@media (max-width: 1199px) {
+  .lp-stage {
+    --stage-panel-width: 100cqw;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 24px;
+  }
+  .lp-stage-playback {
+    grid-column: 1;
+    margin-top: 0;
+  }
+  .lp-stage-list {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0 24px;
+  }
+  .lp-stage-tab {
+    flex: none;
+    min-width: 0;
+    min-height: 64px;
+    justify-content: center;
+  }
+  .lp-stage-tab:last-child {
+    border-bottom: 0;
+  }
+  .lp-stage-tab .lp-stage-blurb {
+    display: none;
+  }
+  .lp-stage-description {
+    display: grid;
+    max-width: 65ch;
+    font-size: 16px;
+    line-height: 1.5;
+    color: var(--lp-muted);
+  }
+  /* The sheet stands one frame below the top edge and runs past the bottom,
+     both measured at the sheet's own scale. */
+  .lp-stage-panel {
+    height: calc(
+      (var(--stage-sheet-height) - var(--stage-bleed)) * var(--stage-scale) +
+        var(--stage-frame)
+    );
+    min-height: 0;
+  }
+  .lp-stage-figure {
+    bottom: calc(-1 * var(--stage-bleed) * var(--stage-scale));
+  }
+}
+@media (max-width: 899px) {
+  .lp-stage-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0 20px;
+  }
+}
+@media (max-width: 599px) {
+  .lp-stage {
+    --stage-frame: 12px;
+    gap: 20px;
+  }
+  .lp-stage-list {
+    gap: 0 16px;
+  }
+  .lp-stage-tab {
+    min-height: 76px;
+    padding: 12px 4px;
+  }
+  .lp-stage-tab .lp-stage-title {
+    font-size: 15px;
+    line-height: 1.3;
+  }
+  .lp-stage-description {
+    padding: 0 4px;
+  }
+  .lp-stage-panel {
+    border-radius: 16px;
+  }
+}

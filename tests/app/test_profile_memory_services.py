@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import time
+import traceback
 from collections.abc import Callable
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
@@ -64,7 +65,11 @@ from app.workspace.service_memory import (
     restore_memory,
     update_memory,
 )
-from app.workspace.service_profile import _merge_patch
+from app.workspace.service_profile import (
+    PersistedProfileReadError,
+    _merge_patch,
+    read_profile_or_empty,
+)
 
 
 class _FakeTransaction:
@@ -151,6 +156,28 @@ class _FakePool:
         yield self.conn
 
 
+class _ReadProfileConn:
+    """Fail closed if the Explore-only profile read attempts any mutation."""
+
+    def __init__(self, row: dict[str, object] | None = None) -> None:
+        self.row = row
+        self.fetchrow_calls: list[tuple[str, tuple[object, ...]]] = []
+        self.transaction_calls = 0
+        self.execute_calls: list[tuple[object, ...]] = []
+
+    def transaction(self) -> _FakeTransaction:
+        self.transaction_calls += 1
+        raise AssertionError("select-only profile reads must not open a transaction")
+
+    async def fetchrow(self, sql: str, *args: object) -> dict[str, object] | None:
+        self.fetchrow_calls.append((sql, args))
+        return self.row
+
+    async def execute(self, *args: object) -> None:
+        self.execute_calls.append(args)
+        raise AssertionError("select-only profile reads must not execute mutations")
+
+
 def _pdf_bytes(text: str | None = None) -> bytes:
     writer = PdfWriter()
     page = writer.add_blank_page(width=612, height=792)
@@ -200,6 +227,53 @@ def _document_upload(*, filename: str, mime: str, content: bytes) -> DocumentUpl
     return DocumentUpload(
         title="Student document", filename=filename, mime=mime, content=content
     )
+
+
+async def test_read_profile_or_empty_is_one_plain_select_and_never_creates_a_row() -> None:
+    conn = _ReadProfileConn()
+    user_id = uuid4()
+
+    profile = await read_profile_or_empty(_FakePool(conn), user_id=user_id)
+
+    assert profile == Profile()
+    assert conn.transaction_calls == 0
+    assert conn.execute_calls == []
+    assert len(conn.fetchrow_calls) == 1
+    sql, args = conn.fetchrow_calls[0]
+    assert "SELECT data" in sql
+    assert "FROM counselle.profiles" in sql
+    assert "WHERE user_id = $1" in sql
+    assert "FOR UPDATE" not in sql
+    assert "INSERT" not in sql
+    assert args == (user_id,)
+
+
+async def test_read_profile_or_empty_returns_only_the_authenticated_users_data() -> None:
+    user_id = uuid4()
+    conn = _ReadProfileConn(
+        {"data": {"academics": {"gpa_unweighted": "3.9", "gpa_scale": "4.0"}}}
+    )
+
+    profile = await read_profile_or_empty(_FakePool(conn), user_id=user_id)
+
+    assert profile.academics is not None
+    assert profile.academics.gpa_unweighted == Decimal("3.9")
+    sql, args = conn.fetchrow_calls[0]
+    assert "user_id = $1" in sql
+    assert args == (user_id,)
+
+
+async def test_read_profile_or_empty_hides_invalid_persisted_profile_content() -> None:
+    """A corrupt database row is an infrastructure failure, never Profile disclosure."""
+    marker = "SENSITIVE-PROFILE-MARKER"
+    conn = _ReadProfileConn({"data": {"basics": {"unknown_field": marker}}})
+
+    with pytest.raises(PersistedProfileReadError) as exc_info:
+        await read_profile_or_empty(_FakePool(conn), user_id=uuid4())
+
+    assert str(exc_info.value) == "Stored profile cannot be read."
+    assert marker not in repr(exc_info.value)
+    assert marker not in "".join(traceback.format_exception(exc_info.value))
 
 
 @pytest.mark.parametrize(
@@ -621,10 +695,7 @@ async def test_document_summary_uses_the_configured_non_google_cheap_model_and_e
 def test_summary_model_builds_an_authenticated_google_model_for_the_vertex_prefix(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """The production fallback (no ``model_factory`` override) must use the same
-    explicit Vertex Express Mode auth path as ``app.agent_node.default_model_factory``
-    — never the bare provider-prefixed string, which resolves to unusable ambient
-    credentials (see app/agent_node.py notes §1)."""
+    """The production fallback must use the shared explicit Vertex client."""
     # Importing app.agent_node pulls in app.toolset, which calls get_settings()
     # at module import time — supply the required fields so that succeeds here.
     monkeypatch.setenv("COUNSELLE_DB_RO_DSN", "postgresql://ro@localhost/pipeline")
@@ -655,7 +726,7 @@ def test_summary_model_builds_an_authenticated_google_model_for_the_vertex_prefi
         reset_config_caches()
 
 
-def test_summary_model_without_vertex_api_key_raises_before_any_model_call(
+def test_summary_model_without_vertex_api_key_uses_adc(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setenv("COUNSELLE_DB_RO_DSN", "postgresql://ro@localhost/pipeline")
@@ -669,10 +740,15 @@ def test_summary_model_without_vertex_api_key_raises_before_any_model_call(
         settings = SimpleNamespace(
             model_cheap="google-vertex:gemini-2.5-flash",
             vertex_api_key=None,
+            google_cloud_project="counselle-adc-test",
+            google_cloud_location="us-central1",
         )
 
-        with pytest.raises(RuntimeError, match="COUNSELLE_VERTEX_API_KEY"):
-            document_summary._summary_model(settings, None)
+        model = document_summary._summary_model(settings, None)
+
+        assert model._provider.client._api_client.api_key is None
+        assert model._provider.client._api_client.project == settings.google_cloud_project
+        assert model._provider.client._api_client.location == settings.google_cloud_location
     finally:
         reset_config_caches()
 

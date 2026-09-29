@@ -25,6 +25,7 @@ from app.facts.explore_models import (
     ExploreSchoolCard,
     FilterOption,
     FilterOptions,
+    FitEstimate,
     MajorOption,
     MajorsResponse,
     Narrowest,
@@ -33,7 +34,8 @@ from app.facts.explore_models import (
 from config.settings import Settings
 from counselle_db import service as db_service
 from counselle_db.catalog import Catalog
-from domain.facts.state import BAND_CAPTION, ENTRANCE_DIFFICULTY_NOTE, MAJORS_MATCH_NOTE
+from domain.admissions_fit import estimate_admissions_fit
+from domain.facts.state import ENTRANCE_DIFFICULTY_NOTE, MAJORS_MATCH_NOTE
 
 __all__ = [
     "MAJORS_MATCH_NOTE",
@@ -483,7 +485,20 @@ def _wire_value(value: object) -> object:
     return float(value) if isinstance(value, Decimal) else value
 
 
-async def run_explore(catalog: Catalog, query: ExploreQuery, settings: Settings) -> ExploreResponse:
+def _fit_estimate(admit_rate: object) -> FitEstimate:
+    """Classify one row and hand the wire the rate the category came from."""
+    estimate = estimate_admissions_fit(admit_rate)
+    return FitEstimate(
+        category=estimate.category.value,
+        admit_rate=float(estimate.admit_rate) if estimate.admit_rate is not None else None,
+    )
+
+
+async def run_explore(
+    catalog: Catalog,
+    query: ExploreQuery,
+    settings: Settings,
+) -> ExploreResponse:
     clauses = _build_clauses(query)
     where, params = _combine(clauses)
     sort_key, direction = _resolve_sort(query.sort)
@@ -503,12 +518,6 @@ async def run_explore(catalog: Catalog, query: ExploreQuery, settings: Settings)
         f"WHERE {where} ORDER BY {sort_column} {direction} NULLS LAST, school_id ASC "
         f"LIMIT {int(page_size)} OFFSET {int(offset)}"
     )
-    browsable_sql = f"SELECT count(*) AS n FROM {_TABLE}"
-    # `cds_library.schools` is a base table -- `cds_library_reader` holds no
-    # grant on it (only the six reader views). `school_profiles` mirrors it
-    # 1:1 (plan §3.2) and is the catalog-total source everywhere else in
-    # this codebase (`counselle_db.catalog`'s own snapshot load).
-    catalog_sql = "SELECT count(*) AS n FROM cds_library.school_profiles"
     control_where, control_params = _combine(clauses, skip="control")
     control_sql = (
         f"SELECT control, count(*) AS n FROM {_TABLE} WHERE {control_where} GROUP BY control"
@@ -531,27 +540,24 @@ async def run_explore(catalog: Catalog, query: ExploreQuery, settings: Settings)
         _count_statement(*_combine(clauses, skip=c.key, null_check_for=c.key))
         for c in exclusion_eligible
     ]
+    # One transaction (`db_service.explore` owns the snapshot), so the page
+    # and every count/option derived from the same filter set agree.
     statements: list[tuple[str, list[Any]]] = [
         (main_sql, params),
-        (browsable_sql, []),
-        (catalog_sql, []),
         (control_sql, control_params),
         (region_options_sql, []),
         (campus_options_sql, []),
         (religious_options_sql, []),
         *exclusion_statements,
     ]
-    results = await db_service.explore(catalog, statements)
     (
         main_rows,
-        browsable_rows,
-        catalog_rows,
         control_rows,
         region_rows,
         campus_rows,
         religious_rows,
-    ) = results[:7]
-    exclusion_rows = results[7:]
+        *exclusion_rows,
+    ) = await db_service.explore(catalog, statements)
 
     total = main_rows[0]["total_count"] if main_rows else 0
     total_is_capped = total > settings.facts_explore_max_count
@@ -565,6 +571,7 @@ async def run_explore(catalog: Catalog, query: ExploreQuery, settings: Settings)
             state=row["state"],
             website_url=row["official_website"],
             fields={col: _wire_value(row[col]) for col in EXPLORE_COLUMNS},
+            fit=_fit_estimate(row["admit_rate"]),
         )
         for row in main_rows
     )
@@ -628,8 +635,6 @@ async def run_explore(catalog: Catalog, query: ExploreQuery, settings: Settings)
         page_size=page_size,
         total=total,
         total_is_capped=total_is_capped,
-        browsable_total=browsable_rows[0]["n"],
-        catalog_total=catalog_rows[0]["n"],
         exclusions=exclusions,
         sorted_null_tail=sorted_null_tail,
         control_counts=control_counts,
@@ -645,7 +650,6 @@ async def run_explore(catalog: Catalog, query: ExploreQuery, settings: Settings)
             ),
         ),
         facts_observed_from=facts_observed_from,
-        band_caption=BAND_CAPTION,
         entrance_difficulty_note=ENTRANCE_DIFFICULTY_NOTE,
         majors_match_note=MAJORS_MATCH_NOTE,
         religious_affiliation_note=RELIGIOUS_AFFILIATION_NOTE,

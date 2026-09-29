@@ -1,6 +1,6 @@
 import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { vi } from "vitest";
+import { beforeEach, vi } from "vitest";
 
 import type { Task } from "@/api/workspace/types";
 import {
@@ -82,6 +82,14 @@ async function renderTasks(
 }
 
 describe("TasksLayout", () => {
+  beforeEach(() => {
+    localStorage.clear();
+    sessionStorage.clear();
+    document.cookie = "sidebar_state=; path=/; max-age=0";
+    window.history.replaceState(null, "", "/");
+    window.innerWidth = 1280;
+  });
+
   it("renders each view with the row that belongs to it, and keeps the tab count in sync", async () => {
     const user = userEvent.setup();
     await renderTasks();

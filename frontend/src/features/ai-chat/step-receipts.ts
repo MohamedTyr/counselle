@@ -23,6 +23,8 @@ export const KIND_PRESENTATION: Readonly<
   write_plan: DEFAULT_KIND_PRESENTATION,
   workspace: DEFAULT_KIND_PRESENTATION,
   memory: DEFAULT_KIND_PRESENTATION,
+  compaction: DEFAULT_KIND_PRESENTATION,
+  goal: DEFAULT_KIND_PRESENTATION,
 };
 
 function presentationForKind(kind: StepKind): KindPresentation {

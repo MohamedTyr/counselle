@@ -1,5 +1,13 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { afterEach, describe, expect, test, vi } from "vitest";
+
+import { GOAL_MODE_FIXTURES } from "@/features/dev-tool-call-gallery/tool-call-fixtures";
 
 import { ChatMessage } from "./ChatMessage";
 import type { ClarifyDraftController } from "../useClarifyDraft";
@@ -581,6 +589,45 @@ describe("ChatMessage", () => {
 
     expect(screen.getByText("You stopped this response.")).toBeInTheDocument();
   });
+
+  test.each([
+    ["goal-running", "status null"],
+    ["goal-stopped-user", "status stopped_user"],
+  ])(
+    "a cancelled goal run shows GoalHeader's own stopped notice, not the generic one too (%s)",
+    (fixtureId) => {
+      const goalDetail = GOAL_MODE_FIXTURES.find(
+        (fixture) => fixture.id === fixtureId,
+      )!.detail;
+      render(
+        <ChatMessage
+          message={assistantMessage({
+            turnStatus: "cancelled",
+            blocks: [],
+            segments: [
+              {
+                type: "tool",
+                step: {
+                  step_id: "goal-1",
+                  status: "end",
+                  kind: "goal",
+                  label: "Goal",
+                  tier: null,
+                  detail: { goal: goalDetail },
+                },
+              },
+            ],
+          })}
+        />,
+      );
+
+      const goalLine = screen.getByRole("region", { name: "Goal" });
+      expect(within(goalLine).getAllByText("You stopped it")).toHaveLength(1);
+      expect(
+        screen.queryByText("You stopped this response."),
+      ).not.toBeInTheDocument();
+    },
+  );
 
   test("a partial stream error renders inline after the partial prose, not only as a toast", () => {
     render(

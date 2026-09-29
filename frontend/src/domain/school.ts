@@ -1,6 +1,7 @@
 import type {
   ApplicationStatus,
   ApplicationView,
+  DeadlineSource,
   ListType,
   Rollup,
   Round,
@@ -9,7 +10,7 @@ import type {
 
 export type DeadlineUrgency = "close" | "upcoming" | "normal";
 
-export type { ApplicationStatus, ListType, Round, TestPlan };
+export type { ApplicationStatus, DeadlineSource, ListType, Round, TestPlan };
 export type Progress = Rollup;
 
 export type School = {
@@ -23,7 +24,15 @@ export type School = {
   listType: ListType;
   round: Round;
   deadline: string | null;
+  deadlineSource: DeadlineSource | null;
+  deadlineCheckedAt: string | null;
+  deadlineInheritedDate: string | null;
+  deadlineInheritedCheckedAt: string | null;
   aidDeadline: string | null;
+  aidDeadlineSource: DeadlineSource | null;
+  aidDeadlineCheckedAt: string | null;
+  aidDeadlineInheritedDate: string | null;
+  aidDeadlineInheritedCheckedAt: string | null;
   scholarshipDeadline: string | null;
   notes: string | null;
   intendedMajor: string | null;
@@ -55,7 +64,15 @@ export function schoolFromApplication(application: ApplicationView): School {
     listType: application.list_type,
     round: application.round,
     deadline: application.deadline,
+    deadlineSource: application.deadline_source,
+    deadlineCheckedAt: application.deadline_checked_at,
+    deadlineInheritedDate: application.deadline_inherited_date,
+    deadlineInheritedCheckedAt: application.deadline_inherited_checked_at,
     aidDeadline: application.aid_deadline,
+    aidDeadlineSource: application.aid_deadline_source,
+    aidDeadlineCheckedAt: application.aid_deadline_checked_at,
+    aidDeadlineInheritedDate: application.aid_deadline_inherited_date,
+    aidDeadlineInheritedCheckedAt: application.aid_deadline_inherited_checked_at,
     scholarshipDeadline: application.scholarship_deadline,
     notes: application.notes,
     intendedMajor: application.intended_major,

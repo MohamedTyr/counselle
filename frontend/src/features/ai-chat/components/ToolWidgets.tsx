@@ -39,6 +39,7 @@ import { WorkspaceReadWidget } from "./WorkspaceReadWidget";
 import { isWriteTool } from "./write-tools";
 import { WriteToolWidget } from "./WriteToolWidget";
 import { MutationReceiptRenderer } from "./mutation-receipts/MutationReceiptRenderer";
+import { CompactionBeat, GoalCheckBeat } from "./GoalBeat";
 
 type ToolWidgetProps = {
   isLiveSegment?: boolean;
@@ -385,6 +386,21 @@ export function ToolStepBeat({
 
   if (isSearchKind(step.kind)) {
     return <SearchToolWidget isLiveSegment={isLiveSegment} step={step} />;
+  }
+
+  // No `step.tool`/`step.ui?.widget` to key on — the predicate cascade below
+  // this point is entirely tool-name-driven, so compaction and goal are
+  // special-cased here rather than falling through to `DefaultToolWidget`,
+  // which reads generic fields neither step shape has (plans/goal-mode-plan.md
+  // §5.4). `ChatMessage.tsx` suppresses `phase: "criteria"`/`"final"` goal
+  // steps before this dispatch is ever reached, so every `kind: "goal"` step
+  // that arrives here is a `phase: "check"` beat.
+  if (step.kind === "compaction") {
+    return <CompactionBeat step={step} />;
+  }
+
+  if (step.kind === "goal") {
+    return <GoalCheckBeat step={step} />;
   }
 
   if (isWorkspaceReadTool(step.tool)) {

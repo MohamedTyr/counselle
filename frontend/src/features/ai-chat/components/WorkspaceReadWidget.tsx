@@ -73,7 +73,7 @@ function titleCase(value: string): string {
 
 function displayMeta(label: string, value: string): string {
   if (
-    (label === "Due" || label === "Deadline" || label === "Uploaded") &&
+    (label === "Due" || label === "When" || label === "Deadline" || label === "Uploaded") &&
     isIsoDate(value)
   ) {
     const date = new Date(`${value}T00:00:00`);

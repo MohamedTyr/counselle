@@ -7,7 +7,7 @@ import type {
   ScoreFit,
   SizeBucket,
   SortKey,
-  StudentProfile,
+  ExploreAssumptions,
   TestPolicy,
 } from "@/features/schools/explore/explore-types";
 import type { ExploreFilters } from "@/features/schools/explore/explore-types";
@@ -40,7 +40,13 @@ export type RangeDescriptor = {
 };
 
 export const rangeDescriptors: RangeDescriptor[] = [
-  { key: "admit", label: "Admit rate", unit: "percent", bounds: "both", max: 100 },
+  {
+    key: "admit",
+    label: "Admit rate",
+    unit: "percent",
+    bounds: "both",
+    max: 100,
+  },
   {
     key: "cost",
     label: "Your cost",
@@ -64,7 +70,13 @@ export const rangeDescriptors: RangeDescriptor[] = [
     bounds: "min",
     max: 100,
   },
-  { key: "meritAid", label: "Got merit aid, at least", unit: "percent", bounds: "min", max: 100 },
+  {
+    key: "meritAid",
+    label: "Got merit aid, at least",
+    unit: "percent",
+    bounds: "min",
+    max: 100,
+  },
   {
     key: "gradFour",
     label: "Graduates in 4 years, at least",
@@ -89,12 +101,19 @@ export const rangeDescriptors: RangeDescriptor[] = [
   {
     key: "ratio",
     label: "Undergraduates per full-time faculty member, at most",
-    description: "Counselle's own calculation, not the ratio the school publishes.",
+    description:
+      "Counselle's own calculation, not the ratio the school publishes.",
     unit: "ratio",
     bounds: "max",
     max: 40,
   },
-  { key: "housing", label: "Lives on campus, at least", unit: "percent", bounds: "min", max: 100 },
+  {
+    key: "housing",
+    label: "Lives on campus, at least",
+    unit: "percent",
+    bounds: "min",
+    max: 100,
+  },
   {
     key: "international",
     label: "International students, at least",
@@ -104,9 +123,10 @@ export const rangeDescriptors: RangeDescriptor[] = [
   },
 ];
 
-export const rangeDescriptorByKey: Record<RangeKey, RangeDescriptor> = Object.fromEntries(
-  rangeDescriptors.map((descriptor) => [descriptor.key, descriptor]),
-) as Record<RangeKey, RangeDescriptor>;
+export const rangeDescriptorByKey: Record<RangeKey, RangeDescriptor> =
+  Object.fromEntries(
+    rangeDescriptors.map((descriptor) => [descriptor.key, descriptor]),
+  ) as Record<RangeKey, RangeDescriptor>;
 
 export const emptyRange: NumericRange = { min: null, max: null };
 
@@ -204,15 +224,65 @@ export const sortOptions: Option<SortKey>[] = [
  * `exclusions`, already disclosed there).
  */
 export const US_STATES: string[] = [
-  "AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE", "DC", "FL",
-  "GA", "HI", "ID", "IL", "IN", "IA", "KS", "KY", "LA", "ME",
-  "MD", "MA", "MI", "MN", "MS", "MO", "MT", "NE", "NV", "NH",
-  "NJ", "NM", "NY", "NC", "ND", "OH", "OK", "OR", "PA", "RI",
-  "SC", "SD", "TN", "TX", "UT", "VT", "VA", "WA", "WV", "WI",
-  "WY", "PR", "VI", "GU", "AS", "MP",
+  "AL",
+  "AK",
+  "AZ",
+  "AR",
+  "CA",
+  "CO",
+  "CT",
+  "DE",
+  "DC",
+  "FL",
+  "GA",
+  "HI",
+  "ID",
+  "IL",
+  "IN",
+  "IA",
+  "KS",
+  "KY",
+  "LA",
+  "ME",
+  "MD",
+  "MA",
+  "MI",
+  "MN",
+  "MS",
+  "MO",
+  "MT",
+  "NE",
+  "NV",
+  "NH",
+  "NJ",
+  "NM",
+  "NY",
+  "NC",
+  "ND",
+  "OH",
+  "OK",
+  "OR",
+  "PA",
+  "RI",
+  "SC",
+  "SD",
+  "TN",
+  "TX",
+  "UT",
+  "VT",
+  "VA",
+  "WA",
+  "WV",
+  "WI",
+  "WY",
+  "PR",
+  "VI",
+  "GU",
+  "AS",
+  "MP",
 ];
 
-export const defaultProfile: StudentProfile = {
+export const defaultExploreAssumptions: ExploreAssumptions = {
   act: null,
   homeState: null,
   satEbrw: null,
@@ -257,7 +327,8 @@ export const defaultSortKey: SortKey = "name";
  * is retired (`dataWindow` had no v3 backing field), so the footer is now
  * just the active-count / clear-all / done row.
  */
-export type PanelGroupId = "money" | "rounds" | "testing" | "outcomes" | "campus" | "body";
+export type PanelGroupId =
+  "money" | "rounds" | "testing" | "outcomes" | "campus" | "body";
 
 export const panelGroups: { id: PanelGroupId; label: string }[] = [
   { id: "money", label: "Money" },

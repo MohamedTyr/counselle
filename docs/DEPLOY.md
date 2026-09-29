@@ -132,7 +132,10 @@ A first deploy easily forgets the agent-core half. The complete set:
 - `COUNSELLE_FACTS_STALE_DAYS` (default `120`) — when a school's facts flip to the stale caveat
 
 **Models / GCP**
-- `COUNSELLE_VERTEX_API_KEY` (preferred) **or** `GOOGLE_APPLICATION_CREDENTIALS` (service-account JSON) — use the API key, not an ADC file, where possible
+- Application Default Credentials (preferred): a workload identity or
+  `GOOGLE_APPLICATION_CREDENTIALS` service-account configuration. For local
+  development, use `gcloud auth application-default login`. `COUNSELLE_VERTEX_API_KEY`
+  remains an Express-mode fallback where authorization keys are permitted.
 - `COUNSELLE_GOOGLE_CLOUD_PROJECT`, `COUNSELLE_GOOGLE_CLOUD_LOCATION`
 - `COUNSELLE_MODEL_COUNSELOR` (Quick), `COUNSELLE_MODEL_COUNSELOR_THINK` (Think), `_CHEAP`, `_CLARIFIER`, `_TITLE`, display-name/preview fields, and `COUNSELLE_MODEL_PRICES`
 - `COUNSELLE_RESPONSE_MODE_THINK_ENABLED` — leave false until Think's target environment has verified Vertex/Express Mode quota, live smokes, and accepted quality/cost; disabled Think is omitted from `/v1/config` and never silently falls back to Quick
@@ -193,3 +196,85 @@ exec uvicorn api.main:create_app --factory --host 0.0.0.0 --port "${PORT:-8000}"
 - [ ] Security pass: response headers, cookie flags, no secrets baked into the image, admin routes gated
 - [ ] Backups: rely on the managed provider's own snapshots (this repo ships no separate backup job) — confirm the provider plan actually includes point-in-time recovery before depending on it
 - [ ] If this deploy is the D9 cutover (dropping an existing `counselle` schema): the restore-verified, off-workstation backup exists (§ "The first v3 deploy drops the entire `counselle` schema"), and `COUNSELLE_DB_RESET_NOTICE_DATE` was set by hand immediately after the drop
+
+## The public landing site (Cloudflare Pages)
+
+The marketing site at `https://acceptra.ai` (the landing page, `/privacy` and `/terms`) deploys on its own, as a static Cloudflare Pages project, independent of the app container above. It has no app API behind it. Two Pages Functions in the same project cover what a static file can't: `POST /api/waitlist` (`frontend/functions/api/waitlist.ts`) stores signups in a Cloudflare D1 database, and `/ingest/*` (`frontend/functions/ingest/[[path]].ts`) proxies PostHog on our own origin so ad blockers don't hide visits. `public-landing/_routes.json` limits Functions to those two paths, so static files never invoke one. `_headers` never applies to a Function's response, so each Function sets its own headers. The decisions behind this shape are in `plans/landing-seo-plan.md` (static build, hosting, headers), `plans/landing-backend-plan.md` (waitlist storage, the proxy) and `plans/landing-launch-plan.md` (the launch pass and its go-live runbook, §5).
+
+**Build.** `cd frontend && npm run build:landing` builds only the three pages into `frontend/dist-landing` with `public-landing/` as the public directory, then `scripts/prerender-landing.mjs` renders the page to HTML (so crawlers that do not run JavaScript get the full page), writes it as `index.html`, adds the two font preloads, and fails the build if any `/assets/` URL in the page is missing. The build needs no environment variables: the waitlist endpoint (`/api/waitlist`), the analytics proxy (`/ingest`) and PostHog's public project key are in the code. Both endpoints are same-origin, so the report-only CSP in `_headers` is `'self'` for scripts and connections. Node is pinned by `frontend/.nvmrc`.
+
+**Creating the Pages project** (once, Git integration; a direct-upload project can never switch to Git later). The zone must already be on Cloudflare before the custom domain can be added.
+
+| Pages setting | Value |
+|---|---|
+| Project name | `acceptra` |
+| Framework preset | None |
+| Production branch | `main` |
+| Root directory | `frontend` |
+| Build command | `npm run build:landing` |
+| Output directory | `dist-landing` |
+| Build watch paths | `frontend/**` |
+
+If `acceptra` is taken, the `*.pages.dev` subdomain differs from the project name; use the real one wherever `PAGES_DEV_URL` appears below. Every branch gets a preview deployment; a new Git project builds only `main` until a branch is pushed again.
+
+`frontend/wrangler.toml` is the project's config: its name, `compatibility_date`, `pages_build_output_dir`, and the D1 binding (`DB` → `acceptra-waitlist`, migrations in `frontend/migrations-landing/`). Once that file exists the dashboard shows these settings read-only, so change them there, never in the dashboard.
+
+`public-landing/` carries `robots.txt`, `sitemap.xml` (update each `<lastmod>` when that page changes), `llms.txt`, the `404.html` that keeps unknown paths from returning the homepage with a 200, `_redirects`, `_headers` (security headers, immutable assets, `noindex` on every `*.pages.dev` host and on `/404`), the icon set and `og.png`. The facts the page and the structured data share (the definition, the school count, founders, official profiles) live in `frontend/src/features/landing/brand.ts`. `llms.txt` is written by hand: when one of those facts, a plan or one of its three FAQ answers changes, update `llms.txt` in the same change.
+
+**The waitlist (D1).** Signups live in one table, `waitlist` (`frontend/migrations-landing/0001_waitlist.sql`), keyed by the normalised email. A repeat email is an update: on the same side it fills in answers and never clears one, a side switch drops the old side's answers, and `source`, `plan`, the `utm_*` tags and `created_at` never change after the first signup. The allowed sides, roles, classes, plans and sources are one list in `frontend/src/features/landing/waitlist/contract.ts`, read by the form and the Function; the table's `CHECK`s repeat them. The endpoint accepts writes only on `acceptra.ai` (plus `localhost` for `wrangler pages dev`): every other host, including every `*.pages.dev` preview, gets a 403. Previews share the production D1, so this host check is what keeps preview signups out of it; a signup on a preview shows the generic error. It also checks method, `Origin`, JSON content type and a 2 KB size cap, validates every field against the allow-lists (a bad campaign tag is dropped, not rejected; control and formatting characters in an email are rejected), answers a new and a repeat email identically, and logs only an error code on a D1 failure. `?ref=` stands in for a missing `utm_source`. After any change to the update statement, run the integrity check, which aborts on a broken rule:
+
+```bash
+cd frontend
+npx wrangler d1 migrations apply acceptra-waitlist --local
+npx wrangler d1 execute acceptra-waitlist --local --file migrations-landing/checks/check_upsert.sql
+```
+
+It lives in `checks/` because Wrangler applies every `.sql` directly in `migrations_dir` as a migration. Local D1 state is keyed by `database_id`, so after that id changes, apply the migrations locally again.
+
+First-time setup, once (`npx wrangler login` first):
+
+- [ ] `npx wrangler d1 create acceptra-waitlist` (answer **no** if it offers to add the binding to `wrangler.toml`; the binding is already there), and put the printed `database_id` in `frontend/wrangler.toml`
+- [ ] Once that id is committed, `npx wrangler d1 migrations apply acceptra-waitlist --remote`, then check it with `npx wrangler d1 execute acceptra-waitlist --remote --command "PRAGMA table_info(waitlist)"`
+- [ ] A rate-limiting rule on the zone: URI path equals `/api/waitlist`, keyed by IP, 10 requests per 10 seconds, block for 10 seconds (zone-scoped, so it doesn't cover `*.pages.dev`; the host check refuses writes there)
+- [ ] After the first deploy: one real signup, check the row, delete it
+
+Reading the list. The headline funnel is `$pageview` → `waitlist_joined`; the dialog funnel is secondary. D1 is the ground truth for signups per channel; PostHog's events can be blocked and are for the curve.
+
+| Question | Where to look |
+|---|---|
+| How many signed up | `npx wrangler d1 execute acceptra-waitlist --remote --command "SELECT count(*) FROM waitlist"` |
+| Conversion | the PostHog funnel `$pageview` → `waitlist_joined`, broken down by the event property `utm_source` and by `$referring_domain` (`$initial_*` is always empty on these personless events) |
+| Dialog drop-off | the funnel `$pageview` → `waitlist_opened` → `waitlist_joined` → `waitlist_details` |
+| Which channel converts | `npx wrangler d1 execute acceptra-waitlist --remote --command "SELECT utm_source, count(*) FROM waitlist GROUP BY 1"` |
+| Failed signups | the `waitlist_failed` trend, by `step` and `status` (403 host check, 429 rate limit, 503 D1) |
+| Who they are | `SELECT side, role, class_of, count(*) FROM waitlist GROUP BY 1,2,3;` |
+| Export | `npx wrangler d1 export acceptra-waitlist --remote --output waitlist.sql` |
+| Delete a test row, or on request | `npx wrangler d1 execute acceptra-waitlist --remote --command "DELETE FROM waitlist WHERE email = 'x@example.com'"`, within 30 days of a request |
+
+At app launch the table is exported once and loaded into a `counselle.waitlist` table in Postgres; the shape carries over unchanged.
+
+**UTM conventions.** Every launch link we post carries all three tags, because PostHog doesn't treat `ref` as a campaign parameter (untagged Product Hunt traffic still shows up under `$referring_domain`).
+
+| Channel | utm_source | utm_medium | utm_campaign |
+|---|---|---|---|
+| Product Hunt | producthunt | launch | launch-2026-09 |
+| X | x | social | launch-2026-09 |
+| LinkedIn | linkedin | social | launch-2026-09 |
+| Reddit | reddit | social | launch-2026-09 |
+| Email / DM | email | direct | launch-2026-09 |
+
+**Analytics.** PostHog starts only on `acceptra.ai`, so previews, `wrangler pages dev` and the dev server never report. It keeps everything in memory (`persistence: "memory"`): no cookie, localStorage or sessionStorage, so the privacy policy needs no banner, and a reload or a returning visitor counts as a new visit. Session replay, surveys and product tours are off in code whatever the dashboard says; the privacy policy depends on that, and on PostHog's "Discard client IP data" setting being on.
+
+**The analytics proxy.** `/ingest/static/*` and `/ingest/array/*` go to `us-assets.i.posthog.com` (cached at the edge), everything else under `/ingest/` to `us.i.posthog.com`. Only `GET`, `POST` and `OPTIONS` are forwarded; `Cookie`, `Authorization` and `Host` never are, `Set-Cookie` never comes back, and `X-Forwarded-For` carries the visitor's IP so PostHog's country lookup keeps working. It follows PostHog's Cloudflare proxy doc (https://posthog.com/docs/advanced/proxy/cloudflare); recheck the upstream hosts there if events stop arriving. If it breaks, analytics stops and signups carry on. On a machine without working IPv6, `wrangler pages dev` reaches PostHog only after minutes of IPv6 timeouts, or not at all, because workerd tries every IPv6 address before IPv4; that is local only, and the proxy's first real test is production.
+
+**Zone settings** (Cloudflare dashboard, not files; before the custom domain is attached):
+
+- [ ] `www` is an `AAAA 100::` record, proxied, with one Single Redirect: request URL `*://www.acceptra.ai/*` → `https://acceptra.ai/${2}`, 301, query string preserved
+- [ ] Always Use HTTPS and Automatic HTTPS Rewrites on; `acceptra.com`, once owned, redirects to `https://acceptra.ai` (checked by `verify-landing.sh` with `CHECK_COM=1`)
+- [ ] Email Address Obfuscation **off** (it rewrites every `mailto:` into `/cdn-cgi/l/email-protection` and breaks hydration)
+- [ ] Rocket Loader **off**, and no other HTML-rewriting feature (Mirage, Zaraz)
+- [ ] AI Crawl Control: training, search and agents allowed; managed robots.txt off
+- [ ] Bot Fight Mode **off** (it sets a `__cf_bm` cookie on every visitor, which would make the privacy policy untrue), with "Block AI bots" and JS detections off too; security level and Browser Integrity Check never challenge `/` or verified bots
+- [ ] Crawler Hints on (IndexNow)
+
+**Verify.** `frontend/scripts/verify-landing.sh <base-url>` runs the launch checks: the prerendered content and head tags, the same page for Googlebot, bingbot, GPTBot, ClaudeBot and PerplexityBot, every asset resolving, the analytics chunk posting to `/ingest`, the waitlist's 400s and 403s (no row is written), the clean URLs and their single-hop redirects, the real 404, the crawl files and `llms.txt`, and the headers. Against `https://acceptra.ai` it also checks the host redirects and the live `/ingest` proxy; with `PAGES_DEV_URL` set it checks the preview host sends `noindex` and refuses waitlist writes; with `CHECK_COM=1` it checks `acceptra.com`. Run it against production or a local build, never a preview, where its 400 checks correctly get 403s. Locally, `npm run build:landing && npm run preview:landing` (`wrangler pages dev dist-landing`, on port 8788) serves the build with Pages' own `_headers`, `_redirects`, 404 handling and Functions. What the script cannot check (Search Console, rich-result validators, link-preview renders, PageSpeed Insights, a production signup reaching D1 and PostHog with a country) is in the go-live runbook, `plans/landing-launch-plan.md` §5.

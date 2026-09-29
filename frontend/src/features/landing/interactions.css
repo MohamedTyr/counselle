@@ -1,0 +1,91 @@
+/* A single feedback layer keeps hit areas and labels still. Opacity-only
+   overlays retarget smoothly when a pointer enters, presses, or leaves. */
+.lp :is(.lp-nav-cta, .lp-plan-button, .lp-faq-contact, .lp-footer-submit) {
+  position: relative;
+  isolation: isolate;
+}
+
+.lp
+  :is(.lp-nav-cta, .lp-plan-button, .lp-faq-contact, .lp-footer-submit)::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--lp-ink);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--lp-duration-feedback) var(--lp-ease-feedback);
+}
+
+.lp .lp-faq-contact::after {
+  background: var(--lp-sheet);
+}
+
+.lp .lp-footer-links a {
+  position: relative;
+}
+
+.lp .lp-footer-links a::after {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  bottom: 0;
+  height: 1px;
+  background: currentColor;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--lp-duration-feedback) var(--lp-ease-feedback);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .lp
+    :is(
+      .lp-nav-cta,
+      .lp-plan-button,
+      .lp-faq-contact,
+      .lp-footer-submit
+    ):hover::after {
+    opacity: 0.08;
+  }
+
+  .lp .lp-footer-links a:hover::after {
+    opacity: 1;
+  }
+}
+
+.lp
+  :is(
+    .lp-nav-cta,
+    .lp-plan-button,
+    .lp-faq-contact,
+    .lp-footer-submit
+  ):active::after {
+  opacity: 0.14;
+}
+
+.lp .lp-footer-links a:active::after {
+  opacity: 1;
+}
+
+/* Focus is immediate, including the email field whose base style has no outline. */
+.lp .lp-footer-email:focus-within {
+  outline: 2px solid var(--lp-green);
+  outline-offset: 3px;
+}
+
+.lp .lp-footer-email input::placeholder {
+  color: var(--lp-footer-placeholder);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lp
+    :is(
+      .lp-nav-cta,
+      .lp-plan-button,
+      .lp-faq-contact,
+      .lp-footer-submit
+    )::after,
+  .lp .lp-footer-links a::after {
+    transition-duration: 150ms;
+  }
+}

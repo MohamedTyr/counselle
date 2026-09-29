@@ -89,11 +89,11 @@ def build_judge_agent(settings: Any) -> Any:
     from pydantic_ai.models.google import GoogleModel
     from pydantic_ai.providers.google_cloud import GoogleCloudProvider
 
-    if not settings.vertex_api_key:
-        raise RuntimeError("COUNSELLE_VERTEX_API_KEY is not set")
+    from app.vertex import build_vertex_client
+
     model = GoogleModel(
         model_name_from_setting(settings.model_cheap),
-        provider=GoogleCloudProvider(api_key=settings.vertex_api_key),
+        provider=GoogleCloudProvider(client=build_vertex_client(settings)),
     )
     return Agent(model, instructions=JUDGE_PROMPT_PATH.read_text(), output_type=JudgeOutput)
 

@@ -28,6 +28,7 @@ import {
   type TurnStatus,
   withoutPendingUserSegments,
 } from "./turn-reducer";
+import { latestGoalStep } from "./components/activity-trace-helpers";
 import { userMessage, assistantMessage, type ChatMessage } from "./model";
 import {
   persistErroredTurn,
@@ -85,6 +86,12 @@ export type SubmitMessageOptions = {
    * on which control the student happened to press.
    */
   essayContext?: EssayTurnContext | null;
+  /** Set only by an explicit `/goal` slash-command selection (goal-mode plan
+   * §5.5), never derived from `text`. Applies to this one send only -- the
+   * caller must not pass `true` again on a later, unrelated submitMessage
+   * call. Ignored for a clarify continuation (the engine derives that
+   * itself; see `runTurn`'s `isClarifyContinuation`). */
+  goalMode?: boolean;
 };
 
 export type SubmitClarifyResponseOptions = {
@@ -101,6 +108,7 @@ type PendingSend = {
   clarifyReplyTo?: string;
   clarifyResponse?: WidgetClarifyResponseV2;
   optimisticUserMessageId?: string;
+  goalMode?: boolean;
 };
 
 type ClarifySubmission =
@@ -142,6 +150,7 @@ export type ModelUnavailableRecovery = {
   text: string;
   skills: string[];
   failedResponseMode: ResponseMode;
+  goalMode?: boolean;
 };
 
 export type UseTurnEngineOptions = {
@@ -168,6 +177,10 @@ export type UseTurnEngineOptions = {
 export type UseTurnEngineResult = {
   messages: ChatMessage[];
   liveTurn: LiveTurn | null;
+  /** Whether the most recent send was a `/goal` run. Set by every send path
+   *  (composer, regenerate, retries) because they all go through
+   *  `submitMessage` — only meaningful while that send's turn is live. */
+  liveTurnIsGoal: boolean;
   isSubmitting: boolean;
   turnError: TurnError | null;
   pendingText: string | null;
@@ -253,6 +266,19 @@ function isAwaitingClarifyContinuation(messages: readonly ChatMessage[]) {
   );
 }
 
+/** Whether the clarification about to be answered paused a goal run — the
+ * continuation is then itself a goal turn, and the live message should say
+ * so from its first frame. Searches back past any optimistic user bubble. */
+function isAwaitingGoalContinuation(messages: readonly ChatMessage[]) {
+  const tail = messages.findLast((message) => message.kind === "assistant");
+  return (
+    tail !== undefined &&
+    tail.turnStatus === "awaiting_input" &&
+    tail.clarify !== undefined &&
+    latestGoalStep(tail.segments) !== null
+  );
+}
+
 type ConsumeStreamOutcome = {
   metaSeen: boolean;
   assistantMessageId: string;
@@ -276,6 +302,7 @@ export function useTurnEngine({
 }: UseTurnEngineOptions): UseTurnEngineResult {
   const queryClient = useQueryClient();
   const [liveTurn, setLiveTurn] = useState<LiveTurn | null>(null);
+  const [liveTurnIsGoal, setLiveTurnIsGoal] = useState(false);
   const [turnError, setTurnError] = useState<TurnError | null>(null);
   const [pendingSend, setPendingSend] = useState<PendingSend | null>(null);
   const [autoForwardVersion, setAutoForwardVersion] = useState(0);
@@ -521,6 +548,7 @@ export function useTurnEngine({
       executionResponseMode: ResponseMode,
       replaceMessageId?: string,
       clarifySubmission?: ClarifySubmission,
+      goalMode?: boolean,
     ) => {
       const controller = beginTurnAbort();
       const committedSourceConfig = sourceConfigRef.current;
@@ -561,6 +589,7 @@ export function useTurnEngine({
               clarifySubmission?.origin === "widget"
                 ? clarifySubmission.response
                 : undefined,
+            goalMode: isClarifyContinuation ? undefined : goalMode,
             signal: controller.signal,
           }),
           initialUserMessageId: tempUserMessageId,
@@ -606,6 +635,7 @@ export function useTurnEngine({
             clarifySubmission?.origin === "widget"
               ? clarifySubmission.response
               : undefined,
+          goalMode,
         });
         throw error;
       }
@@ -620,6 +650,7 @@ export function useTurnEngine({
           text,
           skills: [...skills],
           failedResponseMode: executionResponseMode,
+          goalMode,
         });
       } else {
         setModelUnavailableRecovery(null);
@@ -646,6 +677,7 @@ export function useTurnEngine({
       executionResponseMode: ResponseMode,
       replaceMessageId?: string,
       clarifySubmission?: ClarifySubmission,
+      goalMode?: boolean,
     ): Promise<StartedTurn> => {
       if (liveTurnRef.current !== null) {
         throw new Error("A turn is already running.");
@@ -701,6 +733,7 @@ export function useTurnEngine({
         executionResponseMode,
         replaceMessageId,
         clarifySubmission,
+        goalMode,
       );
       return {
         sessionId: activeSessionId,
@@ -781,6 +814,7 @@ export function useTurnEngine({
       replaceMessageId,
       clarifyReplyTo,
       essayContext,
+      goalMode,
     }: SubmitMessageOptions): Promise<SubmitMessageResult> => {
       if (essayContext !== undefined) {
         essayContextRef.current = essayContext;
@@ -798,6 +832,11 @@ export function useTurnEngine({
       if (!trimmed) {
         return { ok: false, keepText: text };
       }
+      setLiveTurnIsGoal(
+        goalMode === true ||
+          (clarifySubmission !== undefined &&
+            isAwaitingGoalContinuation(persistedRef.current)),
+      );
 
       // A temp/optimistic id has no backend id yet -- it can't anchor a
       // server-side history rewrite. Refuse rather than send a bogus
@@ -824,7 +863,7 @@ export function useTurnEngine({
             message:
               "Wait for the current response to finish before using a skill.",
           });
-          setPendingSend({ text, skills, executionResponseMode });
+          setPendingSend({ text, skills, executionResponseMode, goalMode });
           return { ok: false, keepText: text };
         }
         const active = liveTurnRef.current;
@@ -849,12 +888,12 @@ export function useTurnEngine({
           }
           const cleared = await awaitLiveClear();
           if (!cleared) {
-            setPendingSend({ text, skills, executionResponseMode });
+            setPendingSend({ text, skills, executionResponseMode, goalMode });
             return { ok: false, keepText: text };
           }
         } catch (error) {
           setTurnError(turnErrorOf(error));
-          setPendingSend({ text, skills, executionResponseMode });
+          setPendingSend({ text, skills, executionResponseMode, goalMode });
           return { ok: false, keepText: text };
         }
       }
@@ -868,6 +907,7 @@ export function useTurnEngine({
             executionResponseMode,
             replaceMessageId,
             clarifyReplyTo,
+            goalMode,
           });
           return { ok: false, keepText: text };
         }
@@ -880,6 +920,7 @@ export function useTurnEngine({
           executionResponseMode,
           replaceMessageId,
           clarifySubmission,
+          goalMode,
         );
         return { ok: true, sessionId: started.sessionId };
       } catch (error) {
@@ -895,8 +936,8 @@ export function useTurnEngine({
               // bubble from the original attempt is already in
               // persistedMessages, so re-calling startSend here would
               // append a second one. Reuses the same executionResponseMode
-              // captured for this whole submitMessage call -- never a
-              // fresher selector read.
+              // (and goalMode) captured for this whole submitMessage call --
+              // never a fresher selector read.
               await runTurn(
                 activeSessionId,
                 replaceMessageId ??
@@ -907,6 +948,7 @@ export function useTurnEngine({
                 executionResponseMode,
                 replaceMessageId,
                 clarifySubmission,
+                goalMode,
               );
               return { ok: true, sessionId: activeSessionId };
             } catch (retryError) {
@@ -921,6 +963,7 @@ export function useTurnEngine({
                   replaceMessageId === undefined
                     ? (lastStartedUserMessageIdRef.current ?? undefined)
                     : undefined,
+                goalMode,
               });
               return { ok: false, keepText: text };
             }
@@ -938,6 +981,7 @@ export function useTurnEngine({
             replaceMessageId === undefined
               ? (lastStartedUserMessageIdRef.current ?? undefined)
               : undefined,
+          goalMode,
         });
         return { ok: false, keepText: text };
       }
@@ -962,6 +1006,7 @@ export function useTurnEngine({
         }
       }
 
+      setLiveTurnIsGoal(isAwaitingGoalContinuation(persistedRef.current));
       try {
         const started = await startSend(
           "",
@@ -1046,6 +1091,7 @@ export function useTurnEngine({
       executionResponseMode: pending.executionResponseMode,
       replaceMessageId: pending.replaceMessageId,
       clarifyReplyTo: pending.clarifyReplyTo,
+      goalMode: pending.goalMode,
     });
   }, [pendingSend, setPersistedMessages, submitClarifyResponse, submitMessage]);
 
@@ -1060,6 +1106,7 @@ export function useTurnEngine({
       skills: recovery.skills,
       executionResponseMode: recovery.failedResponseMode,
       replaceMessageId: recovery.userMessageId,
+      goalMode: recovery.goalMode,
     });
   }, [modelUnavailableRecovery, submitMessage]);
 
@@ -1074,6 +1121,7 @@ export function useTurnEngine({
       skills: recovery.skills,
       executionResponseMode: "quick",
       replaceMessageId: recovery.userMessageId,
+      goalMode: recovery.goalMode,
     });
   }, [modelUnavailableRecovery, submitMessage]);
 
@@ -1228,6 +1276,7 @@ export function useTurnEngine({
   return {
     messages,
     liveTurn,
+    liveTurnIsGoal,
     isSubmitting:
       liveTurn !== null &&
       liveTurn.sessionId === sessionId &&

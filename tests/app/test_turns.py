@@ -2308,3 +2308,34 @@ async def test_aclose_terminates_active_turn_with_error_not_cancelled() -> None:
     assert prose_of(record["parts"]) == _prose(pairs)
     assert record["segments"] == []
     assert registry.is_generating(session_id) is False
+
+
+@pytest.mark.parametrize("cause", ["user_stop", "shutdown_drain"])
+async def test_only_a_student_cancel_marks_the_run_handle(cause: str) -> None:
+    """The seam goal mode reads to tell the two cancels apart.
+
+    Both terminations call `task.cancel()` on the same task, and the
+    `CancelledError` that surfaces inside the run carries nothing about which
+    one it was. `_cancel_active` — the student's Stop — marks the run handle
+    before cancelling; `_drain_active_with_error` (BC-15, the student never
+    pressed anything) must leave it unmarked, so a run that reads the mark can
+    name `stopped_user` on the first and claim nothing on the second.
+    """
+    gate = asyncio.Event()  # never set — the turn hangs mid-stream
+    rig = Rig(_gated_model(gate, _LONG_CHUNK))
+    registry = _registry(rig)
+    session_id = str(uuid4())
+
+    collector = Collector(await registry.start(session_id, "duke dorms?", _ALL_OFF))
+    await _wait_first_chunk(gate)
+    handle = registry._turns[session_id].run_handle
+    assert handle is not None
+    assert handle.cancelled_by_user is False
+
+    if cause == "user_stop":
+        await registry.cancel(session_id)
+    else:
+        await registry.aclose()
+    await collector.done()
+
+    assert handle.cancelled_by_user is (cause == "user_stop")

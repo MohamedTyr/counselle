@@ -34,6 +34,7 @@ ApplicationStatus = Literal[
     "Waitlisted",
     "Withdrawn",
 ]
+DeadlineSource = Literal["student", "facts"]
 ListType = Literal["Reach", "Target", "Safety"]
 Round = Literal["EA", "ED", "ED2", "REA", "RD", "Rolling", "Priority"]
 TaskStatus = Literal["todo", "doing", "waiting", "done"]
@@ -212,6 +213,14 @@ class ApplicationView(Application):
     website_url: str | None = None
     progress: Rollup
     essays: Rollup
+    deadline_source: DeadlineSource | None = None
+    deadline_checked_at: Date | None = None
+    deadline_inherited_date: Date | None = None
+    deadline_inherited_checked_at: Date | None = None
+    aid_deadline_source: DeadlineSource | None = None
+    aid_deadline_checked_at: Date | None = None
+    aid_deadline_inherited_date: Date | None = None
+    aid_deadline_inherited_checked_at: Date | None = None
 
 
 class SchoolSearchResult(_Model):

@@ -1,4 +1,11 @@
-import type { StepData, StepKind, StepTier } from "@/api/chat/types";
+import type {
+  GoalCriterionView,
+  GoalStatus,
+  GoalStepDetail,
+  StepData,
+  StepKind,
+  StepTier,
+} from "@/api/chat/types";
 
 export type ToolCallFixture = Readonly<{
   id: string;
@@ -1719,3 +1726,497 @@ export const TOOL_CALL_GROUPS = Object.freeze([
   "Other reads",
   "Writes",
 ] as const);
+
+// ---------------------------------------------------------------------------
+// Goal mode (plans/goal-mode-plan.md §6.5) — eleven fixtures covering the
+// seven `GoalStatus` values (including the `awaiting_input` pause), `running`,
+// the criteria-loading skeleton, the no-`phase="final"` "Stopped —
+// interrupted" state, and the C9 omitted-criterion honesty guard. These
+// render through
+// `GoalHeader`/`GoalVerdictCard` directly rather than `ToolStepBeat`, so
+// they carry a `GoalStepDetail` instead of a `StepData`.
+// ---------------------------------------------------------------------------
+
+export type GoalFixture = Readonly<{
+  id: string;
+  label: string;
+  detail: GoalStepDetail;
+  /** `isInterruptedGoal`'s result, as if computed by the caller — always
+   *  `false` except for the dedicated interrupted fixture. */
+  isInterrupted?: boolean;
+}>;
+
+const GOAL_STATEMENT =
+  "Make sure every school on my list has a deadline and a why-this-school note";
+
+function goalCriterion(
+  overrides: Partial<GoalCriterionView> & Pick<GoalCriterionView, "id" | "text">,
+): GoalCriterionView {
+  return {
+    met: null,
+    checked: false,
+    reason: null,
+    evidence_step_ids: [],
+    ...overrides,
+  };
+}
+
+const BASE_CRITERIA: GoalCriterionView[] = [
+  goalCriterion({ id: "c1", text: "Every school on the list has a deadline" }),
+  goalCriterion({
+    id: "c2",
+    text: "Every deadline matches the school's own published date",
+  }),
+  goalCriterion({ id: "c3", text: "Every school has a why-this-school note" }),
+  goalCriterion({
+    id: "c4",
+    text: "Every note is at least three sentences",
+  }),
+];
+
+function goalDetail(
+  overrides: Partial<GoalStepDetail> & { status: GoalStatus | null },
+): GoalStepDetail {
+  return {
+    phase: overrides.status === null ? "check" : "final",
+    statement: GOAL_STATEMENT,
+    iteration: 1,
+    max_iterations: 6,
+    criteria: BASE_CRITERIA,
+    critique: null,
+    met_count: 0,
+    total_count: BASE_CRITERIA.length,
+    unchecked_count: BASE_CRITERIA.length,
+    not_checked_note: "",
+    requests_used: 0,
+    requests_limit: 60,
+    tokens_used: 0,
+    tokens_limit: 400_000,
+    est_cost_usd: 0,
+    cost_limit_usd: 5,
+    elapsed_s: 0,
+    ...overrides,
+  };
+}
+
+const NOT_SUBMITTED_NOTE =
+  "whether you have actually submitted anything, or your transcript and recommendation status — Counselle can't see those.";
+
+/**
+ * Regression fixture for the C9 defect (found by post-ship review
+ * 2026-09-16): a backend that (incorrectly) asserts `met: false` on a
+ * criterion it never checked must still render as "not checked", never
+ * "not met" — the frontend's `checked` gate has to hold even when the wire
+ * payload itself lies. c4 pairs `met: null, checked: false` alongside it as
+ * the honest shape the backend is expected to send for the same "never
+ * attempted" case.
+ *
+ * Part of `GOAL_MODE_FIXTURES` (below): the dev gallery is the only surface
+ * where a human can check this state with a real screen reader and real
+ * contrast, which jsdom/axe cannot do, and the pre-existing fixtures never
+ * pair `checked: false` with `met: false` — this is the highest-value
+ * regression state in the set, not a redundant one.
+ */
+export const GOAL_CRITERION_HONESTY_FIXTURE: GoalFixture = {
+  id: "goal-omitted-criterion-guard",
+  label: "Partial — one criterion never attempted",
+  detail: goalDetail({
+    status: "partial",
+    iteration: 3,
+    criteria: [
+      goalCriterion({ id: "c1", text: BASE_CRITERIA[0].text, met: true, checked: true }),
+      goalCriterion({
+        id: "c2",
+        text: BASE_CRITERIA[1].text,
+        met: false,
+        checked: true,
+        reason: "The published deadline still doesn't match.",
+      }),
+      goalCriterion({
+        id: "c3",
+        text: BASE_CRITERIA[2].text,
+        met: false,
+        checked: false,
+        reason: "",
+      }),
+      goalCriterion({ id: "c4", text: BASE_CRITERIA[3].text, met: null, checked: false }),
+    ],
+    met_count: 1,
+    unchecked_count: 2,
+    not_checked_note: NOT_SUBMITTED_NOTE,
+    requests_used: 40,
+    est_cost_usd: 1.0,
+    elapsed_s: 300,
+  }),
+};
+
+export const GOAL_MODE_FIXTURES: readonly GoalFixture[] = Object.freeze([
+  {
+    id: "goal-criteria-loading",
+    label: "Working — deriving criteria",
+    detail: goalDetail({
+      status: null,
+      phase: "criteria",
+      criteria: [],
+      total_count: 0,
+      unchecked_count: 0,
+      requests_used: 1,
+    }),
+  },
+  {
+    id: "goal-running",
+    label: "Working — round 1 of 6",
+    detail: goalDetail({
+      status: null,
+      met_count: 0,
+      iteration: 1,
+      requests_used: 2,
+      est_cost_usd: 0.05,
+      elapsed_s: 38,
+    }),
+  },
+  {
+    id: "goal-achieved",
+    label: "Achieved",
+    detail: goalDetail({
+      status: "achieved",
+      iteration: 6,
+      criteria: [
+        goalCriterion({ id: "c1", text: BASE_CRITERIA[0].text, met: true, checked: true }),
+        goalCriterion({ id: "c2", text: BASE_CRITERIA[1].text, met: true, checked: true }),
+        goalCriterion({ id: "c3", text: BASE_CRITERIA[2].text, met: true, checked: true }),
+        goalCriterion({ id: "c4", text: BASE_CRITERIA[3].text, met: true, checked: true }),
+      ],
+      met_count: 4,
+      unchecked_count: 0,
+      not_checked_note: NOT_SUBMITTED_NOTE,
+      requests_used: 71,
+      est_cost_usd: 1.2,
+      elapsed_s: 664,
+    }),
+  },
+  {
+    id: "goal-partial",
+    label: "Partial — some criteria unmet",
+    detail: goalDetail({
+      status: "partial",
+      iteration: 5,
+      criteria: [
+        goalCriterion({ id: "c1", text: BASE_CRITERIA[0].text, met: true, checked: true }),
+        goalCriterion({ id: "c2", text: BASE_CRITERIA[1].text, met: true, checked: true }),
+        goalCriterion({
+          id: "c3",
+          text: BASE_CRITERIA[2].text,
+          met: false,
+          checked: true,
+          reason: "2 of 6 schools still have an empty note.",
+        }),
+        goalCriterion({
+          id: "c4",
+          text: BASE_CRITERIA[3].text,
+          met: null,
+          checked: false,
+          reason: "Not checked — c3 was never finished.",
+        }),
+      ],
+      met_count: 2,
+      unchecked_count: 1,
+      not_checked_note: NOT_SUBMITTED_NOTE,
+      requests_used: 52,
+      est_cost_usd: 2.4,
+      elapsed_s: 590,
+    }),
+  },
+  {
+    id: "goal-stopped-budget",
+    label: "Partial — budget reached",
+    detail: goalDetail({
+      status: "stopped_budget",
+      iteration: 5,
+      criteria: [
+        goalCriterion({ id: "c1", text: BASE_CRITERIA[0].text, met: true, checked: true }),
+        goalCriterion({ id: "c2", text: BASE_CRITERIA[1].text, met: true, checked: true }),
+        goalCriterion({
+          id: "c3",
+          text: BASE_CRITERIA[2].text,
+          met: false,
+          checked: true,
+          reason: "2 of 6 schools still have an empty note.",
+        }),
+        goalCriterion({
+          id: "c4",
+          text: BASE_CRITERIA[3].text,
+          met: null,
+          checked: false,
+          reason: "Not checked — c3 was never finished.",
+        }),
+      ],
+      met_count: 2,
+      unchecked_count: 1,
+      not_checked_note: NOT_SUBMITTED_NOTE,
+      requests_used: 60,
+      requests_limit: 60,
+      est_cost_usd: 3.0,
+      elapsed_s: 612,
+    }),
+  },
+  {
+    id: "goal-stopped-no-progress",
+    label: "Stopped — no progress",
+    detail: goalDetail({
+      status: "stopped_no_progress",
+      iteration: 3,
+      criteria: [
+        goalCriterion({ id: "c1", text: BASE_CRITERIA[0].text, met: true, checked: true }),
+        goalCriterion({
+          id: "c2",
+          text: BASE_CRITERIA[1].text,
+          met: false,
+          checked: true,
+          reason:
+            "Checked three times; the school's page still doesn't show a due date.",
+        }),
+        goalCriterion({
+          id: "c3",
+          text: BASE_CRITERIA[2].text,
+          met: null,
+          checked: false,
+          reason: "Not checked — stopped before this was attempted.",
+        }),
+        goalCriterion({
+          id: "c4",
+          text: BASE_CRITERIA[3].text,
+          met: null,
+          checked: false,
+          reason: "Not checked — stopped before this was attempted.",
+        }),
+      ],
+      met_count: 1,
+      unchecked_count: 2,
+      not_checked_note: NOT_SUBMITTED_NOTE,
+      requests_used: 34,
+      est_cost_usd: 1.6,
+      elapsed_s: 401,
+    }),
+  },
+  {
+    id: "goal-stopped-user",
+    label: "Stopped — you stopped it",
+    detail: goalDetail({
+      status: "stopped_user",
+      iteration: 2,
+      criteria: [
+        goalCriterion({ id: "c1", text: BASE_CRITERIA[0].text, met: true, checked: true }),
+        goalCriterion({
+          id: "c2",
+          text: BASE_CRITERIA[1].text,
+          met: null,
+          checked: false,
+          reason: "Not checked — you stopped the run first.",
+        }),
+        goalCriterion({
+          id: "c3",
+          text: BASE_CRITERIA[2].text,
+          met: null,
+          checked: false,
+          reason: "Not checked — you stopped the run first.",
+        }),
+        goalCriterion({
+          id: "c4",
+          text: BASE_CRITERIA[3].text,
+          met: null,
+          checked: false,
+          reason: "Not checked — you stopped the run first.",
+        }),
+      ],
+      met_count: 1,
+      unchecked_count: 3,
+      not_checked_note: NOT_SUBMITTED_NOTE,
+      requests_used: 18,
+      est_cost_usd: 0.4,
+      elapsed_s: 152,
+    }),
+  },
+  {
+    id: "goal-stopped-check-failed",
+    label: "Stopped — couldn't check",
+    detail: goalDetail({
+      status: "stopped_check_failed",
+      phase: "final",
+      criteria: [],
+      total_count: 0,
+      unchecked_count: 0,
+      met_count: 0,
+      requests_used: 3,
+      est_cost_usd: 0.02,
+      elapsed_s: 12,
+    }),
+  },
+  {
+    id: "goal-interrupted",
+    label: "Stopped — interrupted",
+    isInterrupted: true,
+    detail: goalDetail({
+      // A run that dies on error emits a genuine `phase: "final"` step —
+      // the ledger plus the last verdict — but `status` stays `null`
+      // forever. This fixture's `isInterrupted: true` is what the header
+      // reads instead (§5.3's crash rule).
+      status: null,
+      phase: "final",
+      iteration: 3,
+      criteria: [
+        goalCriterion({ id: "c1", text: BASE_CRITERIA[0].text, met: true, checked: true }),
+        goalCriterion({ id: "c2", text: BASE_CRITERIA[1].text, met: null, checked: false }),
+        goalCriterion({ id: "c3", text: BASE_CRITERIA[2].text, met: null, checked: false }),
+        goalCriterion({ id: "c4", text: BASE_CRITERIA[3].text, met: null, checked: false }),
+      ],
+      met_count: 1,
+      unchecked_count: 3,
+      requests_used: 21,
+      est_cost_usd: 0.5,
+      elapsed_s: 205,
+    }),
+  },
+  {
+    id: "goal-awaiting-input",
+    label: "Waiting for your answer",
+    detail: goalDetail({
+      status: "awaiting_input",
+      phase: "final",
+      iteration: 2,
+      criteria: [
+        goalCriterion({ id: "c1", text: BASE_CRITERIA[0].text, met: true, checked: true }),
+        goalCriterion({
+          id: "c2",
+          text: BASE_CRITERIA[1].text,
+          met: null,
+          checked: false,
+          reason: "Not checked yet — the run is waiting on your answer.",
+        }),
+        goalCriterion({ id: "c3", text: BASE_CRITERIA[2].text, met: null, checked: false }),
+        goalCriterion({ id: "c4", text: BASE_CRITERIA[3].text, met: null, checked: false }),
+      ],
+      met_count: 1,
+      unchecked_count: 3,
+      requests_used: 12,
+      est_cost_usd: 0.3,
+      elapsed_s: 96,
+    }),
+  },
+  GOAL_CRITERION_HONESTY_FIXTURE,
+]);
+
+// A whole goal message, top to bottom — the goal line, the agent's own plan,
+// its tool work, the between-rounds check, and (once finished) the result.
+// The isolated fixtures above cover every state; these two exist to judge
+// the states as a student actually meets them: together.
+export type GoalRunFixture = Readonly<{
+  id: string;
+  label: string;
+  detail: GoalStepDetail;
+  plan: StepData;
+  steps: readonly StepData[];
+  live: boolean;
+}>;
+
+function goalRunStep(
+  input: Pick<StepData, "step_id" | "kind" | "label"> & Partial<StepData>,
+): StepData {
+  return { status: "end", tier: null, detail: null, ...input };
+}
+
+const RUN_CHECK_DETAIL = goalDetail({
+  phase: "check",
+  status: null,
+  iteration: 1,
+  met_count: 2,
+  criteria: [
+    goalCriterion({ id: "c1", text: BASE_CRITERIA[0].text, met: true, checked: true }),
+    goalCriterion({ id: "c2", text: BASE_CRITERIA[1].text, met: true, checked: true }),
+    goalCriterion({
+      id: "c3",
+      text: BASE_CRITERIA[2].text,
+      met: false,
+      checked: true,
+      reason: "2 of 6 schools still have an empty note.",
+    }),
+    goalCriterion({
+      id: "c4",
+      text: BASE_CRITERIA[3].text,
+      met: false,
+      checked: true,
+      reason: "Tufts and Rice notes are one sentence each.",
+    }),
+  ],
+});
+
+const RUN_STEPS: readonly StepData[] = [
+  goalRunStep({
+    step_id: "run-list",
+    kind: "workspace",
+    tool: "list_schools",
+    label: "Read your school list",
+  }),
+  goalRunStep({
+    step_id: "run-update",
+    kind: "workspace",
+    tool: "update_school",
+    label: "Added deadlines to 6 schools",
+  }),
+  goalRunStep({
+    step_id: "goal-check-1",
+    kind: "goal",
+    label: "Checked progress against the goal",
+    detail: { goal: RUN_CHECK_DETAIL },
+  }),
+];
+
+export const GOAL_RUN_FIXTURES: readonly GoalRunFixture[] = Object.freeze([
+  {
+    id: "goal-run-working",
+    label: "Mid-run, after one check",
+    live: true,
+    detail: RUN_CHECK_DETAIL,
+    plan: goalRunStep({
+      step_id: "run-plan",
+      kind: "write_plan",
+      tool: "write_plan",
+      label: "Updating the plan",
+      detail: {
+        completed: 2,
+        total: 4,
+        items: [
+          { content: "Read the school list", status: "completed" },
+          { content: "Add each school's deadline", status: "completed" },
+          { content: "Write the two missing notes", status: "in_progress" },
+          { content: "Lengthen the short notes", status: "pending" },
+        ],
+      },
+    }),
+    steps: RUN_STEPS,
+  },
+  {
+    id: "goal-run-finished",
+    label: "Finished",
+    live: false,
+    detail: GOAL_MODE_FIXTURES.find((item) => item.id === "goal-achieved")!
+      .detail,
+    plan: goalRunStep({
+      step_id: "run-plan",
+      kind: "write_plan",
+      tool: "write_plan",
+      label: "Updated the plan",
+      detail: {
+        completed: 4,
+        total: 4,
+        items: [
+          { content: "Read the school list", status: "completed" },
+          { content: "Add each school's deadline", status: "completed" },
+          { content: "Write the two missing notes", status: "completed" },
+          { content: "Lengthen the short notes", status: "completed" },
+        ],
+      },
+    }),
+    steps: RUN_STEPS,
+  },
+]);

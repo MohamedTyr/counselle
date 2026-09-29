@@ -99,7 +99,11 @@ def workspace_preview_items(tool_name: str, content: Any) -> list[WorkspacePrevi
             "tasks",
             kind="task",
             title_key="title",
-            meta_fields=(("due", "Due"), ("category", "Category")),
+            meta_fields=(
+                ("when", "When"),
+                ("deadline", "Deadline"),
+                ("deadline_inherited", "Deadline from application"),
+            ),
         )
     if tool_name == "search_schools":
         return _rows(

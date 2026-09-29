@@ -470,11 +470,18 @@ export function EssayEditorPage({ essay, onBack }: EssayEditorPageProps) {
              * rail now appears from a ~944px viewport with the sidebar
              * collapsed and ~1208px expanded, where `xl:` hid it below 1280
              * unconditionally — so a 1024px tablet with the sidebar collapsed
-             * gets a rail it never used to. That is the better half of the
-             * trade: where the rail shows, the paper measures 61–74ch; where
-             * it does not, the paper sits on its `max-w-[820px]` cap at
-             * 108–115ch, outside rule 17 entirely. The rail arriving earlier
-             * is what holds the measure legal, not what costs it.
+             * gets a rail it never used to. Every sub-1280 cell improved,
+             * but the rail buys the FLOOR, not the ceiling — re-measured
+             * headless (no scrollbar painted) across {944,1024,1100,1208,
+             * 1279} × {sidebar expanded, collapsed}, panel closed: rail ON
+             * reads 61/61/74/74/88/101/108ch and rail OFF 74/88/101ch, so
+             * the two branches overlap and neither is pinned to the cap.
+             * What the rail holds is the low end — 61ch at its own
+             * threshold, against 18ch pre-fix. The high end is the paper's
+             * own `max-w-[820px]`: past ~1150px of column it caps at 690px
+             * of text (820 less the `px-16` inset) = 108ch, with the rail
+             * in or out. Rule 17 (≤70ch) is that cap's problem, not this
+             * threshold's; see TODOS.md.
              *
              * Known thin margin: at 1600 with the sidebar expanded and the
              * panel docked the column is 898px in a browser that paints a
@@ -504,8 +511,16 @@ export function EssayEditorPage({ essay, onBack }: EssayEditorPageProps) {
                  * 1280/expanded, resampled onto a 16.7ms frame: closing grew
                  * the paper to 722px and then took 321px back in one frame
                  * ~148ms in; opening handed back 272px the same way. Spread
-                 * over 200ms the rail's own worst frame is 59px, and 0–27px in
-                 * the other cells.
+                 * over 200ms the paper's worst frame at 1280/expanded is
+                 * 59–83px over four closes — not one number, and not
+                 * uniformly better elsewhere: 0–49px at 1280/collapsed,
+                 * 14–79px at 1440/expanded, and at 1600/expanded the paper
+                 * still drops 690→402px in a single 16.7ms frame on open
+                 * (`offsetWidth` agrees, so it is layout and not a transform
+                 * artifact), because there the rail is in on both sides of
+                 * the toggle and never moves. What this removed is the
+                 * rail's step; the paper's own is still open, with the
+                 * close-direction overshoot, in TODOS.md.
                  *
                  * `ease-in-out`, which the rest of the app does not use, and
                  * not the house `ease-out`: this segment does not start from

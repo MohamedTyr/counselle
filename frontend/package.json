@@ -6,16 +6,24 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "build:landing": "tsc -b && vite build -c vite.landing.config.ts && node scripts/prerender-landing.mjs",
+    "preview:landing": "wrangler pages dev dist-landing",
     "lint": "eslint .",
     "format": "prettier --write \"**/*.{ts,tsx,css,json,md}\"",
     "test": "vitest run",
+    "test:chances:coverage": "vitest run src/features/schools/chances --coverage.enabled --coverage.provider=v8 --coverage.include='src/features/schools/chances/**/*.{ts,tsx}' --coverage.thresholds.lines=80 --coverage.thresholds.functions=80 --coverage.thresholds.branches=80 --coverage.thresholds.statements=80",
+    "test:e2e:chances": "playwright test e2e/school-chances.spec.ts",
+    "test:e2e:chances:real": "playwright test --config playwright.real.config.ts e2e/school-chances.real.spec.ts",
     "test:watch": "vitest",
     "typecheck": "tsc -b --noEmit",
     "preview": "vite preview"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",
+    "@fontsource-variable/geist": "^5.3.0",
     "@fontsource-variable/instrument-sans": "^5.3.0",
+    "@fontsource-variable/inter": "^5.3.0",
+    "@fontsource/instrument-serif": "^5.3.0",
     "@radix-ui/react-use-controllable-state": "^1.2.3",
     "@streamdown/cjk": "^1.0.3",
     "@streamdown/code": "^1.1.1",
@@ -37,6 +45,7 @@
     "lucide-react": "^1.22.0",
     "motion": "^12.42.2",
     "nanoid": "^5.1.16",
+    "posthog-js": "^1.434.17",
     "radix-ui": "^1.6.1",
     "react": "^19.2.6",
     "react-day-picker": "^10.0.1",
@@ -57,7 +66,9 @@
     "use-stick-to-bottom": "^1.1.6"
   },
   "devDependencies": {
+    "@cloudflare/workers-types": "^5.20260929.1",
     "@eslint/js": "^10",
+    "@playwright/test": "^1.63.0",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.1",
@@ -66,6 +77,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@vitejs/plugin-react": "^6",
+    "@vitest/coverage-v8": "^4.1.9",
     "eslint": "^10",
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.2",
@@ -78,6 +90,7 @@
     "typescript": "~6",
     "typescript-eslint": "^8",
     "vite": "^8",
-    "vitest": "^4.1.9"
+    "vitest": "^4.1.9",
+    "wrangler": "^4.143.0"
   }
 }

@@ -72,6 +72,12 @@ def render_school_row(app: ApplicationView, *, state: str | None = None) -> dict
     ):
         if value is not None:
             row[key] = value
+    if app.deadline_source == "facts":
+        row["deadline_source"] = app.deadline_source
+        row["deadline_checked_at"] = _iso(app.deadline_checked_at)
+    if app.aid_deadline_source == "facts":
+        row["aid_deadline_source"] = app.aid_deadline_source
+        row["aid_deadline_checked_at"] = _iso(app.aid_deadline_checked_at)
     row["tasks"] = f"{app.progress.completed}/{app.progress.total}"
     row["essays"] = f"{app.essays.completed}/{app.essays.total}"
     notes = _truncate_notes(app.notes)

@@ -569,6 +569,20 @@
   --danger-edge: var(--red-700);
   --danger-edge-hover: var(--red-800);
 
+  /* ---- chance-gradient stops — see the primitive's own comment. Aliased
+   * here rather than read directly so schools.css stays a tier-3 var()-only
+   * consumer. */
+  --chance-scale-low: var(--chance-ramp-low);
+  --chance-scale-mid: var(--chance-ramp-mid);
+
+  /* ---- on-solid ink — text placed directly on a saturated status fill
+   * (a level pill, a solid dot's label) rather than on a pale tint. Same
+   * shape as --on-brand above: no single ink clears 4.5:1 against every
+   * status solid, so a light and a dark step are both named and the
+   * consumer picks per fill. */
+  --on-status-solid: var(--gray-950);
+  --on-status-solid-inverse: var(--gray-0);
+
   /* ---- neutral status — the "no particular state" tier. Same
    * {role}-surface/-fg shape as the three status roles above, and the
    * landing place for everything that used to be --info: a task that is

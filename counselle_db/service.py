@@ -82,8 +82,7 @@ def _error(message: str) -> dict[str, Any]:
         )
     )
     selected_document_rejection = (
-        "cross-school packet rankings require canonical selected-document semantics"
-        in lowered
+        "cross-school packet rankings require canonical selected-document semantics" in lowered
     )
     return {
         "error": "tool_error",
@@ -133,6 +132,7 @@ _CURRENT_SCHOOL_FACTS_SQL = """SELECT fact_key,tab,section,label,value,display,u
  value_num,value_text,value_bool,value_date,reported_period,reported_period_year,observed_at
  FROM cds_library.current_school_facts WHERE school_id=$1"""
 _CURRENT_SCHOOL_FACTS_KEYS_SQL = _CURRENT_SCHOOL_FACTS_SQL + " AND fact_key=ANY($2::text[])"
+
 _MAJORS_SQL = """SELECT m,count(*) AS n FROM cds_library.school_explore, unnest(majors) m
  WHERE m ILIKE $1 || '%' GROUP BY m ORDER BY 2 DESC LIMIT 50"""
 
@@ -285,10 +285,7 @@ def _section_keys(catalog: Catalog, sections: list[str]) -> list[str]:
             f"Unknown section {unknown[0]!r}. Valid sections: {', '.join(sorted(known))}"
         )
     return [
-        fact.key
-        for section in sections
-        for group in known[section].groups
-        for fact in group.facts
+        fact.key for section in sections for group in known[section].groups for fact in group.facts
     ]
 
 
@@ -345,13 +342,20 @@ async def explore(
     catalog: Catalog, statements: list[tuple[str, list[Any]]]
 ) -> tuple[tuple[asyncpg.Record, ...], ...]:
     """Execute the parameterized statements `app/facts/service_explore.py`
-    built (plan §5.3) -- one read-only transaction, in order, never through
-    `_guard_sql` (that guard is for model-authored SQL only). Every
-    statement here is code-owned; caller-supplied values are asyncpg bind
-    parameters throughout.
+    built (plan §5.3) -- in order, never through `_guard_sql` (that guard is
+    for model-authored SQL only). Every statement here is code-owned;
+    caller-supplied values are asyncpg bind parameters throughout.
+
+    One `REPEATABLE READ, READ ONLY` transaction, so the page of cards and
+    every count/option derived from the same filter set observe one snapshot:
+    under READ COMMITTED a concurrent crawl write lands between statements and
+    the page can disagree with its own accounting.
     """
     results: list[tuple[asyncpg.Record, ...]] = []
-    async with catalog.pool.acquire() as conn, conn.transaction(readonly=True):
+    async with (
+        catalog.pool.acquire() as conn,
+        conn.transaction(isolation="repeatable_read", readonly=True),
+    ):
         for sql, params in statements:
             rows = await conn.fetch(sql, *params)  # nosec B608 -- code-owned SQL, bound params only
             results.append(tuple(rows))
@@ -364,5 +368,3 @@ async def majors(catalog: Catalog, query: str) -> tuple[tuple[str, int], ...]:
     async with catalog.pool.acquire() as conn:
         rows = await conn.fetch(_MAJORS_SQL, query)
     return tuple((row["m"], row["n"]) for row in rows)
-
-

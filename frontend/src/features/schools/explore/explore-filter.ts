@@ -1,5 +1,8 @@
 import { rangeDescriptors } from "@/features/schools/explore/explore-config";
-import type { ExploreFilters, NumericRange } from "@/features/schools/explore/explore-types";
+import type {
+  ExploreFilters,
+  NumericRange,
+} from "@/features/schools/explore/explore-types";
 
 /*
  * Everything that used to filter, sort, and account for exclusions

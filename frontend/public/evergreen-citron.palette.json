@@ -1,0 +1,22 @@
+{
+  "id": "evergreen",
+  "name": "Evergreen / Citron",
+  "status": "User-selected color direction; not applied to production",
+  "source": "palette-preview.html — greenPalettes / evergreen",
+  "colors": {
+    "heroBackground": "oklch(29% .055 170)",
+    "heroText": "oklch(99% 0 0)",
+    "heroButtonBackground": "oklch(92% .18 115)",
+    "heroButtonText": "oklch(19% 0 0)",
+    "appActionBackground": "oklch(38% .065 170)",
+    "appActionText": "oklch(99% 0 0)",
+    "selectionBackground": "oklch(96% .012 170)",
+    "selectionText": "oklch(38% .065 170)",
+    "surface": "oklch(99% 0 0)",
+    "canvas": "oklch(97% 0 0)",
+    "border": "oklch(88% 0 0)",
+    "bodyText": "oklch(19% 0 0)",
+    "mutedText": "oklch(43% 0 0)"
+  },
+  "typography": null
+}

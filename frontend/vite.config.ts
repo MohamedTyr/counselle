@@ -5,6 +5,17 @@ import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  cacheDir: process.env.SCHOOL_CHANCES_FIXTURE_CACHE_DIR,
+  build: {
+    rolldownOptions: {
+      input: {
+        app: path.resolve(__dirname, "index.html"),
+        landing: path.resolve(__dirname, "landing.html"),
+        privacy: path.resolve(__dirname, "privacy.html"),
+        terms: path.resolve(__dirname, "terms.html"),
+      },
+    },
+  },
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
@@ -12,6 +23,14 @@ export default defineConfig({
   },
   server: {
     port: Number(process.env.VITE_DEV_PORT ?? 5173),
+    warmup: {
+      clientFiles: [
+        path.resolve(
+          __dirname,
+          "src/features/dev-school-chances/SchoolChancesGalleryPage.tsx",
+        ),
+      ],
+    },
     fs: {
       allow: [path.resolve(__dirname, "..")],
     },
@@ -21,6 +40,7 @@ export default defineConfig({
   },
   test: {
     environment: "jsdom",
+    exclude: ["**/node_modules/**", "**/dist/**", "**/e2e/**"],
     maxWorkers: 4,
     globals: true,
     setupFiles: ["./src/test/setup.ts"],

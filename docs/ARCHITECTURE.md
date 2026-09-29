@@ -1,6 +1,6 @@
 # Counselle — System Architecture
 
-> The complete architecture for Counselle, in two parts. **Part I (§1–25)** is the **agent service** — the honesty-first agent behind a versioned API. **Part II (§26–37)** is the **full-stack app** built on top of it — auth, chat management, the work-visibility protocol extensions, the React frontend, the student profile/document/memory stores, and first-run onboarding. Companion docs: `specs/` (PRDs & plans), `docs/DATABASE_GUIDE.md` (the data contract), `docs/adr/` (one decision each), `docs/research/` (the stack survey).
+> The complete architecture for Counselle, in two parts. **Part I (§1–25)** is the **agent service** — the honesty-first agent behind a versioned API. **Part II (§26–41)** is the **full-stack app** built on top of it — auth, chat management, the work-visibility protocol extensions, the React frontend, the student profile/document/memory stores, first-run onboarding, the facts store and crawl, and the Explore admit-rate estimate. Companion docs: `specs/` (PRDs & plans), `docs/DATABASE_GUIDE.md` (the data contract), `docs/adr/` (one decision each), `docs/research/` (the stack survey).
 >
 > **This document describes the target architecture — how Counselle is designed and built, not what has shipped to date.** A few subsystems below are designed but not yet wired (e.g. the deep-research subagent, §13). For the current build status — what's implemented vs. pending, and the deployment state — see `CLAUDE.md`; it is the single source of progress truth.
 
@@ -53,6 +53,7 @@
 38. [The CDS extraction pipeline & admin surface (parked)](#38-the-cds-extraction-pipeline--admin-surface-parked)
 39. [The essay surface & the suggestion lifecycle](#39-the-essay-surface--the-suggestion-lifecycle)
 40. [The CollegeData facts crawl pipeline & admin surface](#40-the-collegedata-facts-crawl-pipeline--admin-surface)
+41. [The Explore admit-rate estimate](#41-the-explore-admit-rate-estimate)
 
 ---
 
@@ -330,10 +331,12 @@ internally (`page_snapshots.body`, retained only for "why did this change"
 debugging) and never rendered verbatim or exposed through any API. External
 sources (`web` / `edu` / `reddit`) keep their own tier and provenance, unchanged.
 
-**No composite score is ever synthesized.** Distributions (GPA/SAT/ACT bands,
-selection factors, class sizes, ethnicity) are stored structured for a future
-chancing engine, but nothing in this path computes or presents a derived
-"chance" or ranking number from them.
+**No admission probability or composite score is synthesized.** Distributions
+(GPA/SAT/ACT bands, selection factors, class sizes, ethnicity) are stored
+structured for future analysis. The Explore admit-rate card (§41) is the
+explicit bounded exception: it reads the school's own admit rate into a
+Reach/Target/Safety/Unknown planning band, never a probability, ranking number,
+or composite score.
 
 **There is no RAG anywhere in this path.** Facts are read straight through
 the six typed views above — never embedded, chunked, or retrieved by
@@ -546,6 +549,10 @@ Cheap on day one, brutal to retrofit:
 - **Per-request usage accounting** — every model call's tokens (PydanticAI exposes usage) and Tavily/research calls roll up into the turn's `usage` event and a log line: per-session and per-turn cost visibility from the first day, which is also how the research cost caps get verified in practice.
 - **Health** — `GET /v1/health` checks process/database reachability and the checkpointer. There is no MCP child supervisor to report on any more — the DB path is fully in-process (ADR 0038). Turn-registry and limiter counters remain best-effort process state.
 - Metrics/dashboards are a platform-phase concern; the structured logs are designed so that adding them is aggregation, not re-instrumentation.
+
+The Explore admit-rate path (§41) has no telemetry seam of its own: it is
+one column read through the shared `explore` executor and a pure function over
+it.
 
 ---
 
@@ -1242,6 +1249,24 @@ route, a documents area, and a "What Counselle remembers" list with
 per-note delete — built from existing design-system primitives, no new
 component patterns.
 
+**School-detail composition:** `SchoolDetailRoute` owns the single
+`GET /v1/schools/{unitid}/facts` read and supplies its typed response to the
+About and Compare tabs inside one `PageContainer(width="panel")`. The Compare
+tab is not mounted on an initial About visit; its `TabsPanel` mounts lazily when
+the student selects Compare, and only then does `SchoolChancesPanel` start the
+established `useProfile()` query. Returning to Compare keeps the mounted panel
+and its cached Profile read. This ordering avoids a Profile request merely from
+opening About while keeping the route's school facts response shared by both
+views.
+
+Compare is a read-only comparison surface: metric selection and the local Explore
+scenario controls issue no Profile PATCH, application mutation, estimator call,
+or feature-owned persistence. The Profile GET retains the existing workspace
+contract and may lazily initialize an empty Profile row; that implementation
+detail is stated rather than hidden behind a false claim that every HTTP read is
+physically write-free. Missing or incompatible Profile/fact values remain
+explicitly unavailable in the UI.
+
 ---
 
 ## 37. Onboarding
@@ -1753,4 +1778,238 @@ do not eliminate (ADR 0038, Risk R0) — not a resolved question.
 
 ---
 
-*Companions: `specs/mvp1/PRD.md` (agent service product spec), `specs/mvp2/PRD.md` (full-stack app product spec), `specs/user-onboarding/plan/` (onboarding plan and phase record), `specs/school-data-v3/` (the graduated facts-store plan and its divergence record), `specs/essay-ai-panel/` (the essay AI panel's graduated plan and divergence record), `docs/DATABASE_GUIDE.md` (the facts-store data contract — the six reader views, fact states, and honesty rules), `PARKED.md` (the parked CDS system's file list, import edges, and revival steps), `docs/DEPLOY.md` (the deploy runbook), `docs/adr/` (decisions — Part I added ADRs 0016–0019; Part II added ADRs 0020–0031; hardening added ADR 0025; workspace/service and run/message parity added ADRs 0026–0030; profile/document/memory added ADR 0031; db-rewire to the CDS Library added ADR 0032; onboarding's reserved-settings-namespace and locked merge added ADR 0033; counselor response modes added ADR 0034; the in-app CDS extraction pipeline and admin write path added ADR 0036; the per-turn agent surface and the essay suggestion layer added ADR 0037, amending ADRs 0013 and 0030; the CollegeData facts store, in-process DB tools, and CDS-parking decision added ADR 0038), `docs/research/` (stack survey). Keep this current as decisions change.*
+## 41. The Explore admit-rate estimate
+
+Explore cards carry one server-owned category derived from one column. The
+whole rule is `domain/admissions_fit.py`: `school_explore.admit_rate` `<20%` is
+Reach, `<50%` is Target, `≥50%` is Safety; a rate that is absent, non-numeric,
+or outside `[0,100]` is Unknown, and an Unknown card shows no band at all.
+Nothing about the student is an input — not the saved Profile, not the URL's
+score assumptions, not the facts store's entering-class comparables — so the
+category is a base-rate statement about the school and never a prediction
+about the reader (ADR 0040, superseding ADR 0039's personalized heuristic).
+
+The route reads only the `cds_library_reader` pool: the Explore page statement
+and its ancillary counts/options go through the one `counselle_db.service.explore`
+executor. There is no saved-Profile read, no per-page facts batch, and no
+telemetry seam on this path.
+
+The wire result is `{category, admit_rate}`. `admit_rate` is the validated rate
+the category came from, so the card cannot print a figure that disagrees with
+the badge beside it. Because no part of the response depends on who is asking,
+it is cached per query rather than per reader, and a Profile write does not
+invalidate it. The card renders the rate, the band, and nothing arguing for
+either — with the adjustment gone there is no reasoning left to disclose. The
+category never writes, infers, or replaces the student's separate
+`Application.list_type` organization field.
+
+## 42. Goal mode: an independent-judge iteration loop
+
+**Status: engineering-complete, product-unvalidated.** Phases 0–5 of
+`plans/goal-mode-plan.md` are implemented and covered by focused/eval-level tests; the
+plan's own Phase 7 real-student dogfood gate has not run, no real browser has exercised
+the frontend surfaces, and four of the plan's Part 9 owner decisions were shipped at
+stated defaults rather than decided. ADR 0041 is the decision record and its
+Consequences section is the honest ledger of what is and is not settled — this section
+describes the shipped mechanism, not a verdict on whether it should exist.
+
+### 42.1 What `/goal` does
+
+A student types `/goal` and states an outcome. One model call turns that statement into
+the run's termination condition — 1–6 frozen, binary criteria describing the *result*
+the student asked for, never the steps to get there. The agent then works exactly as it
+does on any other turn; goal mode is a wrapper that keeps it going. At each stopping
+point an independent judge — a separate model call that sees tool receipts and the
+final answer, never the agent's plan or its claims — decides whether the condition is
+met. How the agent works is the agent's business: its plan is prompted for, never
+enforced, and is not an input to any stop decision. A run counts as stalled only when
+`goal_stall_iterations` checks in a row meet nothing new. The criteria writer, the agent
+and the judge all read one code-computed calendar block (`domain.goal.calendar_context`),
+so "this week" is the same date range to all three. Unmet criteria come back to
+the agent by name in the next round's prompt. The run ends in one of seven
+`domain/goal.py::GoalStatus` values: six honest terminal judgments — `achieved`,
+`partial`, `stopped_budget`, `stopped_no_progress`, `stopped_user`,
+`stopped_check_failed` — plus `awaiting_input`, which is not a judgment at all but the
+agent's own pause for the student's answer (§42.2); `decide_terminal_status` never
+returns it. The whole run is one assistant message in the existing chat (ADR 0028's
+"the run is the message" contract, unchanged).
+
+### 42.2 Where the loop lives
+
+The loop is an outer iteration inside `run_agent_node`, not a new LangGraph node, not an
+outer orchestrator, and not a model-callable tool (ADR 0041 D1). `app/graph.py` stays
+`prepare → agent → END`, zero diff. Concretely:
+
+- `app/goal_judge.py::derive_criteria` makes one cheap-model, typed-output call turning
+  the goal statement into frozen `GoalCriterion`s plus a mandatory `not_checked_note`
+  (never nullable — see §42.4).
+- The statement and criteria are rendered into the agent's `instructions` string,
+  computed once at `Agent(...)` construction (D12) — not protected by message position,
+  because `TurnState["messages"]` is the whole session's history and a `/goal` sent
+  mid-conversation is not at index 0. `instructions` is re-sent every request and no
+  compaction strategy touches it.
+- A goal turn mounts `ask_student` like an ordinary turn (D13, reversed 2026-09-18).
+  An `ask_student` output ends the loop at once with status `awaiting_input` — no
+  check, no nudge, no wrap-up — and the turn parks as any clarification does; the turn
+  record's `goal` field carries the statement, frozen criteria, not-checked note and the
+  receipts of every run before it. `accept_clarification` reads that into
+  `PreparedContinuation.inherited_goal`, and the continuation is then itself a goal
+  turn (`turn_ids["goal_mode"]`/`turn_ids["goal"]`): same criteria, never re-derived,
+  the student's answer as its first prompt, the inherited receipts prepended to the
+  judge's evidence (step ids prefixed with the paused turn's message id, since ids are
+  per-turn counters), the goal watchdog and concurrency ceiling. The ledger carries
+  forward across the pause: iteration count, cost, active elapsed time, consecutive
+  tool errors, and the stall tracking (previously-met criterion ids, the flat-check
+  count) are seeded from the paused record via `app/goal_loop.py`'s
+  `GoalLoopController.from_carry`/`carry_state`, so a resumed run is judged against the whole goal's
+  budget rather than a fresh one per segment; time spent waiting for the student's
+  answer is excluded from `max_wall_clock_s`, since the resumed segment's own clock
+  starts fresh and the prior elapsed time is added on top. Only the per-run pydantic-ai
+  `UsageLimits` (max requests, max tokens) are scoped per segment. A resumed run may
+  pause again.
+- `app/agent_node.py::_run_once` owns one iteration's lifecycle:
+  `router.begin_iteration()` and `final_writer.begin_iteration()` reset the emitters'
+  one-shot latches (`EmissionRouter`'s `_closed`/`final_answer_started`, the writer's
+  `_final_started`/`_flushed` and its two mid-parse nested parsers) while carrying
+  forward everything that numbers or dedupes across the whole assistant message —
+  `step_id` counters, citation indexes, viz signature/emitted-index sets, the plan
+  state, the tool-overflow store. This carried-vs-reset split was found to matter in
+  four separate places during the plan's own review (the "C7" corrections) and is why
+  Phase 3 is a real ~150–250-line extraction rather than a cosmetic one.
+- `app/goal_loop.py::_run_goal_loop` (called from `run_agent_node` when `goal_mode` is
+  set) repeats `_run_once` + `judge_goal` until `GoalLoopController.decide` says stop,
+  then — unless the run achieved — runs a wrap-up on a **second, genuinely tool-less**
+  `Agent`, so the student gets a real report of what was and was not done even on a
+  budget cutoff. (`Agent.iter`'s `toolsets=` parameter is additive, not a disable switch
+  — a second tool-less agent is what actually guarantees no tool call happens.)
+
+### 42.3 The judge (D4/D5)
+
+`app/goal_judge.py::judge_goal` is a separate, blind, typed-output call — it never sees
+the agent's narration as a claim of success, only:
+
+1. The goal statement and frozen criteria, verbatim.
+2. Bounded tool receipts (`select_evidence`, capped at `goal_judge_evidence_max_chars`,
+   selected newest-first plus every receipt a prior verdict cited, so evidence already
+   relied on never ages out of the bundle as it grows).
+3. The iteration's final assistant text.
+
+It is explicitly **not** an output validator (D5) — `AGENTS.md`'s "No output validator
+was added and none may be" line is load-bearing here. Its only effects are the loop's
+stop/continue decision and the rendered verdict card; it never rewrites, blocks, or
+regenerates anything the agent streamed.
+
+**The honesty corrections are applied in code, not trusted from the model:**
+
+- `domain/goal.py::compute_checked` derives `(checked, met)` purely from which
+  `evidence_step_ids` are actually in the bundle sent — citing nothing valid means
+  `checked=False` and therefore `met=False` (C9's "not done" vs "never checked"
+  distinction is derived, never declared), and citing only receipts whose
+  `WorkspaceMutationReceipt.outcome == "unknown"` forces `met=False` regardless of what
+  the judge claimed (§27.8's honesty vocabulary honored in code).
+- `GoalVerdict.met` is a derived `@property`, never a field the judge sets directly, so
+  `met=True` beside a failing or unchecked criterion is structurally impossible.
+- The judge's `Agent` is pinned to `temperature=0.0` — the eval gate (§42.6) measured
+  the *same* 32 cases scoring TPR 0.882, then 0.824, across two unpinned runs with no
+  code change between them, which would make any prompt fix unattributable.
+
+### 42.4 The C11 scope rule
+
+Counselle cannot see the Common App or UC portal, transcripts, test-score sends, or
+recommendation letters. A criterion like "my applications are ready to submit" is
+unjudgeable and is rejected at derivation — the criteria prompt requires every criterion
+to be checkable from workspace state or a produced artifact. Because the student's
+stated goal is *usually* broader than what the criteria can cover, `not_checked_note` is
+a **required** field on the criteria call's typed output (never nullable): an omission
+is a pydantic validation error the library retries, and if it is still blank after
+retries, `app/goal_judge.py::DEFAULT_NOT_CHECKED_NOTE` is substituted — a code-owned
+sentence naming what was not checked. There is no branch on the closing card that skips
+this line. "Achieved" means the stated criteria are met, in the student's sight — never
+that the broader goal is accomplished.
+
+### 42.5 Compaction, on every turn (D3/D11)
+
+`pydantic-ai-harness==0.4.0` is a pinned dependency — the same MIT harness
+`app/plan_tool.py` and `app/tool_overflow.py` already port from at a named commit — not
+a hand-rolled mechanism. `ClearToolResults` (zero-LLM, in-place blanking of old tool
+results below a token floor) is mounted in the `capabilities=[...]` list `app/agent_node.py`
+already builds for **every** turn, goal or not, closing `plans/agent-loop-hardening.md`
+§1 (rated HIGH independently of this feature) as a side effect.
+
+Goal turns additionally get `TieredCompaction`, which escalates when the history exceeds
+`goal_compaction_target_tokens` (100,000 — deliberately held below the 200,000-token
+threshold where `model_counselor_think`'s price doubles, per `config/settings.py`'s
+`long_context_threshold_tokens`). It runs the cheap pass again first and pays for a
+`SummarizingCompaction` only if that was not enough; the cheap tier is therefore
+constructed twice on a goal turn, on purpose, because the standalone one fires on a
+message count while the escalation fires on a token budget, and a history of few but
+enormous messages is over budget without ever reaching the count. `goal_compaction_target_tokens`
+is the single headroom knob: a second "reserve" subtracted from it would only ever be
+equivalent to setting it lower.
+
+The summarizing tier takes `model=None` and so **inherits the running agent's model**,
+which on a goal turn is already the cheap tier (`goal_agent_model_setting`) — no second
+model knob, and no second path to a model: resolving a setting string here would bypass
+`app/vertex.py`'s Vertex auth (ADR 0011, one seam). Its usage folds into the turn's
+shared `RunUsage`, so summary tokens are priced inside the agent's own slice at the
+agent's own rate and its request counts against `goal_max_model_requests` like any other
+— a summary is a real request, and the ledger says so. `keep_tokens` preserves an 8,000-token
+raw tail, `preserve_first_user_message=True` and `incremental=True` hold C2 and prevent
+summary decay.
+
+Both tiers **disclose themselves** (C4): each is subclassed in `app/agent_node.py`
+purely to detect that it really acted (0.4.0 exposes no compact-fired hook, so a real
+edit is a new list object) and to emit one settled `kind:"compaction"` step. The two
+carry different labels — blanking old tool results and rewriting earlier turns into a
+model-written summary are not the same event, and the student reads the label verbatim.
+A summarization that **fails** (timeout, rate limit, provider error) is logged and the
+un-summarized history is handed back rather than aborting the run: a goal run is the long
+unattended case, the cheap tier has already run, and the target is a cost guard rather
+than a context-window limit. No beat is emitted on that path — a compaction that did not
+happen is never claimed. No wrapper module: the capabilities are constructed directly
+from Settings values per ADR 0017, and `compaction_capabilities()` is the one function
+that decides which turn gets which tier.
+
+### 42.6 How the judge was measured
+
+`evals/goal_judge/` is a 32-case, hand-labeled, **synthetic** dataset (34 scored
+criteria; the loop didn't exist yet when it was built, so no real goal-run traces were
+available to label) scored on TPR/TNR/FPR separately, never raw accuracy — an
+always-"met" judge would score ~95% while catching nothing. The gate initially failed
+(TPR 0.882, then 0.824 across two unpinned runs), traced to the judge discounting typed
+`outcome`/`field_key`/`value` fields on mutation receipts in favor of wanting free-text
+summaries to restate the criterion, plus run-to-run sampling variance. The fix —
+rewriting `_receipt_text` to state each receipt's typed fact in plain language, plus
+pinning `temperature=0.0` — produced **TPR 1.000, TNR 1.000, FPR 0.000** on the same 32
+cases, with 6/6 correct on the adversarial (MT-Bench-style padding-attack) subset. This
+is one clean post-fix run; a confirmation re-run under the same pinned settings was
+launched and did not finish before the measuring session's time budget ran out (see
+`evals/goal_judge/REPORT-20260916T160355Z.md`). Treat TPR=1.000 as a strong single
+measurement, not demonstrated long-run stability.
+
+### 42.7 What is not done
+
+- **Phase 7 (10 real students' goal statements) has not run.** This is the plan's own
+  kill-gate: if most real statements decompose into vacuous or out-of-scope criteria,
+  the documented right answer is a cheap read-only "what's incomplete across my
+  workspace" pass instead — not more judge tuning.
+- **No real browser has exercised any part of this feature.** The frontend goal-status
+  surfaces (`GoalHeader`, `GoalVerdictCard`, `GoalBeat`, the dev tool-call gallery's nine
+  goal-status fixtures) are verified at the jsdom/unit level only.
+- **Four of the plan's Part 9 owner decisions were shipped at stated defaults, not
+  decided:** the approval gate ships unattended; the judge runs on the cheap tier
+  (contrary to the MT-Bench literature the plan cites, though our own measured
+  adversarial result did not reproduce that failure); there is no per-student monthly
+  cost ceiling; the agent runs on the cheap tier rather than the counselor tier.
+- **The §2.10 budget table is a projection, not a measurement** — the loop did not exist
+  when the cost spike that produced those numbers ran.
+- **`app/agent_node.py` is well past its 800-line cap** (~1,847 lines; the plan's own C6
+  correction predicted ~150–250 net new lines and actual growth was roughly +485).
+  Tracked in `TODOS.md` with a proposed four-module split for its own branch.
+
+See ADR 0041 for the full decision record and `plans/goal-mode-plan.md` for the complete
+design and its adversarial-review history.
+
+---
+
+*Companions: `specs/mvp1/PRD.md` (agent service product spec), `specs/mvp2/PRD.md` (full-stack app product spec), `specs/user-onboarding/plan/` (onboarding plan and phase record), `specs/school-data-v3/` (the graduated facts-store plan and its divergence record), `specs/essay-ai-panel/` (the essay AI panel's graduated plan and divergence record), `docs/DATABASE_GUIDE.md` (the facts-store data contract — the six reader views, fact states, and honesty rules), `PARKED.md` (the parked CDS system's file list, import edges, and revival steps), `docs/DEPLOY.md` (the deploy runbook), `docs/adr/` (decisions — Part I added ADRs 0016–0019; Part II added ADRs 0020–0031; hardening added ADR 0025; workspace/service and run/message parity added ADRs 0026–0030; profile/document/memory added ADR 0031; db-rewire to the CDS Library added ADR 0032; onboarding's reserved-settings-namespace and locked merge added ADR 0033; counselor response modes added ADR 0034; the in-app CDS extraction pipeline and admin write path added ADR 0036; the per-turn agent surface and the essay suggestion layer added ADR 0037, amending ADRs 0013 and 0030; the CollegeData facts store, in-process DB tools, and CDS-parking decision added ADR 0038; the admissions-fit Explore estimate added ADR 0039, superseded by ADR 0040, which cut the estimate back to the admit rate alone; goal mode's independent-judge iteration loop added ADR 0041, still Proposed pending the plan's real-student dogfood gate), `docs/research/` (stack survey). Keep this current as decisions change.*

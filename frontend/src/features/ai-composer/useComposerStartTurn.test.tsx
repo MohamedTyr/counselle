@@ -69,6 +69,7 @@ describe("useComposerStartTurn", () => {
       ok: true,
       sessionId: "session-1",
       responseMode: "quick",
+      goalMode: false,
     });
 
     expect(transport.createSession).toHaveBeenCalledWith({
@@ -77,6 +78,34 @@ describe("useComposerStartTurn", () => {
     });
     expect(transport.streamFirstMessage).not.toHaveBeenCalled();
     expect(transport.sendMessage).not.toHaveBeenCalled();
+  });
+
+  it("echoes an explicit goalMode through to the result without sending it to createSession", async () => {
+    const transport = transportMock();
+    const { result } = renderHook(() => useComposerStartTurn({ transport }));
+
+    await expect(
+      act(async () =>
+        result.current.submit(
+          "Get me into a top CS program",
+          BUILT_IN_SOURCE_CONFIG,
+          "quick",
+          true,
+        ),
+      ),
+    ).resolves.toEqual({
+      ok: true,
+      sessionId: "session-1",
+      responseMode: "quick",
+      goalMode: true,
+    });
+
+    // Session creation carries no goal_mode field (D10: it rides the first
+    // message, not the session) — only the returned echo carries it.
+    expect(transport.createSession).toHaveBeenCalledWith({
+      sourceConfig: BUILT_IN_SOURCE_CONFIG,
+      responseMode: "quick",
+    });
   });
 
   it("blocks duplicate submits while session creation is pending", async () => {

@@ -1,0 +1,171 @@
+@import "@fontsource-variable/geist";
+@import "@fontsource-variable/inter";
+@import "@fontsource-variable/instrument-sans";
+@import "@fontsource/instrument-serif/400-italic.css";
+@import "./interactions.css";
+
+/*
+ * Marketing tokens for the public landing page, deliberately independent
+ * from the workspace theme. Values are the Figma "Desktop - 6" frame
+ * (file V66rN97MQiP3ezpNpLL7MD), reproduced at its native 1440px width.
+ */
+.lp {
+  --lp-z-nav: 30;
+  --lp-z-backdrop: 40;
+  --lp-z-modal: 50;
+  --lp-bg: #f7fbf9;
+  --lp-ink: #121214;
+  --lp-ink-soft: #2a2f2d;
+  --lp-muted: #5c6562;
+  --lp-muted-2: #6b7370;
+  --lp-muted-3: #7c8582;
+  --lp-border: #e1e5e3;
+  --lp-panel: #eef1ef;
+  --lp-sheet: #fffffd;
+  --lp-green: #21b86b;
+  --lp-green-deep: #0a6b3d;
+  --lp-green-dark: #0f4d32;
+  --lp-green-tint: #e9f8ef;
+  --lp-red: #c4190f;
+  --lp-red-on-dark: #ff8f85;
+  --lp-hairline: rgba(18, 18, 20, 0.08);
+  --lp-footer-placeholder: #a8b0ac;
+  --lp-font: "Geist Variable", "Geist", system-ui, sans-serif;
+  --lp-font-hero: "Inter Variable", "Inter", system-ui, sans-serif;
+  --lp-font-request:
+    "Instrument Sans Variable", "Instrument Sans", system-ui, sans-serif;
+  --lp-font-serif: "Instrument Serif", Georgia, serif;
+  --lp-duration-feedback: 150ms;
+  --lp-duration-state: 200ms;
+  --lp-ease-feedback: ease-out;
+  --lp-ease-entrance: cubic-bezier(0.16, 1, 0.3, 1);
+
+  min-height: 100svh;
+  background: var(--lp-bg);
+  color: var(--lp-ink);
+  font-family: var(--lp-font);
+  font-size: 16px;
+  line-height: normal;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: clip;
+}
+.lp *,
+.lp *::before,
+.lp *::after {
+  box-sizing: border-box;
+}
+.lp :where(h1, h2, h3, p, ul, li, figure) {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.lp :where(button) {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+}
+.lp :where(a) {
+  color: inherit;
+  text-decoration: none;
+}
+.lp :where(img) {
+  display: block;
+}
+.lp-skip {
+  position: absolute;
+  left: 8px;
+  top: 8px;
+  padding: 8px 12px;
+  background: var(--lp-ink);
+  color: #fff;
+  border-radius: 8px;
+  transform: translateY(-200%);
+  z-index: 10;
+}
+.lp-skip:focus-visible {
+  transform: none;
+}
+
+/* The desktop composition; responsive.css reflows narrow screens without
+   shrinking text or interactive targets. Hero and footer bleed to the gutter. */
+.lp-canvas {
+  --lp-gutter: 24px;
+  --lp-content: 1392px;
+  /* Open sections sit inside the frame the hero and footer panels draw;
+     the panels' own content sits one step further in. */
+  --lp-inset: clamp(24px, 10vw - 104px, 40px);
+  --lp-panel-inset: 64px;
+  --lp-section-gap: clamp(96px, 8.4vw, 120px);
+  --lp-heading-gap: clamp(48px, 4.5vw, 64px);
+  width: 100%;
+  min-width: 1440px;
+  padding: var(--lp-gutter);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--lp-section-gap);
+}
+
+.lp-heading {
+  font-weight: 500;
+  font-size: 46px;
+  line-height: 1.12;
+  letter-spacing: -1.15px;
+  color: var(--lp-ink);
+  white-space: nowrap;
+}
+
+.lp :where(a, button):focus-visible {
+  outline: 2px solid var(--lp-green);
+  outline-offset: 2px;
+}
+/* The hero bleeds to the gutter; the sections after it keep the content width. */
+.lp-page {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--lp-section-gap);
+}
+.lp-main {
+  width: 100%;
+  max-width: var(--lp-content);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--lp-section-gap);
+}
+
+/* Figma rounds auto line heights up to whole pixels; the browser rounds to
+   nearest. These sizes are the ones where the two disagree by a pixel. */
+.lp-faq-contact,
+.lp-person-name {
+  line-height: 20px;
+}
+.lp-token,
+.lp-composer-text,
+.lp-question-text {
+  line-height: 21px;
+}
+.lp-choice-letter,
+.lp-question-eliminate {
+  line-height: 14px;
+}
+.lp-person-role,
+.lp-activity-add {
+  line-height: 16px;
+}
+
+/* Hidden form parts, used outside the lazy dialog too (the footer's trap). */
+.lp-wl-trap,
+.lp-wl-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

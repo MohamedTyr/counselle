@@ -21,7 +21,7 @@ from counselle_db.models import ProfileGroupResult, ProfileLeaf, ServiceError
 from counselle_db.service import get_facts, get_school_profile
 from domain.envelope import Citation, CitationEnvelope
 from domain.facts.models import PageStatus
-from domain.facts.state import BAND_CAPTION, fact_state
+from domain.facts.state import fact_state
 from domain.specs import (
     ColumnInput,
     MetricCellInput,
@@ -33,12 +33,6 @@ from domain.specs import (
     VizRow,
     VizRowInput,
 )
-
-# `class_profile.*` SAT/ACT band families -- the fact keys `app/facts/service.py`'s
-# `_BAND_SCALES` also names -- render `BAND_CAPTION` under the card exactly
-# once (plan §6a's `TabularRenderSpec.foot`), the same disclosure the facts
-# page attaches to a band group.
-_BAND_KEY_SUFFIXES = ("_p25", "_p75")
 
 # `CitationEnvelope` fields only -- used to pick the envelope-shaped subset
 # of a `get_facts_db_citation`-enriched row dict (which also carries
@@ -390,7 +384,6 @@ async def render_viz(
     candidate_registry = registry.fork()
     flat: list[CitationEnvelope] = []
     observed_ats: list[str | None] = []
-    band_fact_keys: set[str] = set()
     valid_cells = 0
     metric_choices = list(catalog.snapshot.fact_keys)
     for row_index, row in enumerate(rows):
@@ -434,17 +427,13 @@ async def render_viz(
                 if parsed is None:
                     domain = cell.fact_key.split(".", 1)[0]
                     choices = [ref for ref in metric_choices if ref.startswith(f"{domain}.")]
-                    reason = (
-                        f"unknown fact_key {cell.fact_key!r}" f"{_suggest(cell.fact_key, choices)}"
-                    )
+                    reason = f"unknown fact_key {cell.fact_key!r}{_suggest(cell.fact_key, choices)}"
                 else:
                     payload = facts[school.unitid]
                     envelope = _fact_envelope(payload, cell.fact_key)
                     if envelope is None:
                         reason = _rejection_reason(catalog, payload, cell.fact_key)
                     else:
-                        if cell.fact_key.endswith(_BAND_KEY_SUFFIXES):
-                            band_fact_keys.add(cell.fact_key)
                         observed_at = _fact_observed_at(payload, cell.fact_key)
             elif isinstance(cell, ProfileCellInput):
                 parsed_profile = _profile_ref(catalog, cell.profile_field)
@@ -539,7 +528,6 @@ async def render_viz(
         title=title or (" vs ".join(s.name for s in schools if s) or "Comparison"),
         columns=tuple(s for s in schools if s is not None),
         rows=tuple(resolved_rows),
-        foot=(BAND_CAPTION,) if band_fact_keys else (),
     )
     staged = list(viz_emitted)
     indexes = dict(viz_signature_indexes) if viz_signature_indexes is not None else None

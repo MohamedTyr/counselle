@@ -1,0 +1,122 @@
+.lp-filters {
+  position: absolute;
+  left: 16px;
+  top: 16px;
+  display: flex;
+  gap: 6px;
+  font-size: 12.5px;
+  white-space: nowrap;
+}
+.lp-filter {
+  padding: 5px 11px;
+  border-radius: 13px;
+  background: rgba(18, 18, 20, 0.05);
+  color: rgba(18, 18, 20, 0.72);
+}
+.lp-filter-active {
+  background: var(--lp-ink);
+  color: #fff;
+  font-weight: 500;
+}
+.lp-filters-fade {
+  left: auto;
+  top: 14px;
+  width: 56px;
+  height: 30px;
+  background: linear-gradient(90deg, rgba(255, 255, 253, 0) 0%, #fffffd 85%);
+  right: 0;
+}
+.lp-activity {
+  position: absolute;
+  left: 0;
+  height: 44px;
+  overflow: clip;
+  white-space: nowrap;
+  right: 0;
+}
+/* Filters and sheet edges stay still while the duplicated list moves. */
+.lp-activity-viewport {
+  position: absolute;
+  inset: 54px 0 24px;
+  overflow: clip;
+}
+.lp-activity-list,
+.lp-activity-cycle {
+  position: relative;
+}
+.lp-activity-highlight::before {
+  content: "";
+  position: absolute;
+  left: 8px;
+  top: 0;
+  height: 44px;
+  border-radius: 10px;
+  background: rgba(199, 115, 20, 0.11);
+  right: 8px;
+}
+.lp-activity-logo {
+  position: absolute;
+  left: 16px;
+  top: 8px;
+  border-radius: 8px;
+  object-fit: cover;
+  outline: 1px solid rgba(0, 0, 0, 0.1);
+  outline-offset: -1px;
+}
+.lp-activity-name {
+  position: absolute;
+  left: 54px;
+  top: 13px;
+  font-size: 14px;
+  color: var(--lp-ink);
+}
+.lp-activity-tag {
+  position: absolute;
+  top: 14px;
+  font-size: 12.5px;
+  color: var(--lp-green-deep);
+  right: 22px;
+}
+.lp-activity-add {
+  position: absolute;
+  top: 9px;
+  display: grid;
+  place-items: center;
+  min-width: 68px;
+  padding: 5px 11px 5px 9px;
+  background: var(--lp-ink);
+  border-radius: 13px;
+  font-weight: 500;
+  font-size: 12px;
+  color: #fff;
+  /* Inset from the highlight by the same 9px it has above and below. */
+  right: 17px;
+}
+/* Both labels share one cell, so the button morphs without resizing. */
+.lp-activity-add > span {
+  grid-area: 1 / 1;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.lp-activity-added {
+  opacity: 0;
+}
+/* Matches the bottom fade as the stage shows it: its lower half runs past
+   the card, so only the gentle upper half of that veil is ever visible. */
+.lp-activities-fade-top {
+  top: 54px;
+  width: 100%;
+  height: 40px;
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 253, 0.8) 0%,
+    rgba(255, 255, 253, 0) 100%
+  );
+}
+.lp-activities-fade {
+  top: 192px;
+  width: 100%;
+  height: 48px;
+  background: linear-gradient(180deg, rgba(255, 255, 253, 0) 0%, #fffffd 100%);
+}

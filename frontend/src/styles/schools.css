@@ -32,6 +32,61 @@
  * layer describing a mapping that no longer exists.
  */
 :root {
+  /* ---- academic comparison visual grammar ----
+   * Institutional distributions and bands stay neutral. Brand colour has one
+   * meaning here: the student's profile or local scenario position. */
+  --school-chances-panel-surface: var(--school-facts-panel-surface);
+  --school-chances-track: var(--school-chart-track);
+  --school-chances-band: var(--ink-faint);
+  --school-chances-divider: var(--hairline);
+  --school-chances-profile-outline: var(--brand-subtle-ink);
+  --school-chances-scenario: var(--brand);
+
+  /* ---- academic comparison v2 (school-chances-minimal-redesign §2.3) ----
+   * Institutional class data is a wash, not a solid. --school-chances-mark
+   * (full-strength --ink-secondary) is retired: this P1 deletion removed its
+   * last three consumers (academic-comparison-marks.tsx,
+   * AcademicComparisonPlot.tsx, GpaComparison.tsx) in one pass rather than
+   * the two-phase removal this comment originally expected. --*-you is
+   * the student's own mark and the only full-contrast object on the plot;
+   * --*-scenario (lime-500) is the hypothetical, never the real score.
+   *
+   * --school-chances-track, --school-chances-band and
+   * --school-chances-profile-outline are ALSO now zero-consumer dead tokens
+   * as of this same deletion (their only callers were the same three files),
+   * but retiring them was outside this pass's authorization — see the P1
+   * report for school-chances-redesign.
+   *
+   * The class silhouette is the data this plot exists to show, so it is not
+   * exempt from WCAG 1.4.11: the fill stays a 14% decorative wash and the
+   * EDGE carries the required 3:1 graphical-object contrast instead (a
+   * filled shape satisfies 1.4.11 via its boundary). 70% measures 2.99:1
+   * against the panel surface and fails; 71% is the lowest whole-percent
+   * mix of --ink-faint that clears 3:1 (measures 3.03:1) — kept at that
+   * floor, not a comfortable margin, so the edge stays visually subordinate
+   * to --*-you (9.69:1). The corridor tops out around 72% (3.10:1), past
+   * which the edge stops reading as subordinate to --*-you. */
+  --school-chances-class-fill: color-mix(
+    in oklch,
+    var(--ink-faint) 14%,
+    transparent
+  );
+  --school-chances-class-edge: color-mix(
+    in oklch,
+    var(--ink-faint) 71%,
+    transparent
+  );
+  /* The chance ramp, low to high. The amber stop is below 3:1 against the
+   * panel surface, so nothing that must be found by its edge alone uses a
+   * raw stop: text and the slider thumb take --chance-level-text. */
+  --school-chances-ramp-low: var(--chance-scale-low);
+  --school-chances-ramp-mid: var(--chance-scale-mid);
+  --school-chances-ramp-high: var(--success-solid);
+  --school-chances-typical-rule: var(--ink-faint);
+  --school-chances-axis: var(--hairline);
+  --school-chances-you: var(--brand-scale-3);
+  --school-chances-you-chip: var(--brand-subtle);
+
   /* ---- result card ---- */
   --school-card-surface: var(--surface-raised);
   --school-card-border: var(--edge);
@@ -161,3 +216,172 @@
    * places CSS needs it", and there were none.
    */
 }
+
+/*
+ * Fix round (school-chances-redesign, FIX 2/3/5): the chances plots' own
+ * additions — a settled-value crossfade, the pill's dual-timing grab scale,
+ * and the container query context `cqw` positioning needs.
+ */
+
+/* FIX 5: `cqw` container-query length units let `YouMark`/`ScrubbablePlot`
+ * position their rule, pill, hover ghost rule and click-to-edit hit target
+ * with `transform: translateX()` (compositor-only) instead of `left` (which
+ * forces a layout recalc on every `getBoundingClientRect()` read elsewhere
+ * on the page while it's mid-tween) — `1cqw` is 1% of the nearest
+ * `container-type: inline-size` ancestor's inline size, standing in for the
+ * `%` these used to resolve `left` against. Both the shape's own plot box
+ * (inside `ChartFigure`, unpadded — see chart-shell.tsx) and the
+ * `ScrubbablePlot` overlay stretch to this same panel's full width, so one
+ * declaration here is the correct query container for both trees. */
+[data-slot="gpa-comparison"],
+[data-slot="academic-comparison-plot"] {
+  container-type: inline-size;
+}
+
+/* FIX 3d: the pill's grab-scale is timed separately (160ms ease-out) from
+ * its 180ms cubic-bezier position tween (plan §7) — Tailwind's duration/ease
+ * utilities apply one timing to every property in one `transition-property`
+ * list, so this dual-timing transition is hand-written instead of composed
+ * from utility classes. */
+[data-slot="you-mark-pill"] {
+  transition-property: transform, scale;
+  transition-duration: 180ms, 160ms;
+  transition-timing-function: cubic-bezier(0.23, 1, 0.32, 1), ease-out;
+}
+/* FIX 5: `instant` only suppresses the POSITION tween — `transform` snaps
+ * 1:1 with the pointer during a drag (plan §7) — never the grab-scale.
+ * `pressed`/`instant` both flip from the same `dragging` boolean
+ * (`ScrubbablePlot.tsx`) in one React commit, so a shared `transition: none`
+ * here used to land in the same frame as the `scale-[0.96]` class and the
+ * press feedback never got to play; zeroing only the transform duration
+ * lets `scale` keep its own 160ms ease-out untouched. */
+[data-slot="you-mark-pill"][data-instant="true"] {
+  transition-duration: 0s, 160ms;
+}
+
+/* The verdict sentence crossfades in over 120ms when its wording changes —
+ * `key`'d in SchoolChancesPanel.tsx so a new sentence is a fresh DOM node
+ * whose `@starting-style` opacity this transition animates away from. The
+ * numbers update in place: they change on every frame of a scrub. */
+[data-slot="school-chances-interpretation-text"] {
+  transition: opacity 120ms ease-out;
+
+  @starting-style {
+    opacity: 0;
+  }
+}
+
+/* The chance screen's level colour: one attribute on the screen (and on the
+ * dot) sets both the solid used for marks and the darker step used for text,
+ * so the hero figure, its label, the dot and its pill always agree. The
+ * text step mixes toward the foreground to clear 4.5:1 in either theme. */
+/* --chance-level-on-solid: white on the low/mid stops measures 3.34:1 and
+ * 2.18:1, both under the 4.5:1 text floor — dark ink clears both (4.80:1,
+ * 7.36:1) and stays legible in the same "bright fill, dark ink" shape as
+ * --on-brand. --success-solid (high) is dark enough that white still clears
+ * 4.5:1 (5.39:1), so it keeps the inverse ink. */
+[data-level="low"] {
+  --chance-level-solid: var(--school-chances-ramp-low);
+  --chance-level-on-solid: var(--on-status-solid);
+}
+[data-level="mid"] {
+  --chance-level-solid: var(--school-chances-ramp-mid);
+  --chance-level-on-solid: var(--on-status-solid);
+}
+[data-level="high"] {
+  --chance-level-solid: var(--school-chances-ramp-high);
+  --chance-level-on-solid: var(--on-status-solid-inverse);
+}
+/* Set here, not as a utility: `cn` reads the custom `text-chrome` size as a
+ * colour and would drop a colour utility sitting beside it. */
+[data-slot="chance-graph-pill"] {
+  color: var(--chance-level-on-solid);
+}
+[data-level] {
+  --chance-level-text: color-mix(
+    in oklch,
+    var(--chance-level-solid) 72%,
+    var(--foreground)
+  );
+}
+[data-slot="chance-explorer"] [data-slot="slider-track"] {
+  background: color-mix(in oklch, var(--foreground) 12%, transparent);
+}
+[data-slot="chance-explorer"] [data-slot="slider-indicator"] {
+  background: var(--chance-level-solid);
+  transition: background-color 200ms ease;
+}
+[data-slot="chance-explorer"] [data-slot="slider-thumb"] {
+  border-color: var(--chance-level-text);
+  background: var(--school-chances-panel-surface);
+  transition-property: border-color, box-shadow, scale;
+  transition-duration: 200ms, 150ms, 160ms;
+}
+[data-slot="chance-explorer"] [data-slot="slider-thumb"]:active {
+  scale: 1.15;
+}
+[data-slot="chance-hero"],
+[data-slot="chance-graph-dot"] > span {
+  transition-property: color, background-color, box-shadow;
+  transition-duration: 200ms;
+  transition-timing-function: ease;
+}
+
+/* The curve wipes in from the left once per mount: a rare, first-look
+ * moment, never replayed by the slider. */
+.chance-graph-reveal {
+  clip-path: inset(0 0 0 0);
+  transition: clip-path 600ms cubic-bezier(0.23, 1, 0.32, 1);
+
+  @starting-style {
+    clip-path: inset(0 100% 0 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chance-graph-reveal {
+    transition: none;
+  }
+  [data-slot="you-mark-pill"],
+  [data-slot="school-chances-interpretation-text"] {
+    transition: none;
+  }
+}
+
+/*
+ * P4 SAT layout (school-chances-minimal-redesign §4): two compact lane
+ * rows sharing one visual scale instead of two full stacked copies of the
+ * ACT screen.
+ *
+ * `AcademicComparisonPlot.tsx` is shared with the ACT tab. Its label/value/
+ * plot sequence is now real DOM order (`valueSlot` prop, SatComparison.tsx)
+ * rather than a CSS `order` hack — defect 1 fix, school-chances-minimal-
+ * redesign: `display: contents` + `order` only reorders paint, never the
+ * DOM or accessibility tree a screen reader walks, so a reader heard the
+ * bare value before anything said what it was (WCAG 1.3.2). The row's
+ * internal 4px gap between label/value/plot/caveats now comes from the
+ * component's own `flex flex-col gap-1` (applied only when `valueSlot` is
+ * passed, i.e. only on this screen — ACT/GPA render unchanged).
+ *
+ * What's left here is purely cosmetic scoping: the <h3> becomes this row's
+ * 13px inline label (`--school-fact-caveat`, the same alias as
+ * `--ink-muted`), not the 16px semibold heading a second lane on the same
+ * card no longer needs (plan §4: "two headings on one card was already too
+ * many") — confined to this ancestor selector so ACT's own `<h3>` is
+ * untouched.
+ */
+[data-slot="sat-lane"] [data-slot="academic-comparison-lane"] h3 {
+  color: var(--school-fact-caveat);
+  font-size: 13px;
+}
+
+/*
+ * The callout-rail / marker-collision rules that used to live here
+ * (`[data-slot="academic-comparison-plot"] { container-type: inline-size }`,
+ * the GPA below/above-edge margins, the `@container (width < 160px)`
+ * value-row collapse) targeted DOM that died with `academic-comparison-marks.tsx`,
+ * `GpaComparisonMarkers.tsx` and `ScoreBandDetails.tsx` in the P1 shape
+ * rewrite (school-chances-minimal-redesign). `ClassShape`/`YouMark` position
+ * everything by the windowed axis instead of measured-width collision
+ * layout, so there is nothing left for these selectors to match.
+ */

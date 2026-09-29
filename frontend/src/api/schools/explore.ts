@@ -13,15 +13,31 @@
 
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 
+import { useAuthUser } from "@/app/auth";
 import { requestJson } from "@/api/http/client";
 
+export const schoolsExploreQueryKey = ["schools", "explore"] as const;
+
 export type Control = "public" | "private" | "private_for_profit";
-export type TestPolicy = "required" | "considered" | "not_required" | "not_reported";
+export type TestPolicy =
+  "required" | "considered" | "not_required" | "not_reported";
 export type Gender = "coed" | "women" | "men";
 export type CampusSettingFamily = "City" | "Suburb" | "Town" | "Rural";
 export type SizeBucket = "lt2k" | "2k-10k" | "10k-25k" | "gt25k";
-export type ScoreFit = "any" | "at_or_above_p25" | "inside_band" | "at_or_above_p75";
+export type ScoreFit =
+  "any" | "at_or_above_p25" | "inside_band" | "at_or_above_p75";
 export type ExclusionReason = "missing" | "not_reported";
+export type FitCategory = "Reach" | "Target" | "Safety" | "Unknown";
+
+/** Server-owned, derived from the school's admit rate alone. It is a
+ * planning classification about the school, never a client calculation and
+ * never a probability for one student. `admit_rate` is the validated rate
+ * the category came from, so the badge and the figure beside it are the
+ * same number. */
+export type FitEstimate = {
+  category: FitCategory;
+  admit_rate: number | null;
+};
 
 /** `app/facts/explore_models.py::RangeKey` -- the columns Phase 1's
  * projection actually populates, minus the ones the plan itself drops
@@ -132,6 +148,7 @@ export type ExploreSchoolCard = {
   state: string | null;
   website_url: string | null;
   fields: ExploreFields;
+  fit: FitEstimate;
 };
 
 export type Exclusion = {
@@ -170,15 +187,12 @@ export type ExploreResponse = {
   page_size: number;
   total: number;
   total_is_capped: boolean;
-  browsable_total: number;
-  catalog_total: number;
   exclusions: Exclusion[];
   sorted_null_tail: NullTail | null;
   control_counts: Record<Control, number>;
   narrowest: Narrowest | null;
   filter_options: FilterOptions;
   facts_observed_from: string | null;
-  band_caption: string;
   entrance_difficulty_note: string;
   majors_match_note: string;
   religious_affiliation_note: string;
@@ -256,13 +270,15 @@ export type ExploreQueryInput = {
  * (`page_size`), not a value the server would ever need tuned without a
  * matching client change. */
 export const EXPLORE_PAGE_SIZE = 24;
-
 function buildExploreSearchParams(
   query: ExploreQueryInput,
   page: number,
 ): URLSearchParams {
   const params = new URLSearchParams();
-  const set = (key: string, value: string | number | boolean | null | undefined) => {
+  const set = (
+    key: string,
+    value: string | number | boolean | null | undefined,
+  ) => {
     if (value === null || value === undefined || value === "") return;
     params.append(key, String(value));
   };
@@ -293,7 +309,10 @@ function buildExploreSearchParams(
   set("include_rolling", query.include_rolling || undefined);
   set("deadline_before", query.deadline_before);
   set("home_state", query.home_state);
-  set("score_fit", query.score_fit && query.score_fit !== "any" ? query.score_fit : undefined);
+  set(
+    "score_fit",
+    query.score_fit && query.score_fit !== "any" ? query.score_fit : undefined,
+  );
   set("sat_math", query.sat_math);
   set("sat_ebrw", query.sat_ebrw);
   set("act", query.act);
@@ -330,9 +349,11 @@ function buildExploreSearchParams(
 export function getExplore(
   query: ExploreQueryInput,
   page: number,
+  signal?: AbortSignal,
 ): Promise<ExploreResponse> {
   return requestJson<ExploreResponse>(
     `/schools/explore?${buildExploreSearchParams(query, page)}`,
+    { signal },
   );
 }
 
@@ -350,11 +371,15 @@ export function getMajors(q: string): Promise<MajorsResponse> {
  * the first page only -- it is identical across pages for one filter set.
  */
 export function useExplore(query: ExploreQueryInput, pages: number) {
+  const isAuthenticated = useAuthUser() !== null;
+
   return useQuery({
-    queryKey: ["schools", "explore", query, pages],
-    queryFn: async (): Promise<ExploreResponse> => {
+    queryKey: [...schoolsExploreQueryKey, query, pages],
+    queryFn: async ({ signal }): Promise<ExploreResponse> => {
       const responses = await Promise.all(
-        Array.from({ length: pages }, (_, index) => getExplore(query, index + 1)),
+        Array.from({ length: pages }, (_, index) =>
+          getExplore(query, index + 1, signal),
+        ),
       );
       const [first] = responses;
       if (!first) {
@@ -365,8 +390,10 @@ export function useExplore(query: ExploreQueryInput, pages: number) {
         schools: responses.flatMap((response) => response.schools),
       };
     },
-    // Q19: 60s. `keepPreviousData` so a refilter never flashes the results
-    // grid to a skeleton -- only the very first load does that.
+    // The endpoint is authenticated, but its answer is the school catalog --
+    // the same for every reader, so the cache is not owner-scoped.
+    enabled: isAuthenticated,
+    // Keeps the grid from blanking on a filter, sort, or page change.
     placeholderData: keepPreviousData,
     staleTime: 60_000,
   });

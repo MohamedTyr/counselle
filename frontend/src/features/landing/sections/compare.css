@@ -1,0 +1,342 @@
+.lp-compare {
+  --lp-compare-label: 34%;
+  --lp-compare-own: 22%;
+  --lp-compare-rise: 12px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  /* The table's own padding is part of the distance to the heading. */
+  gap: calc(var(--lp-heading-gap) - var(--lp-compare-rise));
+}
+/* Positioned, so the screen-reader labels scroll with the table. The
+   vertical padding is the room Acceptra's card rises into. */
+.lp-compare-scroll {
+  position: relative;
+  width: min(1040px, 100%);
+  padding: var(--lp-compare-rise) 0;
+  font-family: var(--lp-font-hero);
+}
+.lp-compare-frame {
+  position: relative;
+}
+/* Acceptra's column is a plan card behind its cells: white, standing taller
+   than the rows, with the Monthly plan's wash behind its name. */
+.lp-compare-frame::before {
+  content: "";
+  position: absolute;
+  left: var(--lp-compare-label);
+  top: calc(-1 * var(--lp-compare-rise));
+  bottom: calc(-1 * var(--lp-compare-rise));
+  width: var(--lp-compare-own);
+  background: #fff;
+  border: 1px solid var(--lp-hairline);
+  border-radius: 20px;
+}
+.lp-compare-table {
+  position: relative;
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+.lp-compare-table :where(th, td) {
+  padding: 0 12px 0 28px;
+  font-weight: 400;
+  text-align: left;
+}
+.lp-compare-table :where(th, td):first-child {
+  padding-left: 4px;
+}
+.lp-compare-table thead th {
+  padding-top: 28px;
+  padding-bottom: 22px;
+  vertical-align: bottom;
+  font-weight: 600;
+  font-size: 17px;
+  line-height: 22px;
+  letter-spacing: -0.17px;
+  color: var(--lp-ink);
+}
+.lp-compare-table thead th:first-child {
+  width: var(--lp-compare-label);
+  font-size: 24px;
+  line-height: 28px;
+  letter-spacing: -0.48px;
+}
+.lp-compare-table thead th:nth-child(2) {
+  position: relative;
+  isolation: isolate;
+  width: var(--lp-compare-own);
+}
+.lp-compare-table thead th:nth-child(2)::before {
+  content: "";
+  position: absolute;
+  inset: -2px 10px 8px;
+  z-index: -1;
+  border-radius: 12px;
+  background:
+    radial-gradient(
+      60% 45% at 100% 0%,
+      #ecb4f7 0%,
+      rgba(236, 180, 247, 0) 100%
+    ),
+    radial-gradient(70% 40% at 45% 0%, #a5e3ac 0%, rgba(165, 227, 172, 0) 100%),
+    radial-gradient(
+      55% 40% at 100% 100%,
+      #93d99c 0%,
+      rgba(147, 217, 156, 0) 100%
+    ),
+    #e4fbe8;
+}
+.lp-compare-logo {
+  width: 48px;
+  height: 48px;
+  margin-bottom: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
+  border-radius: 14px;
+  outline: 1px solid rgba(0, 0, 0, 0.1);
+  outline-offset: -1px;
+}
+.lp-compare-logo img {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+}
+
+.lp-compare-table tbody :where(th, td) {
+  height: 66px;
+  padding-top: 10px;
+  padding-bottom: 10px;
+  border-top: 1px solid var(--lp-hairline);
+  vertical-align: middle;
+  font-size: 14px;
+  line-height: 18px;
+  color: var(--lp-muted);
+}
+.lp-compare-table tbody th {
+  font-weight: 500;
+  font-size: 17px;
+  line-height: 24px;
+  letter-spacing: -0.17px;
+  color: var(--lp-ink);
+}
+.lp-compare-table tbody td:nth-child(2) {
+  font-weight: 500;
+  color: var(--lp-ink);
+}
+.lp-compare-table tbody tr:first-child td:nth-child(2) {
+  border-top-color: transparent;
+}
+/* The price row is words alone. */
+.lp-compare-table tbody td:not([data-state]) {
+  font-weight: 500;
+  font-size: 15px;
+  line-height: 20px;
+  color: var(--lp-ink);
+}
+/* A state is a seal beside its few words: a tick in ink, a dash or a cross
+   in grey. */
+.lp-compare-cell {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.lp-compare-icon {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  color: #a8b0ac;
+}
+td[data-state="yes"] .lp-compare-icon {
+  color: var(--lp-ink);
+}
+.lp-compare-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* The picker only exists where the table shows one alternative at a time. */
+.lp-compare-picker {
+  display: none;
+}
+
+/* Below the four-column width Acceptra stands beside one alternative,
+   chosen here, so every row reads across without sideways scrolling. */
+@media (max-width: 759px) {
+  .lp .lp-compare {
+    --lp-compare-label: 34%;
+    --lp-compare-own: 33%;
+  }
+  .lp-compare-picker {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 4px;
+  }
+  .lp-compare-picker-label {
+    font-size: 14px;
+    line-height: 20px;
+    color: var(--lp-muted);
+  }
+  .lp-compare-picker-track {
+    display: flex;
+    padding: 4px;
+    background: rgba(18, 18, 20, 0.05);
+    border-radius: 999px;
+  }
+  .lp-compare-picker button {
+    min-height: 44px;
+    padding: 0 18px;
+    border-radius: 999px;
+    font-weight: 500;
+    font-size: 15px;
+    line-height: 20px;
+    color: var(--lp-muted);
+    white-space: nowrap;
+    transition:
+      background-color var(--lp-duration-feedback) var(--lp-ease-feedback),
+      color var(--lp-duration-feedback) var(--lp-ease-feedback),
+      box-shadow var(--lp-duration-feedback) var(--lp-ease-feedback),
+      scale var(--lp-duration-feedback) var(--lp-ease-feedback);
+  }
+  .lp-compare-picker button[aria-pressed="true"] {
+    background: #fff;
+    box-shadow:
+      0 1px 2px rgba(18, 18, 20, 0.08),
+      0 0 0 1px rgba(18, 18, 20, 0.04);
+    color: var(--lp-ink);
+  }
+  .lp-compare-picker button:active {
+    scale: 0.96;
+  }
+  .lp-compare-picker button:focus-visible {
+    outline: 2px solid var(--lp-green);
+    outline-offset: 2px;
+  }
+  .lp .lp-compare-scroll {
+    overflow-x: visible;
+  }
+  .lp .lp-compare-frame {
+    min-width: 0;
+  }
+  .lp-compare-scroll[data-rival="chatgpt"] [data-option="counselor"],
+  .lp-compare-scroll[data-rival="counselor"] [data-option="chatgpt"] {
+    display: none;
+  }
+  .lp .lp-compare-table :where(th, td):first-child {
+    position: static;
+    padding-left: 4px;
+  }
+  .lp-compare-table :where(th, td) {
+    padding: 0 8px 0 16px;
+  }
+  .lp-compare-table thead th {
+    font-size: 15px;
+    line-height: 20px;
+  }
+  .lp-compare-table thead th:first-child {
+    font-size: 17px;
+    line-height: 22px;
+  }
+  .lp-compare-logo {
+    width: 40px;
+    height: 40px;
+    margin-bottom: 10px;
+    border-radius: 12px;
+  }
+  .lp-compare-logo img {
+    width: 24px;
+    height: 24px;
+  }
+  .lp-compare-table tbody :where(th, td) {
+    height: 72px;
+    font-size: 13.5px;
+  }
+  .lp-compare-table tbody th {
+    font-size: 15px;
+    line-height: 20px;
+  }
+  .lp-compare-table tbody td:not([data-state]) {
+    font-size: 14px;
+  }
+  .lp-compare-cell {
+    gap: 8px;
+  }
+  .lp-compare-icon {
+    width: 18px;
+    height: 18px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .lp-compare-picker button:active {
+    scale: none;
+  }
+}
+
+/* Narrow phones: each feature is a row of its own, its name across the top
+   and the two answers side by side under their names. The explicit table
+   roles keep it a table to assistive technology. */
+@media (max-width: 519px) {
+  .lp-compare-frame::before {
+    display: none;
+  }
+  .lp-compare-table,
+  .lp-compare-table :is(thead, tbody) {
+    display: block;
+  }
+  .lp-compare-table tr {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: 12px;
+  }
+  .lp .lp-compare-table :where(th, td),
+  .lp .lp-compare-table :where(th, td):first-child {
+    width: auto;
+    height: auto;
+    padding: 0;
+    border: 0;
+  }
+  .lp-compare-table thead th:first-child {
+    display: none;
+  }
+  .lp .lp-compare-table thead th {
+    padding: 14px 12px 12px;
+    font-size: 15px;
+  }
+  .lp .lp-compare-table thead th:nth-child(2) {
+    width: auto;
+  }
+  .lp .lp-compare-table thead th:nth-child(2)::before {
+    inset: 0;
+  }
+  .lp-compare-table tbody tr {
+    row-gap: 8px;
+    padding: 16px 12px;
+    border-top: 1px solid var(--lp-hairline);
+  }
+  .lp .lp-compare-table tbody th {
+    grid-column: 1 / -1;
+    font-size: 15px;
+    line-height: 20px;
+  }
+  .lp .lp-compare-table tbody td {
+    font-size: 14px;
+    line-height: 19px;
+  }
+  .lp-compare-cell {
+    align-items: flex-start;
+  }
+  .lp-compare-icon {
+    margin-top: 1px;
+  }
+}

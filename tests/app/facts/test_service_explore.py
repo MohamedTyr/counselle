@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 from decimal import Decimal
 from types import SimpleNamespace
-from typing import Any
+from typing import Any, cast
 
 import pytest
 
@@ -118,6 +118,15 @@ class _FakeCatalog:
     never touches it directly -- so a placeholder is enough."""
 
 
+def _fake_explore(main_row: dict[str, Any]) -> Any:
+    """Answer the page statement with one row and every ancillary one empty."""
+
+    async def explore(catalog: Any, statements: list[Any]) -> list[tuple[dict[str, Any], ...]]:
+        return [(main_row,), *[() for _ in statements[1:]]]
+
+    return explore
+
+
 async def test_explore_wire_payload_serializes_numeric_columns_as_json_numbers(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -156,18 +165,7 @@ async def test_explore_wire_payload_serializes_numeric_columns_as_json_numbers(
         undergraduates=1200,
     )
 
-    async def fake_explore(catalog: Any, statements: list[Any]) -> list[list[dict[str, Any]]]:
-        results: list[list[dict[str, Any]]] = []
-        for i, _ in enumerate(statements):
-            if i == 0:
-                results.append([main_row])
-            elif i in (1, 2):
-                results.append([{"n": 1}])
-            else:
-                results.append([])
-        return results
-
-    monkeypatch.setattr(_db_service, "explore", fake_explore)
+    monkeypatch.setattr(_db_service, "explore", _fake_explore(main_row))
 
     response = await run_explore(_FakeCatalog(), ExploreQuery(), _fake_settings())  # type: ignore[arg-type]
     payload = json.loads(response.model_dump_json())
@@ -178,3 +176,41 @@ async def test_explore_wire_payload_serializes_numeric_columns_as_json_numbers(
     assert isinstance(fields["grad_rate_6y"], (int, float))
     assert not isinstance(fields["grad_rate_6y"], str)
     assert isinstance(fields["undergraduates"], int)
+
+
+@pytest.mark.parametrize(
+    ("admit_rate", "category"),
+    [
+        (Decimal("4.5"), "Reach"),
+        (Decimal("30"), "Target"),
+        (Decimal("72"), "Safety"),
+        (None, "Unknown"),
+        # A column that is out of range is not evidence, and classifies nothing.
+        (Decimal("140"), "Unknown"),
+    ],
+)
+async def test_every_card_is_classified_by_its_admit_rate_alone(
+    monkeypatch: pytest.MonkeyPatch, admit_rate: object, category: str
+) -> None:
+    """The card's whole estimate: one column in, one category out."""
+    main_row: dict[str, Any] = dict.fromkeys(EXPLORE_COLUMNS)
+    main_row.update(
+        school_id=1,
+        name="Test University",
+        city="Testville",
+        state="CA",
+        official_website="https://example.edu",
+        facts_updated_at=None,
+        total_count=1,
+        control="public",
+        admit_rate=admit_rate,
+    )
+    monkeypatch.setattr(_db_service, "explore", _fake_explore(main_row))
+
+    response = await run_explore(_FakeCatalog(), ExploreQuery(), _fake_settings())  # type: ignore[arg-type]
+    fit = response.schools[0].fit
+
+    assert fit.category == category
+    # The rate travels with the category, so the card cannot print a number
+    # that disagrees with the badge beside it.
+    assert fit.admit_rate == (None if category == "Unknown" else float(cast(Decimal, admit_rate)))

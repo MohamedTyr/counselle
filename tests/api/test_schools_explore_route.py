@@ -36,27 +36,22 @@ def _empty_explore_response() -> ExploreResponse:
     return ExploreResponse(
         schools=(),
         page=1,
-        page_size=20,
+        page_size=24,
         total=0,
         total_is_capped=False,
-        browsable_total=0,
-        catalog_total=0,
         exclusions=(),
         sorted_null_tail=None,
-        control_counts={},
+        control_counts={"public": 0, "private": 0, "private_for_profit": 0},
         narrowest=None,
         filter_options=FilterOptions(region=(), campus_setting=(), religious_affiliation=()),
         facts_observed_from=None,
-        band_caption="",
         entrance_difficulty_note="",
         majors_match_note="",
         religious_affiliation_note="",
     )
 
 
-def test_explore_route_binds_with_no_query_params(monkeypatch: Any) -> None:
-    """The exact repro: no params at all used to 500 with a pydantic
-    ValidationError on the `_HAS_DEFAULT_FACTORY` sentinel."""
+def _route_client(monkeypatch: Any) -> tuple[TestClient, AsyncMock]:
     mock = AsyncMock(return_value=_empty_explore_response())
     monkeypatch.setattr(schools_facts_routes, "run_explore", mock)
     app = FastAPI()
@@ -64,8 +59,14 @@ def test_explore_route_binds_with_no_query_params(monkeypatch: Any) -> None:
     app.dependency_overrides[current_active_user] = _test_user
     app.state.runtime = SimpleNamespace(deps=SimpleNamespace(catalog=object()))
     app.state.settings = object()
+    return TestClient(app), mock
 
-    client = TestClient(app)
+
+def test_explore_route_binds_with_no_query_params(monkeypatch: Any) -> None:
+    """The exact repro: no params at all used to 500 with a pydantic
+    ValidationError on the `_HAS_DEFAULT_FACTORY` sentinel."""
+    client, mock = _route_client(monkeypatch)
+
     response = client.get("/v1/schools/explore")
 
     assert response.status_code == 200
@@ -73,18 +74,12 @@ def test_explore_route_binds_with_no_query_params(monkeypatch: Any) -> None:
     assert query.state == []
     assert query.region == []
     assert query.include_missing == []
+    assert response.headers["Cache-Control"] == "private, max-age=60"
 
 
 def test_explore_route_binds_repeated_query_params_into_lists(monkeypatch: Any) -> None:
-    mock = AsyncMock(return_value=_empty_explore_response())
-    monkeypatch.setattr(schools_facts_routes, "run_explore", mock)
-    app = FastAPI()
-    app.include_router(schools_facts_routes.router, prefix="/v1")
-    app.dependency_overrides[current_active_user] = _test_user
-    app.state.runtime = SimpleNamespace(deps=SimpleNamespace(catalog=object()))
-    app.state.settings = object()
+    client, mock = _route_client(monkeypatch)
 
-    client = TestClient(app)
     response = client.get("/v1/schools/explore?state=CA&state=NY")
 
     assert response.status_code == 200

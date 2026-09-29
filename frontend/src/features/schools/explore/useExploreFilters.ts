@@ -3,7 +3,7 @@ import { useSearchParams } from "react-router";
 
 import {
   defaultFilters,
-  defaultProfile,
+  defaultExploreAssumptions,
   defaultSortKey,
   rangeDescriptors,
 } from "@/features/schools/explore/explore-config";
@@ -16,7 +16,7 @@ import type {
   ScoreFit,
   SortDirection,
   SortKey,
-  StudentProfile,
+  ExploreAssumptions,
   TestPolicy,
 } from "@/features/schools/explore/explore-types";
 
@@ -94,7 +94,12 @@ const ENUM_MEMBERS = {
   control: ["public", "private", "private_for_profit"] as Control[],
   gender: ["coed", "women", "men"] as Gender[],
   scoreFit: ["at_or_above_p25", "inside_band", "at_or_above_p75"] as ScoreFit[],
-  testPolicy: ["required", "considered", "not_required", "not_reported"] as TestPolicy[],
+  testPolicy: [
+    "required",
+    "considered",
+    "not_required",
+    "not_reported",
+  ] as TestPolicy[],
 };
 
 type EnumKey = keyof typeof ENUM_MEMBERS;
@@ -148,19 +153,31 @@ function parseNumber(raw: string | null): number | null {
 
 function readFilters(params: URLSearchParams): ExploreFilters {
   const ranges = Object.fromEntries(
-    rangeDescriptors.map((descriptor) => [descriptor.key, parseRange(params.get(descriptor.key))]),
+    rangeDescriptors.map((descriptor) => [
+      descriptor.key,
+      parseRange(params.get(descriptor.key)),
+    ]),
   ) as ExploreFilters["ranges"];
 
   const lists = Object.fromEntries(
-    Object.entries(LIST_PARAMS).map(([key, param]) => [key, parseList(params.get(param))]),
+    Object.entries(LIST_PARAMS).map(([key, param]) => [
+      key,
+      parseList(params.get(param)),
+    ]),
   ) as Pick<ExploreFilters, ListKey>;
 
   const strings = Object.fromEntries(
-    Object.entries(STRING_PARAMS).map(([key, param]) => [key, params.get(param)]),
+    Object.entries(STRING_PARAMS).map(([key, param]) => [
+      key,
+      params.get(param),
+    ]),
   ) as Record<NullableStringKey, string | null>;
 
   const flags = Object.fromEntries(
-    Object.entries(FLAG_PARAMS).map(([key, param]) => [key, params.get(param) === "1"]),
+    Object.entries(FLAG_PARAMS).map(([key, param]) => [
+      key,
+      params.get(param) === "1",
+    ]),
   ) as Pick<ExploreFilters, FlagKey>;
 
   return {
@@ -178,7 +195,10 @@ function readFilters(params: URLSearchParams): ExploreFilters {
   };
 }
 
-function readSort(params: URLSearchParams): { key: SortKey; direction: SortDirection } {
+function readSort(params: URLSearchParams): {
+  key: SortKey;
+  direction: SortDirection;
+} {
   const raw = params.get("sort") ?? DEFAULT_SORT;
   const [key, direction] = raw.split(":");
   const validKey: SortKey[] = [
@@ -199,10 +219,10 @@ function readSort(params: URLSearchParams): { key: SortKey; direction: SortDirec
   };
 }
 
-function readProfile(params: URLSearchParams): StudentProfile {
+function readExploreAssumptions(params: URLSearchParams): ExploreAssumptions {
   return {
     act: parseNumber(params.get("act")),
-    homeState: params.get("home") ?? defaultProfile.homeState,
+    homeState: params.get("home") ?? defaultExploreAssumptions.homeState,
     satEbrw: parseNumber(params.get("satebrw")),
     satMath: parseNumber(params.get("satm")),
   };
@@ -211,7 +231,7 @@ function readProfile(params: URLSearchParams): StudentProfile {
 function writeFilters(
   params: URLSearchParams,
   filters: ExploreFilters,
-  profile: StudentProfile,
+  assumptions: ExploreAssumptions,
   sort: { key: SortKey; direction: SortDirection },
   page: number,
 ) {
@@ -226,10 +246,16 @@ function writeFilters(
 
   set("q", filters.query);
   set("include", filters.includeMissing.join(","));
-  set("home", profile.homeState);
-  set("satm", profile.satMath === null ? null : String(profile.satMath));
-  set("satebrw", profile.satEbrw === null ? null : String(profile.satEbrw));
-  set("act", profile.act === null ? null : String(profile.act));
+  set("home", assumptions.homeState);
+  set(
+    "satm",
+    assumptions.satMath === null ? null : String(assumptions.satMath),
+  );
+  set(
+    "satebrw",
+    assumptions.satEbrw === null ? null : String(assumptions.satEbrw),
+  );
+  set("act", assumptions.act === null ? null : String(assumptions.act));
   set("page", page <= 1 ? null : String(page));
 
   const sortValue = `${sort.key}:${sort.direction}`;
@@ -258,11 +284,13 @@ function writeFilters(
 
 export type ExploreState = {
   filters: ExploreFilters;
-  profile: StudentProfile;
+  /** URL-local filters and institutional-band preview values. They pick
+   * what a card displays; nothing here reaches the server-owned band. */
+  assumptions: ExploreAssumptions;
   sort: { key: SortKey; direction: SortDirection };
   page: number;
   setFilters: (update: (current: ExploreFilters) => ExploreFilters) => void;
-  setProfile: (profile: StudentProfile) => void;
+  setAssumptions: (assumptions: ExploreAssumptions) => void;
   setSort: (sort: { key: SortKey; direction: SortDirection }) => void;
   setRange: (key: RangeKey, range: NumericRange) => void;
   toggleIncludeMissing: (key: RangeKey) => void;
@@ -276,27 +304,32 @@ export function useExploreFilters(): ExploreState {
   // Lazy initializers, so the URL is read exactly once. After mount this
   // hook owns the state and writes to the URL; reading back on every
   // render would fight the debounce and drop in-flight keystrokes.
-  const [filters, setFiltersState] = useState<ExploreFilters>(() => readFilters(searchParams));
-  const [profile, setProfile] = useState<StudentProfile>(() => readProfile(searchParams));
+  const [filters, setFiltersState] = useState<ExploreFilters>(() =>
+    readFilters(searchParams),
+  );
+  const [assumptions, setAssumptions] = useState<ExploreAssumptions>(() =>
+    readExploreAssumptions(searchParams),
+  );
   const [sort, setSort] = useState(() => readSort(searchParams));
   const [page, setPage] = useState(() => {
     const raw = Number(searchParams.get("page") ?? "1");
     return Number.isFinite(raw) && raw >= 1 ? Math.floor(raw) : 1;
   });
 
-  // A filter, sort, or profile change starts the result set over at one
+  // A filter, sort, or Explore-assumption change starts the result set over at one
   // page -- only "Load more" itself grows `page`.
   useEffect(() => {
+    // Page is URL-backed state, intentionally reset as part of a filter change.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setPage(1);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters, profile, sort]);
+  }, [assumptions, filters, sort]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
       setSearchParams(
         (current) => {
           const next = new URLSearchParams(current);
-          writeFilters(next, filters, profile, sort, page);
+          writeFilters(next, filters, assumptions, sort, page);
           return next;
         },
         { replace: true },
@@ -304,11 +337,14 @@ export function useExploreFilters(): ExploreState {
     }, URL_WRITE_DEBOUNCE_MS);
 
     return () => clearTimeout(timer);
-  }, [filters, page, profile, setSearchParams, sort]);
+  }, [assumptions, filters, page, setSearchParams, sort]);
 
-  const setFilters = useCallback((update: (current: ExploreFilters) => ExploreFilters) => {
-    setFiltersState(update);
-  }, []);
+  const setFilters = useCallback(
+    (update: (current: ExploreFilters) => ExploreFilters) => {
+      setFiltersState(update);
+    },
+    [],
+  );
 
   const setRange = useCallback((key: RangeKey, range: NumericRange) => {
     setFiltersState((current) => ({
@@ -336,14 +372,25 @@ export function useExploreFilters(): ExploreState {
       filters,
       loadMore,
       page,
-      profile,
+      assumptions,
       setFilters,
-      setProfile,
+      setAssumptions,
       setRange,
       setSort,
       sort,
       toggleIncludeMissing,
     }),
-    [clearAll, filters, loadMore, page, profile, setFilters, setRange, sort, toggleIncludeMissing],
+    [
+      assumptions,
+      clearAll,
+      filters,
+      loadMore,
+      page,
+      setAssumptions,
+      setFilters,
+      setRange,
+      sort,
+      toggleIncludeMissing,
+    ],
   );
 }

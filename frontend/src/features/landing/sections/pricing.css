@@ -1,0 +1,152 @@
+.lp-pricing {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--lp-heading-gap);
+}
+/* Plan cards: a white card holding a tinted panel (name, price, action)
+   above the feature list. Each plan has its own wash of colour. */
+.lp-plans {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: clamp(20px, 2.2vw, 32px);
+  font-family: var(--lp-font-hero);
+}
+.lp-plan {
+  flex: 0 1 312px;
+  min-width: 0;
+  padding: 8px 8px 60px;
+  background: #fff;
+  border: 1px solid var(--lp-hairline);
+  border-radius: 20px;
+  color: var(--lp-ink);
+}
+/* The plan we point people to is drawn a size up. */
+.lp-plan-monthly {
+  zoom: 1.07;
+}
+.lp-plan-top {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 22px 18px 22px;
+  border-radius: 12px;
+  background: var(--lp-plan-wash);
+}
+.lp-plan-free {
+  --lp-plan-wash:
+    radial-gradient(
+      60% 45% at 100% 0%,
+      #e8a3f7 0%,
+      rgba(232, 163, 247, 0) 100%
+    ),
+    radial-gradient(70% 40% at 45% 0%, #ff9c9c 0%, rgba(255, 156, 156, 0) 100%),
+    radial-gradient(
+      55% 40% at 100% 100%,
+      #ff9494 0%,
+      rgba(255, 148, 148, 0) 100%
+    ),
+    #f8d9d9;
+}
+.lp-plan-monthly {
+  --lp-plan-wash:
+    radial-gradient(
+      60% 45% at 100% 0%,
+      #ecb4f7 0%,
+      rgba(236, 180, 247, 0) 100%
+    ),
+    radial-gradient(70% 40% at 45% 0%, #a5e3ac 0%, rgba(165, 227, 172, 0) 100%),
+    radial-gradient(
+      55% 40% at 100% 100%,
+      #93d99c 0%,
+      rgba(147, 217, 156, 0) 100%
+    ),
+    #e4fbe8;
+}
+.lp-plan-yearly {
+  --lp-plan-wash:
+    radial-gradient(
+      60% 45% at 100% 0%,
+      #e7a2ff 0%,
+      rgba(231, 162, 255, 0) 100%
+    ),
+    radial-gradient(70% 40% at 45% 0%, #a9b8ff 0%, rgba(169, 184, 255, 0) 100%),
+    radial-gradient(
+      55% 40% at 100% 100%,
+      #a3b3ff 0%,
+      rgba(163, 179, 255, 0) 100%
+    ),
+    #e7eaff;
+}
+.lp-plan-tier {
+  font-weight: 600;
+  font-size: 17px;
+  line-height: 22px;
+  white-space: nowrap;
+}
+.lp-plan-price-row {
+  margin-top: 52px;
+  display: flex;
+  align-items: baseline;
+  gap: 2px;
+  white-space: nowrap;
+}
+.lp-plan-price {
+  font-weight: 700;
+  font-size: 42px;
+  line-height: 50px;
+  letter-spacing: -0.84px;
+}
+.lp-plan-period {
+  font-size: 15px;
+  line-height: 20px;
+  letter-spacing: 0.15px;
+  color: #2a2f2d;
+}
+.lp-plan-note {
+  min-height: 36px;
+  margin-top: 14px;
+  font-size: 13px;
+  line-height: 18px;
+}
+.lp-plan-button {
+  width: 100%;
+  min-height: 44px;
+  margin-top: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #0a0a0b;
+  border-radius: 999px;
+  font-weight: 500;
+  font-size: 14px;
+  line-height: 18px;
+  letter-spacing: 0.14px;
+  color: #fff;
+  white-space: nowrap;
+}
+.lp .lp-plan-button::after {
+  background: #fff;
+}
+.lp-plan-features {
+  margin-top: 36px;
+  padding: 0 14px 0 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+.lp-plan-features li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 14.5px;
+  line-height: 22px;
+  letter-spacing: 0.14px;
+}
+.lp-plan-features li img {
+  flex: none;
+  margin-top: 3px;
+}
