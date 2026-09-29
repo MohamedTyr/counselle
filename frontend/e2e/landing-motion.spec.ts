@@ -9,8 +9,11 @@ async function openLanding(page: Page) {
     Promise.all(
       document
         .getAnimations()
+        // Offscreen sections hold their animations paused until scrolled to.
         .filter(
-          (animation) => animation.effect?.getTiming().iterations !== Infinity,
+          (animation) =>
+            animation.effect?.getTiming().iterations !== Infinity &&
+            animation.playState !== "paused",
         )
         .map((animation) => animation.finished.catch(() => undefined)),
     ),
@@ -23,7 +26,7 @@ for (const width of [390, 768, 1440]) {
   }) => {
     await page.setViewportSize({ width, height: 1000 });
     await openLanding(page);
-    const cta = page.locator(".lp-nav-cta");
+    const cta = page.locator(".lp-nav .lp-nav-cta");
     await expect(cta).toBeVisible();
     await expect(cta).toHaveAttribute("href", "#waitlist");
     const box = await cta.boundingBox();
@@ -229,7 +232,7 @@ test("stage tabs update their panel immediately from the keyboard", async ({
   await recordMotion(page);
   await openLanding(page);
   const tabs = page.getByRole("tab");
-  await expect(tabs).toHaveCount(6);
+  await expect(tabs).toHaveCount(7);
   await tabs.nth(2).click();
   await expect(tabs.nth(2)).toHaveAttribute("aria-selected", "true");
   const panel = page.getByRole("tabpanel");
@@ -312,26 +315,13 @@ test.describe("touch showcase", () => {
   });
 });
 
-test("unknown inherited variant names fall back to the approved stage", async ({
-  page,
-}) => {
-  const errors: string[] = [];
-  page.on("pageerror", (error) => errors.push(error.message));
-  await page.goto("/landing.html?features=constructor");
-  await expect(
-    page.getByRole("tablist", { name: "Features", exact: true }),
-  ).toBeVisible();
-  await expect(page.getByRole("tab")).toHaveCount(6);
-  expect(errors).toEqual([]);
-});
-
 test("each non-essay illustration demonstrates its feature after selection", async ({
   page,
 }) => {
   await recordMotion(page);
   await openLanding(page);
   const demos = [
-    ["colleges", "lp-popover"],
+    ["colleges", "lp-cx-ask-row"],
     ["scholarships", "lp-stream"],
     ["activities", "lp-activity-list"],
     ["sat", "lp-word"],

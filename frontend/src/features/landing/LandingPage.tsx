@@ -1,3 +1,4 @@
+import { lazy, Suspense } from "react";
 import "./landing.css";
 import { Hero } from "./sections/Hero";
 import { Features } from "./sections/Features";
@@ -9,8 +10,14 @@ import { Footer } from "./sections/Footer";
 import { Testimonials } from "./sections/Testimonials";
 import { StructuredData } from "./StructuredData";
 import { useLandingMotion } from "./useLandingMotion";
-import { WaitlistDialog } from "./waitlist/WaitlistDialog";
 import { useWaitlistDialog } from "./waitlist/useWaitlistDialog";
+
+/** Nothing renders until the first open, so the dialog loads on demand. */
+const WaitlistDialog = lazy(() =>
+  import("./waitlist/WaitlistDialog").then((module) => ({
+    default: module.WaitlistDialog,
+  })),
+);
 import "./responsive.css";
 
 export function LandingPage() {
@@ -34,14 +41,18 @@ export function LandingPage() {
         </main>
         <Footer />
       </div>
-      <WaitlistDialog
-        open={waitlist.open}
-        request={waitlist.request}
-        trigger={waitlist.trigger}
-        container={landingRef}
-        onClose={waitlist.close}
-        onSide={waitlist.showSide}
-      />
+      {waitlist.request && (
+        <Suspense fallback={null}>
+          <WaitlistDialog
+            open={waitlist.open}
+            request={waitlist.request}
+            trigger={waitlist.trigger}
+            container={landingRef}
+            onClose={waitlist.close}
+            onSide={waitlist.showSide}
+          />
+        </Suspense>
+      )}
     </div>
   );
 }

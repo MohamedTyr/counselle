@@ -14,6 +14,9 @@ export default defineConfig({
   build: {
     ...base.build,
     outDir: "dist-landing",
+    // Raster art stays a cacheable file: inlined, the marquee's four passes
+    // would copy each logo into the HTML four times.
+    assetsInlineLimit: (file) => (file.endsWith(".svg") ? undefined : false),
     emptyOutDir: true,
     rolldownOptions: {
       input: {

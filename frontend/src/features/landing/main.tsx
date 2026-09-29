@@ -11,8 +11,10 @@ const page = (
     <LandingPage />
   </StrictMode>
 );
-// The production page arrives prerendered; the dev server serves an empty root.
-if (root.hasChildNodes()) hydrateRoot(root, page);
+// The production page arrives prerendered, so it paints before hydration takes
+// the main thread; the dev server serves an empty root.
+if (root.hasChildNodes())
+  requestAnimationFrame(() => setTimeout(() => hydrateRoot(root, page)));
 else createRoot(root).render(page);
 
 // The explicit preview stays available to signed-in users. The public root
