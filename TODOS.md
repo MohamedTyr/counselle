@@ -2,26 +2,42 @@
 
 ## Landing launch: what is left after the launch pass
 
-`plans/landing-launch-plan.md` is built: PR 1 is merged and deployed to `https://acceptra.ai` (2026-09-29), production verification (§5.7) passes, and PR 2's cleanliness and performance work is on `refactor/landing-cleanliness`. What the go-live runbook (§5) still needs from the owner, and why each is open:
+`plans/landing-launch-plan.md` and `plans/landing-finalize-plan.md` are built and deployed to `https://acceptra.ai`. Production equals `main`: deploy only with `npm run deploy:landing` (`docs/DEPLOY.md` § The public landing site). The PostHog overview is the project's primary dashboard ("Acceptra: launch overview"), emailed weekly on Mondays. What is still open, and why:
 
-- **Re-enable DNSSEC** (§5.1.4): the zone moved to Cloudflare with DNSSEC off, as the runbook requires. Turn it on in Cloudflare and paste the DS record at Spaceship. The deploy token (`.env.deploy`) has no DNSSEC permission.
-- **Turn off Cloudflare Web Analytics** on the Pages project (Metrics). It injects a `static.cloudflareinsights.com` beacon the privacy policy doesn't mention, and the enforced CSP now blocks it, so it only produces a console error. The deploy token can't reach that setting.
-- **Workers Paid** (D-5), before any launch spike: `/ingest` and `/api/waitlist` share the free 100k requests a day.
-- **Indexing and previews** (§5.9.1–4): Search Console (submit `sitemap.xml`, request indexing for `/`, `/privacy`, `/terms`), Bing Webmaster Tools, Brave, the Rich Results Test, and real WhatsApp, iMessage and LinkedIn share previews. All need the owner's accounts.
-- **PageSpeed Insights baseline** (§5.9.5): the keyless API quota was exhausted on launch day, so the baseline is Lighthouse 13.5 mobile run locally against production after PR 2's deploy (2026-09-29): Performance 93 on all three runs (LCP 2.6 s, CLS 0), SEO 100, Best Practices 92, with analytics live. Best Practices loses points only to the console error from the blocked Web Analytics beacon (above). Run PSI mobile once from the owner's browser and record it here.
-- **An external uptime check** on `/` and `/privacy` (§5.8).
-- **Deploys are direct uploads**, not Git integration (D-7 recommended Git; the project was created without it and can never switch). After each merge to `main`, deploy from `frontend/`: `npm run build:landing && npx wrangler pages deploy --project-name acceptra --branch main`.
-- **D-6 and the booking calendar:** confirm the mentor calls, the counselor view and the marquee logos are described accurately, and that the Google appointment schedule has open slots.
-- **Founders and profiles are empty.** `FOUNDERS` and `PROFILES` in `frontend/src/features/landing/brand.ts` drive the "Who is behind Acceptra?" FAQ entry, `Organization.founder` and `Organization.sameAs`; nothing renders until they are filled in with real names, LinkedIn URLs and official profile URLs. Add `twitter:site` to `landing.html` once the X handle exists.
-- **The site icon is derived, not designed.** `public-landing/icon.svg` (and every PNG/ICO generated from it) and `assets/acceptra-glyph.svg` are the wordmark's "A" on the brand green, standing in for a designed square mark. Regenerate the PNG set from the designed mark when it exists.
-- **Lighthouse after PR 2: 94 mobile (median of 92, 96, 94), locally,** under CPU load from other processes, with no slow-LCP runs; before PR 2 the same machine gave 76–96. SEO 100, Best Practices 100, CLS 0; analytics is off locally, so production PSI is the number that counts. Accessibility is 97 because of contrast inside the `aria-hidden` illustrations (below).
-- **The landing e2e suite passes 19/19.** The five failures recorded before the launch pass are resolved: the 390px nav CTA and compare picker are 44px, every stage blurb shares one grid cell so the stage keeps one height, and three specs that assumed the essay tab opens first now choose it. One more spec failed about one run in four under the dev server's StrictMode double mount, before this branch too; it now compares against what mounting created.
-- **The app build still renders `LandingPage`** (`src/app/router.tsx`), where `/api/waitlist` doesn't exist, so a signup there shows the generic error. No worse than before, and the app isn't deployed; decide at B6.
-- **Deferred from the launch pass** (`plans/landing-launch-plan.md` §8), none of them needed to launch:
-  - Turnstile on the waitlist, if the WAF rate limit and host check prove not enough.
+**Owner, security and money:**
+- **2FA** on Cloudflare (a single Super Administrator), Spaceship and PostHog.
+- **Workers Paid** (D-5), before any launch spike: `/ingest` and `/api/waitlist` share the free 100k requests a day, so a spike stops signups until 00:00 UTC.
+- **The 29 raw-IP PostHog events** (acceptra.ai, before 09:04 UTC on 2026-09-29, when "Discard client IP data" was turned on). They are personless, so no person delete reaches them, and self-service data deletion is not enabled for the project: file a data-deletion request in the PostHog UI. Until then the privacy page's "does not keep the address itself" is untrue for those events. Every later event has no `$ip`.
+- **Honesty calls on the live page** (principle 3), default remove unless sourced or consented: the three testimonials; the mentor calls, the counselor view and the university logos (D-6); "$10,000 counselor", "$140–300 an hour" and the ChatGPT comparison row. Also confirm the Google appointment schedule has open slots.
+
+**Cloudflare work waiting on a short-lived token** (Zone Read, Zone Settings Edit, DNS Edit, SSL and Certificates Edit, Account Notifications Edit; TTL 3 days, never stored in `.env.deploy`, deleted after). Neither the `.env.deploy` token nor Wrangler's login can read or change these:
+- SSL/TLS mode to Full (strict), if it isn't already.
+- CAA: `0 issue "letsencrypt.org"`, `0 issue "pki.goog; cansignhttpexchanges=yes"`, `0 issue "ssl.com"`, `0 issue "sectigo.com"`; then check the certificate is still Active.
+- DNSSEC: enable in Cloudflare, the owner pastes the DS at Spaceship (its API has no DNSSEC endpoint), then poll DoH for the AD bit with MX, SPF and DKIM still resolving. Rollback removes the DS at Spaceship first. A quiet day.
+- Notifications to admin@: Pages deployment failure, Universal SSL, HTTP DDoS.
+
+**Checks with a date:**
+- **Late November 2026:** confirm the edge certificate renews cleanly before 2026-12-28, now that CAA restricts issuers.
+- **Weekly:** the D1 export (`docs/DEPLOY.md`), kept 30 days in `~/private-backups/acceptra/`.
+- **Before DMARC leaves `p=none`:** list every legitimate sender for acceptra.ai (Google Workspace, and whatever sends the "we're open" email), and move reports to a shared mailbox; today they go to one person.
+
+**Owner accounts and yes/no:**
+- **Indexing and previews:** Search Console (submit `sitemap.xml`, request indexing for `/`, `/privacy`, `/terms`), Bing Webmaster Tools, Brave, the Rich Results Test, real WhatsApp, iMessage and LinkedIn share previews, and PSI mobile once from the owner's browser. IndexNow (Bing, Yandex, Seznam, Naver) was pinged once for the three URLs; it is not wired into deploys.
+- **An external uptime check** on `/` and `/privacy`: nothing alerts today if the site or DNS goes down.
+- **`acceptra.com`:** buy it and 301 it (`verify-landing.sh` checks it with `CHECK_COM=1`).
+- **`acceptra.org`** now publishes `v=spf1 -all` and DMARC `p=reject`, so nobody can send as it. Spaceship's API refuses a null MX, so it has none. Its auto-renew is off (expires 2027-09-20); `acceptra.ai`'s is on.
+- **Collaborator PRs #4, #8 and #9** are stale: close them or ask the author.
+- **Founders and profiles are empty.** `FOUNDERS` and `PROFILES` in `frontend/src/features/landing/brand.ts` drive the "Who is behind Acceptra?" FAQ entry, `Organization.founder` and `Organization.sameAs`; nothing renders until they are filled in. Add `twitter:site` to `landing.html` once the X handle exists.
+- **The site icon is derived, not designed.** `public-landing/icon.svg` (and every PNG/ICO generated from it) and `assets/acceptra-glyph.svg` are the wordmark's "A" on the brand green. Regenerate the PNG set from the designed mark when it exists.
+
+**Engineering notes:**
+- **The Cloudflare Web Analytics beacon.** The HTML pages send `Cache-Control: no-transform` so Cloudflare skips injecting it, and `verify-landing.sh` now fails on any CSP violation in a real browser, which is how a returning beacon would show up. If it returns, turn Web Analytics off in Workers & Pages → acceptra → Metrics.
+- **The app build still renders `LandingPage`** (`src/app/router.tsx`), where `/api/waitlist` doesn't exist, so a signup there shows the generic error. The app isn't deployed; decide at B6.
+- **Deferred**, none needed now:
+  - Turnstile on the waitlist, if the rate limit and host check prove not enough.
   - A separate preview D1, only if preview signups must work (today the host check refuses them).
   - Merging Geist and Inter (a design call).
-  - Optional analytics events (`faq_opened`, `section_viewed`).
+  - Optional analytics events (`faq_opened`, `section_viewed`), an acquisition dashboard, and a no-signups alert, once traffic is steady.
   - Stream-limiting chunked request bodies in the waitlist Function (it measures the body after reading it).
   - `worker-src` and the toolbar origin in the CSP, if replay or the toolbar is ever enabled under the enforced CSP.
   - posthog-js `module.slim` and `advanced_disable_feature_flags_on_first_load`.
@@ -30,9 +46,9 @@
   - A `<details>` FAQ for no-JS visitors (the answers are in the HTML, but collapsed without JS).
   - A server-side honeypot check (today the client drops a filled trap).
   - Spreadsheet-safe CSV export of the list.
-  - Contrast in the decorative, `aria-hidden` illustrations (what holds Lighthouse Accessibility at 97).
   - Trimming the ~40 kB of inline SVG data URIs.
   - The 37px "Skip to content" link, accepted: it is a keyboard target, not a touch target.
+  - The unused registry exports knip still lists, and test-only Python helpers.
 
 ## `cds_library.school_explore` view ownership drifted from the seed (live DB fix applied, source not)
 - **What:** the live v3 database's `cds_library.school_explore` view was owned by `postgres`
