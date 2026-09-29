@@ -20,11 +20,8 @@ function writeHash(hash: string) {
 }
 
 export function useWaitlistDialog() {
-  const [request, setRequest] = useState<WaitlistRequest | null>(() => {
-    const side = sideOf(window.location.hash);
-    return side ? { side, source: "link" } : null;
-  });
-  const [open, setOpen] = useState(request !== null);
+  const [request, setRequest] = useState<WaitlistRequest | null>(null);
+  const [open, setOpen] = useState(false);
   const trigger = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
@@ -32,6 +29,13 @@ export function useWaitlistDialog() {
   }, [open, request]);
 
   useEffect(() => {
+    const side = sideOf(window.location.hash);
+    if (side) {
+      // The hash exists only in the browser, so the prerendered page starts closed.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setRequest({ side, source: "link" });
+      setOpen(true);
+    }
     function onClick(event: MouseEvent) {
       if (event.defaultPrevented || event.button !== 0) return;
       if (event.metaKey || event.ctrlKey || event.shiftKey) return;

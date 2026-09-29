@@ -21,8 +21,7 @@
 .lp-composer {
   width: min(584px, 100%);
 }
-.lp-features-copy,
-.lp-card-wide-text p {
+.lp-features-copy {
   max-width: 65ch;
 }
 .lp-faq {
@@ -71,34 +70,12 @@
   margin-top: -16px;
 }
 
-/* The alternative card layouts (?features=cards) stack below the design width. */
+/* Illustration sheets fill the column below the design width. */
 @media (max-width: 1399px) {
-  .lp-card-wide {
-    align-items: flex-start;
-    flex-direction: column;
-    gap: 28px;
-    height: auto;
-  }
-  .lp-card-wide-text {
-    width: auto;
-    flex: 1 1 0;
-    min-width: 0;
-  }
-  .lp-card-wide-text p {
-    width: auto;
-  }
   .lp-sheet-wide {
     width: 100%;
     max-width: 812px;
     align-self: center;
-  }
-  .lp-card-row {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-  .lp-card-third {
-    min-width: 0;
-    height: auto;
   }
   .lp-sheet-third {
     flex: none;
@@ -107,15 +84,6 @@
 
 /* The product sheets remain readable two-column compositions on tablets. */
 @media (max-width: 1199px) {
-  .lp-card-wide {
-    flex-direction: column;
-  }
-  .lp-card-wide-text {
-    width: 100%;
-  }
-  .lp-card-wide-text h3 {
-    max-width: 24ch;
-  }
   .lp-sheet-wide {
     width: 100%;
   }
@@ -123,9 +91,6 @@
   .lp-sat-sheet {
     max-width: 812px;
     align-self: center;
-  }
-  .lp-card-row {
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
   }
   .lp-plans {
     width: 100%;
@@ -339,30 +304,6 @@
   }
   .lp-features-copy {
     font-size: 16px;
-  }
-  .lp-cards,
-  .lp-card-row {
-    gap: 16px;
-  }
-  .lp-card-row {
-    grid-template-columns: minmax(0, 1fr);
-  }
-  .lp-card-wide {
-    padding: 20px 12px 12px;
-    gap: 24px;
-    border-radius: 16px;
-  }
-  .lp-card-wide-text {
-    padding: 0 8px;
-  }
-  .lp-card-wide-text h3 {
-    font-size: 27px;
-  }
-  .lp-card-wide-text p {
-    color: rgba(255, 255, 255, 0.82);
-  }
-  .lp-card-third {
-    border-radius: 16px;
   }
   .lp-testimonials {
     gap: 36px;

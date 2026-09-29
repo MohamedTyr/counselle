@@ -104,8 +104,6 @@ export function playEssaySequence(
 
 /** Blocks below the fold rise into place once, as they scroll in. */
 const REVEALS = [
-  ".lp-features-cards .lp-cards > .lp-card-row",
-  ".lp-features-cards .lp-cards > .lp-card-wide",
   ".lp-features-header",
   ".lp-stage",
   ".lp-testimonials-heading",
@@ -169,9 +167,7 @@ export function useLandingMotion() {
                   return;
                 seen.add(entry.target);
                 observer?.unobserve(entry.target);
-                if (entry.target.matches(".lp-card-essay"))
-                  track(playEssaySequence(entry.target, preference.matches));
-                else reveal(entry.target);
+                reveal(entry.target);
               });
             },
             { threshold: 0.15 },

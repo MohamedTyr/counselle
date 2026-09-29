@@ -102,18 +102,3 @@ export function EssaySheet() {
     </div>
   );
 }
-
-export function EssayCard() {
-  return (
-    <article className="lp-card-wide lp-card-essay">
-      <div className="lp-card-wide-text">
-        <h3>Essay feedback, line by line</h3>
-        <p>
-          It reads what you wrote and marks it up like an editor would. Every
-          note is a suggestion you accept or reject.
-        </p>
-      </div>
-      <EssaySheet />
-    </article>
-  );
-}

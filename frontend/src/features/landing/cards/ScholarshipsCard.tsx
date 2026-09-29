@@ -63,12 +63,3 @@ export function ScholarshipsSheet() {
     </div>
   );
 }
-
-export function ScholarshipsCard() {
-  return (
-    <article className="lp-card-third lp-card-scholarships">
-      <h3>Scholarships you match</h3>
-      <ScholarshipsSheet />
-    </article>
-  );
-}

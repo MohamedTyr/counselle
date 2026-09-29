@@ -106,12 +106,3 @@ export function ActivitiesSheet() {
     </div>
   );
 }
-
-export function ActivitiesCard() {
-  return (
-    <article className="lp-card-third lp-card-activities">
-      <h3>Activities that fit you</h3>
-      <ActivitiesSheet />
-    </article>
-  );
-}

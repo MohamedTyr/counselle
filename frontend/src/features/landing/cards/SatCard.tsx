@@ -78,18 +78,3 @@ export function SatSheet() {
     </div>
   );
 }
-
-export function SatCard() {
-  return (
-    <article className="lp-card-wide lp-card-sat">
-      <div className="lp-card-wide-text">
-        <h3>Official SAT questions, until your mistakes run out</h3>
-        <p>
-          Real questions, one at a time. Get one wrong and it explains the step
-          you skipped, then serves more of that kind.
-        </p>
-      </div>
-      <SatSheet />
-    </article>
-  );
-}

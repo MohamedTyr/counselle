@@ -109,18 +109,3 @@ export function DeadlinesSheet() {
     </div>
   );
 }
-
-export function DeadlinesCard() {
-  return (
-    <article className="lp-card-wide lp-card-deadlines">
-      <div className="lp-card-wide-text">
-        <h3>Tasks and deadlines, all in one place</h3>
-        <p>
-          Every school’s dates pulled in for you, next to the work you planned
-          for the week.
-        </p>
-      </div>
-      <DeadlinesSheet />
-    </article>
-  );
-}

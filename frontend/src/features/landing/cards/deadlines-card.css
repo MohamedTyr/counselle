@@ -1,7 +1,3 @@
-.lp-card-deadlines {
-  height: 220px;
-  background: var(--lp-green-dark);
-}
 /* A month, what it holds that is due, and today's work: three columns. */
 .lp-calendar-sheet {
   --cal-due: #15171a;

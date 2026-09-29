@@ -1,7 +1,7 @@
 import { useLayoutEffect, useRef, type RefObject } from "react";
-import { ARRIVAL_MS, ENTRANCE, FADE, MORPH, RISE, STAMP } from "./motion";
+import { ARRIVAL_MS, ENTRANCE, MORPH, RISE, STAMP } from "./motion";
 import { playEssaySequence } from "./useLandingMotion";
-import { COLLEGES_VARIANT } from "./cards/colleges/variants";
+import { playAsk } from "./cards/colleges/demos";
 
 const STREAM_WORD_MS = 30;
 type MotionState = {
@@ -201,47 +201,6 @@ export class Sequence {
       STREAM_WORD_MS,
     );
   }
-}
-
-/** Rows arrive, every match ring draws to its score, then one row opens. */
-function colleges(seq: Sequence) {
-  seq.play(".lp-match-row", RISE, 320, ARRIVAL_MS, 60);
-  seq.root
-    .querySelectorAll<SVGCircleElement>(".lp-ring-progress")
-    .forEach((ring, index) =>
-      seq.push(
-        ring,
-        [
-          { strokeDashoffset: ring.getAttribute("stroke-dasharray") ?? "0" },
-          { strokeDashoffset: ring.getAttribute("stroke-dashoffset") ?? "0" },
-        ],
-        {
-          duration: 700,
-          delay: ARRIVAL_MS + 200 + index * 60,
-          easing: ENTRANCE,
-          fill: "both",
-        },
-      ),
-    );
-  seq.play(".lp-match-score span", FADE, 250, ARRIVAL_MS + 540, 60);
-  seq.play(
-    ".lp-match-row-detail",
-    [
-      { backgroundColor: "rgba(61, 49, 131, 0)" },
-      { backgroundColor: "rgba(61, 49, 131, 0.07)" },
-    ],
-    240,
-    1450,
-  );
-  seq.play(
-    ".lp-popover",
-    [
-      { opacity: 0, transform: "scale(0.92) translateY(-4px)" },
-      { opacity: 1, transform: "none" },
-    ],
-    380,
-    1580,
-  );
 }
 
 /** The stream bursts past; each match is ticked as it crosses the middle. */
@@ -523,7 +482,7 @@ function essay(seq: Sequence) {
 
 const SEQUENCES: Record<string, (seq: Sequence) => void> = {
   essay,
-  colleges: (seq) => (COLLEGES_VARIANT.play ?? colleges)(seq),
+  colleges: playAsk,
   scholarships,
   activities,
   sat,
@@ -535,16 +494,6 @@ const SEQUENCES: Record<string, (seq: Sequence) => void> = {
 function playIllustration(root: HTMLElement, feature: string): Animation[] {
   const seq = new Sequence(root);
   SEQUENCES[feature]?.(seq);
-  return seq.animations;
-}
-
-/** Plays one demonstration outside the stage, for side-by-side comparison. */
-export function playDemonstration(
-  root: HTMLElement,
-  play: (seq: Sequence) => void,
-): Animation[] {
-  const seq = new Sequence(root);
-  play(seq);
   return seq.animations;
 }
 
@@ -593,4 +542,3 @@ export function useIllustrationMotion(
     }
   }, [feature, keyboard, reduced, inView, hidden, paused]);
 }
-export { colleges as playCurrentColleges };

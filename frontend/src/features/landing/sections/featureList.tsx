@@ -1,6 +1,6 @@
 import type { ComponentType } from "react";
 import { EssaySheet } from "../cards/EssayCard";
-import { COLLEGES_VARIANT } from "../cards/colleges/variants";
+import { AskSheet } from "../cards/colleges/AskSheet";
 import { ScholarshipsSheet } from "../cards/ScholarshipsCard";
 import { ActivitiesSheet } from "../cards/ActivitiesCard";
 import { SatSheet } from "../cards/SatCard";
@@ -25,11 +25,7 @@ export type Feature = {
   Sheet: ComponentType;
 };
 
-/**
- * The features the showcase illustrates, in reading order. The default
- * design renders its own card components; the alternative layouts compose
- * from this list so every variant tells the same story with the same art.
- */
+/** The features the showcase illustrates, in reading order. */
 export const FEATURES: Feature[] = [
   {
     id: "sessions",
@@ -59,11 +55,11 @@ export const FEATURES: Feature[] = [
     title: "Colleges that match you",
     blurb:
       "A list built from your grades, budget and goals, with reach, target and safety already sorted.",
-    size: COLLEGES_VARIANT.size,
+    size: "wide",
     color: "#3d3183",
     tint: "#ecebf8",
     glow: "#aba2ff",
-    Sheet: COLLEGES_VARIANT.Sheet,
+    Sheet: AskSheet,
   },
   {
     id: "scholarships",

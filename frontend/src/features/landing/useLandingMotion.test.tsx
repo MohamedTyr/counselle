@@ -13,37 +13,12 @@ const unobserve = vi.fn();
 const disconnect = vi.fn();
 let preference: EventListener;
 let reduced = false;
-function Page({ examples = false }: { examples?: boolean }) {
+function Page() {
   const ref = useLandingMotion();
   return (
     <div ref={ref}>
       <span className="lp-headline-line">Hello</span>
-      <div className="lp-features-cards">
-        <div className="lp-cards">
-          <article className="lp-card-wide">Feature</article>
-          {examples && (
-            <>
-              <article
-                className="lp-card-wide lp-card-essay"
-                data-testid="essay"
-              >
-                {["g", "v", "a"].map((tone) => (
-                  <mark className={`lp-hl-${tone}`} key={tone}>
-                    Stationary text
-                    <span className="lp-hl-background" />
-                    <span className="lp-note" />
-                  </mark>
-                ))}
-              </article>
-              <div className="lp-card-row" data-testid="row">
-                <article />
-                <article />
-                <article />
-              </div>
-            </>
-          )}
-        </div>
-      </div>
+      <div className="lp-features-header">Feature</div>
     </div>
   );
 }
@@ -158,51 +133,4 @@ it("leaves everything static when WAAPI is unavailable", () => {
   const view = render(<Page />);
   expect(view.getByText("Hello")).toBeVisible();
   expect(animate).not.toHaveBeenCalled();
-});
-it("sweeps essay highlights before their notes, and reveals a card row as one block", () => {
-  const view = render(<Page examples />);
-  animate.mockClear();
-  act(() =>
-    intersect(
-      [
-        {
-          target: view.getByTestId("essay"),
-          isIntersecting: true,
-          intersectionRatio: 1,
-        },
-      ] as IntersectionObserverEntry[],
-      {} as IntersectionObserver,
-    ),
-  );
-  expect(animate).toHaveBeenCalledTimes(6);
-  expect(animate).toHaveBeenNthCalledWith(
-    1,
-    [{ clipPath: "inset(0 100% 0 0)" }, { clipPath: "inset(0 0 0 0)" }],
-    expect.objectContaining({ delay: 0 }),
-  );
-  const [, noteTiming] = animate.mock.calls[1] as unknown as [
-    Keyframe[],
-    KeyframeAnimationOptions,
-  ];
-  expect(Number(noteTiming.delay)).toBeGreaterThan(0);
-  const delays = animate.mock.calls.map((call) =>
-    Number(
-      (call as unknown as [Keyframe[], KeyframeAnimationOptions])[1].delay,
-    ),
-  );
-  expect(delays).toEqual([...delays].sort((a, b) => a - b));
-  animate.mockClear();
-  act(() =>
-    intersect(
-      [
-        {
-          target: view.getByTestId("row"),
-          isIntersecting: true,
-          intersectionRatio: 1,
-        },
-      ] as IntersectionObserverEntry[],
-      {} as IntersectionObserver,
-    ),
-  );
-  expect(animate).toHaveBeenCalledTimes(1);
 });

@@ -178,7 +178,7 @@
 }
 /* The lists' lower veils follow the sheet's floor, whatever its height. */
 .lp-stage-art-third
-  :is(.lp-match-fade-bottom, .lp-activities-fade, .lp-stream-fade-bottom) {
+  :is(.lp-activities-fade, .lp-stream-fade-bottom) {
   top: auto;
   bottom: 0;
 }

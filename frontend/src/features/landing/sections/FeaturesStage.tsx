@@ -4,6 +4,7 @@ import {
   useLayoutEffect,
   useRef,
   useState,
+  useSyncExternalStore,
   type CSSProperties,
 } from "react";
 import "./features-stage.css";
@@ -20,26 +21,52 @@ const FINE_POINTER = "(hover: hover) and (pointer: fine)";
 const UNEVEN_SHEETS = "(max-width: 899px)";
 
 type Shown = { active: number; run: number };
+
+/**
+ * Browser-only inputs read through a store: the prerendered page and the
+ * hydrating render use the server value, then the live value takes over.
+ */
+function useMediaQuery(query: string, server: boolean) {
+  const subscribe = useCallback(
+    (onChange: () => void) => {
+      const media = window.matchMedia(query);
+      media.addEventListener("change", onChange);
+      return () => media.removeEventListener("change", onChange);
+    },
+    [query],
+  );
+  return useSyncExternalStore(
+    subscribe,
+    () => window.matchMedia(query).matches,
+    () => server,
+  );
+}
+
+function subscribeVisibility(onChange: () => void) {
+  document.addEventListener("visibilitychange", onChange);
+  return () => document.removeEventListener("visibilitychange", onChange);
+}
 type Selection = Shown & { keyboard: boolean; leaving: Shown | null };
 
 /** One immediately selectable feature; automatic advance only while unattended. */
 export function FeaturesStage() {
   const [{ active, run, keyboard, leaving }, setSelection] =
     useState<Selection>({ active: 0, run: 0, keyboard: false, leaving: null });
-  const [paused, setPaused] = useState(
-    () =>
-      !window.matchMedia(FINE_POINTER).matches ||
-      window.matchMedia(UNEVEN_SHEETS).matches,
-  );
+  const finePointer = useMediaQuery(FINE_POINTER, false);
+  const unevenSheets = useMediaQuery(UNEVEN_SHEETS, false);
+  const [pausedChoice, setPausedChoice] = useState<boolean | null>(null);
+  const paused = pausedChoice ?? (!finePointer || unevenSheets);
   const [explicitPlay, setExplicitPlay] = useState(false);
   const [userPaused, setUserPaused] = useState(false);
   const [hovered, setHovered] = useState(false);
   const [focused, setFocused] = useState(false);
-  const [hidden, setHidden] = useState(() => document.hidden);
-  const [inView, setInView] = useState(false);
-  const [reduced, setReduced] = useState(
-    () => window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+  const hidden = useSyncExternalStore(
+    subscribeVisibility,
+    () => document.hidden,
+    () => false,
   );
+  const [inView, setInView] = useState(false);
+  const reduced = useMediaQuery("(prefers-reduced-motion: reduce)", false);
   const root = useRef<HTMLDivElement>(null);
   // A press leaves focus behind it; only focus reached by keyboard holds the stage.
   const pressed = useRef(false);
@@ -86,9 +113,6 @@ export function FeaturesStage() {
   });
 
   useEffect(() => {
-    const preference = window.matchMedia("(prefers-reduced-motion: reduce)");
-    const onPreference = () => setReduced(preference.matches);
-    const onVisibility = () => setHidden(document.hidden);
     const observer =
       typeof IntersectionObserver === "function"
         ? new IntersectionObserver(
@@ -100,13 +124,7 @@ export function FeaturesStage() {
           )
         : undefined;
     if (panel.current) observer?.observe(panel.current);
-    preference.addEventListener("change", onPreference);
-    document.addEventListener("visibilitychange", onVisibility);
-    return () => {
-      observer?.disconnect();
-      preference.removeEventListener("change", onPreference);
-      document.removeEventListener("visibilitychange", onVisibility);
-    };
+    return () => observer?.disconnect();
   }, []);
 
   useLayoutEffect(() => {
@@ -263,7 +281,7 @@ export function FeaturesStage() {
           onClick={() => {
             setExplicitPlay(paused);
             setUserPaused(!paused);
-            setPaused((value) => !value);
+            setPausedChoice(!paused);
           }}
         >
           <span aria-hidden="true">{paused ? "▶" : "Ⅱ"}</span>{" "}

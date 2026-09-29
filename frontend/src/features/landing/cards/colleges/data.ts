@@ -24,14 +24,6 @@ export const TIERS: { id: Tier; label: string }[] = [
   { id: "safety", label: "Safety" },
 ];
 
-/** The illustrative student every variant builds a list for. */
-export const PROFILE = [
-  { label: "GPA", value: "3.9", unit: "GPA" },
-  { label: "SAT", value: "1480", unit: "SAT" },
-  { label: "Budget", value: "$25k", unit: "a year" },
-  { label: "Major", value: "Computer science", unit: "" },
-];
-
 /** Reading order: reach, then target, then safety. */
 export const SCHOOLS: School[] = [
   {
@@ -80,8 +72,6 @@ export const SCHOOLS: School[] = [
     fit: 64,
   },
 ];
-
-export const FEATURED = SCHOOLS[2];
 
 export const tierLabel = (tier: Tier) =>
   TIERS.find((entry) => entry.id === tier)!.label;
