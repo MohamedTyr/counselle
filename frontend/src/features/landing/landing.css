@@ -37,7 +37,6 @@
   --lp-font-serif: "Instrument Serif", Georgia, serif;
   --lp-duration-feedback: 150ms;
   --lp-duration-state: 200ms;
-  --lp-duration-entrance: 340ms;
   --lp-ease-feedback: ease-out;
   --lp-ease-entrance: cubic-bezier(0.16, 1, 0.3, 1);
 
@@ -93,7 +92,6 @@
 /* The desktop composition; responsive.css reflows narrow screens without
    shrinking text or interactive targets. Hero and footer bleed to the gutter. */
 .lp-canvas {
-  --lp-screen: 900px;
   --lp-gutter: 24px;
   --lp-content: 1392px;
   /* Open sections sit inside the frame the hero and footer panels draw;
@@ -152,8 +150,6 @@
 .lp-question-text {
   line-height: 21px;
 }
-.lp-tier,
-.lp-today-pill,
 .lp-choice-letter,
 .lp-question-eliminate {
   line-height: 14px;

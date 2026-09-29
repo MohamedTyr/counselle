@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "build:landing": "tsc -b && vite build -c vite.landing.config.ts && node scripts/prerender-landing.mjs",
+    "preview:landing": "wrangler pages dev dist-landing",
     "lint": "eslint .",
     "format": "prettier --write \"**/*.{ts,tsx,css,json,md}\"",
     "test": "vitest run",

@@ -1,4 +1,4 @@
-import logoUmich from "../assets/essay-logo-umich.png";
+import logoUmich from "../assets/row-logo-umich.png";
 import "./essay-card.css";
 
 const NOTES = [

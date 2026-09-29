@@ -51,7 +51,7 @@ function structuredData() {
         "@id": ORG_ID,
         name: BRAND,
         url: `${SITE_URL}/`,
-        logo: `${SITE_URL}/logo.png`,
+        logo: `${SITE_URL}/icon-512.png`,
         email: CONTACT_EMAIL,
         description: DEFINITION,
         disambiguatingDescription: DISAMBIGUATION,

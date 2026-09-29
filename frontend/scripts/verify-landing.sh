@@ -79,7 +79,7 @@ check "robots.txt is text/plain" 'curl -sI "$BASE/robots.txt" | grep -qi "^conte
 check "robots.txt is byte-identical" 'diff -q <(curl -s "$BASE/robots.txt") "$HERE/public-landing/robots.txt" >/dev/null'
 check "sitemap lists three URLs" '[ "$(curl -s "$BASE/sitemap.xml" | grep -c "<loc>")" -eq 3 ]'
 check "llms.txt served" '[ "$(status "$BASE/llms.txt")" = 200 ]'
-for path in /favicon.ico /icon.svg /apple-touch-icon.png /site.webmanifest /og.png /logo.png; do
+for path in /favicon.ico /icon.svg /apple-touch-icon.png /site.webmanifest /og.png /icon-512.png; do
   check "$path served" '[ "$(status "$BASE$path")" = 200 ]'
 done
 

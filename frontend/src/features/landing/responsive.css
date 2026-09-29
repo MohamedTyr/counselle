@@ -3,7 +3,6 @@
 /* Keep the desktop composition; reflow real copy and controls at smaller
    widths. Illustration sheets adapt independently, never by zooming the page. */
 .lp-canvas {
-  --lp-screen: 100svh;
   min-width: 0;
 }
 .lp-heading {

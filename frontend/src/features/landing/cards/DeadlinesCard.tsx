@@ -1,4 +1,4 @@
-import logoHarvard from "../assets/deadline-logo-harvard.png";
+import logoHarvard from "../assets/row-logo-harvard.png";
 import logoPurdue from "../assets/row-logo-purdue.png";
 import "./deadlines-card.css";
 
