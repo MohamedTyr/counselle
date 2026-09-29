@@ -1,0 +1,11 @@
+# The public landing site's Cloudflare Pages project. Once this file exists the
+# dashboard shows bindings read-only, so the D1 binding lives only here.
+name = "acceptra"
+compatibility_date = "2026-09-28"
+pages_build_output_dir = "dist-landing"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "acceptra-waitlist"
+database_id = "REPLACE_WITH_D1_DATABASE_ID"
+migrations_dir = "migrations-landing"

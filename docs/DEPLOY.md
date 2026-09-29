@@ -199,19 +199,54 @@ exec uvicorn api.main:create_app --factory --host 0.0.0.0 --port "${PORT:-8000}"
 
 ## The public landing site (Cloudflare Pages)
 
-The marketing site at `https://acceptra.ai` (the landing page, `/privacy` and `/terms`) deploys on its own, as a static Cloudflare Pages project, independent of the app container above. It has no API behind it: the waitlist posts to `VITE_WAITLIST_ENDPOINT` and analytics goes to PostHog. The decisions behind this shape, and the launch work that surrounds it, are in `plans/landing-seo-plan.md`.
+The marketing site at `https://acceptra.ai` (the landing page, `/privacy` and `/terms`) deploys on its own, as a static Cloudflare Pages project, independent of the app container above. It has no app API behind it. Two Pages Functions in the same project cover what a static file can't: `POST /api/waitlist` (`frontend/functions/api/waitlist.ts`) stores signups in a Cloudflare D1 database, and `/ingest/*` (`frontend/functions/ingest/[[path]].ts`) proxies PostHog on our own origin so ad blockers don't hide visits. `public-landing/_routes.json` limits Functions to those two paths, so static files never invoke one. The decisions behind this shape are in `plans/landing-seo-plan.md` (static build, hosting, headers) and `plans/landing-backend-plan.md` (waitlist storage, the proxy).
 
-**Build.** `cd frontend && npm run build:landing` builds only the three pages into `frontend/dist-landing` with `public-landing/` as the public directory, then `scripts/prerender-landing.mjs` renders the page to HTML (so crawlers that do not run JavaScript get the full page), writes it as `index.html`, adds the two font preloads, fails the build if any `/assets/` URL in the page is missing, and stamps the waitlist origin into the report-only CSP in `_headers`. The build prints a warning when `VITE_WAITLIST_ENDPOINT` is unset; a production build must not have that warning.
+**Build.** `cd frontend && npm run build:landing` builds only the three pages into `frontend/dist-landing` with `public-landing/` as the public directory, then `scripts/prerender-landing.mjs` renders the page to HTML (so crawlers that do not run JavaScript get the full page), writes it as `index.html`, adds the two font preloads, and fails the build if any `/assets/` URL in the page is missing. The waitlist endpoint and the analytics proxy are both same-origin, so the report-only CSP in `_headers` is `'self'` for scripts and connections. The build prints a warning when `VITE_WAITLIST_ENDPOINT` is unset; a production build must not have that warning.
 
 | Pages setting | Value |
 |---|---|
 | Root directory | `frontend` |
 | Build command | `npm run build:landing` |
 | Output directory | `dist-landing` |
-| `VITE_WAITLIST_ENDPOINT` | the waitlist service URL (required) |
+| `VITE_WAITLIST_ENDPOINT` | `/api/waitlist` (required; a build-time `VITE_` variable, so setting it only at runtime does nothing) |
 | `VITE_POSTHOG_KEY` | the PostHog project key (required for analytics) |
+| `VITE_POSTHOG_HOST` | `/ingest` (the same-origin proxy; the CSP no longer allows PostHog's own domains) |
+
+`frontend/wrangler.toml` is the project's config: its name, `pages_build_output_dir`, and the D1 binding (`DB` → `acceptra-waitlist`, migrations in `frontend/migrations-landing/`). Once that file exists the dashboard shows bindings read-only, so change the binding there, never in the dashboard.
 
 `public-landing/` carries `robots.txt`, `sitemap.xml` (update each `<lastmod>` when that page changes), `llms.txt`, the `404.html` that keeps unknown paths from returning the homepage with a 200, `_redirects`, `_headers` (security headers, immutable assets, `noindex` on every `*.pages.dev` host), the icon set, `og.png` and `logo.png`. The facts the page, the structured data and `llms.txt` share (the definition, the school count, founders, official profiles) live in `frontend/src/features/landing/brand.ts`; change them there and in `llms.txt` together.
+
+**The waitlist (D1).** Signups live in one table, `waitlist` (`frontend/migrations-landing/0001_waitlist.sql`), keyed by the normalised email. A repeat email is an update: on the same side it fills in answers and never clears one, a side switch drops the old side's answers, and `source`, `plan`, the `utm_*` tags and `created_at` never change after the first signup. The endpoint checks method, `Origin`, JSON content type and a 2 KB size cap, validates every field against the table's allow-lists (a bad campaign tag is dropped, not rejected), answers a new and a repeat email identically, and logs only an error code on a D1 failure. After any change to the update statement, run the integrity check, which aborts on a broken rule:
+
+```bash
+cd frontend
+npx wrangler d1 migrations apply acceptra-waitlist --local
+npx wrangler d1 execute acceptra-waitlist --local --file migrations-landing/checks/check_upsert.sql
+```
+
+It lives in `checks/` because Wrangler applies every `.sql` directly in `migrations_dir` as a migration.
+
+First-time setup, once (`npx wrangler login` first):
+
+- [ ] `npx wrangler d1 create acceptra-waitlist`, and put the printed `database_id` in `frontend/wrangler.toml`
+- [ ] `npx wrangler d1 migrations apply acceptra-waitlist --remote`
+- [ ] A rate-limiting rule on the zone: path equals `/api/waitlist`, 10 requests per 10 seconds per IP, block for 10 seconds (zone-scoped, so it doesn't cover `*.pages.dev`; the `Origin` check still does)
+- [ ] After the first deploy: one real signup, check the row, delete it
+
+Reading the list:
+
+| Question | Where to look |
+|---|---|
+| How many signed up | `SELECT count(*) FROM waitlist;` in the D1 console. D1 is the count; PostHog's `waitlist_joined` can be blocked and is for the curve |
+| Conversion and drop-off | the PostHog funnel: pageview → `waitlist_opened` → `waitlist_joined` → `waitlist_details` |
+| Which channel converts | the funnel broken down by `utm_source`; exact counts with `SELECT utm_source, count(*) FROM waitlist GROUP BY 1;` |
+| Who they are | `SELECT side, role, class_of, count(*) FROM waitlist GROUP BY 1,2,3;` |
+| Export | `npx wrangler d1 export acceptra-waitlist --remote --output waitlist.sql` |
+| Delete on request | `DELETE FROM waitlist WHERE email = ?;` in the D1 console, within 30 days of the email |
+
+At app launch the table is exported once and loaded into a `counselle.waitlist` table in Postgres; the shape carries over unchanged.
+
+**The analytics proxy.** `/ingest/static/*` and `/ingest/array/*` go to `us-assets.i.posthog.com` (cached at the edge), everything else under `/ingest/` to `us.i.posthog.com`. Only `GET`, `POST` and `OPTIONS` are forwarded; `Cookie`, `Authorization` and `Host` never are, and `X-Forwarded-For` carries the visitor's IP so PostHog's location lookup keeps working. It follows PostHog's Cloudflare proxy doc (https://posthog.com/docs/advanced/proxy/cloudflare); recheck the upstream hosts there if events stop arriving. If it breaks, analytics stops and signups carry on. On a machine without working IPv6, `wrangler pages dev` reaches PostHog only after minutes of IPv6 timeouts, or not at all, because workerd tries every IPv6 address before IPv4; that is local only.
 
 **Zone settings** (Cloudflare dashboard, not files):
 
@@ -222,4 +257,4 @@ The marketing site at `https://acceptra.ai` (the landing page, `/privacy` and `/
 - [ ] AI Crawl Control: every category allowed, managed robots.txt off, Bot Fight Mode not challenging verified bots
 - [ ] Crawler Hints on (IndexNow)
 
-**Verify.** `frontend/scripts/verify-landing.sh <base-url>` runs the launch checks: the prerendered content and head tags, the same page for Googlebot, bingbot, GPTBot, ClaudeBot and PerplexityBot, every asset resolving, the clean URLs and their single-hop redirects, the real 404, the crawl files and the headers. Against `https://acceptra.ai` it also checks the host redirects, and with `PAGES_DEV_URL` set it checks the preview host sends `noindex`. Locally, `npx wrangler pages dev dist-landing` serves the build with Pages' own `_headers`, `_redirects` and 404 handling. What the script cannot check (Search Console, rich-result validators, link-preview renders, Lighthouse, a real waitlist submission reaching PostHog) is listed in the plan's §12.
+**Verify.** `frontend/scripts/verify-landing.sh <base-url>` runs the launch checks: the prerendered content and head tags, the same page for Googlebot, bingbot, GPTBot, ClaudeBot and PerplexityBot, every asset resolving, the clean URLs and their single-hop redirects, the real 404, the crawl files and the headers. Against `https://acceptra.ai` it also checks the host redirects, and with `PAGES_DEV_URL` set it checks the preview host sends `noindex`. Locally, `npx wrangler pages dev dist-landing` serves the build with Pages' own `_headers`, `_redirects` and 404 handling. What the script cannot check (Search Console, rich-result validators, link-preview renders, Lighthouse, a production waitlist signup reaching D1 and PostHog) is listed in the plan's §12.

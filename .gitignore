@@ -67,3 +67,6 @@ coverage/
 
 # Vite dependency cache from an ad-hoc fixture server
 frontend/.vite-school-chances-fixture/
+
+# Wrangler local state (D1 local database, dev cache)
+.wrangler/

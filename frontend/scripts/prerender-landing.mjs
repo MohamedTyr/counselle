@@ -59,7 +59,6 @@ if (missing.length) fail(`missing assets:\n  ${missing.join("\n  ")}`);
 
 await writeFile(path.join(dist, "index.html"), html);
 
-// The report-only CSP allows the waitlist's own origin, known only at build time.
 const { VITE_WAITLIST_ENDPOINT: endpoint } = loadEnv(
   "production",
   root,
@@ -69,15 +68,6 @@ if (!endpoint)
   console.warn(
     "prerender-landing: VITE_WAITLIST_ENDPOINT is not set, so this build's waitlist form cannot submit",
   );
-const headersPath = path.join(dist, "_headers");
-const headers = await readFile(headersPath, "utf8");
-await writeFile(
-  headersPath,
-  headers.replace(
-    " __WAITLIST_ORIGIN__",
-    endpoint ? ` ${new URL(endpoint).origin}` : "",
-  ),
-);
 await rm(path.join(dist, "landing.html"));
 await rm(ssrOut, { recursive: true, force: true });
 console.log("prerender-landing: wrote dist-landing/index.html");
