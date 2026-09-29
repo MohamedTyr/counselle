@@ -91,8 +91,7 @@ test("content survives unavailable animation and observation APIs", async ({
   await openLanding(page);
   for (const selector of [
     ".lp-nav-cta",
-    ".lp-essay-sheet",
-    ".lp-note",
+    ".lp-stage-figure:not(.lp-stage-figure-leaving) .lp-sheet",
     ".lp-stage-list",
     "#faq-heading",
   ]) {
@@ -153,8 +152,13 @@ test("stage essay explanation replays when chosen again, not when scrolled back 
   const essay = page.locator(
     ".lp-stage-figure:not(.lp-stage-figure-leaving) .lp-essay-sheet",
   );
+  const essayTab = page.getByRole("tab", { name: /^Essay feedback/ });
+  // Sessions is the first feature, so the essay sheet shows once chosen.
+  await page.locator(".lp-stage-panel").scrollIntoViewIfNeeded();
+  await essayTab.click();
   await essay.scrollIntoViewIfNeeded();
-  await expect.poll(notes).toBe(3);
+  await expect.poll(notes).toBeGreaterThanOrEqual(3);
+  const played = await notes();
   await page.locator("#faq").scrollIntoViewIfNeeded();
   await essay.scrollIntoViewIfNeeded();
   await page.evaluate(
@@ -163,12 +167,12 @@ test("stage essay explanation replays when chosen again, not when scrolled back 
         requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
       ),
   );
-  expect(await notes()).toBe(3);
-  await page.getByRole("tab").nth(1).click();
+  expect(await notes()).toBe(played);
   await page.getByRole("tab").first().click();
+  await essayTab.click();
   await expect(essay).toBeVisible();
   // Development builds mount twice, so count a replay rather than its exact size.
-  await expect.poll(notes).toBeGreaterThan(3);
+  await expect.poll(notes).toBeGreaterThan(played);
 });
 
 test("a replaced sheet leaves and the stage keeps its height", async ({
@@ -195,7 +199,7 @@ test("reduced motion uses short opacity-only entrances without stagger", async (
   await page.emulateMedia({ reducedMotion: "reduce" });
   await recordMotion(page);
   await openLanding(page);
-  await page.locator(".lp-essay-sheet").scrollIntoViewIfNeeded();
+  await page.locator(".lp-stage-panel").scrollIntoViewIfNeeded();
   await page.getByRole("tab").nth(1).click();
   await expect
     .poll(

@@ -1,9 +1,13 @@
 #!/usr/bin/env bash
 # Checks a deployed landing-only site against the launch definition of done
-# (plans/landing-seo-plan.md §12). Usage:
+# (plans/landing-seo-plan.md §12, plans/landing-launch-plan.md §7.3). Usage:
 #   scripts/verify-landing.sh https://acceptra.ai
+#   scripts/verify-landing.sh http://localhost:8788     # npm run preview:landing
 #   PAGES_DEV_URL=https://acceptra.pages.dev scripts/verify-landing.sh https://acceptra.ai
-# The host-redirect checks run only against the production origin.
+# Run it against production or a local build only, never a preview: previews
+# refuse every waitlist write, so the 400 checks would correctly get 403s.
+# The host-redirect and analytics-proxy checks run only against production;
+# CHECK_COM=1 adds acceptra.com once that domain is owned.
 set -uo pipefail
 
 BASE="${1:?usage: verify-landing.sh <base-url>}"
@@ -16,6 +20,8 @@ pass() { printf '  ok    %s\n' "$1"; }
 fail() { printf '  FAIL  %s\n' "$1"; failures=$((failures + 1)); }
 check() { if eval "$2"; then pass "$1"; else fail "$1"; fi; }
 status() { curl -s -o /dev/null -w '%{http_code}' "$@"; }
+# POST a JSON body to the waitlist and print the status; extra args go to curl.
+signup() { local url="$1" body="$2"; shift 2; status -X POST -H "Content-Type: application/json" -d "$body" "$@" "$url/api/waitlist"; }
 # One request, no redirect following: "<status> <location>".
 hop() { curl -s -o /dev/null -w '%{http_code} %{redirect_url}' "$1"; }
 
@@ -65,20 +71,31 @@ for path in /palette-preview.html /palette-first-directions.html; do
   check "$path is not served" '[ "$(status "$BASE$path")" = 404 ]'
 done
 check "no app bundle referenced" '! grep -q "/assets/app-" <<<"$page"'
+chunk="$(curl -s "$BASE$(grep -oE '/assets/landing-[^"]+\.js' <<<"$page" | head -1)")"
+check "analytics posts to /ingest" 'grep -qE "[^[:alnum:]_/]/ingest[^[:alnum:]_/]" <<<"$chunk"'
+check "analytics never calls PostHog directly" '! grep -qF "us.i.posthog.com" <<<"$chunk"'
+
+echo "Waitlist endpoint (no row is written)"
+check "a bad source is a 400" '[ "$(signup "$BASE" "{\"email\":\"x@check.invalid\",\"side\":\"me\",\"source\":\"<img>\"}" -H "Origin: $BASE")" = 400 ]'
+check "a U+202E email is a 400" '[ "$(signup "$BASE" "{\"email\":\"a\\u202eb@check.invalid\",\"side\":\"me\",\"source\":\"nav\"}" -H "Origin: $BASE")" = 400 ]'
+check "no Origin is a 403" '[ "$(signup "$BASE" "{\"email\":\"x@check.invalid\",\"side\":\"me\",\"source\":\"<img>\"}")" = 403 ]'
 
 echo "Legal pages and clean URLs"
-check "/privacy 200 with its title" 'curl -s "$BASE/privacy" | grep -q "<title>Privacy Policy"'
-check "/terms 200 with its title" 'curl -s "$BASE/terms" | grep -q "<title>Terms of Service"'
+check "/privacy 200 with its title" 'grep -q "<title>Privacy Policy" <<<"$(curl -s "$BASE/privacy")"'
+check "/terms 200 with its title" 'grep -q "<title>Terms of Service" <<<"$(curl -s "$BASE/terms")"'
 check "/privacy.html is one 308 to /privacy" '[[ "$(hop "$BASE/privacy.html")" =~ ^308\ .*/privacy$ ]]'
 check "/landing.html is one 301 to /" '[[ "$(hop "$BASE/landing.html")" =~ ^30[18]\ .*/$ ]]'
 check "/not-a-page is a 404" '[ "$(status "$BASE/not-a-page")" = 404 ]'
-check "404 page body" 'curl -s "$BASE/not-a-page" | grep -q "This page doesn"'
+check "404 page body" 'grep -q "This page doesn" <<<"$(curl -s "$BASE/not-a-page")"'
 
 echo "Crawl files"
 check "robots.txt is text/plain" 'curl -sI "$BASE/robots.txt" | grep -qi "^content-type: text/plain"'
 check "robots.txt is byte-identical" 'diff -q <(curl -s "$BASE/robots.txt") "$HERE/public-landing/robots.txt" >/dev/null'
 check "sitemap lists three URLs" '[ "$(curl -s "$BASE/sitemap.xml" | grep -c "<loc>")" -eq 3 ]'
 check "llms.txt served" '[ "$(status "$BASE/llms.txt")" = 200 ]'
+llms="$(curl -s "$BASE/llms.txt")"
+check "llms.txt names the head term" 'grep -qF "AI college admissions counselor" <<<"$llms"'
+check "llms.txt has the school count" 'grep -qF "2,200+" <<<"$llms"'
 for path in /favicon.ico /icon.svg /apple-touch-icon.png /site.webmanifest /og.png /icon-512.png; do
   check "$path served" '[ "$(status "$BASE$path")" = 200 ]'
 done
@@ -86,18 +103,26 @@ done
 echo "Headers"
 headers="$(curl -sI "$BASE/")"
 check "HSTS" 'grep -qi "^strict-transport-security" <<<"$headers"'
+check "X-Frame-Options" 'grep -qi "^x-frame-options" <<<"$headers"'
 check "CSP report-only" 'grep -qi "^content-security-policy-report-only" <<<"$headers"'
 check "immutable assets" 'curl -sI "$BASE$(grep -oE "/assets/[^\"]+\.js" <<<"$page" | head -1)" | grep -qi "immutable"'
 
 if [ "$BASE" = "$PRODUCTION" ]; then
   echo "Host redirects (one hop each)"
-  for origin in http://acceptra.ai http://www.acceptra.ai https://www.acceptra.ai https://acceptra.com http://acceptra.com; do
+  origins="http://acceptra.ai http://www.acceptra.ai https://www.acceptra.ai"
+  [ "${CHECK_COM:-}" = 1 ] && origins="$origins https://acceptra.com http://acceptra.com"
+  for origin in $origins; do
     check "$origin" '[[ "$(hop "$origin/")" =~ ^30[18]\ https://acceptra\.ai/?$ ]]'
   done
+  echo "Analytics proxy"
+  key="$(grep -oE 'phc_[A-Za-z0-9]+' <<<"$chunk" | head -1)"
+  check "/ingest serves the project config" 'curl -s -D - -o /dev/null "$BASE/ingest/array/$key/config" | grep -qi "^content-type: application/json" && [ "$(status "$BASE/ingest/array/$key/config")" = 200 ]'
 fi
 if [ -n "${PAGES_DEV_URL:-}" ]; then
   echo "Preview host"
   check "$PAGES_DEV_URL sends noindex" 'curl -sI "$PAGES_DEV_URL/" | grep -qi "^x-robots-tag: noindex"'
+  # The Origin matches, so only the host check can refuse this.
+  check "$PAGES_DEV_URL refuses waitlist writes" '[ "$(signup "$PAGES_DEV_URL" "{\"email\":\"x@check.invalid\",\"side\":\"me\",\"source\":\"nav\"}" -H "Origin: $PAGES_DEV_URL")" = 403 ]'
 fi
 
 echo
