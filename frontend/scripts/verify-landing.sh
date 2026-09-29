@@ -110,7 +110,6 @@ check "HSTS" 'grep -qi "^strict-transport-security" <<<"$headers"'
 check "X-Frame-Options" 'grep -qi "^x-frame-options" <<<"$headers"'
 check "CSP enforced" 'grep -qi "^content-security-policy: " <<<"$headers"'
 check "immutable assets" 'curl -sI "$BASE$(grep -oE "/assets/[^\"]+\.js" <<<"$page" | head -1)" | grep -qi "immutable"'
-check "HTML is no-transform" 'grep -qi "^cache-control: .*no-transform" <<<"$headers"'
 
 echo "Content-Security-Policy in a real browser"
 node "$HERE/scripts/check-csp.mjs" "$BASE" || failures=$((failures + 1))
@@ -122,6 +121,8 @@ if [ "$BASE" = "$PRODUCTION" ]; then
   for origin in $origins; do
     check "$origin" '[[ "$(hop "$origin/")" =~ ^30[18]\ https://acceptra\.ai/?$ ]]'
   done
+  # Cache-Control: no-transform would also stop Cloudflare compressing the HTML.
+  check "HTML is compressed" 'curl -s -o /dev/null -D - -H "Accept-Encoding: br, gzip" "$BASE/" | grep -qi "^content-encoding: "'
   echo "Analytics proxy"
   key="$(grep -oE 'phc_[A-Za-z0-9]+' <<<"$chunk" | head -1)"
   check "/ingest serves the project config" 'curl -s -D - -o /dev/null "$BASE/ingest/array/$key/config" | grep -qi "^content-type: application/json" && [ "$(status "$BASE/ingest/array/$key/config")" = 200 ]'

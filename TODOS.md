@@ -31,7 +31,7 @@
 - **The site icon is derived, not designed.** `public-landing/icon.svg` (and every PNG/ICO generated from it) and `assets/acceptra-glyph.svg` are the wordmark's "A" on the brand green. Regenerate the PNG set from the designed mark when it exists.
 
 **Engineering notes:**
-- **The Cloudflare Web Analytics beacon.** The HTML pages send `Cache-Control: no-transform` so Cloudflare skips injecting it, and `verify-landing.sh` now fails on any CSP violation in a real browser, which is how a returning beacon would show up. If it returns, turn Web Analytics off in Workers & Pages → acceptra → Metrics.
+- **Turn off Cloudflare Web Analytics** (owner, Workers & Pages → acceptra → Metrics; no token reaches it). Cloudflare injects its beacon into the HTML; the enforced CSP blocks it, so it only costs a console error and Best Practices points, and the privacy policy doesn't mention it. `Cache-Control: no-transform` does stop the injection, but it also stops Cloudflare compressing the HTML (the homepage went from brotli to 207 kB raw and Lighthouse Performance from 93 to 87), so it was reverted. Until it is off, `verify-landing.sh https://acceptra.ai` fails its real-browser CSP check on the beacon, which is the check doing its job.
 - **The app build still renders `LandingPage`** (`src/app/router.tsx`), where `/api/waitlist` doesn't exist, so a signup there shows the generic error. The app isn't deployed; decide at B6.
 - **Deferred**, none needed now:
   - Turnstile on the waitlist, if the rate limit and host check prove not enough.
