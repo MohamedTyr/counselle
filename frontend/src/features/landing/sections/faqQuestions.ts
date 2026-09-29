@@ -1,4 +1,8 @@
-import { DEFINITION } from "../brand";
+import { DEFINITION, FOUNDERS } from "../brand";
+
+const founderNames = new Intl.ListFormat("en", { type: "conjunction" }).format(
+  FOUNDERS.map((founder) => founder.name),
+);
 
 /** The questions the FAQ shows, and the FAQPage structured data repeats. */
 export const QUESTIONS = [
@@ -38,4 +42,12 @@ export const QUESTIONS = [
     q: "Can I cancel, and is there a free plan?",
     a: "Yes to both. The Free plan needs no card, Monthly can be cancelled any time, and Yearly is one payment that covers the whole admissions cycle.",
   },
+  ...(FOUNDERS.length > 0
+    ? [
+        {
+          q: "Who is behind Acceptra?",
+          a: `Acceptra is built by ${founderNames}.`,
+        },
+      ]
+    : []),
 ];

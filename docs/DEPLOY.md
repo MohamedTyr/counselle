@@ -196,3 +196,30 @@ exec uvicorn api.main:create_app --factory --host 0.0.0.0 --port "${PORT:-8000}"
 - [ ] Security pass: response headers, cookie flags, no secrets baked into the image, admin routes gated
 - [ ] Backups: rely on the managed provider's own snapshots (this repo ships no separate backup job) — confirm the provider plan actually includes point-in-time recovery before depending on it
 - [ ] If this deploy is the D9 cutover (dropping an existing `counselle` schema): the restore-verified, off-workstation backup exists (§ "The first v3 deploy drops the entire `counselle` schema"), and `COUNSELLE_DB_RESET_NOTICE_DATE` was set by hand immediately after the drop
+
+## The public landing site (Cloudflare Pages)
+
+The marketing site at `https://acceptra.ai` (the landing page, `/privacy` and `/terms`) deploys on its own, as a static Cloudflare Pages project, independent of the app container above. It has no API behind it: the waitlist posts to `VITE_WAITLIST_ENDPOINT` and analytics goes to PostHog. The decisions behind this shape, and the launch work that surrounds it, are in `plans/landing-seo-plan.md`.
+
+**Build.** `cd frontend && npm run build:landing` builds only the three pages into `frontend/dist-landing` with `public-landing/` as the public directory, then `scripts/prerender-landing.mjs` renders the page to HTML (so crawlers that do not run JavaScript get the full page), writes it as `index.html`, adds the two font preloads, fails the build if any `/assets/` URL in the page is missing, and stamps the waitlist origin into the report-only CSP in `_headers`. The build prints a warning when `VITE_WAITLIST_ENDPOINT` is unset; a production build must not have that warning.
+
+| Pages setting | Value |
+|---|---|
+| Root directory | `frontend` |
+| Build command | `npm run build:landing` |
+| Output directory | `dist-landing` |
+| `VITE_WAITLIST_ENDPOINT` | the waitlist service URL (required) |
+| `VITE_POSTHOG_KEY` | the PostHog project key (required for analytics) |
+
+`public-landing/` carries `robots.txt`, `sitemap.xml` (update each `<lastmod>` when that page changes), `llms.txt`, the `404.html` that keeps unknown paths from returning the homepage with a 200, `_redirects`, `_headers` (security headers, immutable assets, `noindex` on every `*.pages.dev` host), the icon set, `og.png` and `logo.png`. The facts the page, the structured data and `llms.txt` share (the definition, the school count, founders, official profiles) live in `frontend/src/features/landing/brand.ts`; change them there and in `llms.txt` together.
+
+**Zone settings** (Cloudflare dashboard, not files):
+
+- [ ] A proxied DNS record for `www`, and one Redirect Rule sending `www` on `http` and `https` to `https://acceptra.ai` in a single hop
+- [ ] Always Use HTTPS on; `acceptra.com`, once owned, redirects to `https://acceptra.ai`
+- [ ] Email Address Obfuscation **off** (it rewrites every `mailto:` into `/cdn-cgi/l/email-protection` and breaks hydration)
+- [ ] Rocket Loader **off**
+- [ ] AI Crawl Control: every category allowed, managed robots.txt off, Bot Fight Mode not challenging verified bots
+- [ ] Crawler Hints on (IndexNow)
+
+**Verify.** `frontend/scripts/verify-landing.sh <base-url>` runs the launch checks: the prerendered content and head tags, the same page for Googlebot, bingbot, GPTBot, ClaudeBot and PerplexityBot, every asset resolving, the clean URLs and their single-hop redirects, the real 404, the crawl files and the headers. Against `https://acceptra.ai` it also checks the host redirects, and with `PAGES_DEV_URL` set it checks the preview host sends `noindex`. Locally, `npx wrangler pages dev dist-landing` serves the build with Pages' own `_headers`, `_redirects` and 404 handling. What the script cannot check (Search Console, rich-result validators, link-preview renders, Lighthouse, a real waitlist submission reaching PostHog) is listed in the plan's §12.

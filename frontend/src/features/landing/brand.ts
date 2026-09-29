@@ -16,7 +16,7 @@ export const DISAMBIGUATION =
 
 export type Founder = { name: string; linkedin: string };
 
-/** Named on the page and in Organization.founder, always together. */
+/** Named in the FAQ ("Who is behind Acceptra?") and in Organization.founder. */
 export const FOUNDERS: Founder[] = [];
 
 /** Official profiles (LinkedIn, X, Instagram, ...), for Organization.sameAs. */

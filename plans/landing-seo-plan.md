@@ -1,6 +1,6 @@
 # Landing page SEO: launch plan
 
-**Status:** draft for owner review, 2026-09-28. Nothing below is built yet.
+**Status:** engineering built on `feat/landing-seo`, 2026-09-28 (§1, §3A, §4, §5, §6, §7, §8 in code; `frontend/scripts/verify-landing.sh` covers §12's automatable checks). Deploy, zone settings and §10 are owner/infra work not yet done. Deviations: D1 was overridden by the owner (Testimonials stay on); D2–D9 were taken as recommended; the D5 mark and D6 image are stand-ins (the wordmark's "A" on brand green; a render of the page's hero); the founders line is wired to `brand.ts` but empty until names are supplied. Open items are in `TODOS.md`.
 
 **Review:** two independent SEO reviews ran on 2026-09-28, one technical and one on strategy and AI search. Their verified findings are folded in. Each reviewer checked the codebase, Vite 8.1.3's source, and Cloudflare's and Google's official docs.
 

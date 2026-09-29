@@ -1971,3 +1971,5 @@ take their colours, statuses stamp on, the list sorts so the students who are
 behind rise to the top. The markup is the sorted,
 finished state, so reduced motion and browsers without the Web Animations API
 show it as is. Status is a word and an icon before it is a colour.
+
+The production page is prerendered to HTML and hydrated (`scripts/prerender-landing.mjs`), so a component may not read `window`, `document`, `matchMedia` or the URL while rendering: read them in an effect, or through `useSyncExternalStore` with a server value, so the server render and the first client render agree. Adjacent inline text inside flex or `<br />` layouts carries a literal space, because crawlers read the raw HTML text, not the laid-out page.

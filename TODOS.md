@@ -1,5 +1,15 @@
 # TODOS
 
+## Landing launch: what the landing-seo branch left open
+
+The engineering side of `plans/landing-seo-plan.md` is built (prerendered landing-only build, head tags, JSON-LD, crawl files, Pages headers/redirects/404, `scripts/verify-landing.sh`). Open items, each with the reason it is open:
+
+- **Founders and profiles are empty.** `FOUNDERS` and `PROFILES` in `frontend/src/features/landing/brand.ts` drive the "Who is behind Acceptra?" FAQ entry, `Organization.founder` and `Organization.sameAs`; nothing renders until they are filled in with real names, LinkedIn URLs and official profile URLs. Add `twitter:site` to `landing.html` once the X handle exists.
+- **The site icon is derived, not designed.** `public-landing/icon.svg` (and every PNG/ICO generated from it) and `assets/acceptra-glyph.svg` are the wordmark's "A" on the brand green, standing in for the square mark the plan asks design for (D5). Regenerate the PNG set from the designed mark when it exists.
+- **Lighthouse mobile Performance is ~76 locally, not the plan's 90.** SEO 100, Best Practices 100, CLS 0, and a real Chromium under 4x CPU paints the H1 (the LCP) at 0.3-0.8 s, but Lighthouse's simulation reports LCP ~3.8 s against a local Wrangler server. PostHog alone costs ~10 points of TBT even though it loads after `load` + idle (86 without it); loading it on first interaction instead would likely clear 90 at the cost of losing visitors who bounce without interacting. That is an owner call. Re-measure with PageSpeed Insights against production before deciding.
+- **Five landing e2e tests fail, all pre-existing.** `e2e/landing-motion.spec.ts` fails the same five at the as-committed landing (`1a764912`): the 390px nav CTA is under 44px tall, three tests time out on `scrollIntoViewIfNeeded` for the essay sheet, and the stage height differs between two sheets (468 vs 447px). None were introduced by the SEO work; each needs its own look.
+- **Enforce the CSP after a clean report period.** `_headers` ships `Content-Security-Policy-Report-Only`; switch to enforcing only once production reports show no violations from the page's own resources.
+
 ## `cds_library.school_explore` view ownership drifted from the seed (live DB fix applied, source not)
 - **What:** the live v3 database's `cds_library.school_explore` view was owned by `postgres`
   instead of `cds_library_owner`, so `cds_library_reader`'s (checked-in) `GRANT SELECT` never
