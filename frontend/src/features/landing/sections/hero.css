@@ -498,7 +498,7 @@
 }
 /* Each letter comes into focus as it is typed. */
 .lp-char {
-  animation: lp-char-in 200ms cubic-bezier(0.23, 1, 0.32, 1) both;
+  animation: lp-char-in 200ms var(--lp-ease-type) both;
 }
 @keyframes lp-char-in {
   from {

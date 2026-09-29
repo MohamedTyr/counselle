@@ -85,7 +85,7 @@ function TasksCard() {
   );
 }
 
-function EssayCard() {
+function HeroEssayCard() {
   return (
     <div className="lp-hc lp-hc-essay">
       <div className="lp-hc-head">
@@ -269,7 +269,7 @@ export function HeroCards() {
         <TasksCard />
       </div>
       <div className="lp-hc-slot lp-hc-slot-essay">
-        <EssayCard />
+        <HeroEssayCard />
       </div>
       <div className="lp-hc-slot lp-hc-slot-matches">
         <MatchesCard />

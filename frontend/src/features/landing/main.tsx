@@ -17,9 +17,9 @@ if (root.hasChildNodes())
   requestAnimationFrame(() => setTimeout(() => hydrateRoot(root, page)));
 else createRoot(root).render(page);
 
-// The explicit preview stays available to signed-in users. The public root
-// retains its existing redirect into the authenticated application, except on
-// the landing-only site, which has no API behind it.
+// In the app build, a signed-in visitor at the root goes straight to the app.
+// The landing-only build has no API to ask, and /landing.html is the explicit
+// preview, so neither checks.
 if (
   !import.meta.env.VITE_LANDING_ONLY &&
   window.location.pathname !== "/landing.html"

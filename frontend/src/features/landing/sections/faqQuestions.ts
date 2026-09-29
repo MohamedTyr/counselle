@@ -1,4 +1,4 @@
-import { DEFINITION, FOUNDERS } from "../brand";
+import { DEFINITION, FOUNDERS, MENTOR_CALLS } from "../brand";
 
 const founderNames = new Intl.ListFormat("en", { type: "conjunction" }).format(
   FOUNDERS.map((founder) => founder.name),
@@ -20,7 +20,7 @@ export const QUESTIONS = [
   },
   {
     q: "Is there a real person, or only AI?",
-    a: "Both. The workspace is AI, and paid plans include two 20-minute calls a month with a mentor who got in recently. When you email us, a person writes back.",
+    a: `Both. The workspace is AI, and paid plans include ${MENTOR_CALLS.toLowerCase()} with someone who got in recently. When you email us, a person writes back.`,
   },
   {
     q: "Is it allowed by schools and the Common App?",

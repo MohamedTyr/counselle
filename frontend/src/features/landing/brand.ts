@@ -11,6 +11,8 @@ export const SITE_HOST = new URL(SITE_URL).hostname;
 export const BRAND = "Acceptra";
 export const CONTACT_EMAIL = "hello@acceptra.ai";
 export const SCHOOL_COUNT = "2,200+";
+/** What paid plans include; the feature list, pricing and FAQ all quote it. */
+export const MENTOR_CALLS = "Two 20-minute mentor calls a month";
 
 export const DEFINITION = `${BRAND} is an AI college admissions counselor for students, parents, school counselors and school officials: essay feedback, a college list matched to you, scholarships, activities, SAT practice and every deadline in one place, checked against ${SCHOOL_COUNT} schools.`;
 

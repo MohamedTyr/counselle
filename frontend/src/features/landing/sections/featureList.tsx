@@ -1,4 +1,5 @@
 import type { ComponentType } from "react";
+import { MENTOR_CALLS } from "../brand";
 import { EssaySheet } from "../cards/EssayCard";
 import { AskSheet } from "../cards/AskSheet";
 import { ScholarshipsSheet } from "../cards/ScholarshipsCard";
@@ -30,8 +31,7 @@ export const FEATURES: Feature[] = [
   {
     id: "sessions",
     title: "A real mentor, twice a month",
-    blurb:
-      "Two 20-minute calls a month with someone who got in recently. Ask what you would ask a friend who has been through it.",
+    blurb: `${MENTOR_CALLS} with someone who got in recently. Ask what you would ask a friend who has been through it.`,
     size: "wide",
     color: "#0f4a52",
     tint: "#e2f3f5",
