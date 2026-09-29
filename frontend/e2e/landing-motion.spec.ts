@@ -444,6 +444,12 @@ test("explicit pause freezes the loop and Play starts a newly selected loop", as
   await expect
     .poll(() => list.evaluate((element) => element.getAnimations().length))
     .toBeGreaterThan(0);
+  // Development builds mount twice, so compare against what mounting made.
+  const listLoops = async () =>
+    (await motions(page)).filter((entry) =>
+      entry.target.split(" ").includes("lp-activity-list"),
+    ).length;
+  const mounted = await listLoops();
   await page
     .getByRole("button", { name: "Pause showcase", exact: true })
     .click();
@@ -475,11 +481,7 @@ test("explicit pause freezes the loop and Play starts a newly selected loop", as
       Number(element.getAnimations()[0].currentTime),
     ),
   ).toBeGreaterThanOrEqual(time);
-  expect(
-    (await motions(page)).filter((entry) =>
-      entry.target.split(" ").includes("lp-activity-list"),
-    ),
-  ).toHaveLength(1);
+  expect(await listLoops()).toBe(mounted);
   await page
     .getByRole("button", { name: "Pause showcase", exact: true })
     .click();
