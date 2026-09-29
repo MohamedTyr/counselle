@@ -1,4 +1,5 @@
-import { useLayoutEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef } from "react";
+import { REDUCED_MOTION, useInView, useMediaQuery } from "./hooks";
 import { ENTRANCE, MORPH, STAMP } from "./motion";
 
 const ROW_PX = 56;
@@ -7,6 +8,8 @@ const STATUS_AT_MS = 750;
 const STATUS_STEP_MS = 70;
 const SORT_AT_MS = 1650;
 const SORT_MS = 820;
+/** How much of the roster shows before it sorts itself. */
+const IN_VIEW = 0.4;
 
 /**
  * The roster's one demonstration: the class takes its colours, each student
@@ -65,38 +68,40 @@ function build(figure: HTMLElement): Animation[] {
 
 export function useRosterMotion() {
   const figure = useRef<HTMLDivElement>(null);
+  const reduced = useMediaQuery(REDUCED_MOTION);
+  const inView = useInView(figure, IN_VIEW);
+  const animations = useRef<Animation[]>([]);
+  const played = useRef(false);
+
+  // Built paused, so every step holds its opening frame until it is seen.
   useLayoutEffect(() => {
     const node = figure.current;
-    const preference = window.matchMedia("(prefers-reduced-motion: reduce)");
     if (
       !node ||
-      preference.matches ||
+      reduced ||
+      played.current ||
       typeof node.animate !== "function" ||
       typeof IntersectionObserver !== "function"
     )
       return;
-    const animations = build(node);
-    animations.forEach((animation) => animation.pause());
-    const settle = () => animations.forEach((animation) => animation.cancel());
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (!entry.isIntersecting) return;
-        observer.disconnect();
-        animations.forEach((animation) => animation.play());
-        Promise.all(animations.map((animation) => animation.finished)).then(
-          settle,
-          () => undefined,
-        );
-      },
-      { threshold: 0.4 },
-    );
-    observer.observe(node);
-    preference.addEventListener("change", settle);
+    const built = build(node);
+    built.forEach((animation) => animation.pause());
+    animations.current = built;
     return () => {
-      observer.disconnect();
-      preference.removeEventListener("change", settle);
-      settle();
+      built.forEach((animation) => animation.cancel());
+      animations.current = [];
     };
-  }, []);
+  }, [reduced]);
+
+  useEffect(() => {
+    const built = animations.current;
+    if (!inView || played.current || built.length === 0) return;
+    played.current = true;
+    built.forEach((animation) => animation.play());
+    Promise.all(built.map((animation) => animation.finished)).then(
+      () => built.forEach((animation) => animation.cancel()),
+      () => undefined,
+    );
+  }, [inView]);
   return figure;
 }

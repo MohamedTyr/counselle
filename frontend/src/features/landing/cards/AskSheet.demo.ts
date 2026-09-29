@@ -1,5 +1,5 @@
-import type { Sequence } from "../../useIllustrationMotion";
-import { ARRIVAL_MS, FADE, RISE, STAMP } from "../../motion";
+import type { Sequence } from "../useIllustrationMotion";
+import { ARRIVAL_MS, FADE, RISE, STAMP } from "../motion";
 
 const POP: Keyframe[] = [
   { opacity: 0, transform: "scale(0.6)" },

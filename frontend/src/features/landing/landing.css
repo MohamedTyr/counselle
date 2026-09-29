@@ -1,8 +1,18 @@
 @import "@fontsource-variable/geist";
 @import "@fontsource-variable/inter";
-@import "@fontsource-variable/instrument-sans";
 @import "@fontsource/instrument-serif/400-italic.css";
 @import "./interactions.css";
+
+/* Arial reshaped to Inter's metrics, so text set before the webfont arrives
+   takes the same room and nothing moves when it swaps in. */
+@font-face {
+  font-family: "Inter Fallback";
+  src: local("Arial");
+  size-adjust: 107.06%;
+  ascent-override: 90.49%;
+  descent-override: 22.56%;
+  line-gap-override: 0%;
+}
 
 /*
  * Marketing tokens for the public landing page, deliberately independent
@@ -31,14 +41,22 @@
   --lp-hairline: rgba(18, 18, 20, 0.08);
   --lp-footer-placeholder: #a8b0ac;
   --lp-font: "Geist Variable", "Geist", system-ui, sans-serif;
-  --lp-font-hero: "Inter Variable", "Inter", system-ui, sans-serif;
-  --lp-font-request:
-    "Instrument Sans Variable", "Instrument Sans", system-ui, sans-serif;
+  --lp-font-hero: "Inter Variable", "Inter Fallback", system-ui, sans-serif;
   --lp-font-serif: "Instrument Serif", Georgia, serif;
   --lp-duration-feedback: 150ms;
   --lp-duration-state: 200ms;
   --lp-ease-feedback: ease-out;
   --lp-ease-entrance: cubic-bezier(0.16, 1, 0.3, 1);
+  /* One state becomes another, no snap at either end (MORPH in motion.ts). */
+  --lp-ease-morph: cubic-bezier(0.65, 0, 0.35, 1);
+  /* Overshoots once, like a sticker pressed on (STAMP in motion.ts). */
+  --lp-ease-stamp: cubic-bezier(0.34, 1.56, 0.64, 1);
+  /* A control's contents trading places: quick out, settled in. */
+  --lp-ease-swap: cubic-bezier(0.2, 0, 0, 1);
+  /* A sheet sliding up from the bottom edge. */
+  --lp-ease-sheet: cubic-bezier(0.32, 0.72, 0, 1);
+  /* A typed letter coming into focus. */
+  --lp-ease-type: cubic-bezier(0.23, 1, 0.32, 1);
 
   min-height: 100svh;
   background: var(--lp-bg);

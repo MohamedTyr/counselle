@@ -1,4 +1,5 @@
 import type { PlanId } from "../waitlist/contract";
+import { MENTOR_CALLS } from "../brand";
 
 /** The plans the pricing section shows, and the structured data offers. */
 export type Plan = {
@@ -34,7 +35,7 @@ export const PLANS: Plan[] = [
     features: [
       "Unlimited questions",
       "Unlimited essay feedback",
-      "Two 20-min mentor calls a month",
+      MENTOR_CALLS,
       "Deadlines, tasks and scholarships",
     ],
   },

@@ -1,6 +1,7 @@
 import type { ComponentType } from "react";
+import { MENTOR_CALLS } from "../brand";
 import { EssaySheet } from "../cards/EssayCard";
-import { AskSheet } from "../cards/colleges/AskSheet";
+import { AskSheet } from "../cards/AskSheet";
 import { ScholarshipsSheet } from "../cards/ScholarshipsCard";
 import { ActivitiesSheet } from "../cards/ActivitiesCard";
 import { SatSheet } from "../cards/SatCard";
@@ -30,8 +31,7 @@ export const FEATURES: Feature[] = [
   {
     id: "sessions",
     title: "A real mentor, twice a month",
-    blurb:
-      "Two 20-minute calls a month with someone who got in recently. Ask what you would ask a friend who has been through it.",
+    blurb: `${MENTOR_CALLS} with someone who got in recently. Ask what you would ask a friend who has been through it.`,
     size: "wide",
     color: "#0f4a52",
     tint: "#e2f3f5",
@@ -108,3 +108,6 @@ export const FEATURES: Feature[] = [
     Sheet: DeadlinesSheet,
   },
 ];
+
+/** The id of a feature's tab, which its panel is labelled by. */
+export const stageTabId = (feature: Feature) => `lp-stage-tab-${feature.id}`;

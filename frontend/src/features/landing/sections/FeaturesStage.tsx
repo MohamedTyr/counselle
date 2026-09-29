@@ -1,17 +1,26 @@
 import {
-  useCallback,
-  useEffect,
   useLayoutEffect,
   useRef,
   useState,
-  useSyncExternalStore,
   type CSSProperties,
+  type FocusEvent,
+  type PointerEvent,
+  type RefObject,
 } from "react";
 import "./features-stage.css";
-import { FEATURES } from "./featureList";
+import { FEATURES, stageTabId, type Feature } from "./featureList";
 import { StageFigure } from "./StageFigure";
+import { StagePlayback } from "./StagePlayback";
+import { Blurbs, StageTabs } from "./StageTabs";
 import { useStageClock } from "./useStageClock";
+import { useStageSelection } from "./useStageSelection";
 import { ENTRANCE } from "../motion";
+import {
+  REDUCED_MOTION,
+  useDocumentHidden,
+  useInView,
+  useMediaQuery,
+} from "../hooks";
 
 /** How long a sheet stays where its demonstration cannot be measured. */
 const DEFAULT_DWELL_MS = 4500;
@@ -19,142 +28,71 @@ const WASH_MS = 500;
 const FINE_POINTER = "(hover: hover) and (pointer: fine)";
 /** Below this width the sheets differ in height, so advancing alone would move the page. */
 const UNEVEN_SHEETS = "(max-width: 899px)";
-
-type Shown = { active: number; run: number };
-
-/**
- * Browser-only inputs read through a store: the prerendered page and the
- * hydrating render use the server value, then the live value takes over.
- */
-function useMediaQuery(query: string, server: boolean) {
-  const subscribe = useCallback(
-    (onChange: () => void) => {
-      const media = window.matchMedia(query);
-      media.addEventListener("change", onChange);
-      return () => media.removeEventListener("change", onChange);
-    },
-    [query],
-  );
-  return useSyncExternalStore(
-    subscribe,
-    () => window.matchMedia(query).matches,
-    () => server,
-  );
-}
-
-function subscribeVisibility(onChange: () => void) {
-  document.addEventListener("visibilitychange", onChange);
-  return () => document.removeEventListener("visibilitychange", onChange);
-}
-type Selection = Shown & { keyboard: boolean; leaving: Shown | null };
+/** How much of the panel shows before the showcase counts as watched. */
+const IN_VIEW = 0.15;
 
 /**
- * Every blurb in one grid cell, only the shown one visible, so the cell is
- * always as tall as the longest and the stage never changes height.
+ * Who decides whether the showcase advances: the page's default for the
+ * device, or the visitor's last press of Pause or Play. A press of Play keeps
+ * it going under the pointer until the visitor turns to the stage again.
  */
-function Blurbs({ shown }: { shown: number }) {
-  return FEATURES.map(({ id, blurb }, index) => {
-    const hidden = index !== shown || undefined;
-    return (
-      <span key={id} aria-hidden={hidden} data-nosnippet={hidden}>
-        {blurb}
-      </span>
-    );
-  });
-}
+type Playback = "auto" | "userPaused" | "userPlaying";
 
-/** One immediately selectable feature; automatic advance only while unattended. */
-export function FeaturesStage() {
-  const [{ active, run, keyboard, leaving }, setSelection] =
-    useState<Selection>({ active: 0, run: 0, keyboard: false, leaving: null });
-  const finePointer = useMediaQuery(FINE_POINTER, false);
-  const unevenSheets = useMediaQuery(UNEVEN_SHEETS, false);
-  const [pausedChoice, setPausedChoice] = useState<boolean | null>(null);
-  const paused = pausedChoice ?? (!finePointer || unevenSheets);
-  const [explicitPlay, setExplicitPlay] = useState(false);
-  const [userPaused, setUserPaused] = useState(false);
+/**
+ * Whether the visitor is attending to the stage: a mouse over it, or focus
+ * reached by keyboard (a press leaves focus behind it, which doesn't count).
+ * `onAttend` fires each time they turn to it.
+ */
+function useStageAttention(onAttend: () => void) {
   const [hovered, setHovered] = useState(false);
   const [focused, setFocused] = useState(false);
-  const hidden = useSyncExternalStore(
-    subscribeVisibility,
-    () => document.hidden,
-    () => false,
-  );
-  const [inView, setInView] = useState(false);
-  const reduced = useMediaQuery("(prefers-reduced-motion: reduce)", false);
-  const root = useRef<HTMLDivElement>(null);
-  // A press leaves focus behind it; only focus reached by keyboard holds the stage.
   const pressed = useRef(false);
-  const panel = useRef<HTMLDivElement>(null);
-  const backdrop = useRef<HTMLDivElement>(null);
-  const previousWash = useRef(FEATURES[0]);
-  const feature = FEATURES[active];
-  const dwell = feature.dwell ?? DEFAULT_DWELL_MS;
-  const autoplay =
-    inView &&
-    !paused &&
-    ((!hovered && !focused) || explicitPlay) &&
-    !hidden &&
-    !reduced;
+  const handlers = {
+    onPointerEnter: (event: PointerEvent) => {
+      if (event.pointerType !== "mouse") return;
+      setHovered(true);
+      onAttend();
+    },
+    onPointerLeave: () => setHovered(false),
+    onPointerDown: () => {
+      pressed.current = true;
+    },
+    onFocus: () => {
+      const byPress = pressed.current;
+      pressed.current = false;
+      if (byPress) return;
+      setFocused(true);
+      onAttend();
+    },
+    onBlur: (event: FocusEvent) => {
+      if (!event.currentTarget.contains(event.relatedTarget as Node))
+        setFocused(false);
+      onAttend();
+    },
+  };
+  return { held: hovered || focused, handlers };
+}
 
-  /** Every selection is a new run, so choosing the open feature plays it again. */
-  const select = useCallback(
-    (next: number | ((active: number) => number), byKeyboard: boolean) =>
-      setSelection((shown) => ({
-        active: typeof next === "function" ? next(shown.active) : next,
-        run: shown.run + 1,
-        keyboard: byKeyboard,
-        leaving: byKeyboard ? null : { active: shown.active, run: shown.run },
-      })),
-    [],
-  );
-  const advance = useCallback(
-    () => select((shown) => (shown + 1) % FEATURES.length, false),
-    [select],
-  );
-  const onGone = useCallback(
-    (gone: number) =>
-      setSelection((shown) =>
-        shown.leaving?.run === gone ? { ...shown, leaving: null } : shown,
-      ),
-    [],
-  );
-  useStageClock(root, {
-    run,
-    dwell,
-    running: autoplay,
-    immediate: keyboard || reduced,
-    onElapsed: advance,
-  });
+type WashState = {
+  keyboard: boolean;
+  hidden: boolean;
+  inView: boolean;
+  reduced: boolean;
+};
 
-  useEffect(() => {
-    const observer =
-      typeof IntersectionObserver === "function"
-        ? new IntersectionObserver(
-            ([entry]) =>
-              setInView(
-                entry.isIntersecting && entry.intersectionRatio >= 0.15,
-              ),
-            { threshold: 0.15 },
-          )
-        : undefined;
-    if (panel.current) observer?.observe(panel.current);
-    return () => observer?.disconnect();
-  }, []);
-
+/** The previous feature's colour fades out behind the new sheet. */
+function useStageWash(
+  backdrop: RefObject<HTMLDivElement | null>,
+  feature: Feature,
+  { keyboard, hidden, inView, reduced }: WashState,
+) {
+  const previous = useRef(feature);
   useLayoutEffect(() => {
-    const old = previousWash.current;
-    previousWash.current = feature;
+    const old = previous.current;
+    previous.current = feature;
     const node = backdrop.current;
-    if (
-      !node ||
-      old === feature ||
-      keyboard ||
-      hidden ||
-      !inView ||
-      typeof node.animate !== "function"
-    )
-      return;
+    if (!node || old === feature || keyboard || hidden || !inView) return;
+    if (typeof node.animate !== "function") return;
     node.style.setProperty("--stage-tint", old.tint);
     node.style.setProperty("--stage-glow", old.glow);
     const animation = node.animate([{ opacity: 1 }, { opacity: 0 }], {
@@ -162,151 +100,142 @@ export function FeaturesStage() {
       easing: ENTRANCE,
     });
     return () => animation.cancel();
-  }, [feature, keyboard, hidden, inView, reduced]);
+  }, [backdrop, feature, keyboard, hidden, inView, reduced]);
+}
 
-  const onKeyDown = (event: React.KeyboardEvent) => {
-    const step = { ArrowDown: 1, ArrowRight: 1, ArrowUp: -1, ArrowLeft: -1 }[
-      event.key
-    ];
-    const next =
-      event.key === "Home"
-        ? 0
-        : event.key === "End"
-          ? FEATURES.length - 1
-          : step
-            ? (active + step + FEATURES.length) % FEATURES.length
-            : null;
-    if (next === null) return;
-    event.preventDefault();
-    setExplicitPlay(false);
-    select(next, true);
-    root.current
-      ?.querySelector<HTMLButtonElement>(`#lp-stage-tab-${FEATURES[next].id}`)
-      ?.focus();
+/** Whether the showcase is paused, and who said so. */
+function usePlayback() {
+  const [playback, setPlayback] = useState<Playback>("auto");
+  const finePointer = useMediaQuery(FINE_POINTER);
+  const unevenSheets = useMediaQuery(UNEVEN_SHEETS);
+  const stillByDefault = !finePointer || unevenSheets;
+  const paused =
+    playback === "userPaused" || (playback === "auto" && stillByDefault);
+  return {
+    paused,
+    /** Paused by the visitor, which also freezes the sheet's own motion. */
+    userPaused: playback === "userPaused",
+    /** Play was pressed, so the showcase goes on under the pointer. */
+    userPlaying: playback === "userPlaying",
+    toggle: () => setPlayback(paused ? "userPlaying" : "userPaused"),
+    // Turning to the stage hands a pressed Play back to the default.
+    attend: () => setPlayback((now) => (now === "userPlaying" ? "auto" : now)),
   };
+}
 
+type Selection = ReturnType<typeof useStageSelection>;
+type PanelProps = Pick<
+  Selection,
+  "active" | "run" | "keyboard" | "leaving" | "onGone"
+> & {
+  panelRef: RefObject<HTMLDivElement | null>;
+  inView: boolean;
+  reduced: boolean;
+  hidden: boolean;
+  paused: boolean;
+};
+
+/** The panel the sheets stand in: the one on stage, and the one leaving it. */
+function StagePanel({ panelRef, active, run, leaving, ...rest }: PanelProps) {
+  const { keyboard, onGone, ...motion } = rest;
+  const backdrop = useRef<HTMLDivElement>(null);
+  const feature = FEATURES[active];
+  useStageWash(backdrop, feature, { keyboard, ...motion });
+  const sheets = [
+    ...(leaving ? [{ ...leaving, leaving: true }] : []),
+    { active, run, leaving: false },
+  ];
+  return (
+    <div
+      ref={panelRef}
+      id="lp-stage-panel"
+      aria-describedby="lp-stage-description"
+      role="tabpanel"
+      tabIndex={0}
+      aria-labelledby={stageTabId(feature)}
+      className="lp-stage-panel"
+    >
+      <div ref={backdrop} className="lp-stage-backdrop" aria-hidden="true" />
+      {sheets.map((shown) => (
+        <StageFigure
+          key={shown.run}
+          run={shown.run}
+          feature={FEATURES[shown.active]}
+          entrance={shown.run > 0 && !keyboard}
+          leaving={shown.leaving}
+          onGone={onGone}
+          keyboard={keyboard}
+          {...motion}
+        />
+      ))}
+    </div>
+  );
+}
+
+/** One immediately selectable feature; automatic advance only while unattended. */
+export function FeaturesStage() {
+  const selection = useStageSelection();
+  const { active, run, keyboard, select, advance } = selection;
+  const playback = usePlayback();
+  const { held, handlers } = useStageAttention(playback.attend);
+  const hidden = useDocumentHidden();
+  const reduced = useMediaQuery(REDUCED_MOTION);
+  const root = useRef<HTMLDivElement>(null);
+  const panel = useRef<HTMLDivElement>(null);
+  const inView = useInView(panel, IN_VIEW);
+  const feature = FEATURES[active];
+  const autoplay =
+    inView &&
+    !playback.paused &&
+    (!held || playback.userPlaying) &&
+    !hidden &&
+    !reduced;
+  useStageClock(root, {
+    run,
+    dwell: feature.dwell ?? DEFAULT_DWELL_MS,
+    running: autoplay,
+    immediate: keyboard || reduced,
+    onElapsed: advance,
+  });
+  const style = {
+    "--stage-tint": feature.tint,
+    "--stage-glow": feature.glow,
+  } as CSSProperties;
   return (
     <div
       ref={root}
       className={`lp-stage${autoplay ? " lp-stage-playing" : ""}`}
       data-keyboard-motion={keyboard}
-      style={
-        {
-          "--stage-tint": feature.tint,
-          "--stage-glow": feature.glow,
-        } as CSSProperties
-      }
-      onPointerEnter={(event) => {
-        if (event.pointerType === "mouse") {
-          setHovered(true);
-          setExplicitPlay(false);
-        }
-      }}
-      onPointerLeave={() => setHovered(false)}
-      onPointerDown={() => {
-        pressed.current = true;
-      }}
-      onFocus={() => {
-        const byPress = pressed.current;
-        pressed.current = false;
-        if (byPress) return;
-        setFocused(true);
-        setExplicitPlay(false);
-      }}
-      onBlur={(event) => {
-        if (!event.currentTarget.contains(event.relatedTarget as Node))
-          setFocused(false);
-        setExplicitPlay(false);
-      }}
+      style={style}
+      {...handlers}
     >
-      <div
-        className="lp-stage-list"
-        role="tablist"
-        aria-orientation="vertical"
-        aria-label="Features"
-        onKeyDown={onKeyDown}
-      >
-        {FEATURES.map(({ id, title, color }, index) => {
-          const selected = index === active;
-          return (
-            <button
-              key={id}
-              id={`lp-stage-tab-${id}`}
-              type="button"
-              role="tab"
-              aria-selected={selected}
-              aria-controls="lp-stage-panel"
-              tabIndex={selected ? 0 : -1}
-              className={`lp-stage-tab${selected ? " lp-stage-tab-active" : ""}`}
-              onClick={(event) => {
-                setExplicitPlay(false);
-                select(index, event.detail === 0);
-              }}
-            >
-              <span
-                className="lp-stage-progress"
-                style={{ background: color }}
-                aria-hidden="true"
-              />
-              <span className="lp-stage-title">{title}</span>{" "}
-              <span className="lp-stage-blurb">
-                <span className="lp-stage-blurbs">
-                  <Blurbs shown={index} />
-                </span>
-              </span>
-            </button>
-          );
-        })}
-      </div>
+      <StageTabs
+        active={active}
+        onSelect={(index, byKeyboard) => {
+          playback.attend();
+          select(index, byKeyboard);
+        }}
+      />
       <p
         className="lp-stage-description lp-stage-blurbs"
         id="lp-stage-description"
       >
         <Blurbs shown={active} />
       </p>
-      <div
-        ref={panel}
-        id="lp-stage-panel"
-        aria-describedby="lp-stage-description"
-        role="tabpanel"
-        tabIndex={0}
-        aria-labelledby={`lp-stage-tab-${feature.id}`}
-        className="lp-stage-panel"
-      >
-        <div ref={backdrop} className="lp-stage-backdrop" aria-hidden="true" />
-        {[
-          ...(leaving ? [{ ...leaving, leaving: true }] : []),
-          { active, run, leaving: false },
-        ].map((shown) => (
-          <StageFigure
-            key={shown.run}
-            run={shown.run}
-            feature={FEATURES[shown.active]}
-            entrance={shown.run > 0 && !keyboard}
-            leaving={shown.leaving}
-            onGone={onGone}
-            keyboard={keyboard}
-            reduced={reduced}
-            inView={inView}
-            hidden={hidden}
-            paused={userPaused}
-          />
-        ))}
-      </div>
+      <StagePanel
+        active={active}
+        run={run}
+        keyboard={keyboard}
+        leaving={selection.leaving}
+        onGone={selection.onGone}
+        panelRef={panel}
+        inView={inView}
+        reduced={reduced}
+        hidden={hidden}
+        paused={playback.userPaused}
+      />
       {!reduced && (
-        <button
-          type="button"
-          className="lp-stage-playback"
-          aria-label={paused ? "Play showcase" : "Pause showcase"}
-          onClick={() => {
-            setExplicitPlay(paused);
-            setUserPaused(!paused);
-            setPausedChoice(!paused);
-          }}
-        >
-          <span aria-hidden="true">{paused ? "▶" : "Ⅱ"}</span>{" "}
-          {paused ? "Play showcase" : "Pause showcase"}
-        </button>
+        <StagePlayback paused={playback.paused} onToggle={playback.toggle} />
       )}
     </div>
   );

@@ -9,6 +9,7 @@ import {
   submitWaitlist,
 } from "../waitlist/waitlist";
 import { LegalConsent, PRIVACY_URL, TERMS_URL } from "../waitlist/LegalConsent";
+import { TrapField } from "../waitlist/TrapField";
 import "./footer.css";
 
 const PRODUCT_LINKS = [
@@ -90,14 +91,7 @@ function FooterSignup() {
             aria-describedby={problem ? problemId : undefined}
           />
         )}
-        <input
-          className="lp-wl-trap"
-          name="website"
-          type="text"
-          tabIndex={-1}
-          autoComplete="off"
-          aria-hidden="true"
-        />
+        <TrapField />
         <button
           type="submit"
           className="lp-footer-submit"

@@ -1920,16 +1920,30 @@ The public landing page is the Figma frame "Desktop - 6" (file
 `V66rN97MQiP3ezpNpLL7MD`) reproduced as code, one to one. It has its own
 marketing system, separate from workspace tokens: page `#f7fbf9`, ink
 `#121214`, primary CTA `#0a6b3d`, bright green `#21b86b`, hairline strokes at
-`#121214` 8%, no drop shadows anywhere, Geist Variable throughout (the wordmark
-is Geom Regular, shipped as outlined SVG), 46px section headings, 20px card
-radius, 12px illustration sheets, 999px pills, and a 160px section rhythm. The
-tokens live in `frontend/src/features/landing/landing.css`; the sections and
-illustrated cards are the components under `frontend/src/features/landing/`,
-and the standalone Vite entry is `frontend/landing.html`.
+`#121214` 8%, 46px section headings, 20px card radius, 12px illustration
+sheets, 999px pills, and a section rhythm of `--lp-section-gap` (120px at the
+design width, 64px on phones). The tokens, the motion curves (`--lp-ease-*`,
+mirrored by `motion.ts`) included, live in
+`frontend/src/features/landing/landing.css`; the sections and illustrated cards
+are the components under `frontend/src/features/landing/`, and the standalone
+Vite entry is `frontend/landing.html`.
 
-The page is authored at the design's native 1440px width and scaled down
-proportionally on narrower viewports rather than reflowed, so the composition
-never departs from the approved frame. The illustrated feature cards (essay
+Three families, no more. Geist Variable sets the body copy and section
+headings. Inter Variable sets the hero, the workspace cards, pricing, the
+comparison and the waitlist dialog, with an "Inter Fallback" face (Arial
+reshaped to Inter's metrics) behind it so nothing moves when the webfont swaps
+in; its latin face is preloaded. Instrument Serif Italic is the one accent word.
+The wordmark is Geom Regular, shipped as outlined SVG. Shadows are few and
+soft, each with a job: the illustration sheets on the stage lift off their wash
+(`0 16px 40px` at 12%), the hero's CTA, composer and workspace cards sit on the
+dark hero, the waitlist dialog and its chips float over the page, and the
+compare picker's selected option is raised. Flat surfaces and hairlines do the
+rest.
+
+The page is authored at the design's native 1440px width and reflows below it:
+text and interactive targets never shrink, columns stack, and only the
+illustration sheets scale, each as one picture fitted to its panel. The
+illustrated feature cards (essay
 notes, college matches, scholarships, activities, SAT practice, deadlines) are
 static illustrations, hidden from assistive technology; the nav, plan buttons,
 FAQ accordion, newsletter field and footer links are the interactive surface.

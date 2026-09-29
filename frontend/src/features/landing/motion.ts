@@ -11,7 +11,3 @@ export const RISE: Keyframe[] = [
   { opacity: 0, transform: "translateY(6px)" },
   { opacity: 1, transform: "translateY(0)" },
 ];
-
-export function canAnimate(): boolean {
-  return typeof Element.prototype.animate === "function" && !document.hidden;
-}

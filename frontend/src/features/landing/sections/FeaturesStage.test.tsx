@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { FeaturesStage } from "./FeaturesStage";
 vi.mock("./featureList", () => ({
+  stageTabId: ({ id }: { id: string }) => `lp-stage-tab-${id}`,
   FEATURES: ["essay", "colleges", "sat"].map((id) => ({
     id,
     title: id,

@@ -31,9 +31,9 @@ const REPLY_HEADERS = {
  * Same side: fill answers in, never replace one with null. Side changed: take
  * the new side's answers and drop the old side's. source, plan, utm_* and
  * created_at are first-touch and never change. Pinned by
- * migrations-landing/checks/check_upsert.sql.
+ * src/features/landing/waitlist/upsert.test.ts.
  */
-const UPSERT = `
+export const UPSERT = `
 INSERT INTO waitlist (email, side, source, plan, role, class_of, utm_source, utm_medium, utm_campaign)
 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)
 ON CONFLICT (email) DO UPDATE SET

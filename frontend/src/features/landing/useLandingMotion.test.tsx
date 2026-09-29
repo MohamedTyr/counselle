@@ -115,6 +115,7 @@ it("uses fade-only motion and settles animations on preference changes", () => {
       [{ opacity: 0 }, { opacity: 1 }],
       expect.objectContaining({ duration: 150 }),
     ]);
+  reduced = false;
   act(() => preference(new Event("change")));
   expect(cancel).toHaveBeenCalled();
 });

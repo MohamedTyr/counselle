@@ -1,20 +1,70 @@
 import { Check, Sparkles } from "lucide-react";
-import { SCHOOLS, tierLabel } from "./data";
-import { SCHOOL_COUNT } from "../../brand";
-import "./colleges.css";
-import "./ask.css";
+import logoHarvard from "../assets/row-logo-harvard.png";
+import logoGeorgiaTech from "../assets/row-logo-georgia-tech.webp";
+import logoUmich from "../assets/row-logo-umich.png";
+import logoStanford from "../assets/row-logo-stanford.webp";
+import logoPurdue from "../assets/row-logo-purdue.png";
+import { SCHOOL_COUNT } from "../brand";
+import "./ask-sheet.css";
+
+type Tier = "reach" | "target" | "safety";
+
+type School = {
+  id: string;
+  name: string;
+  logo: string;
+  tier: Tier;
+  /** Why it is on the list, for this student. */
+  why: string;
+};
+
+const TIER_LABELS: Record<Tier, string> = {
+  reach: "Reach",
+  target: "Target",
+  safety: "Safety",
+};
 
 /**
- * Why each school is on the list, for this student: a Georgia resident with a
- * $25k budget. Figures are the schools' own, for 2025-26.
+ * The list for a Georgia resident with a $25k budget, in reading order: reach,
+ * then target, then safety. Figures are the schools' own, for 2025-26.
  */
-const WHY: Record<string, string> = {
-  harvard: "Free tuition under $200k income",
-  stanford: "No tuition under $150k income",
-  "georgia-tech": "30% in-state, Zell Miller covers tuition",
-  umich: "$84k out of state, only with aid",
-  purdue: "EPICS for first-years, needs merit aid",
-};
+const SCHOOLS: School[] = [
+  {
+    id: "harvard",
+    name: "Harvard",
+    logo: logoHarvard,
+    tier: "reach",
+    why: "Free tuition under $200k income",
+  },
+  {
+    id: "stanford",
+    name: "Stanford",
+    logo: logoStanford,
+    tier: "reach",
+    why: "No tuition under $150k income",
+  },
+  {
+    id: "georgia-tech",
+    name: "Georgia Tech",
+    logo: logoGeorgiaTech,
+    tier: "target",
+    why: "30% in-state, Zell Miller covers tuition",
+  },
+  {
+    id: "umich",
+    name: "Michigan",
+    logo: logoUmich,
+    tier: "target",
+    why: "$84k out of state, only with aid",
+  },
+  {
+    id: "purdue",
+    name: "Purdue",
+    logo: logoPurdue,
+    tier: "safety",
+    why: "EPICS for first-years, needs merit aid",
+  },
+];
 
 /** The student asks with their story; the agent answers with it and saves the list. */
 export function AskSheet() {
@@ -49,10 +99,10 @@ export function AskSheet() {
             <img src={school.logo} width={26} height={26} alt="" />
             <span className="lp-cx-ask-school">
               <b>{school.name}</b>
-              <span>{WHY[school.id]}</span>
+              <span>{school.why}</span>
             </span>
             <span className={`lp-cx-ask-tier lp-cx-ask-tier-${school.tier}`}>
-              {tierLabel(school.tier)}
+              {TIER_LABELS[school.tier]}
             </span>
           </div>
         ))}
