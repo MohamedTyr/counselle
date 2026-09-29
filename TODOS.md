@@ -32,6 +32,7 @@
 
 **Engineering notes:**
 - **Turn off Cloudflare Web Analytics** (owner, Workers & Pages → acceptra → Metrics; no token reaches it). Cloudflare injects its beacon into the HTML; the enforced CSP blocks it, so it only costs a console error and Best Practices points, and the privacy policy doesn't mention it. `Cache-Control: no-transform` does stop the injection, but it also stops Cloudflare compressing the HTML (the homepage went from brotli to 207 kB raw and Lighthouse Performance from 93 to 87), so it was reverted. Until it is off, `verify-landing.sh https://acceptra.ai` fails its real-browser CSP check on the beacon, which is the check doing its job.
+- **Lighthouse mobile on production after the finalize pass** (2026-09-29, local Lighthouse 13, three runs): Performance 93, 96, 94 (LCP 2.3–2.6 s, CLS 0), Accessibility 100, SEO 100, Best Practices 92, all of that gap being the blocked beacon above.
 - **The app build still renders `LandingPage`** (`src/app/router.tsx`), where `/api/waitlist` doesn't exist, so a signup there shows the generic error. The app isn't deployed; decide at B6.
 - **Deferred**, none needed now:
   - Turnstile on the waitlist, if the rate limit and host check prove not enough.
