@@ -14,12 +14,13 @@
   padding: var(--lp-panel-inset);
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto auto;
-  grid-template-rows: auto auto auto 1fr auto;
+  grid-template-rows: auto auto auto 1fr auto auto;
 }
 .lp-footer-wordmark,
 .lp-footer-tagline,
 .lp-footer-newsletter,
 .lp-footer-email,
+.lp-footer-problem,
 .lp-footer-consent {
   grid-column: 1;
   justify-self: start;
@@ -114,6 +115,14 @@
 }
 .lp-footer-links-company {
   grid-column: 3;
+}
+.lp-footer-problem {
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--lp-red-on-dark);
+}
+.lp-footer-problem:not(:empty) {
+  margin-top: 10px;
 }
 .lp-footer-consent {
   margin-top: 12px;

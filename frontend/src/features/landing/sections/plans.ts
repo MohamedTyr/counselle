@@ -1,6 +1,8 @@
+import type { PlanId } from "../waitlist/contract";
+
 /** The plans the pricing section shows, and the structured data offers. */
 export type Plan = {
-  id: string;
+  id: PlanId;
   tier: string;
   price: string;
   period: string;

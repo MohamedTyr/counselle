@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { track } from "../analytics";
-import type { Side } from "./waitlist";
+import { isSource, type PlanId, type Side, type Source } from "./contract";
 
 /** Any link to these anchors opens the dialog, so the buttons stay links. */
 export const WAITLIST_HREF = "#waitlist";
 export const SCHOOLS_HREF = "#waitlist-schools";
 
-export type WaitlistRequest = { side: Side; source: string; plan?: string };
+export type WaitlistRequest = { side: Side; source: Source; plan?: PlanId };
 
 function sideOf(hash: string): Side | null {
   if (hash === SCHOOLS_HREF) return "school";
@@ -32,6 +32,8 @@ export function useWaitlistDialog() {
     const side = sideOf(window.location.hash);
     if (side) {
       // The hash exists only in the browser, so the prerendered page starts closed.
+      // A no-JS #waitlist link scrolls to the footer form; the dialog opens on top.
+      window.scrollTo(0, 0);
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setRequest({ side, source: "link" });
       setOpen(true);
@@ -46,8 +48,11 @@ export function useWaitlistDialog() {
       trigger.current = link;
       setRequest({
         side: clicked,
-        source: link.dataset.waitlistSource ?? "link",
-        plan: link.dataset.waitlistPlan,
+        // An unknown source is recorded as a link, never a rejected signup.
+        source: isSource(link.dataset.waitlistSource)
+          ? link.dataset.waitlistSource
+          : "link",
+        plan: link.dataset.waitlistPlan as PlanId | undefined,
       });
       setOpen(true);
       writeHash(link.getAttribute("href") ?? "");

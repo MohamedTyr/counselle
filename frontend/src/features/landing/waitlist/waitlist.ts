@@ -1,17 +1,24 @@
-export type Side = "me" | "school";
-export type Role = "student" | "parent" | "counselor";
+import {
+  emailShape,
+  UTM_KEYS,
+  type ClassYear,
+  type PlanId,
+  type Role,
+  type Side,
+  type Source,
+} from "./contract";
 
 export type WaitlistEntry = {
   email: string;
   side: Side;
-  /** The button that opened the dialog: hero, nav, plan, footer or link. */
-  source: string;
-  plan?: string;
+  source: Source;
+  plan?: PlanId;
   role?: Role;
-  classOf?: string;
+  classOf?: ClassYear;
 };
 
-const ENDPOINT: string | undefined = import.meta.env.VITE_WAITLIST_ENDPOINT;
+/** The Pages Function beside the static build (functions/api/waitlist.ts). */
+const ENDPOINT = "/api/waitlist";
 /** The Google Calendar appointment schedule schools book a call on. */
 const BOOKING_SCHEDULE =
   "https://calendar.google.com/calendar/appointments/schedules/AcZssZ3CuTfYKkcfSXuMbpnXSDvFzTnoP8hAfkmCdBBYIo94_h1tkUJVNjfqD50h9FFZal7dEyetD3wP";
@@ -21,12 +28,10 @@ export const BOOKING_PAGE_URL = "https://calendar.app.google/9Aaj4ivuMh1LSWWJ9";
 export { CONTACT_EMAIL } from "../brand";
 
 const PREVIEW_DELAY_MS = 700;
-const UTM_KEYS = ["utm_source", "utm_medium", "utm_campaign"];
-const EMAIL_SHAPE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export function emailProblem(value: string): string | null {
   if (!value) return "Enter your email address.";
-  if (!EMAIL_SHAPE.test(value)) return "That email doesn't look right.";
+  if (!emailShape(value)) return "That email doesn't look right.";
   return null;
 }
 
@@ -43,9 +48,8 @@ function campaignTags(): Record<string, string> {
 
 /** Posts one entry to the list. A repeat of the same email is an update. */
 export async function submitWaitlist(entry: WaitlistEntry): Promise<void> {
-  if (!ENDPOINT) {
-    // The dev server has no list behind it; production must be configured.
-    if (!import.meta.env.DEV) throw new Error("Waitlist endpoint is not set");
+  if (import.meta.env.DEV) {
+    // The Vite dev server runs no Functions, so there is no list behind it.
     await new Promise((resolve) => setTimeout(resolve, PREVIEW_DELAY_MS));
     return;
   }

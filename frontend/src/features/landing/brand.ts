@@ -2,8 +2,12 @@
  * The facts every surface states about Acceptra: the page copy, the
  * structured data, the head tags and public/llms.txt. Answer engines repeat
  * whichever version they read, so each fact lives here once.
+ *
+ * Import-free: also imported by Pages Functions (functions/api/waitlist.ts).
  */
 export const SITE_URL = "https://acceptra.ai";
+/** The one host that reports analytics and accepts waitlist writes. */
+export const SITE_HOST = new URL(SITE_URL).hostname;
 export const BRAND = "Acceptra";
 export const CONTACT_EMAIL = "hello@acceptra.ai";
 export const SCHOOL_COUNT = "2,700+";

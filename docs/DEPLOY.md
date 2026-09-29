@@ -201,14 +201,13 @@ exec uvicorn api.main:create_app --factory --host 0.0.0.0 --port "${PORT:-8000}"
 
 The marketing site at `https://acceptra.ai` (the landing page, `/privacy` and `/terms`) deploys on its own, as a static Cloudflare Pages project, independent of the app container above. It has no app API behind it. Two Pages Functions in the same project cover what a static file can't: `POST /api/waitlist` (`frontend/functions/api/waitlist.ts`) stores signups in a Cloudflare D1 database, and `/ingest/*` (`frontend/functions/ingest/[[path]].ts`) proxies PostHog on our own origin so ad blockers don't hide visits. `public-landing/_routes.json` limits Functions to those two paths, so static files never invoke one. The decisions behind this shape are in `plans/landing-seo-plan.md` (static build, hosting, headers) and `plans/landing-backend-plan.md` (waitlist storage, the proxy).
 
-**Build.** `cd frontend && npm run build:landing` builds only the three pages into `frontend/dist-landing` with `public-landing/` as the public directory, then `scripts/prerender-landing.mjs` renders the page to HTML (so crawlers that do not run JavaScript get the full page), writes it as `index.html`, adds the two font preloads, and fails the build if any `/assets/` URL in the page is missing. The waitlist endpoint and the analytics proxy are both same-origin, so the report-only CSP in `_headers` is `'self'` for scripts and connections. The build prints a warning when `VITE_WAITLIST_ENDPOINT` is unset; a production build must not have that warning.
+**Build.** `cd frontend && npm run build:landing` builds only the three pages into `frontend/dist-landing` with `public-landing/` as the public directory, then `scripts/prerender-landing.mjs` renders the page to HTML (so crawlers that do not run JavaScript get the full page), writes it as `index.html`, adds the two font preloads, and fails the build if any `/assets/` URL in the page is missing. The waitlist endpoint and the analytics proxy are both same-origin, so the report-only CSP in `_headers` is `'self'` for scripts and connections.
 
 | Pages setting | Value |
 |---|---|
 | Root directory | `frontend` |
 | Build command | `npm run build:landing` |
 | Output directory | `dist-landing` |
-| `VITE_WAITLIST_ENDPOINT` | `/api/waitlist` (required; a build-time `VITE_` variable, so setting it only at runtime does nothing) |
 | `VITE_POSTHOG_KEY` | the PostHog project key (required for analytics) |
 | `VITE_POSTHOG_HOST` | `/ingest` (the same-origin proxy; the CSP no longer allows PostHog's own domains) |
 

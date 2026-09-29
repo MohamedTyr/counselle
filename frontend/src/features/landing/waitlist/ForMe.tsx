@@ -3,19 +3,24 @@ import { Dialog } from "@base-ui/react/dialog";
 import { EmailField } from "./EmailField";
 import { CheckRows } from "./CheckRows";
 import { track } from "../analytics";
-import { submitWaitlist, type Role, type WaitlistEntry } from "./waitlist";
+import { submitWaitlist, type WaitlistEntry } from "./waitlist";
+import { CLASS_YEARS, ROLES, type ClassYear, type Role } from "./contract";
 
 const POINTS = [
   "Essay feedback, line by line",
   "A school list built around you",
   "Deadlines, scholarships and SAT practice",
 ];
-const ROLES: { value: Role; label: string }[] = [
-  { value: "student", label: "Student" },
-  { value: "parent", label: "Parent" },
-  { value: "counselor", label: "Counselor" },
-];
-const CLASSES = ["2027", "2028", "2029", "Later"];
+const ROLE_LABELS: Record<Role, string> = {
+  student: "Student",
+  parent: "Parent",
+  counselor: "Counselor",
+};
+const ROLE_OPTIONS = ROLES.map((value) => ({
+  value,
+  label: ROLE_LABELS[value],
+}));
+const CLASS_OPTIONS = CLASS_YEARS.map((value) => ({ value, label: value }));
 
 type ChipsProps<Value extends string> = {
   label: string;
@@ -70,7 +75,7 @@ function Chips<Value extends string>({
   );
 }
 
-type Answers = { role?: Role; classOf?: string };
+type Answers = { role?: Role; classOf?: ClassYear };
 
 type Props = {
   entry: Omit<WaitlistEntry, "email">;
@@ -147,14 +152,14 @@ export function ForMe({ entry, inputRef }: Props) {
         <div className="lp-wl-rest lp-wl-swap">
           <Chips
             label="I'm a"
-            options={ROLES}
+            options={ROLE_OPTIONS}
             value={answers.role}
             onChange={(role) => void answer({ ...answers, role })}
           />
           {answers.role !== "counselor" && (
             <Chips
               label="Class of"
-              options={CLASSES.map((year) => ({ value: year, label: year }))}
+              options={CLASS_OPTIONS}
               value={answers.classOf}
               onChange={(classOf) => void answer({ ...answers, classOf })}
             />

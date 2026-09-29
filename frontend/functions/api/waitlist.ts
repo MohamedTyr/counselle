@@ -2,21 +2,30 @@
 // update under the rule in UPSERT, and new and repeat emails get the same
 // response, so the endpoint never reveals who is on the list.
 
+import { SITE_HOST } from "../../src/features/landing/brand";
+import {
+  CLASS_YEARS,
+  emailShape,
+  PLAN_IDS,
+  ROLES,
+  SIDES,
+  SOURCES,
+  UTM_KEYS,
+} from "../../src/features/landing/waitlist/contract";
+
 type Env = { DB: D1Database };
 
 const MAX_BODY_BYTES = 2048;
 const MAX_EMAIL = 254;
 const MAX_LOCAL_PART = 64;
-const MAX_SOURCE = 32;
-/** The client's EMAIL_SHAPE (waitlist.ts). Never loosen this below it. */
-const EMAIL_SHAPE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const UTM_SHAPE = /^[\w\-.~ ]{1,100}$/;
-const UTM_KEYS = ["utm_source", "utm_medium", "utm_campaign"] as const;
-
-const SIDES = ["me", "school"];
-const PLANS = ["free", "monthly", "yearly"];
-const ROLES = ["student", "parent", "counselor"];
-const CLASSES = ["2027", "2028", "2029", "Later"];
+/** Production, plus wrangler pages dev. Previews share the production D1. */
+const WRITE_HOSTS = [SITE_HOST, "localhost", "127.0.0.1"];
+/** _headers never applies to Functions, so every reply carries its own. */
+const REPLY_HEADERS = {
+  "X-Content-Type-Options": "nosniff",
+  "Cache-Control": "no-store",
+};
 
 /**
  * Same side: fill answers in, never replace one with null. Side changed: take
@@ -48,7 +57,10 @@ type Signup = {
 class Invalid extends Error {}
 
 function reply(status: number, body: object, headers?: HeadersInit) {
-  return Response.json(body, { status, headers });
+  return Response.json(body, {
+    status,
+    headers: { ...REPLY_HEADERS, ...headers },
+  });
 }
 
 function fail(status: number, error: string, headers?: HeadersInit) {
@@ -62,30 +74,32 @@ function normaliseEmail(value: unknown): string {
   if (
     email.length > MAX_EMAIL ||
     local.length > MAX_LOCAL_PART ||
-    !EMAIL_SHAPE.test(email)
+    !emailShape(email)
   )
     throw new Invalid("email");
   return email;
 }
 
 /** A required value from a fixed list. */
-function oneOf(value: unknown, allowed: string[], field: string): string {
+function oneOf(
+  value: unknown,
+  allowed: readonly string[],
+  field: string,
+): string {
   if (typeof value !== "string" || !allowed.includes(value))
     throw new Invalid(field);
   return value;
 }
 
 /** An optional value from a fixed list: absent is null, anything else must fit. */
-function optionalOneOf(value: unknown, allowed: string[], field: string) {
+function optionalOneOf(
+  value: unknown,
+  allowed: readonly string[],
+  field: string,
+) {
   return value === undefined || value === null
     ? null
     : oneOf(value, allowed, field);
-}
-
-function source(value: unknown): string {
-  if (typeof value !== "string" || !value || value.length > MAX_SOURCE)
-    throw new Invalid("source");
-  return value;
 }
 
 /** A mangled campaign tag is dropped, never a reason to lose the signup. */
@@ -106,10 +120,10 @@ function parseSignup(text: string): Signup {
   return {
     email: normaliseEmail(fields.email),
     side: oneOf(fields.side, SIDES, "side"),
-    source: source(fields.source),
-    plan: optionalOneOf(fields.plan, PLANS, "plan"),
+    source: oneOf(fields.source, SOURCES, "source"),
+    plan: optionalOneOf(fields.plan, PLAN_IDS, "plan"),
     role: optionalOneOf(fields.role, ROLES, "role"),
-    classOf: optionalOneOf(fields.classOf, CLASSES, "classOf"),
+    classOf: optionalOneOf(fields.classOf, CLASS_YEARS, "classOf"),
     utm: UTM_KEYS.map((key) => utm(fields[key])),
   };
 }
@@ -118,7 +132,11 @@ function parseSignup(text: string): Signup {
 function rejectRequest(request: Request): Response | null {
   if (request.method !== "POST")
     return fail(405, "method not allowed", { Allow: "POST" });
-  if (request.headers.get("Origin") !== new URL(request.url).origin)
+  const url = new URL(request.url);
+  if (
+    !WRITE_HOSTS.includes(url.hostname) ||
+    request.headers.get("Origin") !== url.origin
+  )
     return fail(403, "forbidden");
   const type = request.headers.get("Content-Type") ?? "";
   if (type.split(";")[0].trim().toLowerCase() !== "application/json")

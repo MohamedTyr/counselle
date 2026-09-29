@@ -1,6 +1,6 @@
 import wordmark from "../assets/wordmark-footer.svg";
 import arrow from "../assets/footer-arrow.svg";
-import { useState, type FormEvent } from "react";
+import { useId, useState, type FormEvent } from "react";
 import { emailProblem, submitWaitlist } from "../waitlist/waitlist";
 import { LegalConsent, PRIVACY_URL, TERMS_URL } from "../waitlist/LegalConsent";
 import "./footer.css";
@@ -18,35 +18,49 @@ const COMPANY_LINKS = [
   { label: "Terms", href: TERMS_URL },
 ];
 
-type Signup = "idle" | "sending" | "joined" | "failed";
+type Signup = "idle" | "sending" | "joined";
 
 function FooterSignup() {
+  const problemId = useId();
   const [state, setState] = useState<Signup>("idle");
+  const [problem, setProblem] = useState<string | null>(null);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (state !== "idle") return;
     const form = new FormData(event.currentTarget);
     const email = String(form.get("email") ?? "").trim();
-    if (state === "sending" || emailProblem(email)) return;
+    const invalid = emailProblem(email);
+    setProblem(invalid);
+    if (invalid) return;
     setState("sending");
     try {
+      // A filled trap field is a bot; it is told it joined and nothing is sent.
       if (!form.get("website")) {
         await submitWaitlist({ email, side: "me", source: "footer" });
       }
       setState("joined");
     } catch {
-      setState("failed");
+      setState("idle");
+      setProblem("We couldn't reach the list. Try again.");
     }
   }
 
   return (
     <>
-      <label className="lp-footer-newsletter" htmlFor="newsletter-email">
-        {state === "failed"
-          ? "We couldn't reach the list. Try again."
-          : "Join the waitlist"}
+      <label
+        className="lp-footer-newsletter"
+        htmlFor="newsletter-email"
+        id="waitlist"
+      >
+        Join the waitlist
       </label>
-      <form className="lp-footer-email" onSubmit={submit}>
+      <form
+        className="lp-footer-email"
+        method="post"
+        onSubmit={submit}
+        noValidate
+      >
         {state === "joined" ? (
           <p className="lp-footer-joined" role="status">
             You&rsquo;re on the list
@@ -59,6 +73,8 @@ function FooterSignup() {
             autoComplete="email"
             required
             placeholder="Your email address"
+            aria-invalid={problem ? true : undefined}
+            aria-describedby={problem ? problemId : undefined}
           />
         )}
         <input
@@ -78,6 +94,9 @@ function FooterSignup() {
           <img src={arrow} width={12} height={12} alt="" />
         </button>
       </form>
+      <p className="lp-footer-problem" id={problemId} role="alert">
+        {problem}
+      </p>
       <LegalConsent className="lp-footer-consent" />
     </>
   );

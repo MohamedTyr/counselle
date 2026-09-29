@@ -4,7 +4,7 @@ import { existsSync } from "node:fs";
 import { readdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-import { build, loadEnv } from "vite";
+import { build } from "vite";
 
 const root = path.resolve(import.meta.dirname, "..");
 const dist = path.join(root, "dist-landing");
@@ -59,15 +59,6 @@ if (missing.length) fail(`missing assets:\n  ${missing.join("\n  ")}`);
 
 await writeFile(path.join(dist, "index.html"), html);
 
-const { VITE_WAITLIST_ENDPOINT: endpoint } = loadEnv(
-  "production",
-  root,
-  "VITE_",
-);
-if (!endpoint)
-  console.warn(
-    "prerender-landing: VITE_WAITLIST_ENDPOINT is not set, so this build's waitlist form cannot submit",
-  );
 await rm(path.join(dist, "landing.html"));
 await rm(ssrOut, { recursive: true, force: true });
 console.log("prerender-landing: wrote dist-landing/index.html");

@@ -10,6 +10,9 @@
  * (file V66rN97MQiP3ezpNpLL7MD), reproduced at its native 1440px width.
  */
 .lp {
+  --lp-z-nav: 30;
+  --lp-z-backdrop: 40;
+  --lp-z-modal: 50;
   --lp-bg: #f7fbf9;
   --lp-ink: #121214;
   --lp-ink-soft: #2a2f2d;
@@ -24,6 +27,7 @@
   --lp-green-dark: #0f4d32;
   --lp-green-tint: #e9f8ef;
   --lp-red: #c4190f;
+  --lp-red-on-dark: #ff8f85;
   --lp-hairline: rgba(18, 18, 20, 0.08);
   --lp-footer-placeholder: #a8b0ac;
   --lp-font: "Geist Variable", "Geist", system-ui, sans-serif;
@@ -149,4 +153,15 @@
 .lp-person-role,
 .lp-activity-add {
   line-height: 16px;
+}
+
+/* Hidden form parts, used outside the lazy dialog too (the footer's trap). */
+.lp-wl-trap,
+.lp-wl-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }

@@ -10,7 +10,7 @@ import { Dialog } from "@base-ui/react/dialog";
 import { ForMe } from "./ForMe";
 import { ForSchool } from "./ForSchool";
 import type { WaitlistRequest } from "./useWaitlistDialog";
-import type { Side } from "./waitlist";
+import type { Side } from "./contract";
 import "./waitlist.css";
 
 /** How long the old side takes to leave before the dialog changes shape. */

@@ -209,6 +209,7 @@
   .lp-footer-tagline,
   .lp-footer-newsletter,
   .lp-footer-email,
+  .lp-footer-problem,
   .lp-footer-consent {
     grid-column: 1 / -1;
   }

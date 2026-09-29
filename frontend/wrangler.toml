@@ -1,7 +1,7 @@
 # The public landing site's Cloudflare Pages project. Once this file exists the
 # dashboard shows bindings read-only, so the D1 binding lives only here.
 name = "acceptra"
-compatibility_date = "2026-09-28"
+compatibility_date = "2026-09-20"
 pages_build_output_dir = "dist-landing"
 
 [[d1_databases]]
