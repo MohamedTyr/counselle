@@ -5,11 +5,12 @@ import { track } from "../analytics";
 import { CONTACT_EMAIL } from "../brand";
 import {
   emailProblem,
-  failureStatus,
+  failure,
+  joinFailureMessage,
   submitWaitlist,
 } from "../waitlist/waitlist";
 import { LegalConsent, PRIVACY_URL, TERMS_URL } from "../waitlist/LegalConsent";
-import { TrapField } from "../waitlist/TrapField";
+import { TRAP_NAME, TrapField } from "../waitlist/TrapField";
 import "./footer.css";
 
 const PRODUCT_LINKS = [
@@ -43,7 +44,7 @@ function FooterSignup() {
     setState("sending");
     try {
       // A filled trap field is a bot; it is told it joined and nothing is sent.
-      if (!form.get("website")) {
+      if (!form.get(TRAP_NAME)) {
         await submitWaitlist({ email, side: "me", source: "footer" });
         track("waitlist_joined", { side: "me", source: "footer" });
       }
@@ -53,10 +54,10 @@ function FooterSignup() {
         side: "me",
         source: "footer",
         step: "join",
-        status: failureStatus(error),
+        ...failure(error),
       });
       setState("idle");
-      setProblem("We couldn't reach the list. Try again.");
+      setProblem(joinFailureMessage(error));
     }
   }
 

@@ -421,7 +421,7 @@ function deadlines(seq: Sequence) {
   );
   seq.play(
     ".lp-task-done s",
-    [{ color: "#2a2f2d" }, { color: "#7c8582" }],
+    [{ color: "#2a2f2d" }, { color: "#6b7370" }],
     300,
     ARRIVAL_MS + 620,
   );
@@ -540,7 +540,7 @@ function essay(seq: Sequence) {
       pseudoElement: "::after",
     },
   );
-  at(strike, [{ color: "#2a2f2d" }, { color: "#7c8582" }], 360, 2500);
+  at(strike, [{ color: "#2a2f2d" }, { color: "#6b7370" }], 360, 2500);
   // The correction opens its own room in the line, so nothing waits empty.
   at(
     root.querySelector(".lp-essay-strike + .lp-space"),

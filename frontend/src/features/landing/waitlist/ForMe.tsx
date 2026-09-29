@@ -1,9 +1,9 @@
-import { useState, type KeyboardEvent, type RefObject } from "react";
+import { useRef, useState, type KeyboardEvent, type RefObject } from "react";
 import { Dialog } from "@base-ui/react/dialog";
 import { EmailField } from "./EmailField";
 import { CheckRows } from "./CheckRows";
 import { track } from "../analytics";
-import { failureStatus, submitWaitlist, type WaitlistEntry } from "./waitlist";
+import { failure, submitWaitlist, type WaitlistEntry } from "./waitlist";
 import { CLASS_YEARS, ROLES, type ClassYear, type Role } from "./contract";
 
 const POINTS = [
@@ -79,24 +79,37 @@ type Answers = { role?: Role; classOf?: ClassYear };
 type Entry = Omit<WaitlistEntry, "email">;
 
 /**
- * The optional details, saved as each is chosen. A failed save puts the
- * previous answers back and says so.
+ * The optional details, saved as each is chosen. Every save carries all the
+ * answers so far, so only the latest one may undo: a failed save puts back
+ * the answers from before it and says so, unless a newer save has replaced it.
  */
 function useDetails(entry: Entry, joined: string | null) {
   const [answers, setAnswers] = useState<Answers>({});
   const [unsaved, setUnsaved] = useState(false);
+  const latest = useRef(0);
   async function answer(next: Answers) {
     if (!joined) return;
     const before = answers;
+    const save = ++latest.current;
     setAnswers(next);
     setUnsaved(false);
+    const { side, source } = entry;
     try {
       await submitWaitlist({ ...entry, ...next, email: joined });
-      track("waitlist_details", { role: next.role, class_of: next.classOf });
+      track("waitlist_details", {
+        side,
+        source,
+        role: next.role,
+        class_of: next.classOf,
+      });
     } catch (error) {
-      const { side, source } = entry;
-      const status = failureStatus(error);
-      track("waitlist_failed", { side, source, step: "details", status });
+      track("waitlist_failed", {
+        side,
+        source,
+        step: "details",
+        ...failure(error),
+      });
+      if (save !== latest.current) return;
       setAnswers(before);
       setUnsaved(true);
     }

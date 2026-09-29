@@ -53,10 +53,16 @@ async function route(
   return forward(request, upstream);
 }
 
-/** The site stores nothing on the device, so no upstream cookie gets through. */
+/**
+ * The site stores nothing on the device, so no upstream cookie gets through.
+ * The proxy is same-origin, so PostHog's own CORS headers, which let any
+ * origin read the reply with credentials, are dropped too.
+ */
 export const onRequest: PagesFunction = async ({ request, waitUntil }) => {
   const response = await route(request, waitUntil);
   const stripped = new Response(response.body, response);
   stripped.headers.delete("set-cookie");
+  for (const name of [...stripped.headers.keys()])
+    if (name.startsWith("access-control-")) stripped.headers.delete(name);
   return stripped;
 };

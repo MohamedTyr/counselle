@@ -39,9 +39,18 @@ export class WaitlistError extends Error {
   }
 }
 
-/** The HTTP status of a failed signup, when the endpoint answered at all. */
-export function failureStatus(error: unknown): number | undefined {
-  return error instanceof WaitlistError ? error.status : undefined;
+/** How a signup failed: the HTTP status, or `network` when nothing answered. */
+export function failure(error: unknown) {
+  return error instanceof WaitlistError
+    ? { kind: "http" as const, status: error.status }
+    : { kind: "network" as const };
+}
+
+/** What the form says when joining fails; a 400 means the email was refused. */
+export function joinFailureMessage(error: unknown): string {
+  return error instanceof WaitlistError && error.status === 400
+    ? "That email doesn't look right."
+    : "We couldn't reach the list. Try again.";
 }
 
 export function emailProblem(value: string): string | null {

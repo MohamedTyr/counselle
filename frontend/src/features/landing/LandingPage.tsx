@@ -23,9 +23,11 @@ export function LandingPage() {
   const waitlist = useWaitlistDialog();
   const dialog = useWarmWaitlist(loadDialog, waitlist.request !== null);
   // The dialog portals beside the canvas, so making the page inert leaves
-  // only the dialog reachable. React drops it in the same commit that closes
-  // the dialog, before focus goes back to the trigger.
-  const behindDialog = waitlist.open;
+  // only the dialog reachable. Until its chunk has loaded there is no dialog,
+  // so the page stays live rather than locking behind nothing. React drops it
+  // in the same commit that closes the dialog, before focus goes back to the
+  // trigger.
+  const behindDialog = waitlist.open && dialog !== null;
   return (
     <div className="lp" ref={landingRef}>
       <StructuredData />

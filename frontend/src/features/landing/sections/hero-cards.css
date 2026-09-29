@@ -269,7 +269,7 @@
   gap: 3px;
 }
 .lp-hc-essay-body s {
-  color: #7c8582;
+  color: var(--lp-muted-3);
   text-decoration-skip-ink: none;
 }
 .lp-hc-essay-body ins {

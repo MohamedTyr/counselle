@@ -26,7 +26,16 @@ const EMAIL_SHAPE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 /** Control and invisible formatting characters, such as U+202E. */
 const HIDDEN_CHARS = /[\p{Cc}\p{Cf}]/u;
 
+/** RFC 5321's limits on a whole address and on the part before the @. */
+const MAX_EMAIL = 254;
+const MAX_LOCAL_PART = 64;
+
 /** Whether a trimmed email looks like one. The server applies the same rule. */
 export function emailShape(value: string): boolean {
-  return EMAIL_SHAPE.test(value) && !HIDDEN_CHARS.test(value);
+  return (
+    value.length <= MAX_EMAIL &&
+    value.lastIndexOf("@") <= MAX_LOCAL_PART &&
+    EMAIL_SHAPE.test(value) &&
+    !HIDDEN_CHARS.test(value)
+  );
 }
