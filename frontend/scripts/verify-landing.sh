@@ -96,6 +96,10 @@ check "llms.txt served" '[ "$(status "$BASE/llms.txt")" = 200 ]'
 llms="$(curl -s "$BASE/llms.txt")"
 check "llms.txt names the head term" 'grep -qF "AI college admissions counselor" <<<"$llms"'
 check "llms.txt has the school count" 'grep -qF "2,200+" <<<"$llms"'
+check "security.txt names a contact" 'curl -s "$BASE/.well-known/security.txt" | grep -q "^Contact: mailto:"'
+# The IndexNow key file is public-landing/<key>.txt, and holds only its key.
+indexnow="$(ls "$HERE/public-landing" | grep -oE '^[0-9a-f]{32}' | head -1)"
+check "IndexNow key served" '[ "$(curl -s "$BASE/$indexnow.txt")" = "$indexnow" ]'
 for path in /favicon.ico /icon.svg /apple-touch-icon.png /site.webmanifest /og.png /icon-512.png; do
   check "$path served" '[ "$(status "$BASE$path")" = 200 ]'
 done
@@ -106,6 +110,10 @@ check "HSTS" 'grep -qi "^strict-transport-security" <<<"$headers"'
 check "X-Frame-Options" 'grep -qi "^x-frame-options" <<<"$headers"'
 check "CSP enforced" 'grep -qi "^content-security-policy: " <<<"$headers"'
 check "immutable assets" 'curl -sI "$BASE$(grep -oE "/assets/[^\"]+\.js" <<<"$page" | head -1)" | grep -qi "immutable"'
+check "HTML is no-transform" 'grep -qi "^cache-control: .*no-transform" <<<"$headers"'
+
+echo "Content-Security-Policy in a real browser"
+node "$HERE/scripts/check-csp.mjs" "$BASE" || failures=$((failures + 1))
 
 if [ "$BASE" = "$PRODUCTION" ]; then
   echo "Host redirects (one hop each)"

@@ -1,4 +1,4 @@
-import type { PostHog } from "posthog-js";
+import type { CaptureResult, PostHog } from "posthog-js";
 import { SITE_HOST } from "./brand";
 import type { Side, Source } from "./waitlist/contract";
 
@@ -15,11 +15,18 @@ const HOST = "/ingest";
 type Events = {
   waitlist_opened: { side: Side; source: Source; plan?: string };
   waitlist_joined: { side: Side; source: Source; plan?: string };
-  waitlist_details: { role?: string; class_of?: string };
+  waitlist_details: {
+    side: Side;
+    source: Source;
+    role?: string;
+    class_of?: string;
+  };
   waitlist_failed: {
     side: Side;
     source: Source;
     step: "join" | "details";
+    /** `http` when the endpoint answered with `status`, `network` when nothing did. */
+    kind: "http" | "network";
     status?: number;
   };
 };
@@ -44,6 +51,18 @@ export function afterLoadAndIdle(): Promise<void> {
 }
 
 /**
+ * `?ref=` (Product Hunt adds `ref=producthunt`) stands in for a missing
+ * utm_source, as it does for the signup stored in D1, so both count the same
+ * channel.
+ */
+function withRefSource(event: CaptureResult | null): CaptureResult | null {
+  const ref = new URLSearchParams(location.search).get("ref");
+  if (event && ref && !event.properties.utm_source)
+    event.properties.utm_source = ref;
+  return event;
+}
+
+/**
  * Only the production host reports, so previews, local builds and the dev
  * server never skew the funnel. Nothing is stored on the device and nothing
  * is recorded, whatever the dashboard says: the privacy policy depends on it.
@@ -65,6 +84,7 @@ export function initAnalytics(): void {
         session_recording: { recordBody: false, recordHeaders: false },
         disable_surveys: true,
         disable_product_tours: true,
+        before_send: withRefSource,
       });
       return posthog;
     });

@@ -2,12 +2,13 @@ import { useId, useState, type FormEvent, type RefObject } from "react";
 import { track } from "../analytics";
 import {
   emailProblem,
-  failureStatus,
+  failure,
+  joinFailureMessage,
   submitWaitlist,
   type WaitlistEntry,
 } from "./waitlist";
 import { LegalConsent } from "./LegalConsent";
-import { TrapField } from "./TrapField";
+import { TRAP_NAME, TrapField } from "./TrapField";
 
 type Props = {
   entry: Omit<WaitlistEntry, "email">;
@@ -54,7 +55,7 @@ function useEmailSubmit({ entry, joined, onJoined }: Props) {
     const invalid = emailProblem(value);
     setProblem(invalid);
     if (invalid) return;
-    const trap = new FormData(event.currentTarget).get("website");
+    const trap = new FormData(event.currentTarget).get(TRAP_NAME);
     const { side, source, plan } = entry;
     setSending(true);
     try {
@@ -65,9 +66,13 @@ function useEmailSubmit({ entry, joined, onJoined }: Props) {
       }
       onJoined(value);
     } catch (error) {
-      const status = failureStatus(error);
-      track("waitlist_failed", { side, source, step: "join", status });
-      setProblem("We couldn't reach the list. Try again.");
+      track("waitlist_failed", {
+        side,
+        source,
+        step: "join",
+        ...failure(error),
+      });
+      setProblem(joinFailureMessage(error));
     } finally {
       setSending(false);
     }

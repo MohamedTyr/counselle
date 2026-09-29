@@ -83,6 +83,7 @@ it("reports a failed signup with its status and never the email", async () => {
       side: "me",
       source: "footer",
       step: "join",
+      kind: "http",
       status: 503,
     }),
   );

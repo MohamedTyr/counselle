@@ -16,8 +16,6 @@ import {
 type Env = { DB: D1Database };
 
 const MAX_BODY_BYTES = 2048;
-const MAX_EMAIL = 254;
-const MAX_LOCAL_PART = 64;
 const UTM_SHAPE = /^[\w\-.~ ]{1,100}$/;
 /** Production, plus wrangler pages dev. Previews share the production D1. */
 const WRITE_HOSTS = [SITE_HOST, "localhost", "127.0.0.1"];
@@ -70,13 +68,7 @@ function fail(status: number, error: string, headers?: HeadersInit) {
 function normaliseEmail(value: unknown): string {
   if (typeof value !== "string") throw new Invalid("email");
   const email = value.trim().normalize("NFC").toLowerCase();
-  const local = email.slice(0, email.lastIndexOf("@"));
-  if (
-    email.length > MAX_EMAIL ||
-    local.length > MAX_LOCAL_PART ||
-    !emailShape(email)
-  )
-    throw new Invalid("email");
+  if (!emailShape(email)) throw new Invalid("email");
   return email;
 }
 

@@ -3,7 +3,7 @@ import { Dialog } from "@base-ui/react/dialog";
 import { EmailField } from "./EmailField";
 import { CheckRows } from "./CheckRows";
 import { track } from "../analytics";
-import { failureStatus, submitWaitlist, type WaitlistEntry } from "./waitlist";
+import { failure, submitWaitlist, type WaitlistEntry } from "./waitlist";
 import { CLASS_YEARS, ROLES, type ClassYear, type Role } from "./contract";
 
 const POINTS = [
@@ -78,9 +78,12 @@ function Chips<Value extends string>({
 type Answers = { role?: Role; classOf?: ClassYear };
 type Entry = Omit<WaitlistEntry, "email">;
 
+const ANSWER_KEYS = ["role", "classOf"] as const;
+
 /**
- * The optional details, saved as each is chosen. A failed save puts the
- * previous answers back and says so.
+ * The optional details, saved as each is chosen. A failed save puts back only
+ * the answer it changed, and only if no newer choice has replaced it, so a
+ * save that succeeded in the meantime stays on screen.
  */
 function useDetails(entry: Entry, joined: string | null) {
   const [answers, setAnswers] = useState<Answers>({});
@@ -90,14 +93,29 @@ function useDetails(entry: Entry, joined: string | null) {
     const before = answers;
     setAnswers(next);
     setUnsaved(false);
+    const { side, source } = entry;
     try {
       await submitWaitlist({ ...entry, ...next, email: joined });
-      track("waitlist_details", { role: next.role, class_of: next.classOf });
+      track("waitlist_details", {
+        side,
+        source,
+        role: next.role,
+        class_of: next.classOf,
+      });
     } catch (error) {
-      const { side, source } = entry;
-      const status = failureStatus(error);
-      track("waitlist_failed", { side, source, step: "details", status });
-      setAnswers(before);
+      track("waitlist_failed", {
+        side,
+        source,
+        step: "details",
+        ...failure(error),
+      });
+      setAnswers((current) => {
+        const restored = { ...current };
+        for (const key of ANSWER_KEYS)
+          if (next[key] !== before[key] && current[key] === next[key])
+            Object.assign(restored, { [key]: before[key] });
+        return restored;
+      });
       setUnsaved(true);
     }
   }
