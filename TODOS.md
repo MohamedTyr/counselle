@@ -7,14 +7,12 @@
 **Owner, security and money:**
 - **2FA** on Cloudflare (a single Super Administrator), Spaceship and PostHog.
 - **Workers Paid** (D-5), before any launch spike: `/ingest` and `/api/waitlist` share the free 100k requests a day, so a spike stops signups until 00:00 UTC.
-- **The 29 raw-IP PostHog events** (acceptra.ai, before 09:04 UTC on 2026-09-29, when "Discard client IP data" was turned on). They are personless, so no person delete reaches them, and self-service data deletion is not enabled for the project: file a data-deletion request in the PostHog UI. Until then the privacy page's "does not keep the address itself" is untrue for those events. Every later event has no `$ip`.
+- **The 29 raw-IP PostHog events** (acceptra.ai, before 09:04 UTC on 2026-09-29): the owner chose not to file the deletion request, so the privacy page's "does not keep the address itself" stays untrue for those events until they are deleted in the PostHog UI (the API can't: they are personless and self-service deletion is off). Every later event has no `$ip`.
 - **Honesty calls on the live page** (principle 3), default remove unless sourced or consented: the three testimonials; the mentor calls, the counselor view and the university logos (D-6); "$10,000 counselor", "$140–300 an hour" and the ChatGPT comparison row. Also confirm the Google appointment schedule has open slots.
 
-**Cloudflare work waiting on a short-lived token** (Zone Read, Zone Settings Edit, DNS Edit, SSL and Certificates Edit, Account Notifications Edit; TTL 3 days, never stored in `.env.deploy`, deleted after). Neither the `.env.deploy` token nor Wrangler's login can read or change these:
-- SSL/TLS mode to Full (strict), if it isn't already.
-- CAA: `0 issue "letsencrypt.org"`, `0 issue "pki.goog; cansignhttpexchanges=yes"`, `0 issue "ssl.com"`, `0 issue "sectigo.com"`; then check the certificate is still Active.
-- DNSSEC: enable in Cloudflare, the owner pastes the DS at Spaceship (its API has no DNSSEC endpoint), then poll DoH for the AD bit with MX, SPF and DKIM still resolving. Rollback removes the DS at Spaceship first. A quiet day.
-- Notifications to admin@: Pages deployment failure, Universal SSL, HTTP DDoS.
+**Cloudflare, done 2026-09-29 with a short-lived owner token:** SSL/TLS Full (strict); CAA for letsencrypt.org, pki.goog, ssl.com and sectigo.com (the Universal certificate stayed active); email alerts to admin@ for a failed Pages production deploy, Universal SSL and HTTP DDoS. Still open:
+- **Delete that API token** in My Profile → API Tokens: it was created without an expiry and can't delete itself.
+- **DNSSEC is enabled at Cloudflare and pending**: it takes effect only once the DS record is at Spaceship (acceptra.ai → DNSSEC): key tag `2371`, algorithm `13`, digest type `2`, digest `1501FA38566916B13119F99E031F640C13E96DF5436F8885E103E9935451B1B2`. Harmless while pending. After pasting, check with DoH that the AD bit is set and MX, SPF and DKIM still resolve; rollback removes the DS at Spaceship first.
 
 **Checks with a date:**
 - **Late November 2026:** confirm the edge certificate renews cleanly before 2026-12-28, now that CAA restricts issuers.
@@ -22,7 +20,7 @@
 - **Before DMARC leaves `p=none`:** list every legitimate sender for acceptra.ai (Google Workspace, and whatever sends the "we're open" email), and move reports to a shared mailbox; today they go to one person.
 
 **Owner accounts and yes/no:**
-- **Indexing and previews:** Search Console (submit `sitemap.xml`, request indexing for `/`, `/privacy`, `/terms`), Bing Webmaster Tools, Brave, the Rich Results Test, real WhatsApp, iMessage and LinkedIn share previews, and PSI mobile once from the owner's browser. IndexNow (Bing, Yandex, Seznam, Naver) was pinged once for the three URLs; it is not wired into deploys.
+- **Indexing:** Google Search Console has the Domain property `acceptra.ai` (auto-verified by the existing `google-site-verification` TXT record: never delete it), `sitemap.xml` submitted and read (3 pages), and indexing requested for `/`, `/privacy` and `/terms` (2026-09-29). IndexNow (Bing, Yandex, Seznam, Naver) was pinged once; it is not wired into deploys. Still owner: Bing Webmaster Tools (import from Search Console), Brave, the Rich Results Test, real WhatsApp, iMessage and LinkedIn share previews, and PSI mobile from the owner's browser.
 - **An external uptime check** on `/` and `/privacy`: nothing alerts today if the site or DNS goes down.
 - **`acceptra.com`:** buy it and 301 it (`verify-landing.sh` checks it with `CHECK_COM=1`).
 - **`acceptra.org`** now publishes `v=spf1 -all` and DMARC `p=reject`, so nobody can send as it. Spaceship's API refuses a null MX, so it has none. Its auto-renew is off (expires 2027-09-20); `acceptra.ai`'s is on.
@@ -31,7 +29,7 @@
 - **The site icon is derived, not designed.** `public-landing/icon.svg` (and every PNG/ICO generated from it) and `assets/acceptra-glyph.svg` are the wordmark's "A" on the brand green. Regenerate the PNG set from the designed mark when it exists.
 
 **Engineering notes:**
-- **Turn off Cloudflare Web Analytics** (owner, Workers & Pages → acceptra → Metrics; no token reaches it). Cloudflare injects its beacon into the HTML; the enforced CSP blocks it, so it only costs a console error and Best Practices points, and the privacy policy doesn't mention it. `Cache-Control: no-transform` does stop the injection, but it also stops Cloudflare compressing the HTML (the homepage went from brotli to 207 kB raw and Lighthouse Performance from 93 to 87), so it was reverted. Until it is off, `verify-landing.sh https://acceptra.ai` fails its real-browser CSP check on the beacon, which is the check doing its job.
+- **Cloudflare's Web Analytics beacon stays, by owner decision.** It comes from an account-level Web Analytics site with automatic setup (the Pages project toggle and the zone RUM setting are both off). The enforced CSP blocks it, so it sends nothing, but it costs a console error and holds Lighthouse Best Practices at 92, and `verify-landing.sh https://acceptra.ai` fails its real-browser CSP check on it. `Cache-Control: no-transform` would stop the injection but also stops Cloudflare compressing the HTML, so don't use it. To remove it: Analytics & Logs → Web Analytics → acceptra.ai → Manage site → disable automatic setup.
 - **Lighthouse mobile on production after the finalize pass** (2026-09-29, local Lighthouse 13, three runs): Performance 93, 96, 94 (LCP 2.3–2.6 s, CLS 0), Accessibility 100, SEO 100, Best Practices 92, all of that gap being the blocked beacon above.
 - **The app build still renders `LandingPage`** (`src/app/router.tsx`), where `/api/waitlist` doesn't exist, so a signup there shows the generic error. The app isn't deployed; decide at B6.
 - **Deferred**, none needed now:
