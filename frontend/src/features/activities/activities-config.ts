@@ -1,6 +1,5 @@
 import type { CharState } from "@/domain/activity";
 
-export const UNDO_WINDOW_MS = 5000;
 export const COPIED_FEEDBACK_MS = 1500;
 
 export const drawerControlClassName =
