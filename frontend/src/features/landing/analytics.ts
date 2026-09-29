@@ -1,9 +1,11 @@
 import type { PostHog } from "posthog-js";
+import { SITE_HOST } from "./brand";
+import type { Side, Source } from "./waitlist/contract";
 
-const KEY: string | undefined = import.meta.env.VITE_POSTHOG_KEY;
-/** Point this at a same-origin proxy path once the host has one. */
-const HOST: string =
-  import.meta.env.VITE_POSTHOG_HOST ?? "https://us.i.posthog.com";
+/** The public project key; it ships in every visitor's bundle by design. */
+const KEY = "phc_vpue7ekaVvNrv5kBtwFhDBJAeEKQ2YxyHpPThoNQzzcY";
+/** The same-origin proxy (functions/ingest/[[path]].ts). */
+const HOST = "/ingest";
 
 /**
  * The named events the waitlist funnel is built on. Clicks, pageviews and
@@ -11,9 +13,15 @@ const HOST: string =
  * when the page's markup does. None of them ever carries the email.
  */
 type Events = {
-  waitlist_opened: { side: string; source: string; plan?: string };
-  waitlist_joined: { side: string; source: string; plan?: string };
+  waitlist_opened: { side: Side; source: Source; plan?: string };
+  waitlist_joined: { side: Side; source: Source; plan?: string };
   waitlist_details: { role?: string; class_of?: string };
+  waitlist_failed: {
+    side: Side;
+    source: Source;
+    step: "join" | "details";
+    status?: number;
+  };
 };
 
 /** Upper bound on waiting for an idle moment after the page has loaded. */
@@ -34,18 +42,28 @@ function afterLoadAndIdle(): Promise<void> {
   });
 }
 
-/** The dev server never reports, so local clicking never skews the funnel. */
+/**
+ * Only the production host reports, so previews, local builds and the dev
+ * server never skew the funnel. Nothing is stored on the device and nothing
+ * is recorded, whatever the dashboard says: the privacy policy depends on it.
+ */
 export function initAnalytics(): void {
-  if (!KEY || import.meta.env.DEV || client) return;
-  const key = KEY;
+  if (client || location.hostname !== SITE_HOST) return;
   client = afterLoadAndIdle()
     .then(() => import("posthog-js"))
     .then(({ default: posthog }) => {
-      posthog.init(key, {
+      posthog.init(KEY, {
         api_host: HOST,
         ui_host: "https://us.posthog.com",
         defaults: "2026-08-30",
         person_profiles: "identified_only",
+        persistence: "memory",
+        disable_session_recording: true,
+        // Should replay ever be turned on, it still never records the
+        // waitlist POST, whose body is the email.
+        session_recording: { recordBody: false, recordHeaders: false },
+        disable_surveys: true,
+        disable_product_tours: true,
       });
       return posthog;
     });

@@ -1,6 +1,11 @@
 import { useId, useState, type FormEvent, type RefObject } from "react";
 import { track } from "../analytics";
-import { emailProblem, submitWaitlist, type WaitlistEntry } from "./waitlist";
+import {
+  emailProblem,
+  failureStatus,
+  submitWaitlist,
+  type WaitlistEntry,
+} from "./waitlist";
 import { LegalConsent } from "./LegalConsent";
 
 type Props = {
@@ -68,7 +73,14 @@ export function EmailField({
         track("waitlist_joined", { side, source, plan });
       }
       onJoined(value);
-    } catch {
+    } catch (error) {
+      const { side, source } = entry;
+      track("waitlist_failed", {
+        side,
+        source,
+        step: "join",
+        status: failureStatus(error),
+      });
       setProblem("We couldn't reach the list. Try again.");
     } finally {
       setSending(false);

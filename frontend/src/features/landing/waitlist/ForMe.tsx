@@ -3,7 +3,7 @@ import { Dialog } from "@base-ui/react/dialog";
 import { EmailField } from "./EmailField";
 import { CheckRows } from "./CheckRows";
 import { track } from "../analytics";
-import { submitWaitlist, type WaitlistEntry } from "./waitlist";
+import { failureStatus, submitWaitlist, type WaitlistEntry } from "./waitlist";
 import { CLASS_YEARS, ROLES, type ClassYear, type Role } from "./contract";
 
 const POINTS = [
@@ -95,7 +95,13 @@ export function ForMe({ entry, inputRef }: Props) {
     try {
       await submitWaitlist({ ...entry, ...next, email: joined });
       track("waitlist_details", { role: next.role, class_of: next.classOf });
-    } catch {
+    } catch (error) {
+      track("waitlist_failed", {
+        side: entry.side,
+        source: entry.source,
+        step: "details",
+        status: failureStatus(error),
+      });
       setAnswers(before);
       setUnsaved(true);
     }

@@ -1,7 +1,12 @@
 import wordmark from "../assets/wordmark-footer.svg";
 import arrow from "../assets/footer-arrow.svg";
 import { useId, useState, type FormEvent } from "react";
-import { emailProblem, submitWaitlist } from "../waitlist/waitlist";
+import { track } from "../analytics";
+import {
+  emailProblem,
+  failureStatus,
+  submitWaitlist,
+} from "../waitlist/waitlist";
 import { LegalConsent, PRIVACY_URL, TERMS_URL } from "../waitlist/LegalConsent";
 import "./footer.css";
 
@@ -38,9 +43,16 @@ function FooterSignup() {
       // A filled trap field is a bot; it is told it joined and nothing is sent.
       if (!form.get("website")) {
         await submitWaitlist({ email, side: "me", source: "footer" });
+        track("waitlist_joined", { side: "me", source: "footer" });
       }
       setState("joined");
-    } catch {
+    } catch (error) {
+      track("waitlist_failed", {
+        side: "me",
+        source: "footer",
+        step: "join",
+        status: failureStatus(error),
+      });
       setState("idle");
       setProblem("We couldn't reach the list. Try again.");
     }

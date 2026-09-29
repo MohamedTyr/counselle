@@ -35,7 +35,10 @@ async function forward(request: Request, upstream: string): Promise<Response> {
   return fetch(upstream, { method: request.method, headers, body });
 }
 
-export const onRequest: PagesFunction = async ({ request, waitUntil }) => {
+async function route(
+  request: Request,
+  waitUntil: (promise: Promise<unknown>) => void,
+): Promise<Response> {
   if (!ALLOWED_METHODS.includes(request.method))
     return new Response(null, {
       status: 405,
@@ -48,4 +51,12 @@ export const onRequest: PagesFunction = async ({ request, waitUntil }) => {
   if (isAsset(path) && request.method === "GET")
     return retrieveAsset(request, upstream, waitUntil);
   return forward(request, upstream);
+}
+
+/** The site stores nothing on the device, so no upstream cookie gets through. */
+export const onRequest: PagesFunction = async ({ request, waitUntil }) => {
+  const response = await route(request, waitUntil);
+  const stripped = new Response(response.body, response);
+  stripped.headers.delete("set-cookie");
+  return stripped;
 };

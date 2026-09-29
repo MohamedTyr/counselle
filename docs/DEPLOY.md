@@ -208,8 +208,6 @@ The marketing site at `https://acceptra.ai` (the landing page, `/privacy` and `/
 | Root directory | `frontend` |
 | Build command | `npm run build:landing` |
 | Output directory | `dist-landing` |
-| `VITE_POSTHOG_KEY` | the PostHog project key (required for analytics) |
-| `VITE_POSTHOG_HOST` | `/ingest` (the same-origin proxy; the CSP no longer allows PostHog's own domains) |
 
 `frontend/wrangler.toml` is the project's config: its name, `pages_build_output_dir`, and the D1 binding (`DB` → `acceptra-waitlist`, migrations in `frontend/migrations-landing/`). Once that file exists the dashboard shows bindings read-only, so change the binding there, never in the dashboard.
 

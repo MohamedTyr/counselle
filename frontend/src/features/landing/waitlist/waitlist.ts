@@ -29,21 +29,42 @@ export { CONTACT_EMAIL } from "../brand";
 
 const PREVIEW_DELAY_MS = 700;
 
+/** A signup the endpoint refused, with its HTTP status (403, 429, 503...). */
+export class WaitlistError extends Error {
+  readonly status: number;
+
+  constructor(status: number) {
+    super(`Waitlist responded ${status}`);
+    this.status = status;
+  }
+}
+
+/** The HTTP status of a failed signup, when the endpoint answered at all. */
+export function failureStatus(error: unknown): number | undefined {
+  return error instanceof WaitlistError ? error.status : undefined;
+}
+
 export function emailProblem(value: string): string | null {
   if (!value) return "Enter your email address.";
   if (!emailShape(value)) return "That email doesn't look right.";
   return null;
 }
 
-/** The campaign tags the visitor arrived with; the page never navigates. */
+/**
+ * The campaign tags the visitor arrived with; the page never navigates.
+ * `?ref=` (Product Hunt adds `ref=producthunt`) stands in for a missing
+ * utm_source.
+ */
 function campaignTags(): Record<string, string> {
   const params = new URLSearchParams(location.search);
-  return Object.fromEntries(
+  const tags = Object.fromEntries(
     UTM_KEYS.flatMap((key) => {
       const value = params.get(key);
       return value ? [[key, value]] : [];
     }),
   );
+  const ref = params.get("ref");
+  return ref && !tags.utm_source ? { ...tags, utm_source: ref } : tags;
 }
 
 /** Posts one entry to the list. A repeat of the same email is an update. */
@@ -58,5 +79,5 @@ export async function submitWaitlist(entry: WaitlistEntry): Promise<void> {
     headers: { "Content-Type": "application/json", Accept: "application/json" },
     body: JSON.stringify({ ...entry, ...campaignTags() }),
   });
-  if (!response.ok) throw new Error(`Waitlist responded ${response.status}`);
+  if (!response.ok) throw new WaitlistError(response.status);
 }
