@@ -11,6 +11,7 @@ import { ForMe } from "./ForMe";
 import { ForSchool } from "./ForSchool";
 import type { WaitlistRequest } from "./useWaitlistDialog";
 import type { Side } from "./contract";
+import { REDUCED_MOTION, useMediaQuery } from "../hooks";
 import "./waitlist.css";
 
 /** How long the old side takes to leave before the dialog changes shape. */
@@ -77,6 +78,7 @@ function WaitlistPopup({ request, trigger, onSide }: PopupProps) {
   const body = useRef<HTMLDivElement>(null);
   const email = useRef<HTMLInputElement>(null);
   const swap = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const reduced = useMediaQuery(REDUCED_MOTION);
   // The popup and its wash are sized to the content, so CSS can ease between sides.
   useLayoutEffect(() => {
     const content = body.current;
@@ -112,8 +114,7 @@ function WaitlistPopup({ request, trigger, onSide }: PopupProps) {
       setLeaving(false);
       return;
     }
-    const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (still) {
+    if (reduced) {
       setShown(next);
       return;
     }

@@ -1,4 +1,5 @@
 import { useEffect, type RefObject } from "react";
+import { REDUCED_MOTION, useDocumentHidden, useMediaQuery } from "./hooks";
 
 /** What a student might ask first; the markup carries the first one. */
 export const PROMPTS = [
@@ -12,7 +13,6 @@ const HOLD_MS = 2400;
 /** How long the finished request stays selected before it is replaced. */
 const SELECT_MS = 420;
 const GAP_MS = 320;
-const RESUME_MS = 300;
 
 /**
  * A human cadence: uneven keystrokes, a beat before each new word, and a
@@ -28,23 +28,22 @@ export function cadence(text: string, typed: number): number {
  * Types each prompt into the composer and holds it; the next one replaces
  * it the way a person would, by selecting the old request and typing over
  * it; `data-selected` on the composer marks the selection.
- * Reduced motion leaves the first prompt in place.
+ * Reduced motion leaves the first prompt in place, and a background tab
+ * puts it back until the page is seen again.
  */
 export function useComposerTypewriter(text: RefObject<HTMLElement | null>) {
+  const reduced = useMediaQuery(REDUCED_MOTION);
+  const hidden = useDocumentHidden();
   useEffect(() => {
     const node = text.current;
-    if (!node) return;
-    const preference = window.matchMedia("(prefers-reduced-motion: reduce)");
-    if (preference.matches) return;
+    if (!node || reduced || hidden) return;
     const composer = node.closest(".lp-composer");
     let timer = 0;
     let prompt = 0;
     let length = PROMPTS[0].length;
-    let next: () => void = select;
     const flag = (name: string, on: boolean) =>
       composer?.setAttribute(`data-${name}`, String(on));
     const schedule = (step: () => void, ms: number) => {
-      next = step;
       timer = window.setTimeout(step, ms);
     };
     function select() {
@@ -73,22 +72,10 @@ export function useComposerTypewriter(text: RefObject<HTMLElement | null>) {
     }
     const settle = () => {
       window.clearTimeout(timer);
-      prompt = 0;
-      length = PROMPTS[0].length;
       node.textContent = PROMPTS[0];
       flag("selected", false);
     };
-    const onVisibility = () => {
-      window.clearTimeout(timer);
-      if (!document.hidden) schedule(next, RESUME_MS);
-    };
     schedule(select, HOLD_MS);
-    preference.addEventListener("change", settle);
-    document.addEventListener("visibilitychange", onVisibility);
-    return () => {
-      preference.removeEventListener("change", settle);
-      document.removeEventListener("visibilitychange", onVisibility);
-      settle();
-    };
-  }, [text]);
+    return settle;
+  }, [text, reduced, hidden]);
 }

@@ -1,10 +1,8 @@
 import {
   useCallback,
-  useEffect,
   useLayoutEffect,
   useRef,
   useState,
-  useSyncExternalStore,
   type CSSProperties,
 } from "react";
 import "./features-stage.css";
@@ -12,6 +10,12 @@ import { FEATURES } from "./featureList";
 import { StageFigure } from "./StageFigure";
 import { useStageClock } from "./useStageClock";
 import { ENTRANCE } from "../motion";
+import {
+  REDUCED_MOTION,
+  useDocumentHidden,
+  useInView,
+  useMediaQuery,
+} from "../hooks";
 
 /** How long a sheet stays where its demonstration cannot be measured. */
 const DEFAULT_DWELL_MS = 4500;
@@ -19,33 +23,11 @@ const WASH_MS = 500;
 const FINE_POINTER = "(hover: hover) and (pointer: fine)";
 /** Below this width the sheets differ in height, so advancing alone would move the page. */
 const UNEVEN_SHEETS = "(max-width: 899px)";
+/** How much of the panel shows before the showcase counts as watched. */
+const IN_VIEW = 0.15;
 
 type Shown = { active: number; run: number };
 
-/**
- * Browser-only inputs read through a store: the prerendered page and the
- * hydrating render use the server value, then the live value takes over.
- */
-function useMediaQuery(query: string, server: boolean) {
-  const subscribe = useCallback(
-    (onChange: () => void) => {
-      const media = window.matchMedia(query);
-      media.addEventListener("change", onChange);
-      return () => media.removeEventListener("change", onChange);
-    },
-    [query],
-  );
-  return useSyncExternalStore(
-    subscribe,
-    () => window.matchMedia(query).matches,
-    () => server,
-  );
-}
-
-function subscribeVisibility(onChange: () => void) {
-  document.addEventListener("visibilitychange", onChange);
-  return () => document.removeEventListener("visibilitychange", onChange);
-}
 type Selection = Shown & { keyboard: boolean; leaving: Shown | null };
 
 /**
@@ -67,25 +49,21 @@ function Blurbs({ shown }: { shown: number }) {
 export function FeaturesStage() {
   const [{ active, run, keyboard, leaving }, setSelection] =
     useState<Selection>({ active: 0, run: 0, keyboard: false, leaving: null });
-  const finePointer = useMediaQuery(FINE_POINTER, false);
-  const unevenSheets = useMediaQuery(UNEVEN_SHEETS, false);
+  const finePointer = useMediaQuery(FINE_POINTER);
+  const unevenSheets = useMediaQuery(UNEVEN_SHEETS);
   const [pausedChoice, setPausedChoice] = useState<boolean | null>(null);
   const paused = pausedChoice ?? (!finePointer || unevenSheets);
   const [explicitPlay, setExplicitPlay] = useState(false);
   const [userPaused, setUserPaused] = useState(false);
   const [hovered, setHovered] = useState(false);
   const [focused, setFocused] = useState(false);
-  const hidden = useSyncExternalStore(
-    subscribeVisibility,
-    () => document.hidden,
-    () => false,
-  );
-  const [inView, setInView] = useState(false);
-  const reduced = useMediaQuery("(prefers-reduced-motion: reduce)", false);
+  const hidden = useDocumentHidden();
+  const reduced = useMediaQuery(REDUCED_MOTION);
   const root = useRef<HTMLDivElement>(null);
   // A press leaves focus behind it; only focus reached by keyboard holds the stage.
   const pressed = useRef(false);
   const panel = useRef<HTMLDivElement>(null);
+  const inView = useInView(panel, IN_VIEW);
   const backdrop = useRef<HTMLDivElement>(null);
   const previousWash = useRef(FEATURES[0]);
   const feature = FEATURES[active];
@@ -126,21 +104,6 @@ export function FeaturesStage() {
     immediate: keyboard || reduced,
     onElapsed: advance,
   });
-
-  useEffect(() => {
-    const observer =
-      typeof IntersectionObserver === "function"
-        ? new IntersectionObserver(
-            ([entry]) =>
-              setInView(
-                entry.isIntersecting && entry.intersectionRatio >= 0.15,
-              ),
-            { threshold: 0.15 },
-          )
-        : undefined;
-    if (panel.current) observer?.observe(panel.current);
-    return () => observer?.disconnect();
-  }, []);
 
   useLayoutEffect(() => {
     const old = previousWash.current;
