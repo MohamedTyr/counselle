@@ -162,9 +162,11 @@ def _make_get_school_profile_tool(
         valid group list for this school; retry with one of those.
 
         Success returns the school and requested groups (there is no synthetic success
-        status). Every field returned carries the profile's own snapshot vintage and a
-        per-field provenance receipt; it is identity data, not a current metric, and
-        always needs the ``profile_snapshot`` caveat when you state it. Error returns
+        status). Each row carries its ``profile_field``, ``label``, ``display`` and the
+        ``marker`` to cite it with; the profile's one ``citation`` (its vintage is the
+        identity snapshot date) and its ``profile_snapshot`` caveat are stated once at
+        top level. It is identity data, not a current metric, and always needs that
+        caveat when you state it. Error returns
         ``error: tool_error``; correct the UNITID/group from ``resolve_school`` or stop
         and say the profile field is unavailable.
 
