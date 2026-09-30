@@ -1,6 +1,6 @@
 # ADR 0034 — Counselor response modes
 
-**Status:** Accepted
+**Status:** Accepted — the Gemini model mapping and thinking protocol (thinking levels, requested provider thoughts, the `google-vertex:`-only factory) are superseded by [ADR 0043](0043-fireworks-deepseek-default-model.md); the server-owned Quick/Think contract stands.
 
 ## Context
 

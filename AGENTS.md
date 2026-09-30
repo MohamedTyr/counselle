@@ -58,13 +58,13 @@ uv run pytest -m "not live_llm and not live_search and not live_db"
 # Coverage visibility for the routine suite (not a merge gate)
 uv run pytest -m "not live_llm and not live_search and not live_db" --cov --cov-report=term-missing
 
-# Full test suite including live Gemini + Tavily (~$0.50)
+# Full test suite including live model + Tavily (~$0.50)
 uv run pytest
 
 # Lint + type-check
 uv run ruff check . && uv run mypy .
 
-# Run the eval set (~$2-3, produces evals/report-<date>.json)
+# Run the eval set (a few dollars; produces evals/report-<date>[-<mode>]-<reasoning effort>.json)
 uv run python -m evals.runner
 
 # Start the API server (serves /v1; also starts the in-process CollegeData
@@ -160,14 +160,14 @@ When in doubt, do the simplest thing that works and ship it.
 - **Deep research:** **GPT-Researcher**, embedded, cheap-model-routed, capped depth, DB-first; on Tavily; *not* a hosted research black box (our DB must be a first-class source) — ADR 0009. **Deferred from the MVP1 implementation plan** (stub seam in the graph; follow-up plan adds it).
 - **Skills:** **SKILL.md** open standard — ADR 0010.
 - **Current skill set — 23 skills, 12 public:** public response modes `focused-answer`, `deep-research`, and `guided-counselor`; public task skills `application-rounds`, `chancing`, `costs-and-aid`, `essay-brainstorm`, `essay-drafting`, `essay-fit`, `essay-revision`, `major-and-fit`, `school-comparison`, `school-deep-dive`, `school-list`, and `testing-strategy`; internal `citation-and-recency`, `counselor-research`, `db-recipes`, `essay-advanced`, `essay-craft`, `essay-depth`, `essay-exercises`, `essay-honesty`, `essay-structure`, `essay-types`, and `essay-values`. The hidden `dossier-assembly` alias exists only for parked-turn compatibility and is never advertised.
-- **Model config:** model-agnostic — PydanticAI per-agent `model=` from env; **default provider Vertex AI (Google), default synthesis model Gemini 3.5 Flash** (cheap tier Gemini 2.5 Flash), any provider swappable; optional **LiteLLM** sidecar — ADR 0011.
+- **Model config:** PydanticAI per-agent `model=` from env, every live model built by the one seam `app/llm.py::build_model`; **provider Fireworks, model DeepSeek V4.1 Flash for every live role**, roles differing only by reasoning effort (Quick `low`, Think `high`, cheap roles `none`); a live model setting without the `fireworks:` prefix or a price entry fails boot; a second provider is one branch in `build_model` plus an ADR; optional **LiteLLM** sidecar — ADRs 0011, 0043.
 - **Service shape:** **API-first agent service** (FastAPI) behind a **versioned SSE event protocol** (`meta`/`delta`/`viz`/`clarify`/`sources`/`usage`/`done`/`error`); every frontend is a client — ADR 0016. (MVP1 used a throwaway dev harness as that client; it was retired in MVP2 once the React frontend went real.)
 - **Layering:** four layers, dependencies inward only (`domain/` pure honesty core → `app/` → `adapters/` → `api/`); use the stack's native seams, never wrap them — ADR 0017.
 - **Config:** one fail-fast typed Settings surface (pydantic-settings) + versioned prompt/subreddit/season/fact-key/fact-section assets; the live data picture, fact coverage, and school-explore metadata derive from the DB — ADRs 0018, 0038.
 - **Sessions:** durable from day one via LangGraph's Postgres checkpointer in `counselle.*`; `session_id` required, `user_id` nullable until the platform phase; Counselle owns its schema + migrations — ADR 0019.
 - **DB:** Postgres 16. The agent path reads exactly six `cds_library` views through a reader-login role and writes only `counselle.*` through a separate DSN. The third role/DSN (`cds_library_app` / `COUNSELLE_DB_PIPELINE_DSN`) now drives the CollegeData facts crawler (ADR 0038), not the CDS admin write path — that write path (ADR 0036, superuser-gated) is parked and unmounted; the two are mutually exclusive by design and never both live.
 - **Language:** Python (matches the pipeline; reuse asyncpg).
-- **Models:** default **Vertex AI (Google)** — `gemini-3.5-flash` (synthesis), `gemini-2.5-flash` (cheap tier). Swappable per-agent to Anthropic (`claude-opus-4-8`, `claude-sonnet-4-6`, `claude-haiku-4-5`) or others via env.
+- **Models:** **Fireworks** — `fireworks:accounts/fireworks/models/deepseek-v4p1-flash` (the only serverless DeepSeek) for Quick, Think, the goal agent/judge/criteria writer, titles, document summaries and the eval judge. The model's raw reasoning is hidden from students by default (`thinking_stream=false`). The parked CDS extraction system alone still uses Gemini on Vertex.
 
 ## Scope guardrails (hard, enforced in code)
 
