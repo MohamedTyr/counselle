@@ -27,9 +27,8 @@ def _bare_model_name(model_name: str) -> str:
 
     Examples::
 
-        "google-vertex:gemini-2.5-pro"  ->  "gemini-2.5-pro"
-        "gemini-2.5-flash"              ->  "gemini-2.5-flash"
-        "anthropic:claude-sonnet-4-6"   ->  "claude-sonnet-4-6"
+        "fireworks:accounts/fireworks/models/x"  ->  "accounts/fireworks/models/x"
+        "accounts/fireworks/models/x"            ->  "accounts/fireworks/models/x"
     """
     if ":" in model_name:
         return model_name.split(":", 1)[1]
@@ -45,13 +44,14 @@ def estimate_cost(
     """Return the estimated USD cost for one turn, or ``None`` for an unknown model.
 
     Matching strategy (first hit wins):
-    1. Exact key lookup (``"gemini-2.5-pro"``).
-    2. Bare-name suffix match — strips the provider prefix
-       (``"google-vertex:gemini-2.5-pro"`` → tries ``"gemini-2.5-pro"``).
+    1. Exact key lookup (``"accounts/fireworks/models/x"``).
+    2. Bare-name match — strips the provider prefix up to the first ``:``
+       (``"fireworks:accounts/fireworks/models/x"`` → tries
+       ``"accounts/fireworks/models/x"``).
 
     When the matched tier has a long-context threshold and *input_tokens*
-    exceeds it, Google's long-context rates apply to ALL tokens in the turn
-    (not just the overage) — this mirrors that billing behavior exactly.
+    exceeds it, the long-context rates apply to ALL tokens in the turn (not
+    just the overage), the way tiered providers bill it.
 
     Args:
         model_name:    The model identifier used for the turn.

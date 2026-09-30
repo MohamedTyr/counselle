@@ -140,14 +140,16 @@ def test_report_records_response_mode_and_uses_mode_suffix() -> None:
             }
         ],
         ResponseMode.THINK,
-        "google-vertex:gemini-3.1-pro-preview",
+        "fireworks:accounts/fireworks/models/deepseek-v4p1-flash",
         make_context(),
+        reasoning_effort="high",
     )
     assert report["response_mode"] == "think"
-    assert report["model"] == "google-vertex:gemini-3.1-pro-preview"
+    assert report["model"] == "fireworks:accounts/fireworks/models/deepseek-v4p1-flash"
+    assert report["reasoning_effort"] == "high"
     dated = {**report, "generated_at": "2026-07-22T00:00:00+00:00"}
-    assert _report_stem(dated) == "report-2026-07-22"
-    assert _report_stem(dated, suffix_mode=True) == "report-2026-07-22-think"
+    assert _report_stem(dated) == "report-2026-07-22-high"
+    assert _report_stem(dated, suffix_mode=True) == "report-2026-07-22-think-high"
 
 
 def test_safe_summary_excludes_payload_values_and_excerpts() -> None:

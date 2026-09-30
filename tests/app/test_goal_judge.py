@@ -3,7 +3,7 @@
 No live LLM calls: every Agent call is stubbed with pydantic_ai's
 ``FunctionModel`` (the same technique ``tests/app/test_ask_student_output_tool_seam.py``
 and ``tests/app/test_plan_tool.py`` use), so these run in the routine
-(non-``live_llm``) suite. ``app.goal_judge._vertex_model`` is monkeypatched to
+(non-``live_llm``) suite. ``app.goal_judge._model`` is monkeypatched to
 hand back the stub model instead of constructing a real Vertex client.
 """
 
@@ -37,7 +37,7 @@ def _settings(**overrides: object) -> Any:
 def _stub_model(
     model_fn: Callable[[list[ModelMessage], AgentInfo], ModelResponse],
 ) -> FunctionModel:
-    """Build the stand-in model ``app.goal_judge._vertex_model`` is patched to return."""
+    """Build the stand-in model ``app.goal_judge._model`` is patched to return."""
     return FunctionModel(model_fn)
 
 
@@ -143,7 +143,7 @@ class TestDeriveCriteria:
             )
 
         monkeypatch.setattr(
-            goal_judge, "_vertex_model", lambda settings, model_setting: _stub_model(model_fn)
+            goal_judge, "_model", lambda settings, model_setting: _stub_model(model_fn)
         )
         criteria, note = await goal_judge.derive_criteria(
             "get my school list in order", settings=_settings(), usage=RunUsage()
@@ -171,7 +171,7 @@ class TestDeriveCriteria:
             )
 
         monkeypatch.setattr(
-            goal_judge, "_vertex_model", lambda settings, model_setting: _stub_model(model_fn)
+            goal_judge, "_model", lambda settings, model_setting: _stub_model(model_fn)
         )
         _, note = await goal_judge.derive_criteria("goal", settings=_settings(), usage=RunUsage())
         assert note == goal_judge.DEFAULT_NOT_CHECKED_NOTE
@@ -183,7 +183,7 @@ class TestDeriveCriteria:
             raise RuntimeError("simulated transport failure")
 
         monkeypatch.setattr(
-            goal_judge, "_vertex_model", lambda settings, model_setting: _stub_model(model_fn)
+            goal_judge, "_model", lambda settings, model_setting: _stub_model(model_fn)
         )
         with pytest.raises(GoalCriteriaError):
             await goal_judge.derive_criteria(
@@ -199,7 +199,7 @@ class TestJudgeGoal:
             raise RuntimeError("simulated transport failure")
 
         monkeypatch.setattr(
-            goal_judge, "_vertex_model", lambda settings, model_setting: _stub_model(model_fn)
+            goal_judge, "_model", lambda settings, model_setting: _stub_model(model_fn)
         )
         result = await judge_goal(
             statement="goal",
@@ -243,7 +243,7 @@ class TestJudgeGoal:
             )
 
         monkeypatch.setattr(
-            goal_judge, "_vertex_model", lambda settings, model_setting: _stub_model(model_fn)
+            goal_judge, "_model", lambda settings, model_setting: _stub_model(model_fn)
         )
         result = await judge_goal(
             statement="goal",
@@ -267,7 +267,7 @@ class TestJudgeGoal:
             return _tool_response(info.output_tools, criteria=[], critique="ran out of time")
 
         monkeypatch.setattr(
-            goal_judge, "_vertex_model", lambda settings, model_setting: _stub_model(model_fn)
+            goal_judge, "_model", lambda settings, model_setting: _stub_model(model_fn)
         )
         result = await judge_goal(
             statement="goal",
@@ -313,7 +313,7 @@ class TestJudgeGoal:
             )
 
         monkeypatch.setattr(
-            goal_judge, "_vertex_model", lambda settings, model_setting: _stub_model(model_fn)
+            goal_judge, "_model", lambda settings, model_setting: _stub_model(model_fn)
         )
         result = await judge_goal(
             statement="goal",
@@ -356,7 +356,7 @@ class TestJudgeGoal:
             )
 
         monkeypatch.setattr(
-            goal_judge, "_vertex_model", lambda settings, model_setting: _stub_model(model_fn)
+            goal_judge, "_model", lambda settings, model_setting: _stub_model(model_fn)
         )
         result = await judge_goal(
             statement="write an essay about robots",

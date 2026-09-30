@@ -82,11 +82,13 @@ def make_test_app(
     # Minimal fake settings
     settings = SimpleNamespace(
         sse_keepalive_s=15,
-        model_counselor="google-vertex:gemini-2.5-pro",
-        model_counselor_display_name="Gemini 3.5 Flash",
-        model_counselor_think="google-vertex:gemini-3.1-pro-preview",
-        model_counselor_think_display_name="Gemini 3.1 Pro",
+        model_counselor="fireworks:accounts/fireworks/models/quick-model",
+        model_counselor_display_name="Quick Model",
+        model_counselor_think="fireworks:accounts/fireworks/models/think-model",
+        model_counselor_think_display_name="Think Model",
         model_counselor_think_preview=True,
+        reasoning_effort_quick="low",
+        reasoning_effort_think="high",
         response_mode_think_enabled=True,
         usage_accounting=True,
         model_prices={},

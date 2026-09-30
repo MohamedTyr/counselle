@@ -24,10 +24,10 @@ Two pieces, both pure of I/O:
      stream proves the final answer has started. Pre-final text flushes as
      ``narration`` (the agent's loud talk, shown inline) at tool/non-text
      boundaries; final-answer prose is the only text routed to ``delta``.
-     Native Gemini thought summaries (``ThinkingPart``) are a separate
-     ``thinking`` feed — raw reasoning, collapsed by default, emitted per
-     completed paragraph. The two feeds never mix: ``thinking`` is
-     native-reasoning-only.
+     The model's native reasoning (``ThinkingPart``) is a separate
+     ``thinking`` feed — collapsed by default, emitted per completed
+     paragraph, and only when ``emit_thinking`` is on. The two feeds never
+     mix: ``thinking`` is native-reasoning-only.
 
   :meth:`EmissionRouter.close` is the terminal closure: at clarify/error/
   budget every open step is closed synthetically so nothing shimmers forever
@@ -79,7 +79,7 @@ from domain.urls import favicon_url, registrable_domain
 logger = logging.getLogger(__name__)
 
 #: Chars of buffered response text below which pre-tool-call text is routed to
-#: ``thinking`` (B0 spike 2 — measured latency cost ≈ 0 at Gemini chunk sizes).
+#: ``thinking`` (B0 spike 2 measured the latency cost at ≈ 0, on Gemini's chunk sizes).
 #: This is the ``EmissionRouter.threshold`` dataclass DEFAULT only — a test-time
 #: fallback so the router is independently constructible in unit tests. The
 #: PRODUCTION value is sourced from ``settings.thinking_threshold_chars`` at the
@@ -937,6 +937,10 @@ class EmissionRouter:
     #: tool-not-found retry is internal noise, not student-visible work.
     unmounted: frozenset[str] = frozenset()
     on_final_start: Callable[[], None] | None = None
+    #: `settings.thinking_stream`: when False the model's reasoning text is
+    #: consumed but never written or recorded (ADR 0043) — a provider cannot
+    #: be asked to reason without returning its reasoning.
+    emit_thinking: bool = True
 
     step_records: list[dict[str, Any]] = field(default_factory=list)
     narration_lines: list[str] = field(default_factory=list)
@@ -1102,8 +1106,8 @@ class EmissionRouter:
         if self.final_answer_started or (
             self._final_candidate and next_part_kind in (None, "thinking")
         ):
-            # `thinking` here is Gemini interleaving a thought pause INSIDE the
-            # final answer (include_thoughts): FinalResultEvent already marked
+            # `thinking` here is the model interleaving reasoning INSIDE the
+            # final answer: FinalResultEvent already marked
             # this text as the run's output, and a thought does not un-make it
             # the answer — demoting it to narration would render answer prose
             # as plain un-markdown'd text, chopped at part boundaries.
@@ -1163,7 +1167,7 @@ class EmissionRouter:
 
     def _emit_thinking(self, text: str) -> None:
         line = text.strip()
-        if not line:
+        if not line or not self.emit_thinking:
             return
         self.writer({"type": "thinking", "text": line})
         self.thinking_lines.append(line)

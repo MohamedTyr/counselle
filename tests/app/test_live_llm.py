@@ -1,4 +1,4 @@
-"""The 6 live conversations (Phase 4 Tests; real Gemini + DB + Tavily).
+"""The live conversations (Phase 4 Tests; real model + DB + Tavily).
 
 Run serially: ``uv run pytest -m live_llm -q -x``. Slow and costs money.
 
@@ -7,8 +7,8 @@ tiers, viz spec shapes — never prose wording (the phase-file rule). Each turn
 prints its usage line (visible with ``-s``) for the cost-sanity check.
 
 Every test builds the full production runtime (RO pool + catalog, app pool,
-Postgres checkpointer, counselle-db MCP child, real Gemini via Vertex Express
-Mode, Tavily) and cleans up its session row + checkpoint thread afterwards.
+Postgres checkpointer, the live model via ``app/llm.py``, Tavily) and cleans
+up its session row + checkpoint thread afterwards.
 """
 
 from __future__ import annotations
@@ -22,6 +22,7 @@ import pytest
 import pytest_asyncio
 
 from app.deps import Runtime, build_runtime
+from app.model_selection import counselor_model_selection
 from app.run_turn import run_turn
 from domain.events import Event
 from domain.response_mode import ResponseMode
@@ -132,7 +133,7 @@ def _assert_clean_complete(events: list[Event]) -> None:
 def _assert_markers_in_registry(events: list[Event]) -> None:
     """Every marker the model wrote must be one it was given (the honesty rule).
 
-    Asserted only where the phase file demands it (tests 1 and 2) — Gemini
+    Asserted only where the phase file demands it (tests 1 and 2) — a model
     occasionally hallucinates bracket markers on tool-free answers, which is a
     prompt-review finding, not a runtime bug; the other tests stay spec-exact.
     """
@@ -318,18 +319,12 @@ async def test_6_compare_admission_rates_streams_a_clean_step_timeline(rt: Runti
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize(
-    ("response_mode", "expected_model"),
-    [
-        (ResponseMode.QUICK, "google-vertex:gemini-3.5-flash"),
-        (ResponseMode.THINK, "google-vertex:gemini-3.1-pro-preview"),
-    ],
-)
+@pytest.mark.parametrize("response_mode", [ResponseMode.QUICK, ResponseMode.THINK])
 async def test_7_response_modes_report_expected_model_and_usage(
     rt: Runtime,
     response_mode: ResponseMode,
-    expected_model: str,
 ) -> None:
+    expected_model = counselor_model_selection(response_mode, rt.deps.settings).model_setting
     session_id = str(uuid4())
     try:
         events = await _turn(
@@ -388,10 +383,10 @@ async def test_8_quick_think_quick_history_switch_keeps_mode_metadata(
             assert usage is not None
             assert usage["input_tokens"] > 0 and usage["output_tokens"] > 0
         assert _meta(quick_1)["response_mode"] == "quick"
-        assert _meta(quick_1)["model"] == "google-vertex:gemini-3.5-flash"
+        assert _meta(quick_1)["model"] == rt.deps.settings.model_counselor
         assert _meta(think)["response_mode"] == "think"
-        assert _meta(think)["model"] == "google-vertex:gemini-3.1-pro-preview"
+        assert _meta(think)["model"] == rt.deps.settings.model_counselor_think
         assert _meta(quick_2)["response_mode"] == "quick"
-        assert _meta(quick_2)["model"] == "google-vertex:gemini-3.5-flash"
+        assert _meta(quick_2)["model"] == rt.deps.settings.model_counselor
     finally:
         await _cleanup(rt, session_id)

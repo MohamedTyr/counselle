@@ -27,10 +27,10 @@ import structlog
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.asset_format import render_slots
+from app.llm import build_model
 from app.model_selection import (
     goal_criteria_model_setting,
     goal_judge_model_setting,
-    model_name_from_setting,
 )
 from config.settings import load_prompt
 from domain.goal import (
@@ -116,18 +116,10 @@ class GoalCriteriaError(RuntimeError):
     PydanticAI's own output-validation retry already handles)."""
 
 
-def _vertex_model(settings: Settings, model_setting: str) -> Any:
-    """The ADR 0011 provider-construction shape shared with
-    `app/agent_node.py::default_model_factory` and `app/titles.py::_title_model`."""
-    from pydantic_ai.models.google import GoogleModel
-    from pydantic_ai.providers.google_cloud import GoogleCloudProvider
-
-    from app.vertex import build_vertex_client
-
-    client = build_vertex_client(settings, retry_attempts=settings.agent_model_retry_attempts)
-    return GoogleModel(
-        model_name_from_setting(model_setting), provider=GoogleCloudProvider(client=client)
-    )
+def _model(settings: Settings, model_setting: str) -> Any:
+    """The criteria writer's and judge's model: the one provider seam
+    (`app/llm.py`) at the cheap reasoning effort."""
+    return build_model(settings, model_setting, reasoning_effort=settings.reasoning_effort_cheap)
 
 
 async def _run_with_retries(agent: Any, prompt: str, *, usage: RunUsage, settings: Settings) -> Any:
@@ -162,7 +154,7 @@ async def derive_criteria(
     from pydantic_ai import Agent
 
     agent: Agent[None, GoalCriteriaOutput] = Agent(
-        _vertex_model(settings, goal_criteria_model_setting(settings)),
+        _model(settings, goal_criteria_model_setting(settings)),
         output_type=GoalCriteriaOutput,
     )
     prompt = render_slots(
@@ -530,7 +522,7 @@ async def judge_goal(
     # 32 cases scored TPR 0.882, then 0.824, then 0.765 across three runs of
     # the unpinned judge with no code change between them.
     agent: Agent[None, _RawGoalVerdict] = Agent(
-        _vertex_model(settings, goal_judge_model_setting(settings)),
+        _model(settings, goal_judge_model_setting(settings)),
         output_type=_RawGoalVerdict,
         model_settings=ModelSettings(temperature=0.0),
     )

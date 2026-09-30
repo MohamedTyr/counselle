@@ -3,7 +3,7 @@
 :class:`AppDeps` extends :class:`app.graph.GraphDeps` with everything the agent
 node needs beyond state: the settings surface, the per-app Tavily tool deps,
 and the **model factory seam** — unit tests inject ``FunctionModel``/
-``TestModel`` here; ``None`` means the real Gemini via
+``TestModel`` here; ``None`` means the real model via
 :func:`app.agent_node.default_model_factory` (notes-p4-apis §1).
 
 :func:`build_runtime` is the one production wiring path (chat CLI now, the
@@ -42,7 +42,7 @@ class AppDeps(GraphDeps):
 
     Every extra field defaults to ``None``; the agent node falls back to the
     production wiring (``get_settings()`` / ``make_tool_deps`` / the real
-    GoogleModel) when a seam is unset.
+    model via :func:`app.llm.build_model`) when a seam is unset.
     """
 
     settings: Any = None  # config.settings.Settings (Any: tests pass a namespace)
