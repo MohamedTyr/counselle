@@ -54,7 +54,8 @@ async function route(
 }
 
 /**
- * The site stores nothing on the device, so no upstream cookie gets through.
+ * The SDK sets its own first-party cookie; PostHog's upstream cookies never
+ * reach the visitor.
  * The proxy is same-origin, so PostHog's own CORS headers, which let any
  * origin read the reply with credentials, are dropped too.
  */
