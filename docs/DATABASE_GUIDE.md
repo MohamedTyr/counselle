@@ -354,10 +354,16 @@ as a `fact_key = $n`/`IN` parameter so the guard can attach a real denominator; 
 inlined literal or an unresolved string earns none:
 
 ```sql
-SELECT schools_with_value AS covered, schools_total AS total, computed_at AS as_of
+SELECT schools_with_value AS covered,
+       (SELECT count(*) FROM cds_library.school_profiles) AS total,
+       computed_at AS as_of
 FROM cds_library.fact_coverage
 WHERE fact_key = $1
 ```
+
+The total is every profiled school, not the view's own `schools_total` (only the
+schools with a CollegeData crawl): a ranking is out of all the schools Counselle
+knows, and the coverage block `query_database` attaches uses the same total.
 
 ### Numeric candidate filter
 

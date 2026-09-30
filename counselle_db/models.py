@@ -104,6 +104,10 @@ class FactCoverageRow(FrozenModel):
     (school-data-v3 Phase 3, `sql_guard._named_fact_keys`): the denominator a
     model must state on any cross-school aggregate or ranking, so a claim like
     "60% of schools require testing" carries how many schools that 60% is of.
+    On the coverage block `query_database` attaches, ``schools_total`` is every
+    profiled school (the catalog's count), not the view's own crawled-schools
+    total: a ranking is out of all the schools Counselle knows. The rows
+    `Catalog.snapshot.fact_keys` holds keep the view's crawled total.
     """
 
     fact_key: str
