@@ -573,5 +573,6 @@ they're gone, reverting doesn't restore a working app.
 - `tests/app/test_live_llm.py::test_6` asserted a `thinking`/`delta` event before
   the first step, which only Gemini's thinking stream satisfied; it now asserts
   no `thinking` event while `thinking_stream` is off.
+- **§7.4 ran partly.** Quick `low` and Quick `none` ran once each before the owner moved on to latency work. `low` passed 29/37 attempted, the same cases as the Gemini baseline; `none` passed 26 (lost `honesty-mit-current-enrollment-web`, `composition-same-domain`, `composition-unavailable-hole`), so D2 fails and Quick stays `low`. §7.7 numbers (Quick, median / p95): Gemini 17.1s / 35.6s, 772 output tokens, 8.5 tool calls; DeepSeek `low` 32.6s / 200.6s, 1,676 output tokens, 5.5 tool calls. The Think `high` eval run was not completed.
 - `README.md`, `scripts/chat_cli.py` and `docs/adr/0028-*.md` (status note: the
   `thinking_stream`-on default is reversed) were also updated.
