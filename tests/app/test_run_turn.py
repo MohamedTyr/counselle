@@ -2398,6 +2398,9 @@ async def test_focused_answer_runs_at_most_its_search_budget() -> None:
     assert "search_web" in offered[0]
     assert "search_web" not in offered[1]
     _assert_every_step_start_has_a_terminal(events)
+    # The skipped search is shown to the student as a failed step, not a result.
+    terminal = [step["status"] for step in _steps(events) if step["status"] != "start"]
+    assert sorted(terminal) == ["end", "end", "error"]
 
 
 # ---------------------------------------------------------------------------

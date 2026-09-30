@@ -10,6 +10,9 @@ Searches (web, a school's site, Reddit) are capped separately at
 ``max_searches`` per turn: once spent, the search tools are hidden, and any
 extra search the model fired in the same parallel round returns a
 search-limit error instead of running.
+
+The search count is per-turn state: build one instance per turn's agent, never
+share one across turns.
 """
 
 from __future__ import annotations
