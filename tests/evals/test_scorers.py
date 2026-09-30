@@ -421,8 +421,13 @@ def test_query_database_citation_guard_passes_when_uncited_or_refetched() -> Non
                 "content": {"columns": ["school_id"], "rows": [[1]]},
             },
             {
+                # The real get_facts shape: `status` is the school's data-status
+                # dict, not a string (it crashed the scorer as unhashable).
                 "tool_name": "get_facts",
-                "content": {"rows": [{"fact_key": "admissions.admit_rate"}]},
+                "content": {
+                    "status": {"facts_updated_at": "2026-09-07", "has_collegedata": True},
+                    "rows": [{"fact_key": "admissions.admit_rate"}],
+                },
             },
         ],
     )

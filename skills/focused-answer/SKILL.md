@@ -58,6 +58,12 @@ load `counselor-research` or a question-type playbook; load `db-recipes` only
 when the question needs aggregate SQL. A task workflow the student selected
 still applies within this budget: use its judgment, not its research sweep.
 
+For a ranking, SQL rows are candidates, never citable values. State the covered
+count out of the total, name at most five finalists, re-read every one through
+`get_facts` in a single parallel round, and state only those values; mention
+any others by count alone ("14 more schools share the top spot"), never by
+their values.
+
 Make one explicit assumption when ambiguity is low-risk, in a clause. Ask one
 focused question only when a responsible answer materially depends on it.
 

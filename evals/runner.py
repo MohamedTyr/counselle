@@ -341,9 +341,19 @@ def _paired_results(
     return paired
 
 
+def _status_text(payload: Mapping[str, Any]) -> Any:
+    """A result's status word, or its error: `get_facts` carries a data-status
+    dict under `status`, which is not a status word."""
+    status = payload.get("status")
+    return (status if isinstance(status, str) else None) or payload.get("error")
+
+
 def _payload_succeeded(payload: Mapping[str, Any]) -> bool:
+    # `status` is a string on most results but the school's data-status dict on
+    # `get_facts`, which a set membership test cannot hash.
+    status = payload.get("status")
     return (
-        payload.get("status") not in {"tool_error", "error"}
+        not (isinstance(status, str) and status in {"tool_error", "error"})
         and not payload.get("error")
         and payload.get("ok", True) is not False
     )
@@ -507,7 +517,7 @@ def _safe_event_summary(capture: TurnCapture) -> str:
         safe_keys = ("query", "unitid", "school", "groups", "domain_id")
         safe_args = {k: args[k] for k in safe_keys if k in args}
         payload = (returns.get(name) or [{}]).pop(0)
-        status = payload.get("status") or payload.get("error")
+        status = _status_text(payload)
         if not status:
             status = "ok" if payload.get("ok", True) else "error"
         detail = payload.get("root_cause") if status == "tool_error" else None
@@ -548,7 +558,7 @@ def _safe_tool_outcomes(capture: TurnCapture) -> list[dict[str, Any]]:
         payload = item.get("content")
         if not isinstance(payload, dict):
             continue
-        status = payload.get("status") or payload.get("error")
+        status = _status_text(payload)
         if not status:
             status = "ok" if payload.get("ok", True) else "error"
         outcome = {"tool_name": item.get("tool_name"), "status": status}
