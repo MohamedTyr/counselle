@@ -19,7 +19,7 @@
 
 @theme inline {
   --font-heading: var(--font-sans);
-  --font-sans: "Instrument Sans Variable", system-ui, sans-serif;
+  --font-sans: "Geist Variable", system-ui, sans-serif;
   --font-document: Georgia, ui-serif, serif;
   /* The sanctioned off-ladder step between text-xs (12px) and text-sm
    * (14px) — DESIGN.md §6.3, known debt #13. Makes text-chrome a real
@@ -49,6 +49,8 @@
   --color-secondary: var(--secondary);
   --color-primary-foreground: var(--primary-foreground);
   --color-primary: var(--primary);
+  --color-selected: var(--selected);
+  --color-progress: var(--progress);
   --color-popover-foreground: var(--popover-foreground);
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);

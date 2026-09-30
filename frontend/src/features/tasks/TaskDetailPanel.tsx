@@ -398,7 +398,7 @@ function PanelBody({
             className={cn(
               "size-4",
               task.flagged
-                ? "fill-[var(--brand)] text-[var(--brand)]"
+                ? "fill-[var(--task-flag-ink)] text-[var(--task-flag-ink)]"
                 : "text-[var(--ink-faint)]",
             )}
           />

@@ -9,16 +9,17 @@ a primitive (bypassing semantic.css) is a bug, not a shortcut.
    `transparent`/`currentColor` don't count, use them anywhere). Enforce by
    grepping: any color literal found outside this file is a bug.
 
-   **Five ramps — one neutral, four chromatic — and that is the whole
-   palette:**
+   **Four ramps — one neutral, three chromatic — and that is the whole
+   palette.** They are the landing page's colours:
 
-   | Ramp        | Hue | What it is                                         |
-   | ----------- | --- | -------------------------------------------------- |
-   | `--gray-*`  | 50  | every surface, every border and every word of text |
-   | `--lime-*`  | 132 | the brand                                          |
-   | `--red-*`   | 25  | danger                                             |
-   | `--amber-*` | 80  | warning                                            |
-   | `--leaf-*`  | 143 | success                                            |
+   | Ramp        | Hue  | What it is                                         |
+   | ----------- | ---- | -------------------------------------------------- |
+   | `--gray-*`  | ~165 | every surface, every border and every word of text |
+   | `--green-*` | 155  | the brand's colour, and success                    |
+   | `--red-*`   | 25   | danger                                             |
+   | `--amber-*` | 80   | warning                                            |
+
+   The primary button is ink (`--brand` is `--gray-900`); green marks state.
 
    `--blue-*`, `--plum-*`, `--mauve-*`, `--teal-*` and `--slate-*` were
    deleted in the palette pass; `--neutral-*` (chroma 0), `--sand-*` (hue
@@ -88,7 +89,7 @@ it after tier 4.
 
 `--{family}-{role}[-{state}]`, e.g. `--workspace-composer-control-hover-border`,
 `--school-filter-chip-active-ink`. Primitives are `--{ramp}-{position}`, e.g.
-`--gray-400`, `--lime-500`. Semantic roles are bare nouns, e.g.
+`--gray-400`, `--green-500`. Semantic roles are bare nouns, e.g.
 `--canvas`, `--ink-muted`, `--danger-solid`.
 
 ## The three laws

@@ -333,6 +333,11 @@ describe("AddSchoolDialog", () => {
       }),
     );
     await waitFor(() => expect(addFetch.posts).toHaveLength(1));
+    // The new school opens at its application id and then settles on its
+    // unitid URL; leaving before that lands would be undone by it.
+    await waitFor(() =>
+      expect(window.location.pathname).toBe("/app/schools/186131"),
+    );
     const schoolLinks = await screen.findAllByRole("link", { name: "Schools" });
     await user.click(schoolLinks[0]);
     await user.click(await screen.findByRole("button", { name: "Add school" }));

@@ -1,0 +1,1205 @@
+/*
+ * App shell — the Figma frame "BG B — Beams" (file V66rN97MQiP3ezpNpLL7MD,
+ * node 580:181), reproduced one-to-one: page, sidebar, the main card with
+ * its beam background, the empty-state greeting and the composer. Values
+ * are the frame's own; the `as-` prefix keeps these classes apart from the
+ * token tiers the rest of the workspace still uses.
+ */
+
+:root {
+  --as-page: #f7fbf9;
+  --as-card: #ffffff;
+  --as-edge: #e1e5e3;
+  --as-ink: #121214;
+  --as-ink-body: #4e5754;
+  --as-ink-control: #2a2f2d;
+  --as-ink-quiet: #8f9794;
+  --as-green-ink: #073d24;
+  --as-green-deep: #0f4d32;
+  --as-green-signal: #21b86b;
+  --as-green-tint: #e9f8ef;
+  --as-green-tint-strong: #d0f0dd;
+  --as-field: #eef1ef;
+  --as-control: #eef1ef;
+  --as-control-hover: #e3e8e5;
+  --as-separator: #d6dcd8;
+  --as-shadow-ink: 18 18 20;
+  --as-ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --as-ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --as-card-radius: 16px;
+  --as-gutter: 10px;
+  --as-sidebar-width: 256px;
+
+  /* The shadcn sidebar primitive paints its own surface; the shell has
+   * none, so the sidebar sits directly on the page colour. */
+  --sidebar: var(--as-page);
+}
+
+.as-shell {
+  background: var(--as-page);
+  font-family: "Geist Variable", system-ui, sans-serif;
+}
+
+/* ---------- Main card ---------- */
+
+.as-main {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  background: var(--as-card);
+  border: 1px solid var(--as-edge);
+  border-radius: var(--as-card-radius);
+  box-shadow: 0 1px 3px 0 rgb(var(--as-shadow-ink) / 0.04);
+}
+
+@media (min-width: 768px) {
+  .as-main {
+    margin: var(--as-gutter) var(--as-gutter) var(--as-gutter) 0;
+  }
+}
+
+.as-beams {
+  position: absolute;
+  inset: -1px;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+  background: linear-gradient(to right, #ffffff, #f3f9f5);
+}
+
+.as-beams[data-quiet] {
+  opacity: 0.4;
+}
+
+.as-beam {
+  position: absolute;
+  top: -100.4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.as-beam > span {
+  display: block;
+  flex: none;
+  width: 103.86px;
+  transform: rotate(28deg);
+  filter: blur(35px);
+}
+
+.as-beam:nth-child(1) { left: -357.09px; width: 506.49px; height: 828.86px; }
+.as-beam:nth-child(1) > span { height: 883.52px; background: linear-gradient(to bottom, rgb(125 219 164 / 0.35), rgb(125 219 164 / 0)); }
+.as-beam:nth-child(2) { left: -28.25px; width: 408.45px; height: 644.47px; }
+.as-beam:nth-child(2) > span { height: 674.69px; background: linear-gradient(to bottom, rgb(208 240 221 / 0.7), rgb(208 240 221 / 0)); }
+.as-beam:nth-child(3) { left: 257.62px; width: 468.78px; height: 757.94px; }
+.as-beam:nth-child(3) > span { height: 803.2px; background: linear-gradient(to bottom, rgb(33 184 107 / 0.14), rgb(33 184 107 / 0)); }
+.as-beam:nth-child(4) { left: 621.54px; width: 393.37px; height: 616.11px; }
+.as-beam:nth-child(4) > span { height: 642.56px; background: linear-gradient(to bottom, rgb(208 240 221 / 0.6), rgb(208 240 221 / 0)); }
+
+/* Figma's monotone noise effect: colour (13,26,26) at 20%, density 0.7,
+ * grain size 0.6, on a layer at 80% opacity. */
+.as-grain {
+  position: absolute;
+  inset: 0;
+  opacity: 0.04;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.4' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.05 0 0 0 0 0.1 0 0 0 0 0.1 0 0 0 0.9 -0.25'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 200px 200px;
+  mix-blend-mode: normal;
+}
+
+/* ---------- Sidebar ---------- */
+
+.as-sidebar {
+  display: flex;
+  height: 100%;
+  min-height: 0;
+  flex-direction: column;
+  padding: 22px 12px 0;
+  color: var(--as-ink-body);
+  font-family: "Geist Variable", system-ui, sans-serif;
+}
+
+.as-brand {
+  display: flex;
+  height: 25px;
+  flex-shrink: 0;
+  align-items: flex-start;
+  padding: 6.6px 0 0 10px;
+}
+
+.as-brand img {
+  display: block;
+}
+
+.as-search-wrap {
+  flex-shrink: 0;
+  padding: 22px 0 14px;
+}
+
+.as-search {
+  display: flex;
+  height: 40px;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  border-radius: 8px;
+  background: var(--as-field);
+}
+
+.as-search:focus-within {
+  box-shadow: 0 0 0 2px var(--as-green-tint-strong);
+}
+
+.as-search input {
+  min-width: 0;
+  flex: 1;
+  border: 0;
+  background: transparent;
+  color: var(--as-ink-body);
+  font: inherit;
+  font-size: 14px;
+  line-height: 18px;
+  outline: none;
+}
+
+.as-search input::placeholder {
+  color: var(--as-ink-quiet);
+  opacity: 1;
+}
+
+.as-search input::-webkit-search-cancel-button {
+  display: none;
+}
+
+.as-nav {
+  display: flex;
+  flex-shrink: 0;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.as-nav-row {
+  display: flex;
+  height: 36px;
+  align-items: center;
+  gap: 9px;
+  padding: 0 11px 0 7px;
+  border-radius: 8px;
+  color: var(--as-ink-body);
+  font-size: 14px;
+  line-height: 18px;
+  text-decoration: none;
+  transition: background-color 150ms ease;
+}
+
+.as-nav-row:hover {
+  background: var(--as-field);
+}
+
+.as-nav-row:focus-visible,
+.as-chat-row:focus-visible,
+.as-section-toggle:focus-visible,
+.as-icon-button:focus-visible {
+  outline: 2px solid var(--as-green-signal);
+  outline-offset: -2px;
+}
+
+.as-nav-row[aria-current="page"] {
+  background: var(--as-green-tint);
+  color: var(--as-green-ink);
+  font-weight: 500;
+}
+
+.as-tile {
+  display: flex;
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 7px;
+  background: var(--as-tile);
+}
+
+.as-nav-row[aria-current="page"] .as-tile {
+  background: var(--as-tile-active, var(--as-tile));
+}
+
+.as-tile > svg {
+  width: 18px;
+  height: 18px;
+}
+
+.as-history {
+  min-height: 0;
+  flex: 1;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: 24px 0 16px;
+  scrollbar-width: none;
+}
+
+.as-history-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.as-section {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.as-section-header {
+  display: flex;
+  height: 32px;
+  align-items: center;
+  gap: 8px;
+  padding: 0 6px 0 9px;
+}
+
+.as-section-toggle {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  align-items: center;
+  gap: 8px;
+  height: 100%;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--as-ink-quiet);
+  font: inherit;
+  font-size: 13px;
+  line-height: 17px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.as-section-toggle span {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.as-icon-button {
+  display: flex;
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.as-chat-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.as-chat-item {
+  position: relative;
+}
+
+.as-chat-row {
+  display: flex;
+  height: 32px;
+  align-items: center;
+  gap: 9px;
+  padding: 0 11px;
+  border-radius: 8px;
+  color: var(--as-ink-body);
+  font-size: 14px;
+  line-height: 18px;
+  text-decoration: none;
+  transition: background-color 150ms ease;
+}
+
+.as-chat-row > img {
+  flex-shrink: 0;
+}
+
+.as-chat-row > span {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.as-chat-item:hover .as-chat-row,
+.as-chat-item:focus-within .as-chat-row {
+  background: var(--as-field);
+  padding-right: 34px;
+}
+
+.as-chat-row[aria-current="page"] {
+  background: var(--as-green-tint);
+  color: var(--as-green-ink);
+  font-weight: 500;
+}
+
+.as-history-note {
+  padding: 6px 11px;
+  color: var(--as-ink-quiet);
+  font-size: 13px;
+  line-height: 17px;
+}
+
+.as-account {
+  flex-shrink: 0;
+  padding: 6px 0 12px;
+}
+
+.as-account-error {
+  padding: 0 11px 6px;
+  color: #d22d26;
+  font-size: 12px;
+}
+
+.as-account-row {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 9px;
+  padding: 7px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 150ms ease;
+}
+
+.as-account-row:hover,
+.as-account-row[data-state="open"] {
+  background: var(--as-field);
+}
+
+.as-account-row:focus-visible {
+  outline: 2px solid var(--as-green-signal);
+  outline-offset: -2px;
+}
+
+.as-avatar {
+  display: flex;
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: var(--as-green-tint-strong);
+  color: var(--as-green-ink);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.as-account-text {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+}
+
+.as-account-name,
+.as-account-email {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.as-account-name {
+  color: var(--as-ink-body);
+  font-size: 13.5px;
+  font-weight: 500;
+  line-height: 18px;
+}
+
+.as-account-email {
+  color: var(--as-ink-quiet);
+  font-size: 12px;
+  line-height: 16px;
+}
+
+/* ---------- Empty state ---------- */
+
+.as-empty {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  padding: 0 16px 96px;
+}
+
+.as-empty-stack {
+  position: relative;
+  display: flex;
+  width: 100%;
+  max-width: 680px;
+  flex-direction: column;
+  align-items: center;
+  gap: 38px;
+}
+
+.as-greeting {
+  margin: 0;
+  color: var(--as-ink);
+  font-size: 30px;
+  font-weight: 500;
+  letter-spacing: -0.6px;
+  line-height: normal;
+  text-align: center;
+}
+
+/* ---------- Composer ---------- */
+
+.as-composer {
+  /* The @-mention overlay reads these to sit exactly over the textarea. */
+  --workspace-composer-inset: 16px;
+  --workspace-composer-prompt-inset-block-start: 18px;
+
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--as-edge);
+  border-radius: var(--as-card-radius);
+  background: var(--as-card);
+  box-shadow:
+    0 8px 24px -4px rgb(var(--as-shadow-ink) / 0.05),
+    0 1px 2px 0 rgb(var(--as-shadow-ink) / 0.04);
+  font-family: "Geist Variable", system-ui, sans-serif;
+  transition: border-color 150ms ease;
+}
+
+.as-composer:focus-within {
+  border-color: #c9d2cd;
+}
+
+.as-composer-input [data-slot="textarea"] {
+  display: block;
+  min-height: 87px;
+  max-height: 220px;
+  width: 100%;
+  resize: none;
+  overflow-y: auto;
+  border: 0;
+  background: transparent;
+  padding: 18px 16px 12px;
+  color: var(--as-ink);
+  font: inherit;
+  font-size: 16px;
+  line-height: 20px;
+  box-shadow: none;
+}
+
+.as-composer-input [data-slot="textarea"]::placeholder {
+  color: var(--as-ink-quiet);
+}
+
+.as-composer-input [data-slot="textarea"]:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+
+.as-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  padding: 0 16px 14px 14px;
+}
+
+.as-toolbar-spacer {
+  min-width: 1px;
+  flex: 1 0 0;
+}
+
+/* Goal mode: a two-position switch. The track holds a knob with 12px of
+ * travel; on, the knob sits left, white with a green-to-clear rim and a
+ * green dot; off, it slides right and sinks into the track. The rim is its
+ * own layer so it fades in rather than snapping. */
+.as-goal {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  padding: 2px 14px 2px 2px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--as-control);
+  font: inherit;
+  cursor: pointer;
+  transition: background-color 150ms ease;
+}
+
+.as-goal:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.as-goal-knob {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px 4px 9px;
+  border: 1.5px solid transparent;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.5);
+  color: var(--as-ink-body);
+  font-size: 12.5px;
+  font-weight: 500;
+  line-height: normal;
+  transform: translateX(12px);
+  transition:
+    transform 220ms var(--as-ease-in-out),
+    scale 120ms var(--as-ease-out),
+    color 200ms ease;
+}
+
+.as-goal-knob::after {
+  content: "";
+  position: absolute;
+  inset: -1.5px;
+  z-index: -1;
+  border: 1.5px solid transparent;
+  border-radius: inherit;
+  background:
+    linear-gradient(#ffffff, #ffffff) padding-box,
+    linear-gradient(
+        to right,
+        #21b86b 0%,
+        rgb(125 219 164 / 0.75) 55%,
+        rgb(255 255 255 / 0) 100%
+      )
+      border-box;
+  opacity: 0;
+  transition: opacity 200ms ease;
+}
+
+.as-goal-knob::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  flex-shrink: 0;
+  border-radius: 999px;
+  background: #a3aba8;
+  box-shadow: 0 0 0 0 rgb(33 184 107 / 0);
+  transition:
+    background-color 200ms ease,
+    box-shadow 200ms ease;
+}
+
+.as-goal[aria-checked="true"] .as-goal-knob {
+  color: var(--as-ink-control);
+  transform: none;
+}
+
+.as-goal[aria-checked="true"] .as-goal-knob::after {
+  opacity: 1;
+}
+
+.as-goal[aria-checked="true"] .as-goal-knob::before {
+  background: var(--as-green-signal);
+  box-shadow: 0 0 0 3px rgb(33 184 107 / 0.16);
+}
+
+.as-goal:active:not(:disabled) .as-goal-knob {
+  scale: 0.96;
+}
+
+.as-goal:focus-visible,
+.as-skill-trigger:focus-visible,
+.as-tool:focus-visible,
+.as-send:focus-visible {
+  outline: 2px solid var(--as-green-signal);
+  outline-offset: 2px;
+}
+
+/* The run-settings pill: one button of three readings. The mode shows how
+ * deep it digs on a three-bar meter, Sources shows how many are on, and
+ * speed shows its label with a bolt or a brain. It opens one panel. */
+.as-run-settings {
+  display: flex;
+  height: 31px;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 2px;
+  padding: 0 4px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--as-control);
+  box-shadow: inset 0 0 0 1px rgb(var(--as-shadow-ink) / 0.025);
+  color: var(--as-ink-body);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 500;
+  line-height: 16px;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background-color 150ms ease,
+    box-shadow 150ms ease,
+    color 150ms ease,
+    scale 120ms var(--as-ease-out);
+}
+
+.as-run-settings[data-popup-open] {
+  background: var(--as-card);
+  box-shadow:
+    0 1px 2px rgb(var(--as-shadow-ink) / 0.07),
+    0 0 0 1px rgb(var(--as-shadow-ink) / 0.06);
+  color: var(--as-ink);
+}
+
+.as-run-settings:active:not(:disabled) {
+  scale: 0.98;
+}
+
+.as-run-settings:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.as-run-settings:focus-visible {
+  outline: 2px solid var(--as-green-signal);
+  outline-offset: 2px;
+}
+
+.as-reading {
+  display: inline-flex;
+  height: 25px;
+  align-items: center;
+  gap: 7px;
+  padding: 0 8px;
+}
+
+.as-meter {
+  display: inline-flex;
+  height: 11px;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.as-meter b {
+  width: 3px;
+  border-radius: 2px;
+  background: var(--as-separator);
+  transition: background-color 220ms var(--as-ease-out);
+}
+
+.as-meter b:nth-child(1) { height: 5px; }
+.as-meter b:nth-child(2) { height: 8px; }
+.as-meter b:nth-child(3) { height: 11px; }
+
+/* The bars fill left to right, one after another, as the depth rises. */
+.as-meter[data-depth="1"] b:nth-child(-n + 1),
+.as-meter[data-depth="2"] b:nth-child(-n + 2),
+.as-meter[data-depth="3"] b {
+  background: #0a6b3d;
+}
+
+.as-meter b:nth-child(2) { transition-delay: 40ms; }
+.as-meter b:nth-child(3) { transition-delay: 80ms; }
+
+.as-count {
+  display: grid;
+  min-width: 17px;
+  height: 17px;
+  place-items: center;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--as-card);
+  box-shadow: 0 0 0 1px rgb(var(--as-shadow-ink) / 0.05);
+  color: #0a6b3d;
+  font-size: 11px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.as-count[data-zero] {
+  color: var(--as-ink-quiet);
+}
+
+.as-speed-icon {
+  width: 12px;
+  height: 12px;
+  margin-left: -1px;
+  stroke-width: 2;
+}
+
+.as-reading[data-speed="quick"] .as-speed-icon {
+  color: #b5650d;
+}
+
+.as-reading[data-speed="think"] .as-speed-icon {
+  color: #6d4fd8;
+}
+
+.as-skill-trigger {
+  display: grid;
+  width: 31px;
+  height: 31px;
+  flex-shrink: 0;
+  place-items: center;
+  border: 0;
+  border-radius: 999px;
+  background: var(--as-control);
+  color: var(--as-ink-body);
+  cursor: pointer;
+  transition: background-color 150ms ease;
+}
+
+/* A value that just changed settles into place. */
+.as-swap {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition:
+    opacity 200ms var(--as-ease-out),
+    transform 200ms var(--as-ease-out),
+    filter 200ms var(--as-ease-out);
+
+  @starting-style {
+    opacity: 0;
+    transform: translateY(3px);
+    filter: blur(2px);
+  }
+}
+
+.as-tool {
+  display: flex;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+}
+
+.as-send {
+  display: flex;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 10px;
+  background: var(--as-green-deep);
+  color: #ffffff;
+  cursor: pointer;
+  transition:
+    background-color 150ms ease,
+    scale 120ms var(--as-ease-out);
+}
+
+.as-send:active:not(:disabled) {
+  scale: 0.94;
+}
+
+.as-send:disabled {
+  cursor: default;
+}
+
+/* Send and Stop trade places in the same button; the incoming glyph
+ * grows in from the centre. */
+.as-send > * {
+  transition:
+    opacity 180ms var(--as-ease-out),
+    scale 180ms var(--as-ease-out);
+
+  @starting-style {
+    opacity: 0;
+    scale: 0.6;
+  }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .as-goal:hover:not(:disabled),
+  .as-skill-trigger:hover:not(:disabled) {
+    background: var(--as-control-hover);
+  }
+
+  .as-run-settings:hover:not(:disabled):not([data-popup-open]) {
+    background: var(--as-control-hover);
+    color: var(--as-ink-control);
+  }
+
+  .as-send:hover:not(:disabled) {
+    background: var(--as-green-ink);
+  }
+}
+
+/* ---------- Run settings panel ---------- */
+
+.as-positioner {
+  z-index: var(--z-dropdown);
+}
+
+/* The panel grows out of the pill, above the composer. */
+.as-menu {
+  border: 1px solid var(--as-edge);
+  border-radius: 14px;
+  background: var(--as-card);
+  color: var(--as-ink-control);
+  font-family: "Geist Variable", system-ui, sans-serif;
+  box-shadow:
+    0 12px 16px -8px rgb(var(--as-shadow-ink) / 0.08),
+    0 2px 4px -1px rgb(var(--as-shadow-ink) / 0.05);
+  outline: none;
+  transform-origin: var(--transform-origin);
+  transition:
+    opacity 200ms var(--as-ease-out),
+    transform 200ms var(--as-ease-out);
+}
+
+.as-menu[data-starting-style],
+.as-menu[data-ending-style] {
+  opacity: 0;
+  transform: scale(0.96) translateY(4px);
+}
+
+.as-menu[data-ending-style] {
+  transition-duration: 130ms;
+}
+
+.as-panel-popup {
+  width: min(344px, calc(100vw - 32px));
+}
+
+.as-panel {
+  display: flex;
+  flex-direction: column;
+}
+
+.as-panel-section {
+  display: flex;
+  flex-direction: column;
+  padding: 12px 12px 14px;
+}
+
+.as-panel-section + .as-panel-section {
+  border-top: 1px solid var(--as-edge);
+}
+
+/* The sections cascade in, top to bottom, as the panel opens. */
+.as-panel-section {
+  transition:
+    opacity 260ms var(--as-ease-out),
+    transform 260ms var(--as-ease-out);
+
+  @starting-style {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+.as-panel-section:nth-child(2) { transition-delay: 40ms; }
+.as-panel-section:nth-child(3) { transition-delay: 80ms; }
+
+.as-panel-title {
+  margin: 0 0 8px 2px;
+  color: var(--as-ink-quiet);
+  font-size: 11.5px;
+  font-weight: 500;
+  line-height: 14px;
+}
+
+.as-panel-caption {
+  min-height: 16px;
+  margin: 8px 2px 0;
+  color: var(--as-ink-body);
+  font-size: 12px;
+  line-height: 16px;
+}
+
+/* Mode descriptions run one or two lines; hold two so switching modes
+ * never resizes the panel. */
+.as-panel-caption--mode {
+  min-height: 32px;
+}
+
+.as-panel-link {
+  display: inline-flex;
+  align-self: flex-start;
+  align-items: center;
+  gap: 6px;
+  margin: 10px 0 -2px;
+  padding: 4px 8px 4px 6px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--as-ink-body);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    background-color 150ms ease,
+    color 150ms ease;
+}
+
+.as-panel-link:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+/* A segmented radio group: the white thumb slides under the chosen option. */
+.as-segmented {
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  grid-template-columns: repeat(var(--n), 1fr);
+  padding: 3px;
+  border-radius: 10px;
+  background: var(--as-field);
+}
+
+.as-segmented-thumb {
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  left: 3px;
+  z-index: -1;
+  width: calc((100% - 6px) / var(--n));
+  border-radius: 7px;
+  background: var(--as-card);
+  box-shadow:
+    0 1px 2px rgb(var(--as-shadow-ink) / 0.1),
+    0 0 0 0.5px rgb(var(--as-shadow-ink) / 0.05);
+  transform: translateX(calc(var(--i) * 100%));
+  transition: transform 280ms var(--as-ease-out);
+}
+
+.as-segmented-option {
+  display: flex;
+  height: 30px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--as-ink-body);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: color 180ms ease;
+}
+
+.as-segmented-option[data-checked] {
+  color: var(--as-ink);
+}
+
+.as-segmented-option:focus-visible {
+  outline: 2px solid var(--as-green-signal);
+  outline-offset: -1px;
+}
+
+.as-segmented-icon {
+  width: 14px;
+  height: 14px;
+  stroke-width: 1.75;
+  color: var(--as-ink-quiet);
+  transition: color 180ms ease;
+}
+
+.as-segmented-option[data-checked] .as-segmented-icon {
+  color: #0a6b3d;
+}
+
+/* Sources: one chip per source. On, it is tinted green with its logo in
+ * colour; off, it is an outline with the logo greyed. */
+.as-source-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.as-source-chip,
+.as-community-chip {
+  display: inline-flex;
+  align-items: center;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--as-edge);
+  color: var(--as-ink-body);
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    background-color 160ms ease,
+    box-shadow 160ms ease,
+    color 160ms ease,
+    scale 120ms var(--as-ease-out);
+}
+
+.as-source-chip {
+  height: 30px;
+  gap: 7px;
+  padding: 0 11px 0 7px;
+  font-size: 12.5px;
+}
+
+.as-source-chip img {
+  width: 16px;
+  height: 16px;
+  object-fit: contain;
+  filter: grayscale(1);
+  opacity: 0.5;
+  transition:
+    filter 180ms ease,
+    opacity 180ms ease;
+}
+
+.as-source-chip[aria-checked="true"],
+.as-community-chip[aria-checked="true"] {
+  background: var(--as-green-tint);
+  box-shadow: inset 0 0 0 1px var(--as-green-tint-strong);
+  color: var(--as-green-ink);
+}
+
+.as-source-chip[aria-checked="true"] img {
+  filter: none;
+  opacity: 1;
+}
+
+.as-source-chip-count {
+  margin-left: -2px;
+  color: #3f8a63;
+  font-variant-numeric: tabular-nums;
+}
+
+.as-source-chip-count::before {
+  content: "·";
+  margin-right: 5px;
+}
+
+.as-source-chip:active,
+.as-community-chip:active {
+  scale: 0.96;
+}
+
+.as-source-chip:focus-visible,
+.as-community-chip:focus-visible,
+.as-panel-link:focus-visible {
+  outline: 2px solid var(--as-green-signal);
+  outline-offset: 2px;
+}
+
+/* Reddit's communities unfold under the chips while Reddit is on. */
+.as-communities {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition:
+    grid-template-rows 240ms var(--as-ease-out),
+    opacity 180ms ease;
+}
+
+.as-communities[data-open="true"] {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+
+.as-communities-inner {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.as-community-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding-top: 8px;
+}
+
+.as-community-chip {
+  height: 24px;
+  padding: 0 9px;
+  font-size: 12px;
+}
+
+.as-community-prefix {
+  color: var(--as-ink-quiet);
+  transition: color 160ms ease;
+}
+
+.as-community-chip[aria-checked="true"] .as-community-prefix {
+  color: #3f8a63;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .as-panel-link:hover:not(:disabled) {
+    background: var(--as-field);
+    color: var(--as-ink);
+  }
+
+  .as-segmented-option:hover:not([data-checked]) {
+    color: var(--as-ink-control);
+  }
+
+  .as-source-chip:hover,
+  .as-community-chip:hover {
+    box-shadow: inset 0 0 0 1px #c9d2cd;
+  }
+
+  .as-source-chip[aria-checked="true"]:hover,
+  .as-community-chip[aria-checked="true"]:hover {
+    box-shadow: inset 0 0 0 1px #a9dcbf;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .as-goal-knob {
+    transition: color 200ms ease;
+  }
+
+  .as-segmented-thumb {
+    transition: none;
+  }
+
+  .as-communities {
+    transition: opacity 150ms ease;
+  }
+
+  .as-menu[data-starting-style],
+  .as-menu[data-ending-style] {
+    transform: none;
+  }
+
+  .as-panel-section,
+  .as-swap {
+    @starting-style {
+      transform: none;
+      filter: none;
+    }
+  }
+
+  .as-goal:active .as-goal-knob,
+  .as-run-settings:active,
+  .as-send:active,
+  .as-source-chip:active,
+  .as-community-chip:active {
+    scale: none;
+  }
+}

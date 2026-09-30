@@ -61,7 +61,7 @@ export function MeterIndicator({
   return (
     <MeterPrimitive.Indicator
       className={cn(
-        "bg-primary transition-all duration-500",
+        "bg-progress transition-all duration-500",
         /* Motion is not a fact. A width sweep on a value someone asked to
          * see less movement of is decoration they opted out of. */
         "motion-reduce:transition-none",

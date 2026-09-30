@@ -1275,7 +1275,7 @@ describe("AiChatPage", () => {
 
     expect(
       await screen.findByRole("button", {
-        name: "Counseling mode: Guided Counselor",
+        name: /^Run settings: Guided Counselor/,
       }),
     ).toBeInTheDocument();
   });
@@ -1300,10 +1300,10 @@ describe("AiChatPage", () => {
     await screen.findByText("No messages yet");
 
     await user.click(
-      screen.getByRole("button", { name: "Counseling mode: Focused Answer" }),
+      screen.getByRole("button", { name: /^Run settings: Focused Answer/ }),
     );
     await user.click(
-      await screen.findByRole("menuitemradio", { name: /Deep Research/ }),
+      await screen.findByRole("radio", { name: /Deep Research/ }),
     );
 
     const textarea = screen.getByPlaceholderText("Message Counselle");
@@ -1318,7 +1318,7 @@ describe("AiChatPage", () => {
       ),
     );
     expect(
-      screen.getByRole("button", { name: "Counseling mode: Deep Research" }),
+      screen.getByRole("button", { name: /^Run settings: Deep Research/ }),
     ).toBeInTheDocument();
   });
 
@@ -1375,7 +1375,7 @@ describe("AiChatPage", () => {
       ),
     );
     expect(
-      screen.getByRole("button", { name: "Counseling mode: Guided Counselor" }),
+      screen.getByRole("button", { name: /^Run settings: Guided Counselor/ }),
     ).toBeInTheDocument();
   });
 
@@ -1422,12 +1422,12 @@ describe("AiChatPage", () => {
     renderPage();
     await screen.findByText("No messages yet");
 
-    // Reddit is on by default (BUILT_IN_SOURCE_CONFIG) — the subreddit menu
-    // toggle is already visible without needing to enable Reddit first.
-    fireEvent.click(screen.getByRole("button", { name: /Sources:/ }));
-    const menu = screen.getByRole("menu");
+    // Reddit is on by default (BUILT_IN_SOURCE_CONFIG), so its communities
+    // are ready in the Reddit submenu without enabling Reddit first.
+    fireEvent.click(screen.getByRole("button", { name: /^Run settings/ }));
+    const menu = screen.getByRole("dialog");
     fireEvent.click(
-      within(menu).getByRole("menuitemcheckbox", { name: "chanceme" }),
+      within(menu).getByRole("checkbox", { name: "chanceme" }),
     );
 
     const textarea = screen.getByPlaceholderText("Message Counselle");
@@ -1474,7 +1474,7 @@ describe("AiChatPage", () => {
     renderPage();
     await screen.findByText("No messages yet");
     expect(
-      screen.getByRole("button", { name: "Response mode: Quick" }),
+      screen.getByRole("button", { name: /^Run settings: .*Quick$/ }),
     ).toBeInTheDocument();
 
     const textarea = screen.getByPlaceholderText("Message Counselle");

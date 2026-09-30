@@ -40,7 +40,7 @@
    * for exactly that kind of state. Over-limit swaps to --danger-solid in
    * EssayLibraryCard.tsx. */
   --essay-library-progress-track: var(--surface-sunken);
-  --essay-library-progress-fill: var(--brand);
+  --essay-library-progress-fill: var(--progress-fill);
   --essay-editor-chrome-surface: var(--shell-background);
   /* The editor's header and toolbar used to be two raised objects — a bordered,
    * shadowed header card and a floating toolbar pill — stacked over a third,
@@ -73,7 +73,7 @@
    * a decoration ever read as a status.
    *
    * The two inks are the badge-text roles, measured against the raised surface
-   * the paper actually uses: leaf-700 at 7.87:1 and red-700 at 9.84:1
+   * the paper actually uses: green-700 at 6.60:1 and red-700 at 9.84:1
    * (re-measured in the browser against the painted paper).
    *
    * THE TWO ARE NOT APPLIED THE SAME WAY, because the two spans do not have the

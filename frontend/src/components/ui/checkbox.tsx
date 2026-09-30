@@ -14,7 +14,7 @@ function Checkbox({
     <CheckboxPrimitive.Root
       data-slot="checkbox"
       className={cn(
-        "peer relative flex size-4 shrink-0 items-center justify-center rounded-[4px] border border-input transition-colors duration-[120ms] ease-out motion-reduce:transition-none outline-none group-has-disabled/field:opacity-64 after:absolute after:-inset-x-3 after:-inset-y-2 pointer-coarse:after:min-h-11 pointer-coarse:after:min-w-11 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-[var(--focus-ring)] disabled:cursor-not-allowed disabled:opacity-64 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 aria-invalid:aria-checked:border-primary data-checked:border-primary data-checked:bg-primary data-checked:text-primary-foreground",
+        "peer relative flex size-4 shrink-0 items-center justify-center rounded-[4px] border border-input transition-colors duration-[120ms] ease-out motion-reduce:transition-none outline-none group-has-disabled/field:opacity-64 after:absolute after:-inset-x-3 after:-inset-y-2 pointer-coarse:after:min-h-11 pointer-coarse:after:min-w-11 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-[var(--focus-ring)] disabled:cursor-not-allowed disabled:opacity-64 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 aria-invalid:aria-checked:border-selected data-checked:border-selected data-checked:bg-selected data-checked:text-primary-foreground",
         className,
       )}
       {...props}

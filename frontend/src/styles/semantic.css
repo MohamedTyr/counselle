@@ -164,7 +164,7 @@
   );
   --canvas-hover: color-mix(in oklab, var(--gray-900) 4%, var(--canvas));
   --canvas-active: color-mix(in oklab, var(--gray-900) 7%, var(--canvas));
-  --surface-selected: color-mix(in oklch, var(--lime-600) 10%, var(--canvas));
+  --surface-selected: color-mix(in oklch, var(--green-600) 10%, var(--canvas));
 
   /* ---- ink — text, on any of the four surfaces. FOUR tiers, not five.
    *
@@ -181,10 +181,10 @@
    * Measured against all four surfaces (raised / canvas / chrome / inset),
    * computed via an OKLCH -> linear-sRGB -> WCAG script, not eyeballed:
    *
-   *   --ink            #2d2825   14.41  13.96  13.48  12.81
-   *   --ink-secondary  #524b48    8.37   8.10   7.82   7.44
-   *   --ink-faint      #706762    5.45   5.28   5.10   4.85
-   *   --ink-disabled   #a69c97    2.64   2.56   2.47   2.35
+   *   --ink            #262a28  14.55  14.55  13.44  13.78
+   *   --ink-secondary  #494e4c   8.43   8.43   7.78    8.03
+   *   --ink-faint      #646b67   5.48   5.48   5.06    5.18
+   *   --ink-disabled   #99a09d   2.66   2.66   2.46    2.53
    *
    * Every non-exempt tier clears the 4.5:1 body floor on every surface,
    * --ink-faint with the least margin by design. --ink-disabled is the one
@@ -207,16 +207,11 @@
    * a step you can see across the room, and the reason the rail's own value
    * needed no retune when the page went white.
    *
-   * IT STAYS WARM (hue 50, chroma 0.005 — #f9f5f3), and that is the whole
-   * colour decision beside a chroma-0 page. Two candidates were on the
-   * table: this, or a neutral #f6f6f6 at the same lightness. Neutral loses,
-   * for the reason this file spent a paragraph on above — the ink, every
-   * border tier, the insets and the brand tint are all on the hue-50 ramp,
-   * so a chroma-0 rail would put the app's two temperatures back on
-   * opposite sides of one 1px seam, the exact defect the single ramp fixed.
-   * Warm also reads as a decision rather than as dirt: against white it is
-   * ivory paper beside a fresh sheet, and it carries the product's warmth
-   * now that the page no longer does.
+   * IT IS A GREEN-GREY (hue 165, chroma 0.0035 — #f4f6f5). The whole --gray
+   * ramp sits on hue 165 at low chroma, the neutral of the app-shell redesign
+   * (app-shell.css), so the rail, the insets, every border tier and the ink
+   * share one temperature with the green brand instead of the warm hue-50
+   * ramp the app used before it.
    *
    * It stays at this LIGHTNESS too, rather than going deeper to celebrate
    * the extra room. One step down would leave barely a point between the
@@ -237,7 +232,7 @@
    * 5.10:1 on the rail. There is no exempt tier left in the app, and the
    * warning is deleted rather than re-sited.
    *
-   * --chrome-active stays a BRAND tint (lime-50) — the selected nav row is
+   * --chrome-active stays a BRAND tint (green-50) — the selected nav row is
    * the one place in the rail that is deliberately not neutral, and that is
    * unchanged. Selection keeps its two channels, tint and weight. ---- */
   --chrome: var(--chrome-surface);
@@ -251,7 +246,7 @@
     var(--gray-900) 7%,
     var(--chrome-surface)
   );
-  --chrome-active: var(--lime-50);
+  --chrome-active: var(--green-50);
   --chrome-border: var(--gray-400);
   --chrome-ink: var(--gray-900);
   --chrome-ink-strong: var(--gray-950);
@@ -260,7 +255,7 @@
   --chrome-ink-hover: var(--gray-900);
   --chrome-eyebrow: var(--gray-700); /* was 3.07:1, now 5.10:1 */
   --chrome-ink-quiet: var(--gray-700); /* was 3.46:1, now 5.10:1 */
-  --on-chrome-active: var(--lime-ink-on-50); /* 10.77:1 on --chrome-active */
+  --on-chrome-active: var(--green-900); /* 11.24:1 on --chrome-active */
   /* The rail's own filter/search field, and the recency split on chat rows
    * (the most recent group draws a tier darker than the rest). */
   --chrome-field: var(--surface-inset);
@@ -370,158 +365,66 @@
   --surface-button-hover: var(--surface-hover);
   --surface-button-active: var(--surface-active);
 
-  /* ---- brand — the one committed accent (#7ccf00, a bright yellow-green
-   * at hue 132). --brand is that hex exactly; every other step is derived
-   * from it in primitives.css.
-   * Used sparingly: primary actions, links, focus rings, selected/active
-   * identity marks. Budget it at under ~3% of the pixels on any screen;
-   * the UI's authority comes from --ink on --canvas, and the brand is
-   * there to mark the agent's voice and the single next action. That
-   * budget matters more under this hue than any before it, for two
-   * reasons: it sits eleven degrees off --leaf, the "done" signal (see the
-   * collision note in primitives.css), so the less of it there is the less
-   * chance it is read as a status; and at C 0.216 it is the most saturated
-   * value in the palette by a distance — the old wine brand could sit in a
-   * large fill quietly, and this cannot.
+  /* ---- brand — the landing page's two-part identity, carried into the app.
+   *
+   * THE PRIMARY ACTION IS INK. --brand is the fill of the one call to action
+   * on a screen (components/ui/button.tsx's default variant), and it is
+   * --gray-900, the same near-black the landing draws "Join waitlist" and
+   * "Contact us" in. White on it is 18.71:1.
+   *
+   * GREEN MARKS STATE, NOT ACTION: the selected nav row, a checked control,
+   * a citation, progress, "on track". Those roles live on --brand-subtle*,
+   * --accent-solid, --progress-fill and the brand scale below, all on the
+   * --green ramp.
+   *
    * NOT the same token family as shadcn's --accent (a generic hover
    * surface) — see shadcn.css. --brand-hover and --brand-active are the
-   * default button variant's hover and data-pressed fills respectively in
-   * components/ui/button.tsx, replacing the old `hover:bg-primary/90` /
-   * `data-pressed:bg-primary/90` alpha-modifier pattern with named state
-   * tokens. They are two distinct steps on purpose: an interim version
-   * pointed both states at --brand-active, which collapsed hover and press
-   * into one appearance and left the button with nothing to say when you
-   * actually clicked it. Each pairs with the matching --brand-edge-* rim
-   * below so fill and edge never move independently.
-   *
-   * THE RAMP POSITION MOVED, for the first time in four brands: brand was
-   * the -600 step through ivy, indigo and wine, and is the -500 step now.
-   * The reasoning is arithmetic and lives in primitives.css — at this hue
-   * the accent sits at L 0.77, and a monotonic ramp has to keep everything
-   * numbered below it lighter than that, which would leave the focus ring
-   * and the ordered scale with no contrast to spend.
-   *
-   * Lightness went the other way too. ivy and indigo sat at L 0.44, wine at
-   * 0.38; this is L 0.77, so the brand is now a genuinely LIGHTER mark than
-   * any before it — the direction the original note called the risky one
-   * ("a lighter brand glows against a near-white ground"). It does glow, and
-   * that is the point of the colour; the ~3% budget above is what keeps it
-   * from being the loudest thing in the room.
-   *
-   * State separation: --brand-active against --brand is 1.71:1 surface-to-
-   * surface (wine managed 1.51, indigo 1.83), so the press step is if
-   * anything more legible than the one it replaces. The ink is near-black,
-   * not white — see --on-brand below. */
-  --brand: var(--lime-500);
-  --brand-hover: var(--lime-600);
-  --brand-active: var(--lime-700);
-  /* The solid CTA's rim — one ramp step darker than the fill it wraps, at
-   * every state. This is the correction that makes the primary button read
-   * as an object rather than a rectangle of colour: `border-primary` set
-   * the border to the SAME value as the fill, so the button had no edge at
-   * all and dissolved into its own shadow at the bottom and into the page
-   * at the top. One step down measures 1.30:1 fill-to-edge at rest (1.31
-   * hover, 1.73 pressed) — a soft shadow-side rim rather than an outline
-   * drawn around the button. Those are deeper than both the wine brand's
-   * (1.26 / 1.20 / 1.14) and indigo's (1.39 / 1.32 / 1.23), because this
-   * ramp lives in the light-to-middle range where a lightness step buys
-   * more contrast than it does down at the dark end. The rim can therefore
-   * carry more of the CTA's dimensionality than it did under wine, where
-   * a hard rim on a near-black fill would have read as a black outline.
-   *
-   * The three steps track --brand / --brand-hover / --brand-active exactly,
-   * so fill and rim always move together: darkening the fill on hover
-   * while the rim stayed put was the visible defect here before — a
-   * lighter ring around a darker button, i.e. lit from the wrong side. */
-  --brand-edge: var(--lime-600);
-  --brand-edge-hover: var(--lime-700);
-  --brand-edge-active: var(--lime-800);
-  --brand-subtle: var(--lime-50);
-  /* The account avatar's chip in the rail — one step up from --brand-subtle
-   * with its own reduced-chroma ink (7.93:1 on the fill). Its own role
-   * because AppSidebar.tsx was reaching straight at --lime-100 and
-   * --lime-ink-on-100, the only tier violation left in the codebase. */
-  --brand-chip: var(--lime-100);
-  --brand-chip-ink: var(--lime-ink-on-100);
-  /* Ink on the brand tint runs at roughly a third of the ramp chroma — see
-   * --lime-ink-on-50 in primitives.css. 10.77:1 on --brand-subtle. */
-  --brand-subtle-ink: var(--lime-ink-on-50);
-  --brand-subtle-border: var(--lime-200);
+   * default button's hover and pressed fills, two distinct steps so a click
+   * always has something to say; each pairs with the matching --brand-edge-*
+   * rim so fill and edge never move independently. */
+  --brand: var(--gray-900);
+  --brand-hover: color-mix(in oklab, var(--gray-900) 86%, var(--gray-0));
+  --brand-active: var(--gray-950);
+  --brand-edge: var(--gray-900);
+  --brand-edge-hover: color-mix(in oklab, var(--gray-900) 86%, var(--gray-0));
+  --brand-edge-active: var(--gray-950);
+  --brand-subtle: var(--green-50);
+  /* The account avatar's chip in the rail — one step up from --brand-subtle. */
+  --brand-chip: var(--green-100);
+  --brand-chip-ink: var(--green-900); /* 10.10:1 */
+  --brand-subtle-ink: var(--green-900); /* 11.24:1 on --brand-subtle */
+  --brand-subtle-border: var(--green-200);
   /* A softer brand tone for decorative affordances (the sidebar resizer
-   * handle) that shouldn't read as CTA-strength — distinct from
-   * --brand-subtle, which is a pale background tint, not a line color. */
-  --brand-muted: var(--lime-600);
-  /* NEAR-BLACK, NOT WHITE, and this is the one place the accent's choice
-   * forces the system's hand. White on #7ccf00 measures 1.95:1 — not a
-   * close call, not fixable by a step of any ramp here, and the reason a
-   * lime CTA is drawn the way it is everywhere else too. --gray-950 gives
-   * 8.27:1 at rest, 6.35 hovered and 4.85 pressed; that last figure is what
-   * pins --brand-active at --lime-700 rather than something deeper, since
-   * a darker press state would take its own label under 4.5:1. */
-  --on-brand: var(--gray-950);
-  /* A quiet fill for a chip sitting ON a saturated brand fill — the ⌘K
-   * badge inside the primary button. It has to be a translucency, not a
-   * ramp step: the ramp is built for light surfaces, and any step of it
-   * painted on the fill reads as a rectangle stuck to the button. It is a
-   * DARK translucency now, mixed from --gray-1000, because the fill is
-   * light and its ink is near-black — a white veil on #7ccf00 is invisible.
-   * This replaces `bg-white/15`, the last hardcoded colour literal outside
-   * primitives.css, which silently depended on the button being dark. */
-  --on-brand-quiet: color-mix(in oklab, var(--gray-1000) 12%, transparent);
+   * handle) that shouldn't read as CTA-strength. */
+  --brand-muted: var(--green-500);
+  --on-brand: var(--gray-0);
+  /* A quiet fill for a chip sitting ON the ink button — the ⌘K badge inside
+   * the primary button. A white veil, because the fill is near-black. */
+  --on-brand-quiet: color-mix(in oklab, var(--gray-0) 16%, transparent);
 
-  /* --lime-800, three steps past the brand: a focus ring reads as a halo
-   * around the thing it marks rather than a second copy of it, and at this
-   * hue it also has to be the step that can actually be SEEN — the brand
-   * itself is 1.95:1 on the page, under the 3:1 non-text minimum, so the
-   * old trick of taking one step off the brand is not available. -800
-   * measures 5.74:1 on --canvas and 5.30:1 on the rail (the wine ring was
-   * 6.99 / 6.45), and 2.95:1 against the brand fill it wraps on the primary
-   * button, which is where a ring at the brand's own lightness would have
-   * disappeared. */
-  --focus-ring: var(--lime-800);
+  /* The accent green as a solid: a checked checkbox, radio or switch, a
+   * selected calendar day. 6.60:1 on the page, so it doubles as link ink. */
+  --accent-solid: var(--green-700);
+  --accent-ink: var(--green-700);
+  /* A quantity filling up: word counts, essay progress, meters. The landing's
+   * signal green; a fill only, never text (2.58:1). */
+  --progress-fill: var(--green-500);
+
+  /* Focus is the accent green: 6.60:1 on --canvas, 5.29:1+ on every other
+   * surface, and it separates from the ink button it wraps. */
+  --focus-ring: var(--green-700);
 
   /* ---- brand intensity scale — three ordered steps of the one brand hue,
-   * for data that is ORDERED rather than categorical.
-   *
-   * This exists because the app deleted --blue and the three wayfinding
-   * hues, and the thing that was leaning hardest on them was the schools
-   * fit ladder: Reach / Target / Safety drawn as amber / blue / green. That
-   * was wrong twice over. It spent three unrelated hues on a scale whose
-   * whole meaning is its ORDER, and it made "Safety" the same green as
-   * "done" and "Reach" the same amber as "waiting on someone" — so the two
-   * loudest colours on the schools page were both already spoken for
-   * elsewhere.
-   *
-   * Ordered data takes one hue at three intensities. That is the standard
-   * reading of a sequential scale and it is what makes a stacked bar read
-   * as one measurement rather than three competing categories. The hue is
-   * the brand's, which is the licence --essay-library-progress-fill already
-   * has: a quantity the page is actually about is the one non-CTA thing the
-   * accent is for.
-   *
-   * -3 is the heavy end. On the fit ladder that is Reach (the ambitious part
-   * of the list reads as the weightiest segment); on any future scale it is
-   * simply "most".
-   *
-   * Steps are 900 / 700 / 500 — three ramp positions apart at each end, the
-   * same shape the wine scale had at 600 / 400 / 300 and chosen against the
-   * same constraint. The legend under the bar draws these values as 8px
-   * swatch dots sitting directly on the page, so the lightest step has to
-   * survive on --canvas and on --control-track, which is what ruled the
-   * wine scale's -200 out at 1.37:1 on the track. Measured here: segment
-   * separations are 1.71:1 (light to middle) and 2.90:1 (middle to heavy),
-   * against wine's 1.81 and 2.67 — and the lightest step is the brand
-   * itself at 1.95:1 on canvas and 1.71:1 on the track. That is the
-   * thinnest figure in this block, and it is carried by chroma rather than
-   * lightness: C 0.216 at hue 132 is the most saturated thing on the page,
-   * which a luminance-only ratio does not model. If a future surface draws
-   * these smaller than 8px, re-measure before trusting the light end.
-   *
-   * Do not use these for categorical data — that is what --label-* is
-   * for. */
-  --brand-scale-3: var(--lime-900);
-  --brand-scale-2: var(--lime-700);
-  --brand-scale-1: var(--lime-500);
+   * for data that is ORDERED rather than categorical (the Reach / Target /
+   * Safety fit ladder). Ordered data takes one hue at three intensities,
+   * which is what makes a stacked bar read as one measurement rather than
+   * three competing categories. -3 is the heavy end ("most"). The legend
+   * draws these as 8px dots on the page, so the light end is the signal
+   * green, not a tint. Do not use these for categorical data — that is
+   * what --label-* is for. */
+  --brand-scale-3: var(--green-900);
+  --brand-scale-2: var(--green-700);
+  --brand-scale-1: var(--green-500);
 
   /* ---- status roles — pale surface + saturated, AA-checked text.
    *
@@ -542,10 +445,10 @@
    * Status never rides on colour alone — every consumer pairs it with a
    * label or an icon. That rule matters more now that there are three hues
    * instead of seven, not less. */
-  --success-surface: var(--leaf-50);
-  --success-border: var(--leaf-200);
-  --success-fg: var(--leaf-700);
-  --success-solid: var(--leaf-600);
+  --success-surface: var(--green-50);
+  --success-border: var(--green-200);
+  --success-fg: var(--green-700);
+  --success-solid: var(--green-700);
 
   --warning-surface: var(--amber-50);
   --warning-border: var(--amber-200);
@@ -623,7 +526,6 @@
    * chips must not repaint every category label in the app. ---- */
   --label-surface: var(--surface-inset);
   --label-ink: var(--ink-secondary);
-  --label-border: var(--edge);
 
   /* ---- overlay / scrim — modal & sheet backdrops. ---- */
   --overlay-scrim: color-mix(in oklch, var(--gray-1000) 32%, transparent);

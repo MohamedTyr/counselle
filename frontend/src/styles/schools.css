@@ -40,7 +40,7 @@
   --school-chances-band: var(--ink-faint);
   --school-chances-divider: var(--hairline);
   --school-chances-profile-outline: var(--brand-subtle-ink);
-  --school-chances-scenario: var(--brand);
+  --school-chances-scenario: var(--accent-solid);
 
   /* ---- academic comparison v2 (school-chances-minimal-redesign §2.3) ----
    * Institutional class data is a wash, not a solid. --school-chances-mark
@@ -49,7 +49,7 @@
    * AcademicComparisonPlot.tsx, GpaComparison.tsx) in one pass rather than
    * the two-phase removal this comment originally expected. --*-you is
    * the student's own mark and the only full-contrast object on the plot;
-   * --*-scenario (lime-500) is the hypothetical, never the real score.
+   * --*-scenario is the hypothetical, never the real score.
    *
    * --school-chances-track, --school-chances-band and
    * --school-chances-profile-outline are ALSO now zero-consumer dead tokens
@@ -136,7 +136,7 @@
    * weight; a bar that is mostly dark IS the top-heavy list the nudge
    * underneath is about to warn you about, before you read a word of it.
    * The legend below the bar draws the same three values as swatch dots,
-   * which is why the lightest step is lime-500 and not a paler tint — see the
+   * which is why the lightest step is green-500 and not a paler tint — see the
    * note on --brand-scale-* in semantic.css. */
   --school-balance-reach: var(--brand-scale-3);
   --school-balance-target: var(--brand-scale-2);
@@ -279,7 +279,7 @@
  * 2.18:1, both under the 4.5:1 text floor — dark ink clears both (4.80:1,
  * 7.36:1) and stays legible in the same "bright fill, dark ink" shape as
  * --on-brand. --success-solid (high) is dark enough that white still clears
- * 4.5:1 (5.39:1), so it keeps the inverse ink. */
+ * 4.5:1 (6.60:1), so it keeps the inverse ink. */
 [data-level="low"] {
   --chance-level-solid: var(--school-chances-ramp-low);
   --chance-level-on-solid: var(--on-status-solid);

@@ -19,6 +19,8 @@
   --popover-foreground: var(--workspace-foreground);
   --primary: var(--workspace-primary);
   --primary-foreground: var(--workspace-primary-foreground);
+  --selected: var(--accent-solid);
+  --progress: var(--progress-fill);
   --secondary: var(--workspace-surface-raised);
   --secondary-foreground: var(--workspace-foreground-soft);
   --muted: var(--workspace-surface-hover);
