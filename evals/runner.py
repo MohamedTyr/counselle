@@ -269,9 +269,20 @@ def _parts(messages: list[dict[str, Any]], kind: str) -> list[dict[str, Any]]:
     ]
 
 
+def _call_args(raw: Any) -> dict[str, Any]:
+    """A serialized tool call's args as a dict: OpenAI-compatible providers
+    store them as JSON text, others as an object."""
+    if isinstance(raw, str):
+        try:
+            raw = json.loads(raw)
+        except json.JSONDecodeError:
+            return {}
+    return raw if isinstance(raw, dict) else {}
+
+
 def capture_turn(events: list[Event], messages: list[dict[str, Any]]) -> TurnCapture:
     calls = [
-        {"tool_name": p.get("tool_name"), "args": p.get("args") or {}}
+        {"tool_name": p.get("tool_name"), "args": _call_args(p.get("args"))}
         for p in _parts(messages, "tool-call")
     ]
     returns = [

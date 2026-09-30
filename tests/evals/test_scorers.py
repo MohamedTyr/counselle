@@ -116,6 +116,20 @@ def test_capture_turn_collects_v2_events_and_structural_messages() -> None:
     assert capture.usage == {"input_tokens": 3, "output_tokens": 2}
 
 
+def test_capture_turn_parses_json_text_tool_args() -> None:
+    # OpenAI-compatible providers serialize tool-call args as JSON text.
+    messages = [
+        {
+            "parts": [
+                {"part_kind": "tool-call", "tool_name": "get_facts", "args": '{"unitid": 1}'},
+                {"part_kind": "tool-call", "tool_name": "get_facts", "args": "not json"},
+            ]
+        }
+    ]
+    capture = capture_turn([], messages)
+    assert [call["args"] for call in capture.tool_calls] == [{"unitid": 1}, {}]
+
+
 def test_parse_args_defaults_to_quick_and_supports_compare() -> None:
     default = parse_args([])
     assert default.response_mode == "quick"

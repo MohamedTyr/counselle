@@ -303,11 +303,10 @@ async def test_6_compare_admission_rates_streams_a_clean_step_timeline(rt: Runti
         started_ids = [step["step_id"] for step in steps if step["status"] == "start"]
         terminal_ids = [step["step_id"] for step in steps if step["status"] in ("end", "error")]
         assert sorted(started_ids) == sorted(terminal_ids), steps
-        # Narration: a thinking line or a delta lands before the first step.
-        first_step = next(i for i, event in enumerate(events) if event.type == "step")
-        assert any(
-            event.type in ("thinking", "delta") for event in events[:first_step]
-        ), f"no narration before the first step: {_types(events[: first_step + 1])}"
+        # The model reasons on every turn, but its raw chain of thought never
+        # reaches the stream while `thinking_stream` is off (ADR 0043).
+        if not rt.deps.settings.thinking_stream:
+            assert "thinking" not in _types(events), _types(events)
         # Label sanity: no unfilled template ever reaches a student.
         assert all("{" not in step["label"] for step in steps), steps
     finally:

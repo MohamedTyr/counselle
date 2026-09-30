@@ -249,10 +249,15 @@ class StepMapper:
         """Detect retry/error and explicit all-or-nothing tool rejections."""
         if isinstance(result_part, RetryPromptPart):
             return True
-        return isinstance(content, dict) and (
+        if not isinstance(content, dict):
+            return False
+        # `status` is a string on write receipts but a structure on some reads
+        # (`get_facts` returns the school's data status as a dict).
+        status = content.get("status")
+        return (
             "error" in content
             or content.get("ok") is False
-            or content.get("status") in {"error", "rejected"}
+            or (isinstance(status, str) and status in {"error", "rejected"})
         )
 
     def detail_for(
@@ -501,6 +506,9 @@ class StepMapper:
             rows = content.get("rows")
             if isinstance(rows, list):
                 kwargs["value_count"] = len(rows)
+            elif isinstance(content.get("row_count"), int):
+                # An overflowed read's receipt counts its rows as `row_count`.
+                kwargs["value_count"] = content["row_count"]
         return kwargs
 
     def _viz_detail_kwargs(self, args: dict[str, Any], content: Any) -> dict[str, Any]:
