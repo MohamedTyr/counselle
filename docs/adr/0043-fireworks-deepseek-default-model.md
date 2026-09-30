@@ -45,10 +45,15 @@ A live probe with the owner's key (2026-09-29) found:
    `model_clarifier` setting is deleted.
 2. **Roles differ by reasoning effort, and every call sends one.**
    `reasoning_effort_quick` (default `low`), `reasoning_effort_think`
-   (`high`) and `reasoning_effort_cheap` (`none`: titles, summaries, criteria
-   writer, goal judge). A goal turn inherits the Quick/Think effort of the turn
-   it started in. The eval judge is a measuring instrument, fixed at `high` by
-   a constant in `evals/runner.py`. Quick starts at `low`, not `none`, because
+   (`high`), `reasoning_effort_cheap` (`none`: titles, summaries) and
+   `reasoning_effort_goal` (`high`: the goal criteria writer and judge, the
+   roles that define and decide the goal). A goal turn inherits the
+   Quick/Think effort of the turn it started in. The goal roles reason
+   because the criteria writer padded or restated criteria at `none` and
+   `low`, and matched Gemini's output only at `high`
+   (`evals/goal_judge/REPORT-20260930-deepseek.md`); one criteria call per
+   goal and one judge call per round keep that cheap. The eval judge is a
+   measuring instrument, fixed at `high` by a constant in `evals/runner.py`. Quick starts at `low`, not `none`, because
    the probe's only wrong answer came at `none`; the eval set decides whether
    it can move.
 3. **The effort lives on the model, not the run.**

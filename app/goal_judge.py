@@ -60,7 +60,7 @@ from domain.mutation_receipts import (
 if TYPE_CHECKING:
     from pydantic_ai.usage import RunUsage
 
-    from config.settings import Settings
+    from config.settings import ReasoningEffort, Settings
     from domain.events import StepData, WorkspacePreviewItem
 
 logger = structlog.get_logger(__name__)
@@ -116,10 +116,10 @@ class GoalCriteriaError(RuntimeError):
     PydanticAI's own output-validation retry already handles)."""
 
 
-def _model(settings: Settings, model_setting: str) -> Any:
-    """The criteria writer's and judge's model: the one provider seam
-    (`app/llm.py`) at the cheap reasoning effort."""
-    return build_model(settings, model_setting, reasoning_effort=settings.reasoning_effort_cheap)
+def _model(settings: Settings, model_setting: str, reasoning_effort: ReasoningEffort) -> Any:
+    """The criteria writer's and judge's model, through the one provider seam
+    (`app/llm.py`)."""
+    return build_model(settings, model_setting, reasoning_effort=reasoning_effort)
 
 
 async def _run_with_retries(agent: Any, prompt: str, *, usage: RunUsage, settings: Settings) -> Any:
@@ -154,7 +154,7 @@ async def derive_criteria(
     from pydantic_ai import Agent
 
     agent: Agent[None, GoalCriteriaOutput] = Agent(
-        _model(settings, goal_criteria_model_setting(settings)),
+        _model(settings, goal_criteria_model_setting(settings), settings.reasoning_effort_goal),
         output_type=GoalCriteriaOutput,
     )
     prompt = render_slots(
@@ -522,7 +522,7 @@ async def judge_goal(
     # 32 cases scored TPR 0.882, then 0.824, then 0.765 across three runs of
     # the unpinned judge with no code change between them.
     agent: Agent[None, _RawGoalVerdict] = Agent(
-        _model(settings, goal_judge_model_setting(settings)),
+        _model(settings, goal_judge_model_setting(settings), settings.reasoning_effort_goal),
         output_type=_RawGoalVerdict,
         model_settings=ModelSettings(temperature=0.0),
     )

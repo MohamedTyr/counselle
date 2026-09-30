@@ -93,25 +93,43 @@ async def test_request_body_carries_the_models_reasoning_effort(
     assert captured_bodies[0]["model"] == "accounts/fireworks/models/deepseek-v4p1-flash"
 
 
-async def test_goal_judge_request_pins_temperature_zero_at_cheap_effort(
-    captured_bodies: list[dict[str, Any]], monkeypatch: pytest.MonkeyPatch
-) -> None:
+def _goal_settings(monkeypatch: pytest.MonkeyPatch) -> Any:
     # The mock's 400 is logged with a rendered traceback; skip that cost.
     monkeypatch.setattr(goal_judge, "logger", SimpleNamespace(warning=lambda *a, **k: None))
-    settings = get_settings().model_copy(
-        update={"fireworks_api_key": "fw-test-key", "goal_judge_retries": 0}
+    return get_settings().model_copy(
+        update={
+            "fireworks_api_key": "fw-test-key",
+            "goal_judge_retries": 0,
+            "reasoning_effort_goal": "medium",
+        }
     )
 
+
+async def test_goal_judge_request_pins_temperature_zero_at_the_goal_effort(
+    captured_bodies: list[dict[str, Any]], monkeypatch: pytest.MonkeyPatch
+) -> None:
     await goal_judge.judge_goal(
         statement="goal",
         criteria=(GoalCriterion(id="c1", text="x"),),
         receipts=[],
         final_text="",
         prior_cited_step_ids=(),
-        settings=settings,
+        settings=_goal_settings(monkeypatch),
         usage=RunUsage(),
     )
 
     assert captured_bodies, "the judge never reached the model"
     assert captured_bodies[0]["temperature"] == 0.0
-    assert captured_bodies[0]["reasoning_effort"] == settings.reasoning_effort_cheap == "none"
+    assert captured_bodies[0]["reasoning_effort"] == "medium"
+
+
+async def test_criteria_writer_request_reasons_at_the_goal_effort(
+    captured_bodies: list[dict[str, Any]], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    with pytest.raises(goal_judge.GoalCriteriaError):
+        await goal_judge.derive_criteria(
+            "Add a task", settings=_goal_settings(monkeypatch), usage=RunUsage()
+        )
+
+    assert captured_bodies, "the criteria writer never reached the model"
+    assert captured_bodies[0]["reasoning_effort"] == "medium"

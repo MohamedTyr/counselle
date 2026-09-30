@@ -165,11 +165,16 @@ class Settings(BaseSettings):
     model_counselor_think_display_name: str = "DeepSeek V4.1 Flash · Thinking"
     model_counselor_think_preview: bool = False
     # Reasoning effort per role (ADR 0043). Quick and Think counselor turns
-    # (and goal turns started in each) use the first two; titles, document
-    # summaries, the goal criteria writer and the goal judge use `cheap`.
+    # (and goal turns started in each) use the first two; titles and document
+    # summaries use `cheap`.
     reasoning_effort_quick: ReasoningEffort = "low"
     reasoning_effort_think: ReasoningEffort = "high"
     reasoning_effort_cheap: ReasoningEffort = "none"
+    # The roles that define and decide a goal: the criteria writer and the
+    # judge. At `none`/`low` the writer padded or restated criteria; at `high`
+    # it matched Gemini (evals/goal_judge/REPORT-20260930-deepseek.md). One
+    # call per goal (writer) and one per round (judge), so the cost is small.
+    reasoning_effort_goal: ReasoningEffort = "high"
     # Honest-disable switch: remove Think from GET /v1/config response_modes
     # without silently remapping it to Flash (plan §14 Emergency disable).
     response_mode_think_enabled: bool = True

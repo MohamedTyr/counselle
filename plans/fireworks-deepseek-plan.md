@@ -560,5 +560,18 @@ they're gone, reverting doesn't restore a working app.
   distinguishable.
 - **§4.10 done on this workstation** (2026-09-29): `/etc/gai.conf` gained the
   IPv4 precedence line (backup at `/etc/gai.conf.bak-20260929`).
+- **The D2/§7.3 judge knob became `reasoning_effort_goal`** (default `high`),
+  covering the criteria writer as well as the judge, not a judge-only
+  `reasoning_effort_goal_judge`: the §7.5 spot check showed the writer padding
+  at `none`/`low`. Evidence: `evals/goal_judge/REPORT-20260930-deepseek.md`.
+  The strict §7.3 bar (two consecutive 1.000 runs) is not met at any effort;
+  FPR is 0 throughout, and the two misses are on debatable labels (owner call).
+- **Three pre-existing bugs fixed during verification:** every `get_facts` call
+  crashed the turn (`result_is_error` hashed a dict `status`); an overflowed
+  `get_facts` step kept its in-progress label; the eval runner indexed
+  JSON-text tool args as a dict.
+- `tests/app/test_live_llm.py::test_6` asserted a `thinking`/`delta` event before
+  the first step, which only Gemini's thinking stream satisfied; it now asserts
+  no `thinking` event while `thinking_stream` is off.
 - `README.md`, `scripts/chat_cli.py` and `docs/adr/0028-*.md` (status note: the
   `thinking_stream`-on default is reversed) were also updated.

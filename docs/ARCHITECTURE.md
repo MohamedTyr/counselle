@@ -128,7 +128,7 @@ Chosen by surveying the frontier and picking proven pieces (never reinvent the w
 | **Skills** | **SKILL.md** open standard | Portable workflow layer, loaded on demand. | 0010 |
 | **Session persistence** | **LangGraph Postgres checkpointer** in `counselle.*` | Sessions survive restarts from day one; the platform's chats are the same rows + a user FK. | 0019 |
 | **Config** | **pydantic-settings** + versioned data assets | One typed settings surface, fail-fast at startup. | 0018 |
-| **Models** | **DeepSeek V4.1 Flash on Fireworks** (`fireworks:accounts/fireworks/models/deepseek-v4p1-flash`) for every live role — counselor **Quick** and **Think**, the goal agent, judge and criteria writer, auto-titles, document summaries, the eval judge. Roles differ only by reasoning effort (Quick `low`, Think `high`, cheap roles `none`), set on the model by the one construction seam `app/llm.py::build_model`. Each role is still its own Settings value; a provider other than Fireworks is one branch in `build_model` plus an ADR. The parked CDS extraction system keeps its own Gemini client. (A LiteLLM sidecar remains an option in ADR 0011 but has no Settings knob — added only if/when needed.) | 0011, 0034, 0043 |
+| **Models** | **DeepSeek V4.1 Flash on Fireworks** (`fireworks:accounts/fireworks/models/deepseek-v4p1-flash`) for every live role — counselor **Quick** and **Think**, the goal agent, judge and criteria writer, auto-titles, document summaries, the eval judge. Roles differ only by reasoning effort (Quick `low`, Think `high`, the goal criteria writer and judge `high`, titles and summaries `none`), set on the model by the one construction seam `app/llm.py::build_model`. Each role is still its own Settings value; a provider other than Fireworks is one branch in `build_model` plus an ADR. The parked CDS extraction system keeps its own Gemini client. (A LiteLLM sidecar remains an option in ADR 0011 but has no Settings knob — added only if/when needed.) | 0011, 0034, 0043 |
 | **Language** | Python | Matches the pipeline; asyncpg expertise carries over. | — |
 
 ---
@@ -519,7 +519,7 @@ The primary composer mode is also skills-backed. `/v1/config` exposes a separate
 
 | Group | Knobs |
 |---|---|
-| Models | per-agent `model=` — `model_counselor` (Quick), `model_counselor_think` (Think), `model_cheap`, `model_title` (the cheap-tier auto-title model), all `fireworks:` strings (any other prefix on a live model field fails boot, ADR 0043); `reasoning_effort_quick`/`_think`/`_cheap` (`none`/`low`/`medium`/`high`, sent on every call); counselor display/preview labels for `/v1/config`; `response_mode_think_enabled` (honest-disable switch: omit Think, never remap it); `thinking_stream` (bool — whether the model's reasoning text is streamed as `thinking` events, §27.2; **default off**, because DeepSeek's reasoning is raw chain of thought); `agent_max_model_requests`; `agent_model_retry_attempts` (total attempts per call); `fireworks_api_key` (masked; required outside development); per-model prices. Researcher/verifier knobs, GPT-Researcher's `FAST/STRATEGIC/SMART` tiers, and a LiteLLM sidecar endpoint are added with the deep-research follow-up (§13). |
+| Models | per-agent `model=` — `model_counselor` (Quick), `model_counselor_think` (Think), `model_cheap`, `model_title` (the cheap-tier auto-title model), all `fireworks:` strings (any other prefix on a live model field fails boot, ADR 0043); `reasoning_effort_quick`/`_think`/`_cheap`/`_goal` (`none`/`low`/`medium`/`high`, sent on every call); counselor display/preview labels for `/v1/config`; `response_mode_think_enabled` (honest-disable switch: omit Think, never remap it); `thinking_stream` (bool — whether the model's reasoning text is streamed as `thinking` events, §27.2; **default off**, because DeepSeek's reasoning is raw chain of thought); `agent_max_model_requests`; `agent_model_retry_attempts` (total attempts per call); `fireworks_api_key` (masked; required outside development); per-model prices. Researcher/verifier knobs, GPT-Researcher's `FAST/STRATEGIC/SMART` tiers, and a LiteLLM sidecar endpoint are added with the deep-research follow-up (§13). |
 | Database | facts-store reader-login DSN, facts-crawler/pipeline DSN, application DSN, statement/row/byte limits, pool sizes |
 | Counselle schema | `counselle.*` DSN, checkpointer on/off (memory for tests), session TTL/cleanup |
 | Sources | default source-config (web/Reddit/.edu on/off), Tavily key, per-tool result limits |
@@ -1842,7 +1842,7 @@ The loop is an outer iteration inside `run_agent_node`, not a new LangGraph node
 outer orchestrator, and not a model-callable tool (ADR 0041 D1). `app/graph.py` stays
 `prepare → agent → END`, zero diff. Concretely:
 
-- `app/goal_judge.py::derive_criteria` makes one cheap-model, typed-output call turning
+- `app/goal_judge.py::derive_criteria` makes one typed-output call (at `reasoning_effort_goal`) turning
   the goal statement into frozen `GoalCriterion`s plus a mandatory `not_checked_note`
   (never nullable — see §42.4).
 - The statement and criteria are rendered into the agent's `instructions` string,

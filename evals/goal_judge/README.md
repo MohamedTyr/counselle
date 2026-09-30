@@ -59,8 +59,8 @@ uv run python -m evals.goal_judge.runner
 ```
 
 The judge runs on `model_goal_judge` (empty means `model_cheap`) at
-`reasoning_effort_cheap`, with `temperature=0.0`: DeepSeek V4.1 Flash on
-Fireworks with reasoning off, by default (ADR 0043). The gate passes recorded
+`reasoning_effort_goal`, with `temperature=0.0`: DeepSeek V4.1 Flash on
+Fireworks at `high` reasoning, by default (ADR 0043). The gate passes recorded
 before 2026-09-29 (`REPORT-20260916T160355Z.md` and the ones after it) were
 measured on Gemini 2.5 Flash; they say nothing about the current model.
 

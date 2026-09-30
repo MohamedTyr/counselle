@@ -142,9 +142,7 @@ class TestDeriveCriteria:
                 not_checked_note="Application portals were not checked.",
             )
 
-        monkeypatch.setattr(
-            goal_judge, "_model", lambda settings, model_setting: _stub_model(model_fn)
-        )
+        monkeypatch.setattr(goal_judge, "_model", lambda *_: _stub_model(model_fn))
         criteria, note = await goal_judge.derive_criteria(
             "get my school list in order", settings=_settings(), usage=RunUsage()
         )
@@ -170,9 +168,7 @@ class TestDeriveCriteria:
                 not_checked_note=" ",
             )
 
-        monkeypatch.setattr(
-            goal_judge, "_model", lambda settings, model_setting: _stub_model(model_fn)
-        )
+        monkeypatch.setattr(goal_judge, "_model", lambda *_: _stub_model(model_fn))
         _, note = await goal_judge.derive_criteria("goal", settings=_settings(), usage=RunUsage())
         assert note == goal_judge.DEFAULT_NOT_CHECKED_NOTE
 
@@ -182,9 +178,7 @@ class TestDeriveCriteria:
         def model_fn(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
             raise RuntimeError("simulated transport failure")
 
-        monkeypatch.setattr(
-            goal_judge, "_model", lambda settings, model_setting: _stub_model(model_fn)
-        )
+        monkeypatch.setattr(goal_judge, "_model", lambda *_: _stub_model(model_fn))
         with pytest.raises(GoalCriteriaError):
             await goal_judge.derive_criteria(
                 "goal", settings=_settings(goal_judge_retries=0), usage=RunUsage()
@@ -198,9 +192,7 @@ class TestJudgeGoal:
         def model_fn(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
             raise RuntimeError("simulated transport failure")
 
-        monkeypatch.setattr(
-            goal_judge, "_model", lambda settings, model_setting: _stub_model(model_fn)
-        )
+        monkeypatch.setattr(goal_judge, "_model", lambda *_: _stub_model(model_fn))
         result = await judge_goal(
             statement="goal",
             criteria=(GoalCriterion(id="c1", text="x"),),
@@ -242,9 +234,7 @@ class TestJudgeGoal:
                 critique="all good",
             )
 
-        monkeypatch.setattr(
-            goal_judge, "_model", lambda settings, model_setting: _stub_model(model_fn)
-        )
+        monkeypatch.setattr(goal_judge, "_model", lambda *_: _stub_model(model_fn))
         result = await judge_goal(
             statement="goal",
             criteria=(GoalCriterion(id="c1", text="x"),),
@@ -266,9 +256,7 @@ class TestJudgeGoal:
         def model_fn(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
             return _tool_response(info.output_tools, criteria=[], critique="ran out of time")
 
-        monkeypatch.setattr(
-            goal_judge, "_model", lambda settings, model_setting: _stub_model(model_fn)
-        )
+        monkeypatch.setattr(goal_judge, "_model", lambda *_: _stub_model(model_fn))
         result = await judge_goal(
             statement="goal",
             criteria=(GoalCriterion(id="c1", text="x"),),
@@ -312,9 +300,7 @@ class TestJudgeGoal:
                 critique="done",
             )
 
-        monkeypatch.setattr(
-            goal_judge, "_model", lambda settings, model_setting: _stub_model(model_fn)
-        )
+        monkeypatch.setattr(goal_judge, "_model", lambda *_: _stub_model(model_fn))
         result = await judge_goal(
             statement="goal",
             criteria=(GoalCriterion(id="c1", text="x"),),
@@ -355,9 +341,7 @@ class TestJudgeGoal:
                 critique="done",
             )
 
-        monkeypatch.setattr(
-            goal_judge, "_model", lambda settings, model_setting: _stub_model(model_fn)
-        )
+        monkeypatch.setattr(goal_judge, "_model", lambda *_: _stub_model(model_fn))
         result = await judge_goal(
             statement="write an essay about robots",
             criteria=(GoalCriterion(id="c1", text="Your essay about robots is written."),),
