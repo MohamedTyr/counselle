@@ -22,6 +22,7 @@ from app.toolset import (
     build_db_tools,
     build_tools,
 )
+from counselle_db import service as db_service
 from domain.events import StepDetail
 from domain.specs import SourceConfig
 from domain.surface import Surface
@@ -254,6 +255,63 @@ class TestGetFactsArgumentContract:
 
         assert payload["error"] == "tool_error"
         assert "not both" in payload["root_cause"]
+
+    async def test_a_school_name_reads_the_one_school_it_resolves_to(
+        self, monkeypatch: Any
+    ) -> None:
+        """A name resolves exactly as `resolve_school` does: one match reads that
+        school; several campuses come back as candidates, never a guess."""
+        from counselle_db.models import (
+            ResolveCandidates,
+            ResolvedSchool,
+            ResolveNotFound,
+            SchoolBasics,
+            SchoolFactsStatus,
+        )
+
+        read_unitids: list[int] = []
+        resolutions = {
+            "Duke": ResolvedSchool(
+                school=SchoolBasics(unitid=198419, name="Duke University"),
+                data=SchoolFactsStatus(
+                    facts_updated_at=None, fact_count=0, has_collegedata=False, tabs={}
+                ),
+                profile_snapshot_date=date(2024, 12, 31),
+            ),
+            "Columbia": ResolveCandidates(
+                candidates=(
+                    SchoolBasics(unitid=1, name="Columbia University"),
+                    SchoolBasics(unitid=2, name="Columbia College"),
+                ),
+                hint="Multiple campuses matched; ask which campus the student means.",
+            ),
+            "Nowhere U": ResolveNotFound(message="That school is not in our database."),
+        }
+
+        async def fake_resolve(_catalog: Any, query: str) -> Any:
+            return resolutions[query]
+
+        async def fake_get_facts(_catalog: Any, unitid: int, **_kwargs: Any) -> Any:
+            read_unitids.append(unitid)
+            raise db_service.ServiceError("stop after the read is attempted")
+
+        monkeypatch.setattr(db_service, "resolve_school", fake_resolve)
+        monkeypatch.setattr(db_service, "get_facts", fake_get_facts)
+        get_facts = _fn(build_db_tools(catalog=None), "get_facts")
+
+        await get_facts(school="Duke", sections=["getting-in"])
+        ambiguous = await get_facts(school="Columbia", sections=["getting-in"])
+        not_found = await get_facts(school="Nowhere U", sections=["getting-in"])
+        missing = await get_facts(sections=["getting-in"])
+        both = await get_facts(unitid=1, school="Duke", sections=["getting-in"])
+
+        assert read_unitids == [198419]
+        assert ambiguous["status"] == "candidates"
+        assert [c["unitid"] for c in ambiguous["candidates"]] == [1, 2]
+        assert not_found["status"] == "not_found"
+        assert missing["error"] == "tool_error"
+        assert both["error"] == "tool_error"
+        assert "not both" in both["root_cause"]
 
 
 # ---------------------------------------------------------------------------

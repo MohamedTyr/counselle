@@ -104,6 +104,7 @@ class FakeSettings:
     agent_turn_timeout_s: float = 3600
     agent_tool_result_max_chars: int = 8_000
     focused_answer_max_tool_rounds: int = 4
+    focused_answer_max_searches: int = 2
     essay_context_max_chars: int = 8_000
     # Phase-1 fields (BC-01 / BC-08) — also read directly after CFG-02 removes
     # their getattr fallbacks; the stub MUST carry them or __init__ /
@@ -2368,6 +2369,35 @@ async def test_focused_answer_withdraws_tools_after_its_rounds_and_still_answers
     assert output_tools[2] == []
     assert BUDGET_SPENT_INSTRUCTION not in instructions[1]
     assert BUDGET_SPENT_INSTRUCTION in instructions[2]
+
+
+async def test_focused_answer_runs_at_most_its_search_budget() -> None:
+    """Searches past the cap never run, even when fired in one parallel
+    round, and the search tools are hidden from the next request."""
+    offered: list[set[str]] = []
+
+    def triple_searcher(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+        offered.append({tool.name for tool in info.function_tools})
+        if len(offered) == 1:
+            return ModelResponse(
+                parts=[
+                    ToolCallPart(tool_name="search_web", args={"query": q})
+                    for q in ("a", "b", "c")
+                ]
+            )
+        return ModelResponse(parts=[TextPart("Answer from two searches.")])
+
+    settings = FakeSettings()
+    settings.focused_answer_max_searches = 2
+    rig = Rig(_fn_model(triple_searcher), settings=settings)
+
+    events = await rig.turn(str(uuid4()), "hi", _WEB_ONLY)
+
+    assert _done_status(events) == "complete"
+    assert rig.tavily.calls == 2
+    assert "search_web" in offered[0]
+    assert "search_web" not in offered[1]
+    _assert_every_step_start_has_a_terminal(events)
 
 
 # ---------------------------------------------------------------------------

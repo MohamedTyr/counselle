@@ -1791,7 +1791,11 @@ async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
         selected_skills = with_default_response_mode(selected_skills)
     selected_instructions = render_selected_skills(selected_skills)
     tool_budget = (
-        [ToolRoundBudget(settings.focused_answer_max_tool_rounds)]
+        [
+            ToolRoundBudget(
+                settings.focused_answer_max_tool_rounds, settings.focused_answer_max_searches
+            )
+        ]
         if surface is Surface.CHAT and FOCUSED_ANSWER in selected_skills
         else []
     )

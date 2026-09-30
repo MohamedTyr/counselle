@@ -14,7 +14,7 @@ from counselle_db.models import ProfileProvenanceReceipt
 from domain.envelope import CaveatKind, Citation, CitationEnvelope
 from domain.events import tool_ui_from_payload
 
-_SEARCH_TOOLS = frozenset({"search_web", "search_school_site", "search_reddit"})
+SEARCH_TOOLS = frozenset({"search_web", "search_school_site", "search_reddit"})
 _OVERFLOW_EXEMPT_TOOLS = frozenset({"render_viz"})
 
 # school-data-v3 §5.4/§6a -- the one name for this source on every chat
@@ -296,7 +296,7 @@ def annotate_citations(
     """Attach source markers to cited tool results without mutating payloads."""
     if context is None or context.registry is None:
         return result
-    if tool_name in _SEARCH_TOOLS:
+    if tool_name in SEARCH_TOOLS:
         return context.registry.annotate_search_results(result)
     return context.registry.annotate_envelopes(result)
 

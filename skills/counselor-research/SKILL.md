@@ -40,8 +40,9 @@ latency.
 
 ## Evidence query construction
 
-- **Resolve first.** Load `resolve_school`, read its facts status/profile; state any
-  campus assumption before a school-specific claim.
+- **Identify the school first.** `resolve_school`, or `get_facts` by the school's
+  name, which resolves it in the same call; read its facts status/profile and state
+  any campus assumption before a school-specific claim.
 - **Database.** `get_facts` narrowed by `sections` for exactly what's needed; preserve
   each row's `vintage`; aggregate SQL only after `db-recipes`. Check the school's
   `facts_updated_at` first — when it's materially stale, the DB is second-degree for
