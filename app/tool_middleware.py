@@ -195,6 +195,30 @@ def get_facts_db_citation(result: dict[str, Any]) -> Any:
     }
 
 
+#: The fields of an annotated `get_facts` row the model reads. Everything else
+#: on the envelope (the shared citation, the raw value, unit, section,
+#: `observed_at`, ...) repeats once per row and roughly quadruples the payload;
+#: the school's citation is kept once at top level instead, and `render_viz`
+#: does its own read, so nothing downstream needs the full rows.
+_MODEL_FACT_ROW_FIELDS = ("label", "display", "vintage", "marker")
+
+
+def compact_facts_for_model(result: Any, tool_name: str | None) -> Any:
+    """Slim an annotated `get_facts` result to what the model cites from."""
+    if tool_name != "get_facts" or not isinstance(result, dict):
+        return result
+    if not isinstance(result.get("rows"), list):
+        return result
+    rows = []
+    for row in result["rows"]:
+        compact = {"fact_key": row.get("field")}
+        compact.update({field: row.get(field) for field in _MODEL_FACT_ROW_FIELDS})
+        if row.get("caveats"):
+            compact["caveats"] = row["caveats"]
+        rows.append(compact)
+    return {**result, "rows": rows}
+
+
 _DB_CITATION_MINTERS = {
     "resolve_school": _resolve_school_db_citation,
     "get_school_profile": _get_school_profile_db_citation,
@@ -285,6 +309,7 @@ def process_tool_result(
     """Apply the ordered tool-result middleware pipeline."""
     result = _normalize_db_payload(result, tool_name)
     result = annotate_citations(result, context, tool_name=tool_name)
+    result = compact_facts_for_model(result, tool_name)
     result = error_envelope(result)
     result = with_workspace_public_receipt(tool_name, result)
     result = demote_tool_ui(result)

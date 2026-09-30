@@ -223,6 +223,10 @@ class Settings(BaseSettings):
     # 400/401/403 still surfaces immediately.
     agent_model_retry_attempts: int = Field(default=3, gt=0)
     agent_max_model_requests: int = 80
+    # Focused Answer (the default response mode) on the chat surface may call
+    # tools in this many model requests; the next request has no function
+    # tools and must answer from what was gathered (`app/tool_budget.py`).
+    focused_answer_max_tool_rounds: int = Field(default=4, gt=0)
     agent_max_total_tokens: int = 2_000_000
 
     # --- Compaction (also closes plans/agent-loop-hardening.md §1) ---
@@ -549,7 +553,10 @@ class Settings(BaseSettings):
     # Watchdog: a turn exceeding this terminates with `error` (G5 — never
     # done(cancelled): the student didn't press stop), partial persisted.
     agent_turn_timeout_s: int = 3600
-    agent_tool_result_max_chars: int = 8_000
+    # A result over this spills to a handle the model must read back, which
+    # costs a whole model round. Sized so one compact `get_facts` section
+    # (about 15k characters) comes back inline.
+    agent_tool_result_max_chars: int = 20_000
     # GET /v1/sessions/{id}/stream reattach endpoint (off → always 204).
     reattach_enabled: bool = True
     # Global backstop on concurrent detached turns across all sessions — a

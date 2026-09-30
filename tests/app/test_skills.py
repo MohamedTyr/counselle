@@ -421,7 +421,8 @@ def test_prompt_gives_trusted_response_mode_precedence_before_direct_answer(
     assert "use the structured clarification output" in normalized
     assert "clarifying-question widget" in normalized
     assert "ordinary prose" in normalized
-    assert "Without such a selection, use the automatic depth judgment below." in normalized
+    assert "how much research to do and how long the answer is" in normalized
+    assert "automatic depth" not in normalized
 
 
 def test_build_system_prompt_school_count(built_prompt: str) -> None:
