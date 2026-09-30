@@ -425,15 +425,18 @@ async def query_database(
         coverage: tuple[FactCoverageRow, ...] = ()
         if named_keys and (needs_denominator or majors_key is not None):
             coverage_rows = await conn.fetch(
-                "SELECT fact_key, schools_with_value, schools_total, computed_at "
+                "SELECT fact_key, schools_with_value, computed_at "
                 "FROM cds_library.fact_coverage WHERE fact_key = ANY($1::text[])",
                 sorted(named_keys),
             )
+            # A ranking's denominator is every profiled school, not only the
+            # ones with a CollegeData crawl (`fact_coverage.schools_total`):
+            # "X out of all the schools Counselle knows" is the honest claim.
             coverage = tuple(
                 FactCoverageRow(
                     fact_key=coverage_row["fact_key"],
                     schools_with_value=coverage_row["schools_with_value"],
-                    schools_total=coverage_row["schools_total"],
+                    schools_total=catalog.school_count,
                     as_of=coverage_row["computed_at"],
                 )
                 for coverage_row in coverage_rows

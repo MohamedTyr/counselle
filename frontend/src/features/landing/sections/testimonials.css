@@ -51,17 +51,17 @@
   min-width: 0;
   display: flex;
 }
-.lp-testimonial-wrap-maya .lp-testimonial {
+.lp-testimonial-wrap-yusuf .lp-testimonial {
   --lp-tilt: 2deg;
 }
 /* The middle card stands a little proud of its neighbours. */
-.lp-testimonial-wrap-daniel {
+.lp-testimonial-wrap-omar {
   translate: 0 -9px;
 }
-.lp-testimonial-wrap-daniel .lp-testimonial {
+.lp-testimonial-wrap-omar .lp-testimonial {
   --lp-tilt: -1.5deg;
 }
-.lp-testimonial-wrap-priya .lp-testimonial {
+.lp-testimonial-wrap-mohamed .lp-testimonial {
   --lp-tilt: 1deg;
 }
 .lp-testimonial {
@@ -88,28 +88,28 @@
   line-height: 1.32;
   letter-spacing: -0.19px;
 }
-.lp-testimonial-maya {
+.lp-testimonial-yusuf {
   background: #ffece0;
   border-color: rgba(244, 209, 186, 0.9);
   color: #462408;
 }
-.lp-testimonial-maya .lp-person-role {
+.lp-testimonial-yusuf .lp-person-role {
   color: #7c5336;
 }
-.lp-testimonial-daniel {
+.lp-testimonial-omar {
   background: #e4f6e8;
   border-color: rgba(194, 227, 201, 0.9);
   color: #0e371d;
 }
-.lp-testimonial-daniel .lp-person-role {
+.lp-testimonial-omar .lp-person-role {
   color: #3e694a;
 }
-.lp-testimonial-priya {
+.lp-testimonial-mohamed {
   background: #e2f3ff;
   border-color: rgba(188, 222, 247, 0.9);
   color: #04314b;
 }
-.lp-testimonial-priya .lp-person-role {
+.lp-testimonial-mohamed .lp-person-role {
   color: #366381;
 }
 .lp-person {
@@ -136,15 +136,15 @@
   .lp-testimonial-wrap:hover .lp-testimonial {
     transform: rotate(var(--lp-tilt, 0deg)) translateY(-5px);
   }
-  .lp-testimonial-wrap:hover .lp-testimonial-maya {
+  .lp-testimonial-wrap:hover .lp-testimonial-yusuf {
     background: #ffe2d0;
     border-color: #efc5a8;
   }
-  .lp-testimonial-wrap:hover .lp-testimonial-daniel {
+  .lp-testimonial-wrap:hover .lp-testimonial-omar {
     background: #d6f0dc;
     border-color: #aed8b9;
   }
-  .lp-testimonial-wrap:hover .lp-testimonial-priya {
+  .lp-testimonial-wrap:hover .lp-testimonial-mohamed {
     background: #d3ecfc;
     border-color: #a6d0ef;
   }

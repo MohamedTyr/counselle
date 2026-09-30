@@ -131,15 +131,17 @@ A first deploy easily forgets the agent-core half. The complete set:
 - `COUNSELLE_FACTS_CRAWL_INTERVAL_HOURS` (default `24`), `COUNSELLE_FACTS_WORKER_POLL_SECONDS` (default `30`), `COUNSELLE_FACTS_CRAWL_LEASE_SECONDS` (default `180`)
 - `COUNSELLE_FACTS_STALE_DAYS` (default `120`) — when a school's facts flip to the stale caveat
 
-**Models / GCP**
-- Application Default Credentials (preferred): a workload identity or
-  `GOOGLE_APPLICATION_CREDENTIALS` service-account configuration. For local
-  development, use `gcloud auth application-default login`. `COUNSELLE_VERTEX_API_KEY`
-  remains an Express-mode fallback where authorization keys are permitted.
-- `COUNSELLE_GOOGLE_CLOUD_PROJECT`, `COUNSELLE_GOOGLE_CLOUD_LOCATION`
-- `COUNSELLE_MODEL_COUNSELOR` (Quick), `COUNSELLE_MODEL_COUNSELOR_THINK` (Think), `_CHEAP`, `_CLARIFIER`, `_TITLE`, display-name/preview fields, and `COUNSELLE_MODEL_PRICES`
-- `COUNSELLE_RESPONSE_MODE_THINK_ENABLED` — leave false until Think's target environment has verified Vertex/Express Mode quota, live smokes, and accepted quality/cost; disabled Think is omitted from `/v1/config` and never silently falls back to Quick
-- `COUNSELLE_THINKING_STREAM` — native provider thought-summary gate for Think, not the Quick/Think selector
+**Models** (ADR 0043 — every live model call goes to DeepSeek V4.1 Flash on Fireworks)
+- `COUNSELLE_FIREWORKS_API_KEY` — **required outside `development`** (boot fails without it); a secret, masked in logs
+- `COUNSELLE_MODEL_COUNSELOR` (Quick), `COUNSELLE_MODEL_COUNSELOR_THINK` (Think), `_CHEAP`, `_TITLE`, and the goal-mode `COUNSELLE_GOAL_MODEL`/`_MODEL_GOAL_JUDGE`/`_MODEL_GOAL_CRITERIA` (empty means `_CHEAP`) — all default to `fireworks:accounts/fireworks/models/deepseek-v4p1-flash`; any prefix other than `fireworks:` fails boot, and every live model needs an entry in `COUNSELLE_MODEL_PRICES` (keyed by the name without the `fireworks:` prefix) so the goal budget can price it
+- `COUNSELLE_REASONING_EFFORT_QUICK` (default `low`), `_THINK` (`high`), `_CHEAP` (`none`: titles, summaries), `_GOAL` (`high`: the goal criteria writer and judge) — `none`/`low`/`medium`/`high`; the model reasons by default, so every call sends one of these
+- Display-name/preview fields for `/v1/config`, and `COUNSELLE_AGENT_MODEL_RETRY_ATTEMPTS` (total attempts per call, default `3`)
+- `COUNSELLE_RESPONSE_MODE_THINK_ENABLED` — leave false until Think's target environment has verified Fireworks quota, live smokes, and accepted quality/cost; disabled Think is omitted from `/v1/config` and never silently falls back to Quick
+- `COUNSELLE_THINKING_STREAM` (default `false`) — whether the model's raw reasoning is streamed to the student as `thinking` events; not the Quick/Think selector. Keep it off: DeepSeek's reasoning is raw chain of thought with uncited guesses
+- Before real student data reaches Fireworks, confirm the account's data terms (zero retention, no training) and name Fireworks in the app's privacy copy
+
+**GCP** (only for reviving the parked CDS extraction system, `PARKED.md`)
+- Application Default Credentials (preferred) or `COUNSELLE_VERTEX_API_KEY` (Express mode), plus `COUNSELLE_GOOGLE_CLOUD_PROJECT`, `COUNSELLE_GOOGLE_CLOUD_LOCATION`
 
 **Sources**
 - `COUNSELLE_TAVILY_API_KEY` (required when any external source is enabled)

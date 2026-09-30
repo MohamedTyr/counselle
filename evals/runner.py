@@ -23,7 +23,7 @@ import yaml
 from pydantic import BaseModel
 
 from app.deps import Runtime, build_runtime
-from app.model_selection import counselor_model_selection, model_name_from_setting
+from app.model_selection import counselor_model_selection
 from app.run_turn import run_turn
 from app.sessions import create_session
 from app.workspace.changes import WorkspaceEventBus
@@ -31,7 +31,7 @@ from app.workspace.models import DocumentCreate, MemoryCreate
 from app.workspace.service_documents import create_document
 from app.workspace.service_memory import create_memories
 from config.logging import setup_logging
-from config.settings import get_settings
+from config.settings import ReasoningEffort, get_settings
 from domain.events import Event
 from domain.response_mode import ResponseMode
 from domain.specs import SourceConfig
@@ -40,6 +40,9 @@ logger = structlog.get_logger(__name__)
 EVALS_DIR = Path(__file__).parent
 QUESTIONS_PATH = EVALS_DIR / "questions.yaml"
 JUDGE_PROMPT_PATH = EVALS_DIR / "judge.md"
+#: The eval judge is a measurement instrument, not a product role: it reasons
+#: at one fixed effort so every candidate run is scored by the same judge.
+EVAL_JUDGE_REASONING_EFFORT: ReasoningEffort = "high"
 QUESTION_TIMEOUT_S = 600
 QUESTION_TYPES = (
     "routing",
@@ -86,14 +89,11 @@ class JudgeOutput(BaseModel):
 
 def build_judge_agent(settings: Any) -> Any:
     from pydantic_ai import Agent
-    from pydantic_ai.models.google import GoogleModel
-    from pydantic_ai.providers.google_cloud import GoogleCloudProvider
 
-    from app.vertex import build_vertex_client
+    from app.llm import build_model
 
-    model = GoogleModel(
-        model_name_from_setting(settings.model_cheap),
-        provider=GoogleCloudProvider(client=build_vertex_client(settings)),
+    model = build_model(
+        settings, settings.model_cheap, reasoning_effort=EVAL_JUDGE_REASONING_EFFORT
     )
     return Agent(model, instructions=JUDGE_PROMPT_PATH.read_text(), output_type=JudgeOutput)
 
@@ -269,9 +269,20 @@ def _parts(messages: list[dict[str, Any]], kind: str) -> list[dict[str, Any]]:
     ]
 
 
+def _call_args(raw: Any) -> dict[str, Any]:
+    """A serialized tool call's args as a dict: OpenAI-compatible providers
+    store them as JSON text, others as an object."""
+    if isinstance(raw, str):
+        try:
+            raw = json.loads(raw)
+        except json.JSONDecodeError:
+            return {}
+    return raw if isinstance(raw, dict) else {}
+
+
 def capture_turn(events: list[Event], messages: list[dict[str, Any]]) -> TurnCapture:
     calls = [
-        {"tool_name": p.get("tool_name"), "args": p.get("args") or {}}
+        {"tool_name": p.get("tool_name"), "args": _call_args(p.get("args"))}
         for p in _parts(messages, "tool-call")
     ]
     returns = [
@@ -330,9 +341,19 @@ def _paired_results(
     return paired
 
 
+def _status_text(payload: Mapping[str, Any]) -> Any:
+    """A result's status word, or its error: `get_facts` carries a data-status
+    dict under `status`, which is not a status word."""
+    status = payload.get("status")
+    return (status if isinstance(status, str) else None) or payload.get("error")
+
+
 def _payload_succeeded(payload: Mapping[str, Any]) -> bool:
+    # `status` is a string on most results but the school's data-status dict on
+    # `get_facts`, which a set membership test cannot hash.
+    status = payload.get("status")
     return (
-        payload.get("status") not in {"tool_error", "error"}
+        not (isinstance(status, str) and status in {"tool_error", "error"})
         and not payload.get("error")
         and payload.get("ok", True) is not False
     )
@@ -492,10 +513,11 @@ def _safe_event_summary(capture: TurnCapture) -> str:
         if (payloads := _return_payloads(capture, name))
     }
     for index, call in enumerate(capture.tool_calls, 1):
-        name, args = str(call["tool_name"]), call["args"]
-        safe_args = {k: args[k] for k in ("query", "unitid", "groups", "domain_id") if k in args}
+        name, args = str(call["tool_name"]), _call_args(call["args"])
+        safe_keys = ("query", "unitid", "school", "groups", "domain_id")
+        safe_args = {k: args[k] for k in safe_keys if k in args}
         payload = (returns.get(name) or [{}]).pop(0)
-        status = payload.get("status") or payload.get("error")
+        status = _status_text(payload)
         if not status:
             status = "ok" if payload.get("ok", True) else "error"
         detail = payload.get("root_cause") if status == "tool_error" else None
@@ -536,7 +558,7 @@ def _safe_tool_outcomes(capture: TurnCapture) -> list[dict[str, Any]]:
         payload = item.get("content")
         if not isinstance(payload, dict):
             continue
-        status = payload.get("status") or payload.get("error")
+        status = _status_text(payload)
         if not status:
             status = "ok" if payload.get("ok", True) else "error"
         outcome = {"tool_name": item.get("tool_name"), "status": status}
@@ -548,8 +570,21 @@ def _safe_tool_outcomes(capture: TurnCapture) -> list[dict[str, Any]]:
     return outcomes
 
 
+def _routing_calls(capture: TurnCapture) -> list[str]:
+    """The tool sequence as routing sees it. `get_facts` called with a school
+    name resolves that school itself, exactly as `resolve_school` would, so it
+    counts as a resolve followed by the read."""
+    called: list[str] = []
+    for call in capture.tool_calls:
+        name = str(call["tool_name"])
+        if name == "get_facts" and _call_args(call.get("args")).get("school"):
+            called.append("resolve_school")
+        called.append(name)
+    return called
+
+
 def score_routing(expects: dict[str, Any], capture: TurnCapture) -> dict[str, dict[str, Any]]:
-    called = [str(c["tool_name"]) for c in capture.tool_calls]
+    called = _routing_calls(capture)
     expected = list(expects.get("tools") or [])
     checks = {
         "tools_called": _check(
@@ -711,6 +746,17 @@ def score_deterministic(expects: dict[str, Any], capture: TurnCapture) -> dict[s
             ):
                 expected_pair = pair
                 break
+        if (
+            expected_pair is None
+            and query_payloads
+            and required_pair is not None
+            and required_pair[0] == 0
+            and not any(_denominator_pair_from_payload(payload) for payload in query_payloads)
+        ):
+            # A fact key no school reports has no `fact_coverage` row, so the
+            # query that checked it returns none to carry the pair; the declared
+            # 0-covered pair is the honest statement the prose must still make.
+            expected_pair = required_pair
         normalized_prose = re.sub(r"[*_`~]+", "", capture.prose).replace(",", "")
         number_words = {
             "zero": "0",
@@ -1095,6 +1141,9 @@ async def run_question(
                 selected_skills=tuple(question.get("skills") or ()),
             ):
                 events.append(event)
+        # The student's wait ends with the turn; scoring (an LLM judge call on
+        # criteria cases) is not part of it.
+        turn_duration_s = round(time.monotonic() - started, 3)
         capture = capture_turn(events, await _thread_messages(runtime, session_id))
         checks = await score_question(question, capture, judge)
         return {
@@ -1113,7 +1162,7 @@ async def run_question(
             "vizzes": capture.vizzes,
             "usage": capture.usage,
             "done_status": capture.done_status,
-            "duration_s": round(time.monotonic() - started, 3),
+            "duration_s": turn_duration_s,
             "event_summary": _safe_event_summary(capture),
             "tool_outcomes": _safe_tool_outcomes(capture),
             "errors": capture.errors,
@@ -1251,6 +1300,8 @@ def build_report(
     response_mode: ResponseMode,
     model: str,
     context: EvalContext,
+    *,
+    reasoning_effort: str,
 ) -> dict[str, Any]:
     per_category = {}
     for kind in QUESTION_TYPES:
@@ -1266,6 +1317,7 @@ def build_report(
         "generated_at": datetime.now(UTC).isoformat(),
         "response_mode": response_mode.value,
         "model": model,
+        "reasoning_effort": reasoning_effort,
         "eval_context": {
             "sections": list(context.sections),
             "covered": context.covered,
@@ -1291,6 +1343,7 @@ def render_markdown(report: dict[str, Any]) -> str:
         f"# Eval report — {report['generated_at'][:10]}",
         "",
         f"Mode: `{report['response_mode']}` · Model: `{report['model']}` · "
+        f"Reasoning effort: `{report['reasoning_effort']}` · "
         f"attempted: {attempted} · "
         f"passed: {report['passed']} · skipped: {report['skipped']}",
         "",
@@ -1319,7 +1372,7 @@ def _report_stem(report: dict[str, Any], *, suffix_mode: bool = False) -> str:
     stamp = report["generated_at"][:10]
     mode = str(report.get("response_mode") or "").strip()
     suffix = f"-{mode}" if suffix_mode and mode else ""
-    return f"report-{stamp}{suffix}"
+    return f"report-{stamp}{suffix}-{report['reasoning_effort']}"
 
 
 def write_reports(report: dict[str, Any], *, suffix_mode: bool = False) -> None:
@@ -1375,7 +1428,13 @@ async def amain(args: argparse.Namespace) -> int:
                 for q in selected
             ]
             write_reports(
-                build_report(results, response_mode, selection.model_setting, context),
+                build_report(
+                    results,
+                    response_mode,
+                    selection.model_setting,
+                    context,
+                    reasoning_effort=selection.reasoning_effort,
+                ),
                 suffix_mode=args.compare_response_modes or response_mode is ResponseMode.THINK,
             )
     finally:

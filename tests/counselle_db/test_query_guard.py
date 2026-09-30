@@ -89,6 +89,19 @@ def test_query_guard_accepts_allowlisted_ctes_joins_and_safe_aggregates() -> Non
     )
 
 
+def test_query_guard_accepts_the_db_recipes_coverage_denominator() -> None:
+    """The `db-recipes` coverage recipe, verbatim: its total counts every
+    profiled school with a scalar subquery the guard must allow."""
+    _guard_sql(
+        """SELECT schools_with_value AS covered,
+               (SELECT count(*) FROM cds_library.school_profiles) AS total,
+               computed_at AS as_of
+        FROM cds_library.fact_coverage
+        WHERE fact_key = $1""",
+        ["admissions.rate"],
+    )
+
+
 def test_query_guard_accepts_typed_explore_filters_and_profile_join() -> None:
     _guard_sql(
         """SELECT p.name,e.admit_rate

@@ -42,9 +42,9 @@ export const PLANS: Plan[] = [
   {
     id: "yearly",
     tier: "Yearly",
-    amount: 99,
+    amount: 75,
     period: "year",
-    note: "Billed once. About $8 a month, less than five months of Monthly.",
+    note: "Billed once. About $6 a month, less than four months of Monthly.",
     features: [
       "Everything in Monthly",
       "Junior spring through decision day",

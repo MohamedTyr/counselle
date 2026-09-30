@@ -51,7 +51,9 @@ services:
       # leave unset to run without the CDS admin surface and in-process worker.
       - key: COUNSELLE_DB_PIPELINE_DSN
         sync: false
-      - key: COUNSELLE_VERTEX_API_KEY
+      # Every live model call goes to Fireworks (ADR 0043); boot fails without it
+      # outside development.
+      - key: COUNSELLE_FIREWORKS_API_KEY
         sync: false
       - key: COUNSELLE_TAVILY_API_KEY
         sync: false

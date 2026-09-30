@@ -96,11 +96,19 @@ def test_profile_normalization_preserves_only_typed_provenance_fields() -> None:
         payload, ToolMiddlewareContext(), tool_name="get_school_profile"
     )
 
-    provenance = result["groups"][0]["rows"][0]["provenance"]
-    assert provenance["chosen_source"] == "HD2024"
-    assert provenance["source_column"] == "CITY"
-    assert provenance["source_vintage"] == "2024:RPTMTH=1"
-    assert "unexpected_internal_field" not in provenance
+    # The model reads a compact row; provenance (and anything internal inside
+    # it) never crosses, and the snapshot caveat every row shares is stated once.
+    assert result["groups"][0]["rows"] == [
+        {
+            "profile_field": "location.city",
+            "label": "CITY",
+            "display": "Durham",
+            "marker": None,
+            "available": True,
+        }
+    ]
+    assert "unexpected_internal_field" not in str(result)
+    assert [caveat["kind"] for caveat in result["caveats"]] == ["profile_snapshot"]
 
 
 def test_get_domain_payload_passes_through_unminted() -> None:
@@ -320,7 +328,7 @@ def test_get_school_profile_mints_one_db_citation_with_null_tier() -> None:
     assert citation.vintage == "Counselle school data · identity profile from 2026-01-02"
     row = result["groups"][0]["rows"][0]
     assert row["marker"] == "[1]"
-    assert row["citation"]["source"] == "db"
+    assert result["citation"]["source"] == "db"
 
 
 def test_get_facts_mints_one_db_citation_with_facts_vintage_and_per_fact_vintage() -> None:
@@ -365,10 +373,19 @@ def test_get_facts_mints_one_db_citation_with_facts_vintage_and_per_fact_vintage
     assert citation.tier is None
     assert citation.vintage == "Counselle school data · checked August 2026"
     assert citation.facts_updated_at == date(2026, 8, 15)
-    row = result["rows"][0]
-    assert row["marker"] == "[1]"
-    assert row["available"] is True
-    assert row["vintage"] == "Counselle school data · 2025-26 · checked August 2026"
+    # The model sees one compact row per fact: what it cites, and nothing that
+    # repeats per row (the shared citation rides once at top level).
+    assert result["rows"] == [
+        {
+            "fact_key": "admissions.rate",
+            "label": "Admit rate",
+            "display": "6%",
+            "vintage": "Counselle school data · 2025-26 · checked August 2026",
+            "marker": "[1]",
+        }
+    ]
+    assert result["marker"] == "[1]"
+    assert result["citation"]["vintage"] == "Counselle school data · checked August 2026"
 
 
 def test_get_facts_falls_back_to_identity_vintage_when_facts_updated_at_is_null() -> None:
@@ -494,3 +511,85 @@ def test_query_database_mints_no_db_citation() -> None:
 
     assert len(registry) == 0
     assert result == payload
+
+
+def test_compact_facts_rows_keep_caveats_and_leave_unavailable_untouched() -> None:
+    """The model's compact `get_facts` rows drop only repeated envelope
+    fields: a row's caveats and the per-key absence states survive."""
+    from app.tool_middleware import compact_for_model
+
+    unavailable = [
+        {"fact_key": "admissions.yield", "state": "not_reported", "display": "Not reported"}
+    ]
+    result = {
+        "school": {"unitid": 1, "name": "A"},
+        "rows": [
+            {
+                "field": "admissions.rate",
+                "label": "Admit rate",
+                "display": "6%",
+                "raw": 0.06,
+                "vintage": "v",
+                "marker": "[1]",
+                "caveats": [{"kind": "stale_facts", "text": "old"}],
+                "observed_at": "2026-08-15",
+            }
+        ],
+        "unavailable": unavailable,
+    }
+
+    compact = compact_for_model(result, "get_facts")
+
+    assert compact["rows"] == [
+        {
+            "fact_key": "admissions.rate",
+            "label": "Admit rate",
+            "display": "6%",
+            "vintage": "v",
+            "marker": "[1]",
+            "caveats": [{"kind": "stale_facts", "text": "old"}],
+        }
+    ]
+    assert compact["unavailable"] is unavailable
+    assert compact_for_model(result, "get_school_profile") is result
+
+
+def test_compact_profile_keeps_citation_and_value_count_with_an_unavailable_row() -> None:
+    """An unavailable row carries no citation; the profile's one citation (its
+    vintage) must still reach the model, and the step receipt must still count
+    the values that were read."""
+    from app.steps import StepMapper
+
+    row = {"label": "CITY", "caveat_kinds": ["profile_snapshot"]}
+    payload = {
+        "school": {"unitid": 198419, "name": "Duke University"},
+        "profile_version": "2026-07-13",
+        "profile_snapshot_date": "2024-12-31",
+        "profile_sha256": "a" * 64,
+        "groups": [
+            {
+                "id": "location",
+                "rows": [
+                    {**row, "ref": "location.website", "display": "", "available": False},
+                    {
+                        **row,
+                        "ref": "location.city",
+                        "display": "Durham",
+                        "value": "Durham",
+                        "available": True,
+                    },
+                ],
+            }
+        ],
+    }
+
+    result = process_tool_result(
+        payload, ToolMiddlewareContext(registry=SourceRegistry()), tool_name="get_school_profile"
+    )
+
+    vintage = "Counselle school data · identity profile from 2024-12-31"
+    assert result["citation"]["vintage"] == vintage
+    rows = result["groups"][0]["rows"]
+    assert [row["display"] for row in rows] == ["not available", "Durham"]
+    assert rows[1]["marker"] == "[1]"
+    assert StepMapper._get_school_profile_kwargs(result)["value_count"] == 1

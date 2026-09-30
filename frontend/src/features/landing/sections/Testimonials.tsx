@@ -1,34 +1,34 @@
 import worldMap from "../assets/world-map.avif";
 import worldMapSmall from "../assets/world-map-1040.avif";
-import avatarMaya from "../assets/avatar-maya.webp";
-import avatarDaniel from "../assets/avatar-daniel.webp";
-import avatarPriya from "../assets/avatar-priya.webp";
+import avatarYusuf from "../assets/avatar-yusuf.webp";
+import avatarOmar from "../assets/avatar-omar.webp";
+import avatarMohamed from "../assets/avatar-mohamed.webp";
 import "./testimonials.css";
 
 const TESTIMONIALS = [
   {
-    tone: "maya",
+    tone: "yusuf",
     quote:
-      "“I paid a private counselor $8,000 for less than what the essay feedback alone gave me in ten minutes. I’d have killed for this junior year.”",
-    name: "Maya Rodriguez",
-    role: "Sophomore, University of Michigan",
-    avatar: avatarMaya,
+      "“An always-available counselor that can answer anything is the most useful part. My school’s counselor can’t even answer generally, let alone at any time! And essays get evaluated with real nuance, through an experienced lens.”",
+    name: "Yusuf Nassar",
+    role: "Freshman, Vanderbilt University",
+    avatar: avatarYusuf,
   },
   {
-    tone: "daniel",
+    tone: "omar",
     quote:
-      "“My school had one counselor for 500 kids. I typed /goal, said get me into Georgia Tech, and it built the list and deadlines I pieced together by hand for months.”",
-    name: "Daniel Kim",
-    role: "Junior, Georgia Tech",
-    avatar: avatarDaniel,
+      "“Acceptra is free and better than very expensive counseling services. I really enjoyed seeing it recommend which colleges fit my preferences based on my profile, and getting detailed feedback.”",
+    name: "Omar Ibrahim",
+    role: "Junior, New York University",
+    avatar: avatarOmar,
   },
   {
-    tone: "priya",
+    tone: "mohamed",
     quote:
-      "“The line-by-line notes flagged every ‘due to the fact that’ in my old Common App essay, and never once tried to write my story for me. Wish I’d had it at 17.”",
-    name: "Priya Shah",
-    role: "Sophomore, Yale University",
-    avatar: avatarPriya,
+      "“As an international applicant, nobody around me knew how US admissions actually worked. It explained aid, deadlines and fit for every school on my list, and always told me why, not just what.”",
+    name: "Mohamed Abdelhamid",
+    role: "Junior, Minerva University",
+    avatar: avatarMohamed,
   },
 ];
 

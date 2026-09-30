@@ -16,7 +16,7 @@ from app.tool_middleware import get_facts_db_citation, identity_vintage
 from app.toolset import _declared_fact_specs
 from app.viz_signature import render_spec_signature, viz_payload_signature
 from config.settings import get_settings
-from counselle_db.catalog import Catalog
+from counselle_db.catalog import Catalog, SchoolRecord, normalize_school_name
 from counselle_db.models import ProfileGroupResult, ProfileLeaf, ServiceError
 from counselle_db.service import get_facts, get_school_profile
 from domain.envelope import Citation, CitationEnvelope
@@ -115,6 +115,10 @@ def _resolve_columns(
 ) -> tuple[list[SchoolRef | None], list[dict[str, Any]]]:
     resolved: list[SchoolRef | None] = []
     defects: list[dict[str, Any]] = []
+    # A column resolved by name must not repeat a school another column
+    # already names (`_validate_column_identities` only sees explicit unitids).
+    explicit_ids = {column.unitid for column in columns if column.unitid is not None}
+    named_ids: set[int] = set()
     for col, column in enumerate(columns):
         if column.unitid is not None:
             record = catalog.snapshot.schools.get(column.unitid)
@@ -132,8 +136,43 @@ def _resolve_columns(
                 )
         else:
             name = (column.name or "").strip()
-            resolved.append(SchoolRef(unitid=None, name=name, domain=column.domain))
+            record = _school_by_exact_name(catalog, name)
+            if record is None:
+                resolved.append(SchoolRef(unitid=None, name=name, domain=column.domain))
+            elif record.basics.unitid in explicit_ids | named_ids:
+                defects.append(
+                    _defect(0, col, f"duplicate database unitid {record.basics.unitid}")
+                )
+                resolved.append(None)
+            else:
+                named_ids.add(record.basics.unitid)
+                resolved.append(
+                    SchoolRef(
+                        unitid=record.basics.unitid,
+                        name=record.basics.name,
+                        domain=record.basics.official_domain,
+                    )
+                )
     return resolved, defects
+
+
+def _school_by_exact_name(catalog: Catalog, name: str) -> SchoolRecord | None:
+    """The one school whose official name is exactly ``name``, or None.
+
+    A column named after a school but sent without its ``unitid`` would reject
+    every database cell; an exact, unique official-name match is the same
+    school, so it resolves instead. Aliases and partial names never do.
+    """
+    normalized = normalize_school_name(name)
+    if not normalized:
+        return None
+    matches = [
+        record
+        for unitid in catalog.snapshot.name_index.get(normalized, ())
+        if (record := catalog.snapshot.schools.get(unitid)) is not None
+        and normalize_school_name(record.basics.name) == normalized
+    ]
+    return matches[0] if len(matches) == 1 else None
 
 
 def _fact_key(catalog: Catalog, value: str) -> str | None:
@@ -326,6 +365,23 @@ async def render_viz(
     viz_signature_indexes: dict[str, int] | None = None,
 ) -> dict[str, Any]:
     """Compose a verified card after reading database/search results first.
+
+    Shape: **columns are schools, rows are facts.** Each column is one school —
+    ``{"unitid": 100654}`` from ``resolve_school`` (a web-only school not in
+    the database: ``{"name": "University of Oxford"}``) — never a label like
+    "School" or a metric name. Each row is ``{"label": "...", "cells": [...]}``
+    with exactly one cell per column, in column order. A ``stat_block`` is one
+    school: a single column, one row per fact. Example, two schools on one
+    fact::
+
+        columns=[{"unitid": 100654}, {"unitid": 100663}]
+        rows=[{"label": "Students enrolled (men)",
+               "cells": [{"fact_key": "admissions.enrolled_total_men"},
+                         {"fact_key": "admissions.enrolled_total_men"}]}]
+
+    Database cells are read here, so when you already know the fact keys you
+    may call this in the same round as the ``get_facts`` whose values you will
+    cite in prose.
 
     Each cell is exactly one of: ``{"fact_key": "domain.metric"}`` (a
     qualified key read from a prior ``get_facts`` call), ``{"profile_field":

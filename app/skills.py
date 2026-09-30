@@ -393,6 +393,26 @@ def validate_selected_skills(names: Sequence[object]) -> list[str]:
     return selected
 
 
+FOCUSED_ANSWER = _RESPONSE_MODE_DEFAULT
+
+
+def with_default_response_mode(names: Sequence[str]) -> list[str]:
+    """The selection plus Focused Answer when no response mode was chosen.
+
+    The chat UI always sends a mode; a client that sends none (the eval runner,
+    the CLI) gets the same default the UI shows instead of a separate behavior.
+    """
+    selected = list(names)
+    if not _RESPONSE_MODE_NAMES & set(selected) and len(selected) < MAX_SELECTED_SKILLS:
+        selected.append(_RESPONSE_MODE_DEFAULT)
+    return selected
+
+
+def without_response_mode(names: Sequence[str]) -> list[str]:
+    """The selection minus any response mode (a goal turn runs in goal mode)."""
+    return [name for name in names if name not in _RESPONSE_MODE_NAMES]
+
+
 def render_selected_skills(names: Sequence[str]) -> str:
     """Render repository-owned public workflows for exactly one validated turn."""
     selected = validate_selected_skills(names)

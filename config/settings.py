@@ -50,6 +50,32 @@ _MIN_JWT_SECRET_BYTES = 32
 #: `adapters/collegedata/fetch.py`.
 _FACTS_CRAWL_UA_PLACEHOLDER_MARKER = "<domain>"
 
+#: The only provider prefix a live model setting may carry (ADR 0043).
+#: `app/llm.py::build_model` constructs these; the validator below rejects
+#: anything else at boot so a misconfigured env never fails mid-turn.
+FIREWORKS_MODEL_PREFIX = "fireworks:"
+
+#: The default live model for every role (ADR 0043): the only serverless
+#: DeepSeek on Fireworks. Roles differ only in reasoning effort.
+_DEFAULT_LIVE_MODEL = "fireworks:accounts/fireworks/models/deepseek-v4p1-flash"
+
+#: Live model fields checked by the prefix validator. `""` values fall back to
+#: `model_cheap` and are skipped; the parked CDS `model_cds_*` fields are not
+#: live and are never checked.
+_LIVE_MODEL_FIELDS = (
+    "model_counselor",
+    "model_counselor_think",
+    "model_cheap",
+    "model_title",
+    "goal_model",
+    "model_goal_judge",
+    "model_goal_criteria",
+)
+
+#: How hard a DeepSeek call reasons. The model reasons by default, so every
+#: call sends one of these explicitly.
+ReasoningEffort = Literal["none", "low", "medium", "high"]
+
 #: Fields whose values must never appear unmasked in repr/str/logs.
 _SECRET_FIELDS = frozenset(
     {
@@ -57,6 +83,7 @@ _SECRET_FIELDS = frozenset(
         "db_app_dsn",
         "db_pipeline_dsn",
         "tavily_api_key",
+        "fireworks_api_key",
         "vertex_api_key",
         "jwt_secret",
         "google_oauth_client_secret",
@@ -100,10 +127,10 @@ def _mask_secret(name: str, value: str) -> str:
 class ModelPriceTier(BaseModel):
     """USD-per-1M-token rates for one model, with an optional long-context tier.
 
-    Google applies the long-context tier to ALL tokens once input context
+    A long-context tier applies to ALL tokens once input context
     exceeds ``long_context_threshold_tokens`` — it is not incremental pricing
     on the overage alone. All three long-context fields are set together or
-    left ``None`` together; a model with a uniform price (e.g. Flash) omits
+    left ``None`` together; a model with a uniform price omits
     them.
     """
 
@@ -130,22 +157,31 @@ class Settings(BaseSettings):
         super().__init__(**values)
 
     # --- Models ---
-    model_counselor: str = "google-vertex:gemini-3.5-flash"
+    model_counselor: str = _DEFAULT_LIVE_MODEL
     # Think mode's model (plans/quick-think-response-mode.md §3.2). Kept
-    # configurable so the preview successor can change without touching
-    # turn-lifecycle code.
-    model_counselor_think: str = "google-vertex:gemini-3.1-pro-preview"
-    model_counselor_display_name: str = "Gemini 3.5 Flash"
-    model_counselor_think_display_name: str = "Gemini 3.1 Pro"
-    model_counselor_think_preview: bool = True
+    # configurable so it can change without touching turn-lifecycle code.
+    model_counselor_think: str = _DEFAULT_LIVE_MODEL
+    model_counselor_display_name: str = "DeepSeek V4.1 Flash"
+    model_counselor_think_display_name: str = "DeepSeek V4.1 Flash · Thinking"
+    model_counselor_think_preview: bool = False
+    # Reasoning effort per role (ADR 0043). Quick and Think counselor turns
+    # (and goal turns started in each) use the first two; titles and document
+    # summaries use `cheap`.
+    reasoning_effort_quick: ReasoningEffort = "low"
+    reasoning_effort_think: ReasoningEffort = "high"
+    reasoning_effort_cheap: ReasoningEffort = "none"
+    # The roles that define and decide a goal: the criteria writer and the
+    # judge. At `none`/`low` the writer padded or restated criteria; at `high`
+    # it matched Gemini (evals/goal_judge/REPORT-20260930-deepseek.md). One
+    # call per goal (writer) and one per round (judge), so the cost is small.
+    reasoning_effort_goal: ReasoningEffort = "high"
     # Honest-disable switch: remove Think from GET /v1/config response_modes
     # without silently remapping it to Flash (plan §14 Emergency disable).
     response_mode_think_enabled: bool = True
-    model_cheap: str = "google-vertex:gemini-2.5-flash"
-    model_clarifier: str = "google-vertex:gemini-2.5-flash"
+    model_cheap: str = _DEFAULT_LIVE_MODEL
     # B4 auto-titles: the cheap model that names a chat from its first exchange
     # (one no-tools call, fire-and-forget; failure leaves the derived default).
-    model_title: str = "google-vertex:gemini-2.5-flash"
+    model_title: str = _DEFAULT_LIVE_MODEL
     # CDS admin pipeline (plan §B4/§E): the one-shot, no-tool, schema-constrained
     # PDF extraction call, and the cheap per-file school+year detection call.
     model_cds_extract: str = "google-vertex:gemini-3.1-flash-lite"
@@ -180,15 +216,28 @@ class Settings(BaseSettings):
     # model_cds_extract_deliberation_budget and trade accuracy for cost.
     model_cds_extract_deliberation_level: str = "HIGH"
     model_cds_detect: str = "google-vertex:gemini-3.1-flash-lite"
-    # Transport-level retry for the student-facing counselor model call
-    # (adapters/cds_gemini.py's HttpRetryOptions precedent, mirrored here for
-    # the agent seam -- app/agent_node.py::default_model_factory). Retries
-    # only 408/429/5xx and connect/timeout errors (the google-genai SDK's own
-    # filter, see google.genai._api_client.retry_args) -- never a blanket
-    # retry, so a genuine 400/401/403 still surfaces immediately. Matches
-    # _SDK_RETRY_ATTEMPTS's naming intent on the pipeline side.
-    agent_model_retry_attempts: int = 3
+    # Transport-level retry for every live model call, as TOTAL attempts
+    # (first try included). `app/llm.py::build_model` passes `attempts - 1`
+    # to the openai SDK as `max_retries`. The SDK retries only 408/409/429/5xx
+    # and connection/timeout errors -- never a blanket retry, so a genuine
+    # 400/401/403 still surfaces immediately.
+    agent_model_retry_attempts: int = Field(default=3, gt=0)
+    # Seconds a chat turn's (streamed) model request may wait for its next
+    # byte, the first included, before it times out and is retried. Measured
+    # 2026-09-30: headers and the first token arrive together in 0.4-2.7s, one
+    # request in twenty waited 13s, and eval turns stalled 100-211s before any
+    # byte. Streams never paused
+    # mid-way (high-effort reasoning streams with gaps under 1.5s), so this
+    # binds only on those stalls. Non-streamed calls (judge, titles) and goal
+    # turns keep the SDK default: they send nothing until the answer is done.
+    model_read_timeout_s: float = Field(default=45.0, gt=0)
     agent_max_model_requests: int = 80
+    # Focused Answer (the default response mode) on the chat surface may call
+    # tools in this many model requests; the next request has no function
+    # tools and must answer from what was gathered (`app/tool_budget.py`).
+    focused_answer_max_tool_rounds: int = Field(default=4, gt=0)
+    # ...and may run this many searches (web, a school's site, Reddit) in all.
+    focused_answer_max_searches: int = Field(default=2, ge=0)
     agent_max_total_tokens: int = 2_000_000
 
     # --- Compaction (also closes plans/agent-loop-hardening.md §1) ---
@@ -221,9 +270,10 @@ class Settings(BaseSettings):
     # iteration, by Phase 3's GoalLoopController — a single unusually
     # expensive iteration can overshoot it before the next checkpoint fires.
     goal_max_model_requests: int = Field(default=90, gt=0)  # DERIVED: at
-    # model_cheap and a ~55k average context, 90 requests ~ 4.95M input +
-    # ~72k output ~ $1.67 - about 44% headroom under the $3.00 cap for the
-    # judge, criteria, and wrap-up calls. Re-derive whenever goal_model or
+    # model_cheap ($0.30 in / $1.20 out) and a ~55k average context, 90
+    # requests ~ 4.95M input + ~72k output ~ $1.57 - about 48% headroom under
+    # the $3.00 cap for reasoning tokens and the judge, criteria, and wrap-up
+    # calls. Re-derive whenever goal_model, its price, or
     # the cap moves. Passed to pydantic-ai's own `UsageLimits` per SEGMENT
     # (an `ask_student` pause starts a fresh `UsageLimits`, unlike cost/
     # iterations/wall-clock, which carry across the pause via the ledger) —
@@ -254,15 +304,12 @@ class Settings(BaseSettings):
         default=30_000, gt=0
     )  # §3.3 — bounded, was unbounded
 
-    # Native provider thought output. Gemini exposes this through
-    # include_thoughts; it is the rawest trace Google exposes through the API,
-    # not private internal CoT tokens. Counselle displays that provider output
-    # byte-for-byte when enabled.
-    thinking_stream: bool = True
-    # Deprecated one-release compatibility env/name. If
-    # COUNSELLE_THINKING_SUMMARIES is set, it overrides thinking_stream so
-    # existing deployments keep their expected behavior.
-    thinking_summaries: bool | None = None
+    # Whether the model's own reasoning text is streamed to the student as
+    # `thinking` events. Off by default (ADR 0043): DeepSeek returns raw chain
+    # of thought -- speculative, with uncited numbers -- not a summary, and a
+    # student reading it beside a cited answer would take the guess as fact.
+    # The model reasons either way; this only gates what is shown.
+    thinking_stream: bool = False
 
     # --- Chat (B4) ---
     title_max_len: int = 60  # cap for both the derived default and the model title
@@ -469,10 +516,16 @@ class Settings(BaseSettings):
     # than web/.edu so archetype and reputation questions can triangulate.
     reddit_max_results: int = 12
 
+    # --- Model provider ---
+    # Fireworks (ADR 0043): the provider for every live model call. Required
+    # outside development; in development `app/llm.py::build_model` raises on
+    # first use, so the routine suite never needs a key.
+    fireworks_api_key: str | None = None
+
     # --- GCP ---
+    # Read only by the parked CDS extraction system (ADR 0038, PARKED.md).
     # Auth: an optional Vertex Express-mode API key. When it is unset, the Google
     # SDK discovers Application Default Credentials (ADC) from the environment.
-    # The key takes precedence to preserve existing local-development setups.
     vertex_api_key: str | None = None
     google_cloud_project: str | None = None
     google_cloud_location: str = "us-central1"
@@ -511,7 +564,10 @@ class Settings(BaseSettings):
     # Watchdog: a turn exceeding this terminates with `error` (G5 — never
     # done(cancelled): the student didn't press stop), partial persisted.
     agent_turn_timeout_s: int = 3600
-    agent_tool_result_max_chars: int = 8_000
+    # A result over this spills to a handle the model must read back, which
+    # costs a whole model round. Sized so one compact `get_facts` section
+    # (about 15k characters) comes back inline.
+    agent_tool_result_max_chars: int = 20_000
     # GET /v1/sessions/{id}/stream reattach endpoint (off → always 204).
     reattach_enabled: bool = True
     # Global backstop on concurrent detached turns across all sessions — a
@@ -629,6 +685,32 @@ class Settings(BaseSettings):
                     "own real, reachable contact URL before deploying outside "
                     "development (ADR 0038 R0)"
                 )
+            if not self.fireworks_api_key:
+                raise ValueError(
+                    "fireworks_api_key must be set outside development — every "
+                    "live model call goes to Fireworks (ADR 0043)"
+                )
+        return self
+
+    @model_validator(mode="after")
+    def _validate_live_models(self) -> Settings:
+        # Every live model is a Fireworks model with a price: an unpriced model
+        # would cost $0 in the goal ledger and `goal_max_cost_usd` would never
+        # bind.
+        for field in _LIVE_MODEL_FIELDS:
+            value = getattr(self, field)
+            if not value:
+                continue
+            if not value.startswith(FIREWORKS_MODEL_PREFIX):
+                raise ValueError(
+                    f"{field}={value!r} must start with {FIREWORKS_MODEL_PREFIX!r} "
+                    "— Fireworks is the only supported live provider (ADR 0043)"
+                )
+            if value.removeprefix(FIREWORKS_MODEL_PREFIX) not in self.model_prices:
+                raise ValueError(
+                    f"{field}={value!r} has no model_prices entry — add one keyed "
+                    f"{value.removeprefix(FIREWORKS_MODEL_PREFIX)!r}"
+                )
         return self
 
     @field_validator("facts_crawl_user_agent")
@@ -696,33 +778,22 @@ class Settings(BaseSettings):
     # --- Observability ---
     log_level: str = "INFO"
     usage_accounting: bool = True
-    # Per-model token prices (USD per 1 M tokens). Long-context rates apply to
-    # ALL tokens once input_tokens exceeds the threshold (Google's tiering,
-    # not incremental) — see ModelPriceTier / estimate_cost in app/usage.py.
-    # Standard PayGo, global endpoint, verified 2026-07-22
-    # (plans/quick-think-response-mode.md §7.2).
+    # Per-model token prices (USD per 1 M tokens), keyed by the bare model
+    # name — see ModelPriceTier / estimate_cost in app/usage.py. DeepSeek V4.1
+    # Flash is priced at the highest Global rate Fireworks publishes
+    # (serverless-pricing doc, 2026-09-29) until the account price is
+    # confirmed. There is no cached-input rate, so cached tokens are
+    # overcounted: the goal budget binds earlier, never later.
     model_prices: dict[str, ModelPriceTier] = Field(
         default_factory=lambda: {
-            "gemini-2.5-pro": ModelPriceTier(input_per_1m=1.25, output_per_1m=10.0),
-            "gemini-2.5-flash": ModelPriceTier(input_per_1m=0.30, output_per_1m=2.50),
-            "gemini-3.5-flash": ModelPriceTier(input_per_1m=1.50, output_per_1m=9.00),
-            "gemini-3.1-pro-preview": ModelPriceTier(
-                input_per_1m=2.00,
-                output_per_1m=12.0,
-                long_context_input_per_1m=4.00,
-                long_context_output_per_1m=18.0,
-                long_context_threshold_tokens=200_000,
+            "accounts/fireworks/models/deepseek-v4p1-flash": ModelPriceTier(
+                input_per_1m=0.30, output_per_1m=1.20
             ),
         }
     )
 
     # --- Assets ---
     assets_dir: Path = _DEFAULT_ASSETS_DIR
-
-    @property
-    def effective_thinking_stream(self) -> bool:
-        """Whether native provider thought output should be requested."""
-        return self.thinking_stream if self.thinking_summaries is None else self.thinking_summaries
 
     def __repr__(self) -> str:
         """Repr with secrets masked — safe to print, still never log it routinely."""
