@@ -42,8 +42,9 @@ and you answer with what you have. Most answers need one round, and a table
 or a school-site search a second:
 
 1. `get_facts` for every school named, by its name (it resolves the school
-   itself), narrowed to the sections or keys the question needs, plus any broad
-   web search, all in one parallel round. Call `resolve_school` separately only
+   itself), narrowed to the exact keys the question needs — `getting-in` and
+   `money` alone are larger than the 60-row cap, and a truncated read costs a
+   second round — plus any broad web search, all in one parallel round. Call `resolve_school` separately only
    when you need identity and no facts.
 2. When needed: the `render_viz` table (columns by the resolved `unitid`s),
    and a `search_school_site` search with the `unitid` from round 1, in one

@@ -1120,6 +1120,9 @@ async def run_question(
                 selected_skills=tuple(question.get("skills") or ()),
             ):
                 events.append(event)
+        # The student's wait ends with the turn; scoring (an LLM judge call on
+        # criteria cases) is not part of it.
+        turn_duration_s = round(time.monotonic() - started, 3)
         capture = capture_turn(events, await _thread_messages(runtime, session_id))
         checks = await score_question(question, capture, judge)
         return {
@@ -1138,7 +1141,7 @@ async def run_question(
             "vizzes": capture.vizzes,
             "usage": capture.usage,
             "done_status": capture.done_status,
-            "duration_s": round(time.monotonic() - started, 3),
+            "duration_s": turn_duration_s,
             "event_summary": _safe_event_summary(capture),
             "tool_outcomes": _safe_tool_outcomes(capture),
             "errors": capture.errors,

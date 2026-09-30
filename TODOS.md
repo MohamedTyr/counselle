@@ -53,6 +53,8 @@
 
 - **Which ranking denominator is right.** The `denominator_honesty` evals expect "covered out of 2,746 profiled schools", and the base prompt's composition law agrees, but the `db-recipes` `fact_coverage` recipe returns the view's own `total` (2,239, the schools with a CollegeData crawl). No answer can pass, under Gemini or DeepSeek (0/4 in every run). Decide which denominator is honest, then fix the recipe or the eval.
 - **One eval run is noisy.** Single-case flips between identical runs are common (the memory case picked `update_profile` over `remember`; a score-band answer added an invented threshold). Judge a change on two runs, not one.
+- **Eval latencies before 2026-09-30 include grading.** `duration_s` used to stop after the LLM judge scored the case, which adds up to ~40s on criteria cases; it now stops when the turn ends. Measured the new way on main after the speed work: median 11.6s, 87 words. The slow tail is the SQL ranking cases (58-177s, 10-15k reasoning tokens), where the model works through the denominator conflict above; deciding the denominator should shorten them too.
+- **Large `get_facts` reads truncate.** `rows` and `unavailable` share a 60-row cap, and `getting-in` (90 facts) and `money` (63) exceed it alone, so a section read of either truncates and the model reads again by key, spending a round. Focused Answer now asks for exact keys; if it still happens, a larger cap (against the 20k inline limit) is the next step.
 
 ## DeepSeek on Fireworks (ADR 0043): what is left
 
