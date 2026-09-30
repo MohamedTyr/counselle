@@ -62,7 +62,7 @@ function useEmailSubmit({ entry, joined, onJoined }: Props) {
       // A filled trap field is a bot; it is told it joined and nothing is sent.
       if (!trap) {
         await submitWaitlist({ ...entry, email: value });
-        track("waitlist_joined", { side, source, plan });
+        track("waitlist_joined", { side, source, plan, email: value });
       }
       onJoined(value);
     } catch (error) {

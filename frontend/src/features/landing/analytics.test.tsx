@@ -3,7 +3,11 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
 // Analytics is off on every host but production, so these are the only
 // pre-merge evidence of what it sends.
-const posthog = vi.hoisted(() => ({ init: vi.fn(), capture: vi.fn() }));
+const posthog = vi.hoisted(() => ({
+  init: vi.fn(),
+  capture: vi.fn(),
+  identify: vi.fn(),
+}));
 vi.mock("posthog-js", () => ({ default: posthog }));
 
 function onHost(hostname: string) {
@@ -29,6 +33,7 @@ beforeEach(() => {
   vi.resetModules();
   posthog.init.mockClear();
   posthog.capture.mockClear();
+  posthog.identify.mockClear();
 });
 
 afterEach(() => {
@@ -46,30 +51,31 @@ it.each(["localhost", "acceptra.pages.dev"])(
   },
 );
 
-it("starts on acceptra.ai through the proxy, storing and recording nothing", async () => {
+it("starts on acceptra.ai through the proxy, remembering and recording the visitor", async () => {
   onHost("acceptra.ai");
   await loadAnalytics();
   await waitFor(() => expect(posthog.init).toHaveBeenCalledOnce());
   expect(posthog.init.mock.calls[0][1]).toMatchObject({
     api_host: "/ingest",
-    persistence: "memory",
-    disable_session_recording: true,
+    persistence: "localStorage+cookie",
+    person_profiles: "always",
   });
 });
 
-it("tracks a footer signup", async () => {
+it("identifies a footer signup by email", async () => {
   onHost("acceptra.ai");
   await loadAnalytics();
   await submitFooter("a@b.co");
+  const joined = { side: "me", source: "footer", email: "a@b.co" };
   await waitFor(() =>
-    expect(posthog.capture).toHaveBeenCalledWith("waitlist_joined", {
-      side: "me",
-      source: "footer",
+    expect(posthog.capture).toHaveBeenCalledWith("waitlist_joined", joined, {
+      $set: joined,
     }),
   );
+  expect(posthog.identify).toHaveBeenCalledWith("a@b.co", { email: "a@b.co" });
 });
 
-it("reports a failed signup with its status and never the email", async () => {
+it("reports a failed signup with its status", async () => {
   onHost("acceptra.ai");
   vi.stubEnv("DEV", false);
   vi.stubGlobal(
@@ -87,6 +93,4 @@ it("reports a failed signup with its status and never the email", async () => {
       status: 503,
     }),
   );
-  for (const [, properties] of posthog.capture.mock.calls)
-    expect(properties).not.toHaveProperty("email");
 });

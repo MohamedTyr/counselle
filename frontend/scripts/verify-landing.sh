@@ -107,7 +107,7 @@ done
 echo "Headers"
 headers="$(curl -sI "$BASE/")"
 check "HSTS" 'grep -qi "^strict-transport-security" <<<"$headers"'
-check "X-Frame-Options" 'grep -qi "^x-frame-options" <<<"$headers"'
+check "framed only by PostHog" 'grep -qi "frame-ancestors [^;]*posthog.com" <<<"$headers"'
 check "CSP enforced" 'grep -qi "^content-security-policy: " <<<"$headers"'
 check "immutable assets" 'curl -sI "$BASE$(grep -oE "/assets/[^\"]+\.js" <<<"$page" | head -1)" | grep -qi "immutable"'
 
