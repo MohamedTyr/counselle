@@ -775,7 +775,9 @@ async def test_partial_status_is_reachable_after_consecutive_tool_errors(
     )
     factory_calls: list[tuple[str, str]] = []
 
-    def capture_factory(_settings: Any, model_setting: str, reasoning_effort: str) -> Any:
+    def capture_factory(
+        _settings: Any, model_setting: str, reasoning_effort: str, *_rest: Any
+    ) -> Any:
         factory_calls.append((model_setting, reasoning_effort))
         return wrapup_model
 
@@ -1056,7 +1058,9 @@ async def test_goal_turn_reasons_at_the_turns_effort(
     factory_calls: list[tuple[str, str]] = []
     loop_kwargs: dict[str, Any] = {}
 
-    def capture_factory(_settings: Any, model_setting: str, reasoning_effort: str) -> Any:
+    def capture_factory(
+        _settings: Any, model_setting: str, reasoning_effort: str, *_rest: Any
+    ) -> Any:
         factory_calls.append((model_setting, reasoning_effort))
         return FunctionModel(lambda messages, info: ModelResponse(parts=[TextPart("unused")]))
 

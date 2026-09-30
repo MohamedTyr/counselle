@@ -283,7 +283,10 @@ class TurnDeps:
 
 
 def default_model_factory(
-    settings: Any, model_setting: str, reasoning_effort: ReasoningEffort
+    settings: Any,
+    model_setting: str,
+    reasoning_effort: ReasoningEffort,
+    read_timeout_s: float | None = None,
 ) -> Model:
     """The turn's live model, built through the one provider seam
     (:func:`app.llm.build_model`, ADR 0011/0043).
@@ -295,7 +298,9 @@ def default_model_factory(
     it — including the goal-only summarizing compaction tier, which runs with
     no settings of its own — reasons at the turn's effort.
     """
-    return build_model(settings, model_setting, reasoning_effort=reasoning_effort)
+    return build_model(
+        settings, model_setting, reasoning_effort=reasoning_effort, read_timeout_s=read_timeout_s
+    )
 
 
 def _strip_thinking(messages: Sequence[ModelMessage]) -> list[ModelMessage]:
@@ -1913,6 +1918,10 @@ async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
             settings,
             goal_model_setting if goal_mode else selection.model_setting,
             selection.reasoning_effort,
+            # A chat turn streams every request, so a long silence is a stall.
+            # A goal turn also runs a non-streamed summarizing step on this
+            # model, which sends nothing until done: it keeps the SDK default.
+            None if goal_mode else settings.model_read_timeout_s,
         ),
         instructions=instructions,
         deps_type=TurnDeps,

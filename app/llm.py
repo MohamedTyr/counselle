@@ -23,9 +23,16 @@ if TYPE_CHECKING:
 #: Fireworks' OpenAI-compatible endpoint. A module constant because
 #: ``FireworksProvider.base_url`` is an instance property.
 FIREWORKS_BASE_URL = "https://api.fireworks.ai/inference/v1"
+_CONNECT_TIMEOUT_S = 10.0
 
 
-def build_model(settings: Any, model_setting: str, *, reasoning_effort: ReasoningEffort) -> Model:
+def build_model(
+    settings: Any,
+    model_setting: str,
+    *,
+    reasoning_effort: ReasoningEffort,
+    read_timeout_s: float | None = None,
+) -> Model:
     """Build the model for *model_setting* (e.g. ``settings.model_cheap``).
 
     Only ``fireworks:`` is supported; the Settings validator rejects anything
@@ -33,6 +40,12 @@ def build_model(settings: Any, model_setting: str, *, reasoning_effort: Reasonin
     through. Transport retries are the openai SDK's own (408/409/429/5xx and
     connection errors, never 400/401/403); ``agent_model_retry_attempts`` is
     total attempts, so the SDK gets one fewer retries.
+
+    ``read_timeout_s`` bounds the wait for each byte, the first included; a
+    request stalled before its first byte times out and is retried the same
+    way. Only streamed turns pass it: their bytes flow continuously, while a
+    non-streamed call (the goal judge, titles) sends nothing until it is done
+    and keeps the SDK default.
     """
     if not model_setting.startswith(FIREWORKS_MODEL_PREFIX):
         raise ValueError(
@@ -42,7 +55,8 @@ def build_model(settings: Any, model_setting: str, *, reasoning_effort: Reasonin
     if not settings.fireworks_api_key:
         raise ValueError("COUNSELLE_FIREWORKS_API_KEY is not set")
 
-    from openai import AsyncOpenAI
+    import httpx
+    from openai import DEFAULT_TIMEOUT, AsyncOpenAI
     from pydantic_ai.models.openai import OpenAIChatModel, OpenAIChatModelSettings
     from pydantic_ai.providers.fireworks import FireworksProvider
 
@@ -50,6 +64,11 @@ def build_model(settings: Any, model_setting: str, *, reasoning_effort: Reasonin
         base_url=FIREWORKS_BASE_URL,
         api_key=settings.fireworks_api_key,
         max_retries=settings.agent_model_retry_attempts - 1,
+        timeout=(
+            httpx.Timeout(read_timeout_s, connect=_CONNECT_TIMEOUT_S)
+            if read_timeout_s is not None
+            else DEFAULT_TIMEOUT
+        ),
     )
     return OpenAIChatModel(
         model_name_from_setting(model_setting),
