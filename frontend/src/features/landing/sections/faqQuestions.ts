@@ -41,7 +41,7 @@ export const QUESTIONS: { audience: Audience; q: string; a: string }[] = [
   {
     audience: "students",
     q: "Is there a real person, or only AI?",
-    a: "Both! The workspace is AI. Monthly and Season plans include live sessions with a real person. Questions to support are answered by a person within a day.",
+    a: "Both! The workspace is AI. Monthly and Yearly plans include live sessions with a real person. Questions to support are answered by a person within a day.",
   },
   {
     audience: "students",
@@ -56,7 +56,7 @@ export const QUESTIONS: { audience: Audience; q: string; a: string }[] = [
   {
     audience: "students",
     q: "Can I cancel, and is there a free plan?",
-    a: "Yes to both. The Free plan needs no card. Monthly can be cancelled any time and runs to the end of the billing month. Season is a one-time payment for four months. Full refund within 7 days of your first payment if you haven’t used a counselor session.",
+    a: "Yes to both. The Free plan needs no card. Monthly can be cancelled any time and runs to the end of the billing month. Yearly is one payment of $75 for the whole year.",
   },
   {
     audience: "schools",
