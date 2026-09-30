@@ -213,6 +213,18 @@ def test_routing_checks_tools_called_and_order() -> None:
     )
     assert bad_checks["tool_order"]["passed"] is False
 
+    # get_facts by school name resolves the school itself: it satisfies
+    # "resolve, then read" (args arrive as JSON text from OpenAI-compatible
+    # providers).
+    by_name = make_capture(
+        tool_calls=[{"tool_name": "get_facts", "args": '{"school": "A", "keys": ["x.y"]}'}]
+    )
+    name_checks = score_routing(
+        {"tools": ["resolve_school", "get_facts"], "order": ["resolve_school", "get_facts"]},
+        by_name,
+    )
+    assert all(item["passed"] for item in name_checks.values())
+
 
 def test_composition_reads_v2_columns_and_inert_unavailable_cells() -> None:
     capture = make_capture(

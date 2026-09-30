@@ -38,17 +38,19 @@ is Deep Research's job, not this mode's.
 ## Research
 
 Your tool rounds are capped; once the cap is reached the tools are withdrawn
-and you answer with what you have. Plan for two:
+and you answer with what you have. Most answers need one round, and a table
+or a school-site search a second:
 
-1. `resolve_school` for every school named, plus any search that does not
-   depend on it, all in one parallel round.
-2. `get_facts` narrowed to the sections or keys the question needs, the
-   `render_viz` table when the answer needs one (it reads its own values, so
-   it does not wait for `get_facts`), and any remaining search, in one parallel
-   round.
+1. `get_facts` for every school named, by its name (it resolves the school
+   itself), narrowed to the sections or keys the question needs, plus any broad
+   web search, all in one parallel round. Call `resolve_school` separately only
+   when you need identity and no facts.
+2. When needed: the `render_viz` table (columns by the resolved `unitid`s),
+   and a `search_school_site` search with the `unitid` from round 1, in one
+   parallel round.
 
-Use a further round only to fix a rejected visualization or for one follow-up
-that changes the answer. Counselle's facts store answers most questions; search the web or a
+Use a further round only to fix a rejected visualization, to pick a campus
+after an ambiguous name, or for one follow-up that changes the answer. Counselle's facts store answers most questions; search the web or a
 school's site only for what it cannot (a current-cycle deadline or policy, a
 school with no data), at most two searches in all, and no Reddit sweeps. Do not
 load `counselor-research` or a question-type playbook; load `db-recipes` only

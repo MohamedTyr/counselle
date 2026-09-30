@@ -227,6 +227,8 @@ class Settings(BaseSettings):
     # tools in this many model requests; the next request has no function
     # tools and must answer from what was gathered (`app/tool_budget.py`).
     focused_answer_max_tool_rounds: int = Field(default=4, gt=0)
+    # ...and may run this many searches (web, a school's site, Reddit) in all.
+    focused_answer_max_searches: int = Field(default=2, ge=0)
     agent_max_total_tokens: int = 2_000_000
 
     # --- Compaction (also closes plans/agent-loop-hardening.md §1) ---

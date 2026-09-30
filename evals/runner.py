@@ -503,8 +503,9 @@ def _safe_event_summary(capture: TurnCapture) -> str:
         if (payloads := _return_payloads(capture, name))
     }
     for index, call in enumerate(capture.tool_calls, 1):
-        name, args = str(call["tool_name"]), call["args"]
-        safe_args = {k: args[k] for k in ("query", "unitid", "groups", "domain_id") if k in args}
+        name, args = str(call["tool_name"]), _call_args(call["args"])
+        safe_keys = ("query", "unitid", "school", "groups", "domain_id")
+        safe_args = {k: args[k] for k in safe_keys if k in args}
         payload = (returns.get(name) or [{}]).pop(0)
         status = payload.get("status") or payload.get("error")
         if not status:
@@ -559,8 +560,21 @@ def _safe_tool_outcomes(capture: TurnCapture) -> list[dict[str, Any]]:
     return outcomes
 
 
+def _routing_calls(capture: TurnCapture) -> list[str]:
+    """The tool sequence as routing sees it. `get_facts` called with a school
+    name resolves that school itself, exactly as `resolve_school` would, so it
+    counts as a resolve followed by the read."""
+    called: list[str] = []
+    for call in capture.tool_calls:
+        name = str(call["tool_name"])
+        if name == "get_facts" and _call_args(call.get("args")).get("school"):
+            called.append("resolve_school")
+        called.append(name)
+    return called
+
+
 def score_routing(expects: dict[str, Any], capture: TurnCapture) -> dict[str, dict[str, Any]]:
-    called = [str(c["tool_name"]) for c in capture.tool_calls]
+    called = _routing_calls(capture)
     expected = list(expects.get("tools") or [])
     checks = {
         "tools_called": _check(
