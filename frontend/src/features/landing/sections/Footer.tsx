@@ -46,7 +46,7 @@ function FooterSignup() {
       // A filled trap field is a bot; it is told it joined and nothing is sent.
       if (!form.get(TRAP_NAME)) {
         await submitWaitlist({ email, side: "me", source: "footer" });
-        track("waitlist_joined", { side: "me", source: "footer" });
+        track("waitlist_joined", { side: "me", source: "footer", email });
       }
       setState("joined");
     } catch (error) {

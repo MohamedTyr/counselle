@@ -7,7 +7,7 @@
 **Owner, security and money:**
 - **2FA** on Cloudflare (a single Super Administrator), Spaceship and PostHog.
 - **Workers Paid** (D-5), before any launch spike: `/ingest` and `/api/waitlist` share the free 100k requests a day, so a spike stops signups until 00:00 UTC.
-- **The 29 raw-IP PostHog events** (acceptra.ai, before 09:04 UTC on 2026-09-29): the owner chose not to file the deletion request, so the privacy page's "does not keep the address itself" stays untrue for those events until they are deleted in the PostHog UI (the API can't: they are personless and self-service deletion is off). Every later event has no `$ip`.
+- **Analytics consent.** The landing records full replays (typed text included), keeps IPs and sets a first-party cookie. The privacy policy says so, but there is no consent banner; EU/UK visitors (ePrivacy/GDPR) would need one, and many visitors are 13–17. The policy's own "Changes" section promises an email to the waitlist on a significant change, and this is one.
 - **Honesty calls on the live page** (principle 3), default remove unless sourced or consented: the three testimonials; the mentor calls, the counselor view and the university logos (D-6); "$10,000 counselor", "$140–300 an hour" and the ChatGPT comparison row. Also confirm the Google appointment schedule has open slots.
 
 **Cloudflare, done 2026-09-29 with a short-lived owner token:** SSL/TLS Full (strict); CAA for letsencrypt.org, pki.goog, ssl.com and sectigo.com (the Universal certificate stayed active); email alerts to admin@ for a failed Pages production deploy, Universal SSL and HTTP DDoS. Still open:
