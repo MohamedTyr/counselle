@@ -35,7 +35,7 @@ class _NoPriceSettings:
     goal_max_total_tokens = 10_000_000
     model_goal_judge = ""
     model_goal_criteria = ""
-    model_cheap = "google-vertex:gemini-2.5-flash"
+    model_cheap = "fireworks:accounts/fireworks/models/cheap-model"
     goal_model = ""
 
 
@@ -154,8 +154,8 @@ async def _drive_cancelled_goal_loop(
         limits=cast(Any, object()),
         goal_limits=_goal_limits(),
         settings=_NoPriceSettings(),
-        model_setting="google-vertex:gemini-2.5-flash",
-        model_settings=None,
+        model_setting="fireworks:accounts/fireworks/models/cheap-model",
+        reasoning_effort="low",
         instructions="instructions",
         injected_model_factory=None,
         shared_usage=RunUsage(),
@@ -253,8 +253,8 @@ async def test_generic_exception_mid_run_streams_the_ledger_with_no_claimed_stat
             limits=cast(Any, object()),
             goal_limits=_goal_limits(),
             settings=_NoPriceSettings(),
-            model_setting="google-vertex:gemini-2.5-flash",
-            model_settings=None,
+            model_setting="fireworks:accounts/fireworks/models/cheap-model",
+            reasoning_effort="low",
             instructions="instructions",
             injected_model_factory=None,
             shared_usage=RunUsage(),
@@ -346,8 +346,8 @@ async def test_ask_student_pause_carries_this_segments_own_elapsed_time(
         limits=cast(Any, object()),
         goal_limits=_goal_limits(),
         settings=_NoPriceSettings(),
-        model_setting="google-vertex:gemini-2.5-flash",
-        model_settings=None,
+        model_setting="fireworks:accounts/fireworks/models/cheap-model",
+        reasoning_effort="low",
         instructions="instructions",
         injected_model_factory=None,
         shared_usage=RunUsage(),
@@ -573,10 +573,15 @@ class _PricedSettings:
 
     def __init__(self, model_goal_judge: str) -> None:
         self.model_prices: dict[str, ModelPriceTier] = {
-            "cheap-model": ModelPriceTier(input_per_1m=1.0, output_per_1m=1.0),
-            "pricey-model": ModelPriceTier(input_per_1m=100.0, output_per_1m=100.0),
+            "accounts/fireworks/models/cheap-model": ModelPriceTier(
+                input_per_1m=1.0, output_per_1m=1.0
+            ),
+            "accounts/fireworks/models/pricey-model": ModelPriceTier(
+                input_per_1m=100.0, output_per_1m=100.0
+            ),
         }
-        self.model_cheap = "google-vertex:cheap-model"
+        self.model_cheap = "fireworks:accounts/fireworks/models/cheap-model"
+        self.reasoning_effort_cheap = "none"
         self.model_goal_judge = model_goal_judge
         self.model_goal_criteria = ""
         self.goal_model = ""
@@ -650,8 +655,8 @@ async def _run_goal_loop_to_achieved_and_get_cost(
         limits=cast(Any, object()),
         goal_limits=_goal_limits(),
         settings=settings,
-        model_setting="google-vertex:cheap-model",
-        model_settings=None,
+        model_setting="fireworks:accounts/fireworks/models/cheap-model",
+        reasoning_effort="low",
         instructions="instructions",
         injected_model_factory=None,
         shared_usage=RunUsage(),
@@ -681,7 +686,9 @@ async def test_pricier_judge_tier_shows_up_as_higher_ledger_cost(
     `goal_max_cost_usd` — even though the token counts never change.
     """
     same_tier_settings = _PricedSettings(model_goal_judge="")  # "" => model_cheap (agent's tier)
-    pricier_judge_settings = _PricedSettings(model_goal_judge="google-vertex:pricey-model")
+    pricier_judge_settings = _PricedSettings(
+        model_goal_judge="fireworks:accounts/fireworks/models/pricey-model"
+    )
 
     cost_same_tier = await _run_goal_loop_to_achieved_and_get_cost(monkeypatch, same_tier_settings)
     cost_pricier_judge = await _run_goal_loop_to_achieved_and_get_cost(
@@ -759,12 +766,20 @@ async def test_partial_status_is_reachable_after_consecutive_tool_errors(
         max_consecutive_tool_errors=1,
         max_flat_checks=2,
     )
-    # The wrap-up (§2.7) always runs for a non-achieved status; give it a
-    # harmless FunctionModel so building its Agent needs no real credentials
-    # (`_run_once` itself is faked above regardless of which agent is passed).
+    # The wrap-up (§2.7) always runs for a non-achieved status; it is built
+    # through the real factory seam, captured here so building its Agent
+    # needs no real credentials (`_run_once` itself is faked above
+    # regardless of which agent is passed).
     wrapup_model = FunctionModel(
         lambda messages, info: ModelResponse(parts=[TextPart(content="wrap-up")])
     )
+    factory_calls: list[tuple[str, str]] = []
+
+    def capture_factory(_settings: Any, model_setting: str, reasoning_effort: str) -> Any:
+        factory_calls.append((model_setting, reasoning_effort))
+        return wrapup_model
+
+    monkeypatch.setattr(an, "default_model_factory", capture_factory)
 
     await an._run_goal_loop(
         cast(Any, object()),
@@ -775,10 +790,10 @@ async def test_partial_status_is_reachable_after_consecutive_tool_errors(
         limits=cast(Any, object()),
         goal_limits=limits,
         settings=_NoPriceSettings(),
-        model_setting="google-vertex:gemini-2.5-flash",
-        model_settings=None,
+        model_setting="fireworks:accounts/fireworks/models/cheap-model",
+        reasoning_effort="high",
         instructions="instructions",
-        injected_model_factory=lambda: wrapup_model,
+        injected_model_factory=None,
         shared_usage=RunUsage(),
         run_once_kwargs=run_once_kwargs,
     )
@@ -791,6 +806,8 @@ async def test_partial_status_is_reachable_after_consecutive_tool_errors(
     final_steps = [s for s in goal_steps if s["detail"]["goal"]["phase"] == "final"]
     assert len(final_steps) == 1
     assert final_steps[0]["detail"]["goal"]["status"] == "partial"
+    # The wrap-up reasons at the turn's effort, on the goal model.
+    assert factory_calls == [("fireworks:accounts/fireworks/models/cheap-model", "high")]
 
 
 # ---------------------------------------------------------------------------
@@ -866,8 +883,8 @@ async def test_judge_failure_mid_run_lands_stopped_check_failed(
         limits=cast(Any, object()),
         goal_limits=_goal_limits(),
         settings=_PricedSettings(model_goal_judge=""),
-        model_setting="google-vertex:cheap-model",
-        model_settings=None,
+        model_setting="fireworks:accounts/fireworks/models/cheap-model",
+        reasoning_effort="low",
         instructions="instructions",
         injected_model_factory=lambda: wrapup_model,
         shared_usage=RunUsage(),
@@ -911,8 +928,11 @@ async def test_judge_failure_mid_run_lands_stopped_check_failed(
 class _NodeSettings(_NoPriceSettings):
     """The slice of Settings `run_agent_node` reads on a goal turn."""
 
-    model_counselor = "google-vertex:gemini-2.5-pro"
-    model_counselor_think = "google-vertex:gemini-3.1-pro-preview"
+    model_counselor = "fireworks:accounts/fireworks/models/quick-model"
+    model_counselor_think = "fireworks:accounts/fireworks/models/think-model"
+    reasoning_effort_quick = "low"
+    reasoning_effort_think = "high"
+    reasoning_effort_cheap = "none"
     response_mode_think_enabled = True
     agent_max_model_requests = 80
     agent_max_total_tokens = 2_000_000
@@ -922,7 +942,6 @@ class _NodeSettings(_NoPriceSettings):
     goal_compaction_target_tokens = 100_000
     goal_compaction_keep_tokens = 8_000
     thinking_stream = True
-    thinking_summaries: bool | None = None
     thinking_threshold_chars = 240
     agent_tool_result_max_chars = 8_000
     essay_context_max_chars = 8_000
@@ -932,10 +951,6 @@ class _NodeSettings(_NoPriceSettings):
     goal_max_consecutive_tool_errors = 3
     goal_stall_iterations = 2
     goal_wrapup_reserve_requests = 2
-
-    @property
-    def effective_thinking_stream(self) -> bool:
-        return self.thinking_stream if self.thinking_summaries is None else self.thinking_summaries
 
 
 def _goal_node_state(prompt: str) -> dict[str, Any]:
@@ -1028,6 +1043,60 @@ async def test_criteria_derivation_failure_emits_stopped_check_failed_step(
     assert delta["turn_records"][-1]["status"] == "complete"
 
 
+@pytest.mark.parametrize(("response_mode", "effort"), [("quick", "low"), ("think", "high")])
+async def test_goal_turn_reasons_at_the_turns_effort(
+    monkeypatch: pytest.MonkeyPatch, response_mode: str, effort: str
+) -> None:
+    """A goal turn runs on the goal model but at the Quick/Think effort of the
+    turn it was started in — on the agent's model and on the wrap-up's, so
+    the summarizing compaction tier (which has no run settings of its own)
+    reasons at the same effort."""
+    from types import SimpleNamespace as NS
+
+    factory_calls: list[tuple[str, str]] = []
+    loop_kwargs: dict[str, Any] = {}
+
+    def capture_factory(_settings: Any, model_setting: str, reasoning_effort: str) -> Any:
+        factory_calls.append((model_setting, reasoning_effort))
+        return FunctionModel(lambda messages, info: ModelResponse(parts=[TextPart("unused")]))
+
+    async def fake_derive(*args: Any, **kwargs: Any) -> Any:
+        return (GoalCriterion(id="c1", text="Every school has a deadline."),), "Portals."
+
+    async def fake_loop(*args: Any, **kwargs: Any) -> Any:
+        loop_kwargs.update(kwargs)
+        return None, None, {}
+
+    monkeypatch.setattr(an, "default_model_factory", capture_factory)
+    monkeypatch.setattr(an, "derive_criteria", fake_derive)
+    monkeypatch.setattr(an, "_run_goal_loop", fake_loop)
+    monkeypatch.setattr(an, "get_stream_writer", lambda: lambda chunk: None)
+    monkeypatch.setattr(an, "build_tools", lambda *args, **kwargs: [])
+
+    settings = _NodeSettings()
+    deps = cast(
+        Any,
+        NS(
+            catalog=NS(school_count=0, school_name=None, school_domain=None),
+            app_pool=None,
+            settings=settings,
+            run_handles=None,
+            parked_sources=None,
+            workspace_events=None,
+            tool_deps=NS(),
+            model_factory=None,
+        ),
+    )
+    state = _goal_node_state("Make sure every school has a deadline.")
+    state["turn_ids"]["response_mode"] = response_mode
+
+    await an.run_agent_node(state, deps)
+
+    assert factory_calls == [(settings.model_cheap, effort)]
+    assert loop_kwargs["model_setting"] == settings.model_cheap
+    assert loop_kwargs["reasoning_effort"] == effort
+
+
 # ---------------------------------------------------------------------------
 # 10. A goal run pauses on ask_student: no check, no nudge, no wrap-up — the
 #     question is the turn's output and the run resumes with the answer.
@@ -1090,8 +1159,8 @@ async def test_ask_student_pauses_the_run_as_awaiting_input(
         limits=cast(Any, object()),
         goal_limits=_goal_limits(),
         settings=_NoPriceSettings(),
-        model_setting="google-vertex:gemini-2.5-flash",
-        model_settings=None,
+        model_setting="fireworks:accounts/fireworks/models/cheap-model",
+        reasoning_effort="low",
         instructions="instructions",
         injected_model_factory=None,
         shared_usage=RunUsage(),
@@ -1223,8 +1292,8 @@ async def test_resumed_goal_loop_trips_budget_from_carried_iteration_count(
         limits=cast(Any, object()),
         goal_limits=limits,
         settings=_NoPriceSettings(),
-        model_setting="google-vertex:gemini-2.5-flash",
-        model_settings=None,
+        model_setting="fireworks:accounts/fireworks/models/cheap-model",
+        reasoning_effort="low",
         instructions="instructions",
         injected_model_factory=lambda: wrapup_model,
         shared_usage=RunUsage(),

@@ -249,7 +249,7 @@ def _required_env(dotenv: dict[str, str]) -> list[dict[str, Any]]:
         # here fails this script fast instead of deploying a Render service
         # that crash-loops on every boot (docs/DEPLOY.md § environment matrix).
         "COUNSELLE_DB_PIPELINE_DSN": _env_value("COUNSELLE_DB_PIPELINE_DSN", dotenv),
-        "COUNSELLE_VERTEX_API_KEY": _env_value("COUNSELLE_VERTEX_API_KEY", dotenv),
+        "COUNSELLE_FIREWORKS_API_KEY": _env_value("COUNSELLE_FIREWORKS_API_KEY", dotenv),
         "COUNSELLE_TAVILY_API_KEY": tavily,
     }
     missing = [key for key, value in required.items() if not value]

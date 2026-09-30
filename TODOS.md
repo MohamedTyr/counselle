@@ -49,6 +49,21 @@
   - The 37px "Skip to content" link, accepted: it is a keyboard target, not a touch target.
   - The unused registry exports knip still lists, and test-only Python helpers.
 
+## DeepSeek on Fireworks (ADR 0043): what is left
+
+Every live model call moved from Gemini on Vertex to DeepSeek V4.1 Flash on Fireworks (`plans/fireworks-deepseek-plan.md`). Still open:
+
+- **The account price.** `model_prices` holds the highest Global rate Fireworks publishes ($0.30 in / $1.20 out per 1M); the docs also show $0.45/$1.80 (US) and $0.22/$0.66 (the model page). The owner confirms the account's rate on the Fireworks billing page, then the default changes.
+- **Data terms, before real student data.** Student chats, profiles and essays now go to Fireworks. Confirm zero data retention and no training on prompts or outputs before production traffic; until then only synthetic or throwaway accounts.
+- **Before the app is deployed (B6):** the app's privacy copy must name Fireworks as the model processor. Today the only privacy page is the landing waitlist's, which names no model provider, so nothing shipped went stale.
+- **The parked CDS extraction system is still on Gemini** (`adapters/cds_gemini.py`, `model_cds_*`, the Vertex credentials). Reviving it (`PARKED.md`) means either keeping Vertex credentials for it alone or porting it to `app/llm.py`.
+- **One client per model build.** `app/llm.py::build_model` makes a new `AsyncOpenAI` (and httpx pool) per call site and never closes it, with the SDK's default 600s timeout — the same shape the Gemini client had. If sockets pile up under load or a stalled `high`-effort stream holds a turn, cache the client per key and set a Settings-backed timeout.
+- **The judge gate's strict bar.** FPR is 0 in every run, but no effort gave two consecutive 1.000 runs; the two misses (test-22, test-28) have debatable labels. The owner relabels or accepts (`evals/goal_judge/REPORT-20260930-deepseek.md`).
+- **Quick is slow and verbose; Think over-researches.** Quick at `low`, over the eval's 10 comparison cases: median 32.6s against Gemini's 17.1s, about twice the output tokens, p95 200s. One Think turn made 43 tool calls and hit the budget with an empty answer; a normal one took about 4.5 minutes and $0.35. The Think eval run at `high` was not completed.
+- **A goal-drafted essay invented a personal anecdote** in the browser pass, against `essay-honesty`'s fabrication ban.
+- **Transcript usage records carry no cost.** `est_cost_usd` is null in stored usage records (they keep raw usage); the streamed `usage` event is priced. Pre-existing.
+- **Local Python needs IPv4.** On a workstation with broken IPv6, Python's HTTP clients hang on `api.fireworks.ai` instead of falling back (curl falls back). Fix it in the environment (`precedence ::ffff:0:0/96 100` in `/etc/gai.conf`), not in app code.
+
 ## `cds_library.school_explore` view ownership drifted from the seed (live DB fix applied, source not)
 - **What:** the live v3 database's `cds_library.school_explore` view was owned by `postgres`
   instead of `cds_library_owner`, so `cds_library_reader`'s (checked-in) `GRANT SELECT` never

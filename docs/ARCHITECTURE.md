@@ -128,7 +128,7 @@ Chosen by surveying the frontier and picking proven pieces (never reinvent the w
 | **Skills** | **SKILL.md** open standard | Portable workflow layer, loaded on demand. | 0010 |
 | **Session persistence** | **LangGraph Postgres checkpointer** in `counselle.*` | Sessions survive restarts from day one; the platform's chats are the same rows + a user FK. | 0019 |
 | **Config** | **pydantic-settings** + versioned data assets | One typed settings surface, fail-fast at startup. | 0018 |
-| **Models** | Default **Vertex AI**: counselor **Quick** uses `gemini-3.5-flash`; counselor **Think** uses `gemini-3.1-pro-preview` behind the advertised response-mode capability list; `gemini-2.5-flash` remains the cheap tier for clarifier and auto-title work. Other agents remain swappable through PydanticAI's per-agent `model=` config. (A LiteLLM sidecar remains an option in ADR 0011 but has no Settings knob — added only if/when needed.) | 0011, 0034 |
+| **Models** | **DeepSeek V4.1 Flash on Fireworks** (`fireworks:accounts/fireworks/models/deepseek-v4p1-flash`) for every live role — counselor **Quick** and **Think**, the goal agent, judge and criteria writer, auto-titles, document summaries, the eval judge. Roles differ only by reasoning effort (Quick `low`, Think `high`, the goal criteria writer and judge `high`, titles and summaries `none`), set on the model by the one construction seam `app/llm.py::build_model`. Each role is still its own Settings value; a provider other than Fireworks is one branch in `build_model` plus an ADR. The parked CDS extraction system keeps its own Gemini client. (A LiteLLM sidecar remains an option in ADR 0011 but has no Settings knob — added only if/when needed.) | 0011, 0034, 0043 |
 | **Language** | Python | Matches the pipeline; asyncpg expertise carries over. | — |
 
 ---
@@ -147,7 +147,7 @@ Chosen by surveying the frontier and picking proven pieces (never reinvent the w
 Rules of thumb (the seam discipline):
 
 - **The domain core is the deletion-test survivor.** Deleting it would scatter fact-state, citation, display, and caveat rules across tools and prompts. It is the most-tested code in the repo (§21).
-- **One adapter = hypothetical seam; two = real.** We do not write interfaces for things with one implementation and no honesty stake. The model seam is real (Vertex/Anthropic — via PydanticAI, not ours). The search seam is the three thin tools (Tavily today; the tool signatures are the seam). The session seam is LangGraph's checkpointer protocol (theirs, not ours).
+- **One adapter = hypothetical seam; two = real.** We do not write interfaces for things with one implementation and no honesty stake. The model seam is PydanticAI's per-agent `model=` (theirs, not ours); `app/llm.py::build_model` is the one place a live model is constructed from Settings. The search seam is the three thin tools (Tavily today; the tool signatures are the seam). The session seam is LangGraph's checkpointer protocol (theirs, not ours).
 - **No pass-through wrappers.** If a module's interface is as complex as what it hides, delete it. This is exactly why the standalone `counselle-db` MCP server was deleted (not parked) in ADR 0038: once every remaining caller of `counselle_db/service.py` was in-process anyway, the stdio child, its supervisor, and its restart backoff were a whole subsystem serving one caller — a shallow wrapper by this same rule.
 - **Accepted deviation (ADR 0017, now the norm rather than an exception since ADR 0038):** `app/` and the LLM tool loop both import `counselle_db/service.py` directly in-process; there is no separate MCP transport and no field reconciler for the facts-store read path.
 - **The CDS admin write path (ADR 0036, §38, now parked) followed the same four layers as a self-contained subsystem** — `domain/cds/`, `adapters/cds_*.py`, `app/cds/`, `api/routes/cds_admin.py` — additive to this table, not an exception to it. Its code stays in-tree and importable (PARKED.md) but is unmounted; it is called out separately only because, while live, it was the one place in the repo that wrote `cds_library` at all. **The CollegeData facts crawler (§40) is its live successor as the same kind of write path** — `adapters/collegedata/`, `app/facts/`, `api/routes/admin_facts.py` — over the same third DSN/role, repurposed rather than reprovisioned.
@@ -519,7 +519,7 @@ The primary composer mode is also skills-backed. `/v1/config` exposes a separate
 
 | Group | Knobs |
 |---|---|
-| Models | per-agent `model=` — `model_counselor` (Quick), `model_counselor_think` (Think), `model_cheap`, `model_clarifier`, `model_title` (the cheap-tier auto-title model); counselor display/preview labels for `/v1/config`; `response_mode_think_enabled` (honest-disable switch: omit Think, never remap it); `thinking_stream` (bool — gates native Gemini thought-summary requests/display for Think, §27.2; **default on**; `thinking_summaries` remains a compatibility alias only; see `config/settings.py`); `agent_max_model_requests`; provider credentials; per-model prices including Pro's >200K tier. Researcher/verifier knobs, GPT-Researcher's `FAST/STRATEGIC/SMART` tiers, and a LiteLLM sidecar endpoint are added with the deep-research follow-up (§13). |
+| Models | per-agent `model=` — `model_counselor` (Quick), `model_counselor_think` (Think), `model_cheap`, `model_title` (the cheap-tier auto-title model), all `fireworks:` strings (any other prefix on a live model field fails boot, ADR 0043); `reasoning_effort_quick`/`_think`/`_cheap`/`_goal` (`none`/`low`/`medium`/`high`, sent on every call); counselor display/preview labels for `/v1/config`; `response_mode_think_enabled` (honest-disable switch: omit Think, never remap it); `thinking_stream` (bool — whether the model's reasoning text is streamed as `thinking` events, §27.2; **default off**, because DeepSeek's reasoning is raw chain of thought); `agent_max_model_requests`; `agent_model_retry_attempts` (total attempts per call); `fireworks_api_key` (masked; required outside development); per-model prices. Researcher/verifier knobs, GPT-Researcher's `FAST/STRATEGIC/SMART` tiers, and a LiteLLM sidecar endpoint are added with the deep-research follow-up (§13). |
 | Database | facts-store reader-login DSN, facts-crawler/pipeline DSN, application DSN, statement/row/byte limits, pool sizes |
 | Counselle schema | `counselle.*` DSN, checkpointer on/off (memory for tests), session TTL/cleanup |
 | Sources | default source-config (web/Reddit/.edu on/off), Tavily key, per-tool result limits |
@@ -563,7 +563,7 @@ it.
 - **12-factor:** all config comes from the environment; durable state lives in Postgres (`counselle.*`), so the service can restart or move safely.
 - **One container** (a `Containerfile` from day one) running the API service. There is no second process to supervise any more: the facts-store read path is fully in-process, and the CollegeData facts crawl-pass worker (§40) runs as an `asyncio` task inside the same FastAPI lifespan (ADR 0023's one-deployable constraint) — the parked CDS extraction worker's own lifespan start/stop call was removed when it was parked (§38), so it does not run alongside it.
 - **Migrations** (`migrations/`, a yoyo chain over `counselle.*` only). Migration-on-boot via the container entrypoint is planned per §33; until then, `uv run yoyo apply` is run manually before first launch. The `cds_library` schema (identity profile + facts store, plus the parked CDS tables' preserved DDL) is provisioned separately from `deploy/seed/`, not through this migration chain.
-- **Secrets** in `.env`/secret manager only; shared with the facts-store database **credentials only** (the read-only DSN + Vertex/GCP keys) — no shared code, config, or runtime dependency. The DB is the contract.
+- **Secrets** in `.env`/secret manager only; shared with the facts-store database **credentials only** (the read-only DSN; Vertex/GCP keys only for the parked CDS extraction system) — no shared code, config, or runtime dependency. The DB is the contract.
 - **Read-only boundary** — the reader LOGIN can select exactly the six `cds_library` views; the separate application DSN owns only `counselle.*`. (ADRs 0012, 0032, 0038.)
 
 ---
@@ -755,13 +755,15 @@ Start/end pair per unit of agent work. The activity timeline renders these direc
 
 `narration` is the assistant's agent-visible prose and status trail: the visible run narration, the inline status updates, and the replayable copy/export surface. `thinking` is the native model thought stream when the model emits one. They are separate on purpose, so the transcript can show what the assistant said without collapsing that into the model's private thought stream. `delta` remains final-answer prose only. The visible run can have narration before the answer, and native thinking can appear independently when enabled by the model/provider.
 
-The live gate is final-answer mode: `delta` starts once the answer phase begins. Native thought output is controlled by `thinking_stream` (default on); `thinking_summaries` remains a compatibility alias only. The timeline keeps the visible narration lines in the turn's step record (§27.1), so revisited chats preserve the run surface under the expanded receipt. See `config/settings.py`.
+The live gate is final-answer mode: `delta` starts once the answer phase begins. Native thought output is controlled by `thinking_stream` (default off, ADR 0043): the model reasons either way, and with the gate off the emission router consumes its reasoning text without streaming or recording it. The timeline keeps the visible narration lines in the turn's step record (§27.1), so revisited chats preserve the run surface under the expanded receipt. See `config/settings.py`.
 
-With counselor response modes (ADR 0034), `thinking_stream` is deliberately not
-the mode selector. Quick always uses the Quick model with minimal Gemini
-thinking and no requested provider-thought summaries. Think uses the Think
-model with high Gemini thinking; `thinking_stream` only decides whether native
-provider thought summaries are requested and emitted as `thinking` events.
+With counselor response modes (ADR 0034, 0043), `thinking_stream` is deliberately
+not the mode selector. Quick runs the Quick model at `reasoning_effort_quick`
+(`low`); Think runs the Think model at `reasoning_effort_think` (`high`). A goal
+turn keeps the effort of the mode it was started in. `thinking_stream` only
+decides whether the reasoning text is emitted as `thinking` events. Earlier
+turns' reasoning is stripped from the history sent to the model, so a chat
+started on another provider never replays its thoughts as text.
 
 ### 27.3 The turn registry (one module owns the turn lifecycle)
 
@@ -872,7 +874,7 @@ Five design questions resolved here as architecture (ADR 0022 carries the decisi
 
 **Feedback (PRD story 22):** `POST /v1/sessions/{id}/messages/{message_id}/feedback` with `{rating: "up" | "down" | null}` → `up`/`down` upsert into `counselle.feedback` (`id, user_id, session_id, message_id, rating, created_at`), keyed on `(user_id, message_id)`; `null` clears the rating (DELETE, 204). Re-submitting a different rating overwrites it. Feedback is an engineering instrument: the eval workflow reads this table (an export script in `evals/`, not a pipeline) to source regression questions from real thumbs-downs. Reason chips are a future addition (PRD).
 
-**Rate limiting (PRD story 50):** the public-facing app means strangers can spend the Gemini/Tavily budget.
+**Rate limiting (PRD story 50):** the public-facing app means strangers can spend the model/Tavily budget.
 
 - **Per-user, in-process sliding-window counters**, keyed by `user_id`, applied to the message-send route only — the only expensive route; reads are not limited.
 - Knobs in Settings: `turns_per_hour`, `turns_per_day`. Exceeded → `429` with `Retry-After`; the client shows a plain generic message (richer limit UX is a future addition per the PRD).
@@ -1058,7 +1060,7 @@ One static HTML file (no framework, no build step) served at `/` for logged-out 
 | Auth | `jwt_secret` (required, ≥32 bytes) + `jwt_lifetime_seconds`, `cookie_name`/`cookie_secure`, `google_oauth_client_id`/`_secret`, `oauth_state_secret` (falls back to the JWT secret), `oauth_redirect_url`, `password_min_length`. *(Reset-token TTL is a fastapi-users class default, not a Settings knob.)* |
 | Email | `email_provider` (`Literal["console"]` today; `smtp`/`resend` stubbed), `email_from` |
 | Rate limit | `turns_per_hour`, `turns_per_day` (per-user); `auth_attempts_per_window`, `auth_window_seconds` (per-IP, on login + forgot-password) |
-| Chat | `model_title` (cheap-tier title model, distinct from `model_cheap`), `title_max_len`, response-mode display/capability knobs, `thinking_stream` (default on; `thinking_summaries` compatibility alias), `thinking_threshold_chars` |
+| Chat | `model_title` (cheap-tier title model, distinct from `model_cheap`), `title_max_len`, response-mode display/capability knobs, `thinking_stream` (default off, ADR 0043), `thinking_threshold_chars` |
 | Streaming | `agent_stream_buffer_size` (resume ring buffer), `stream_buffer_bytes` (process-wide buffer byte budget), `persist_partial_timeout_s`, `reattach_enabled`, `agent_turn_timeout_s` (watchdog), `max_concurrent_turns`, `max_consumers_per_turn` |
 | Frontend | static bundle dir, serve on/off — planned per §33; in dev `frontend/` runs on the Vite dev server proxying `/v1` to the API |
 
@@ -1128,8 +1130,8 @@ before the next send.
 
 **Still open:**
 
-- `thinking` density — the model's own "Narrate As You Work" one-liner per round is the dead-air mitigation that ships (`thinking_stream` is on by default; `thinking_summaries` is compatibility-only). If dogfooding still shows sparse narration, add the cheap-model per-step summarizer (decide on evidence).
-- Think rollout — live smokes and two-mode eval comparison require Vertex/Tavily
+- `thinking` density — the model's own "Narrate As You Work" one-liner per round is the dead-air mitigation that ships (`thinking_stream` is off by default, ADR 0043). If dogfooding still shows sparse narration, add the cheap-model per-step summarizer (decide on evidence).
+- Think rollout — live smokes and two-mode eval comparison require Fireworks/Tavily
   credentials plus owner approval of quality/cost. Until then Quick remains the
   default and Think can be disabled honestly with `response_mode_think_enabled`.
 - Virtualization library — clone theirs vs a lighter modern one; decide when the long-chat surface needs it.
@@ -1840,7 +1842,7 @@ The loop is an outer iteration inside `run_agent_node`, not a new LangGraph node
 outer orchestrator, and not a model-callable tool (ADR 0041 D1). `app/graph.py` stays
 `prepare → agent → END`, zero diff. Concretely:
 
-- `app/goal_judge.py::derive_criteria` makes one cheap-model, typed-output call turning
+- `app/goal_judge.py::derive_criteria` makes one typed-output call (at `reasoning_effort_goal`) turning
   the goal statement into frozen `GoalCriterion`s plus a mandatory `not_checked_note`
   (never nullable — see §42.4).
 - The statement and criteria are rendered into the agent's `instructions` string,
@@ -1950,7 +1952,8 @@ equivalent to setting it lower.
 The summarizing tier takes `model=None` and so **inherits the running agent's model**,
 which on a goal turn is already the cheap tier (`goal_agent_model_setting`) — no second
 model knob, and no second path to a model: resolving a setting string here would bypass
-`app/vertex.py`'s Vertex auth (ADR 0011, one seam). Its usage folds into the turn's
+`app/llm.py`'s key, retries and reasoning effort (ADR 0011/0043, one seam). Because the
+effort is the model's own default setting, the summary reasons at the turn's effort too. Its usage folds into the turn's
 shared `RunUsage`, so summary tokens are priced inside the agent's own slice at the
 agent's own rate and its request counts against `goal_max_model_requests` like any other
 — a summary is a real request, and the ledger says so. `keep_tokens` preserves an 8,000-token

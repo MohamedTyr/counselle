@@ -23,7 +23,7 @@ import yaml
 from pydantic import BaseModel
 
 from app.deps import Runtime, build_runtime
-from app.model_selection import counselor_model_selection, model_name_from_setting
+from app.model_selection import counselor_model_selection
 from app.run_turn import run_turn
 from app.sessions import create_session
 from app.workspace.changes import WorkspaceEventBus
@@ -31,7 +31,7 @@ from app.workspace.models import DocumentCreate, MemoryCreate
 from app.workspace.service_documents import create_document
 from app.workspace.service_memory import create_memories
 from config.logging import setup_logging
-from config.settings import get_settings
+from config.settings import ReasoningEffort, get_settings
 from domain.events import Event
 from domain.response_mode import ResponseMode
 from domain.specs import SourceConfig
@@ -40,6 +40,9 @@ logger = structlog.get_logger(__name__)
 EVALS_DIR = Path(__file__).parent
 QUESTIONS_PATH = EVALS_DIR / "questions.yaml"
 JUDGE_PROMPT_PATH = EVALS_DIR / "judge.md"
+#: The eval judge is a measurement instrument, not a product role: it reasons
+#: at one fixed effort so every candidate run is scored by the same judge.
+EVAL_JUDGE_REASONING_EFFORT: ReasoningEffort = "high"
 QUESTION_TIMEOUT_S = 600
 QUESTION_TYPES = (
     "routing",
@@ -86,14 +89,11 @@ class JudgeOutput(BaseModel):
 
 def build_judge_agent(settings: Any) -> Any:
     from pydantic_ai import Agent
-    from pydantic_ai.models.google import GoogleModel
-    from pydantic_ai.providers.google_cloud import GoogleCloudProvider
 
-    from app.vertex import build_vertex_client
+    from app.llm import build_model
 
-    model = GoogleModel(
-        model_name_from_setting(settings.model_cheap),
-        provider=GoogleCloudProvider(client=build_vertex_client(settings)),
+    model = build_model(
+        settings, settings.model_cheap, reasoning_effort=EVAL_JUDGE_REASONING_EFFORT
     )
     return Agent(model, instructions=JUDGE_PROMPT_PATH.read_text(), output_type=JudgeOutput)
 
@@ -269,9 +269,20 @@ def _parts(messages: list[dict[str, Any]], kind: str) -> list[dict[str, Any]]:
     ]
 
 
+def _call_args(raw: Any) -> dict[str, Any]:
+    """A serialized tool call's args as a dict: OpenAI-compatible providers
+    store them as JSON text, others as an object."""
+    if isinstance(raw, str):
+        try:
+            raw = json.loads(raw)
+        except json.JSONDecodeError:
+            return {}
+    return raw if isinstance(raw, dict) else {}
+
+
 def capture_turn(events: list[Event], messages: list[dict[str, Any]]) -> TurnCapture:
     calls = [
-        {"tool_name": p.get("tool_name"), "args": p.get("args") or {}}
+        {"tool_name": p.get("tool_name"), "args": _call_args(p.get("args"))}
         for p in _parts(messages, "tool-call")
     ]
     returns = [
@@ -1251,6 +1262,8 @@ def build_report(
     response_mode: ResponseMode,
     model: str,
     context: EvalContext,
+    *,
+    reasoning_effort: str,
 ) -> dict[str, Any]:
     per_category = {}
     for kind in QUESTION_TYPES:
@@ -1266,6 +1279,7 @@ def build_report(
         "generated_at": datetime.now(UTC).isoformat(),
         "response_mode": response_mode.value,
         "model": model,
+        "reasoning_effort": reasoning_effort,
         "eval_context": {
             "sections": list(context.sections),
             "covered": context.covered,
@@ -1291,6 +1305,7 @@ def render_markdown(report: dict[str, Any]) -> str:
         f"# Eval report — {report['generated_at'][:10]}",
         "",
         f"Mode: `{report['response_mode']}` · Model: `{report['model']}` · "
+        f"Reasoning effort: `{report['reasoning_effort']}` · "
         f"attempted: {attempted} · "
         f"passed: {report['passed']} · skipped: {report['skipped']}",
         "",
@@ -1319,7 +1334,7 @@ def _report_stem(report: dict[str, Any], *, suffix_mode: bool = False) -> str:
     stamp = report["generated_at"][:10]
     mode = str(report.get("response_mode") or "").strip()
     suffix = f"-{mode}" if suffix_mode and mode else ""
-    return f"report-{stamp}{suffix}"
+    return f"report-{stamp}{suffix}-{report['reasoning_effort']}"
 
 
 def write_reports(report: dict[str, Any], *, suffix_mode: bool = False) -> None:
@@ -1375,7 +1390,13 @@ async def amain(args: argparse.Namespace) -> int:
                 for q in selected
             ]
             write_reports(
-                build_report(results, response_mode, selection.model_setting, context),
+                build_report(
+                    results,
+                    response_mode,
+                    selection.model_setting,
+                    context,
+                    reasoning_effort=selection.reasoning_effort,
+                ),
                 suffix_mode=args.compare_response_modes or response_mode is ResponseMode.THINK,
             )
     finally:

@@ -116,6 +116,20 @@ def test_capture_turn_collects_v2_events_and_structural_messages() -> None:
     assert capture.usage == {"input_tokens": 3, "output_tokens": 2}
 
 
+def test_capture_turn_parses_json_text_tool_args() -> None:
+    # OpenAI-compatible providers serialize tool-call args as JSON text.
+    messages = [
+        {
+            "parts": [
+                {"part_kind": "tool-call", "tool_name": "get_facts", "args": '{"unitid": 1}'},
+                {"part_kind": "tool-call", "tool_name": "get_facts", "args": "not json"},
+            ]
+        }
+    ]
+    capture = capture_turn([], messages)
+    assert [call["args"] for call in capture.tool_calls] == [{"unitid": 1}, {}]
+
+
 def test_parse_args_defaults_to_quick_and_supports_compare() -> None:
     default = parse_args([])
     assert default.response_mode == "quick"
@@ -140,14 +154,16 @@ def test_report_records_response_mode_and_uses_mode_suffix() -> None:
             }
         ],
         ResponseMode.THINK,
-        "google-vertex:gemini-3.1-pro-preview",
+        "fireworks:accounts/fireworks/models/deepseek-v4p1-flash",
         make_context(),
+        reasoning_effort="high",
     )
     assert report["response_mode"] == "think"
-    assert report["model"] == "google-vertex:gemini-3.1-pro-preview"
+    assert report["model"] == "fireworks:accounts/fireworks/models/deepseek-v4p1-flash"
+    assert report["reasoning_effort"] == "high"
     dated = {**report, "generated_at": "2026-07-22T00:00:00+00:00"}
-    assert _report_stem(dated) == "report-2026-07-22"
-    assert _report_stem(dated, suffix_mode=True) == "report-2026-07-22-think"
+    assert _report_stem(dated) == "report-2026-07-22-high"
+    assert _report_stem(dated, suffix_mode=True) == "report-2026-07-22-think-high"
 
 
 def test_safe_summary_excludes_payload_values_and_excerpts() -> None:

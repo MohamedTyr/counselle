@@ -511,6 +511,15 @@ def test_result_is_error_normal_shapes_are_fine() -> None:
     assert StepMapper.result_is_error(object(), None) is False
 
 
+def test_result_is_error_reads_only_string_statuses() -> None:
+    # `get_facts` returns the school's data status as a dict; it must read as
+    # a normal result, not crash the turn.
+    facts = {"school": {}, "status": {"has_collegedata": True, "tabs": {}}, "rows": []}
+    assert StepMapper.result_is_error(object(), facts) is False
+    assert StepMapper.result_is_error(object(), {"status": "rejected"}) is True
+    assert StepMapper.result_is_error(object(), {"status": "error"}) is True
+
+
 # ---------------------------------------------------------------------------
 # detail_for: the expandable receipts
 # ---------------------------------------------------------------------------
@@ -749,6 +758,23 @@ def test_detail_for_get_facts_counts_only_present_value_rows(mapper: StepMapper)
     assert detail.value_count == 2
     assert detail.row_count is None
     assert detail.query is None
+
+
+def test_detail_for_overflowed_get_facts_keeps_its_value_count(mapper: StepMapper) -> None:
+    # A large read is spilled to a handle; its receipt counts rows as
+    # `row_count`. Without a value_count the step keeps its in-progress label.
+    detail = mapper.detail_for(
+        "get_facts",
+        {"unitid": 198419, "sections": ["admissions"]},
+        {
+            "status": "overflow",
+            "public_receipt": {"schools": ["Duke University"], "row_count": 7},
+        },
+        80,
+    )
+
+    assert detail.value_count == 7
+    assert detail.schools == ["Duke University"]
 
 
 def test_detail_for_viz_kind_reads_public_receipt(mapper: StepMapper) -> None:

@@ -15,7 +15,7 @@ lifecycle, the plan requires proving the following against the pinned
    built-in retry-on-validation-failure for output tools), not a hard failure;
 3. ``result.all_messages()`` after the run contains the ``ask_student`` tool
    call followed by the synthesized ``ToolReturnPart``, this shape survives
-   the pinned Google model's offline message mapper (no network), and the
+   the production model's offline message mapper (no network), and the
    message list can seed a second, distinct ``Agent`` run that produces a
    plain ``str`` output without re-executing any first-run function tool.
 
@@ -28,6 +28,7 @@ implementation slice and update the ADR — do not fall back to LangGraph
 from __future__ import annotations
 
 from collections.abc import Callable
+from types import SimpleNamespace
 
 from pydantic import BaseModel, Field
 from pydantic_ai import Agent
@@ -42,9 +43,10 @@ from pydantic_ai.messages import (
 )
 from pydantic_ai.models import ModelRequestParameters
 from pydantic_ai.models.function import AgentInfo, FunctionModel
-from pydantic_ai.models.google import GoogleModel
+from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.output import ToolOutput
-from pydantic_ai.providers.google import GoogleProvider
+
+from app.llm import build_model
 
 
 class _DraftV2(BaseModel):
@@ -179,19 +181,20 @@ async def test_all_messages_seed_a_continuation_run_with_no_first_run_tool_repla
         for part in history[2].parts
     )
 
-    # The completed history maps cleanly through the pinned Google model's
+    # The completed history maps cleanly through the production model's
     # offline message mapper (no network call — this only builds the request
-    # payload) so a real gemini continuation would not choke on a dangling
-    # tool call or malformed turn.
-    google_model = GoogleModel(
-        "gemini-2.5-flash", provider=GoogleProvider(api_key="offline-test-key")
+    # payload) so a real continuation would not choke on a dangling tool
+    # call or malformed turn.
+    production_model = build_model(
+        SimpleNamespace(fireworks_api_key="offline-test-key", agent_model_retry_attempts=1),
+        "fireworks:accounts/fireworks/models/deepseek-v4p1-flash",
+        reasoning_effort="none",
     )
-    # noqa: SLF001 - Phase 0 characterization only; proves the pinned Google
+    assert isinstance(production_model, OpenAIChatModel)
+    # noqa: SLF001 - Phase 0 characterization only; proves the production
     # request mapper accepts this exact message shape.
-    _system_instruction, contents = await google_model._map_messages(
-        history, ModelRequestParameters()
-    )
-    assert len(contents) == 3
+    contents = await production_model._map_messages(history, ModelRequestParameters())
+    assert [message["role"] for message in contents] == ["user", "assistant", "tool"]
 
     second_calls = {"n": 0}
 

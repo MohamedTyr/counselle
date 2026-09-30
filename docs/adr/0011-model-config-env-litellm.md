@@ -1,6 +1,6 @@
 # ADR 0011 — Model configuration via per-agent env, optional LiteLLM sidecar
 
-**Status:** Accepted
+**Status:** Accepted — the default provider/model and the "any provider via env, no code change" claim are superseded by [ADR 0043](0043-fireworks-deepseek-default-model.md).
 
 ## Context
 "We must be able to configure which model to use with ease" is a hard requirement — ideally per subagent (cheap model for routing, strong for synthesis).

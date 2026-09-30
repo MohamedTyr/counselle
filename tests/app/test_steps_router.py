@@ -801,7 +801,7 @@ def test_close_flushes_pending_thinking_paragraph(rig: Rig) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Native thinking feed (Gemini thought summaries)
+# Native thinking feed (the model's own reasoning)
 # ---------------------------------------------------------------------------
 
 
@@ -827,6 +827,32 @@ def test_thinking_deltas_accumulate_into_paragraphs(rig: Rig) -> None:
         "First thought.",
         "Second thought.",
     ]
+    assert rig.router.thinking_lines == ["First thought.", "Second thought."]
+
+
+def test_thinking_is_consumed_but_never_emitted_or_recorded_when_off() -> None:
+    """`thinking_stream=false` (ADR 0043): raw chain of thought is neither
+    streamed nor persisted, while narration and the answer are untouched."""
+    chunks: list[dict[str, Any]] = []
+    router = EmissionRouter(
+        writer=chunks.append,
+        mapper=StepMapper(load_yaml_asset("step_labels"), _SCHOOL_NAMES.get),
+        emit_thinking=False,
+    )
+    for event in (
+        PartStartEvent(index=0, part=ThinkingPart(content="Maybe 40% admit?\n\nGuess")),
+        PartDeltaEvent(index=0, delta=ThinkingPartDelta(content_delta="ing more.\n\n")),
+        PartEndEvent(index=0, part=ThinkingPart(content=""), next_part_kind="text"),
+        _text_start("Checking the database."),
+        _text_end("tool-call"),
+        PartStartEvent(index=0, part=ThinkingPart(content="unflushed tail")),
+    ):
+        router.handle(event)
+    router.close("complete")
+
+    assert [chunk for chunk in chunks if chunk["type"] == "thinking"] == []
+    assert router.thinking_lines == []
+    assert router.narration_lines == ["Checking the database."]
 
 
 # ---------------------------------------------------------------------------
