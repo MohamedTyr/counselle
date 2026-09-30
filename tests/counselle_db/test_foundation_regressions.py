@@ -101,7 +101,8 @@ def _query_catalog(
 ) -> tuple[Any, _QueryConnection]:
     connection = _QueryConnection(records, coverage_rows)
     snapshot = SimpleNamespace(fact_keys=fact_keys or {})
-    return SimpleNamespace(pool=_Pool(connection), snapshot=snapshot), connection
+    catalog = SimpleNamespace(pool=_Pool(connection), snapshot=snapshot, school_count=2746)
+    return catalog, connection
 
 
 async def test_query_database_passes_params_separately_and_applies_row_cap(
@@ -197,7 +198,8 @@ async def test_query_database_cross_school_aggregate_carries_named_key_coverage(
 ) -> None:
     """A GROUP BY/aggregate query that binds a catalog-known fact key gets its
     denominator back from `fact_coverage`, in the same transaction (appendix
-    F-ii's denominator mechanism)."""
+    F-ii's denominator mechanism). The total is every profiled school (the
+    catalog's 2,746), not the view's crawled-schools total."""
     as_of = datetime(2026, 9, 1, tzinfo=UTC)
     catalog, connection = _query_catalog(
         [{"fact_key": "admissions.rate", "n": 2000}],
@@ -206,7 +208,7 @@ async def test_query_database_cross_school_aggregate_carries_named_key_coverage(
             {
                 "fact_key": "admissions.rate",
                 "schools_with_value": 2000,
-                "schools_total": 2746,
+                "schools_total": 2239,
                 "computed_at": as_of,
             }
         ],

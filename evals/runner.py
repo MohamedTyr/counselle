@@ -736,6 +736,17 @@ def score_deterministic(expects: dict[str, Any], capture: TurnCapture) -> dict[s
             ):
                 expected_pair = pair
                 break
+        if (
+            expected_pair is None
+            and query_payloads
+            and required_pair is not None
+            and required_pair[0] == 0
+            and not any(_denominator_pair_from_payload(payload) for payload in query_payloads)
+        ):
+            # A fact key no school reports has no `fact_coverage` row, so the
+            # query that checked it returns none to carry the pair; the declared
+            # 0-covered pair is the honest statement the prose must still make.
+            expected_pair = required_pair
         normalized_prose = re.sub(r"[*_`~]+", "", capture.prose).replace(",", "")
         number_words = {
             "zero": "0",

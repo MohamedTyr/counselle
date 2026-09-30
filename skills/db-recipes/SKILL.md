@@ -45,7 +45,9 @@ read it directly rather than recomputing a denominator by hand, and attach the
 sentence:
 
 ```sql
-SELECT schools_with_value AS covered, schools_total AS total, computed_at AS as_of
+SELECT schools_with_value AS covered,
+       (SELECT count(*) FROM cds_library.school_profiles) AS total,
+       computed_at AS as_of
 FROM cds_library.fact_coverage
 WHERE fact_key = $1
 ```
@@ -54,6 +56,10 @@ Every ranking or aggregate query you write yourself must still return columns
 named `covered`, `total`, and `as_of` — bind the ranked fact key as a
 `fact_key = $n`/`IN` parameter so those columns reflect a real denominator,
 not an implicit row count.
+
+The total is every profiled school, not the view's own `schools_total` (only the
+schools with a CollegeData crawl): a ranking is out of all the schools Counselle
+knows, and the coverage block `query_database` attaches uses the same total.
 
 ## Numeric candidate filter
 
@@ -65,7 +71,7 @@ bound `fact_key` and the real numeric column, `value_num` — never a text or
 ```sql
 SELECT f.school_id, p.name, f.value_num, f.display, f.observed_at,
        count(*) OVER () AS covered,
-       (SELECT schools_total FROM cds_library.fact_coverage WHERE fact_key = $1) AS total,
+       (SELECT count(*) FROM cds_library.school_profiles) AS total,
        (SELECT computed_at FROM cds_library.fact_coverage WHERE fact_key = $1) AS as_of
 FROM cds_library.school_facts_sql f
 JOIN cds_library.school_profiles p ON p.id = f.school_id

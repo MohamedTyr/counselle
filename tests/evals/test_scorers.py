@@ -432,6 +432,19 @@ def test_query_database_citation_guard_passes_when_uncited_or_refetched() -> Non
         assert checks["query_database_citation_guard"]["passed"] is True
 
 
+def test_denominator_for_a_key_no_school_reports_needs_a_query_and_the_zero_pair() -> None:
+    """A key with no coverage has no `fact_coverage` row, so the checking query
+    returns nothing; the answer must still run it and state 0 out of the total."""
+    expects = {"denominator": True, "denominator_total": 2746, "denominator_covered": 0}
+    empty = {"columns": ["covered", "total", "as_of"], "rows": []}
+    stated = make_query_capture("0 of 2,746 profiled schools can be evaluated on it.", empty)
+    unstated = make_query_capture("No school reports that key.", empty)
+    unqueried = make_capture(prose="0 of 2,746 profiled schools can be evaluated on it.")
+    assert score_deterministic(expects, stated)["denominator"]["passed"] is True
+    assert score_deterministic(expects, unstated)["denominator"]["passed"] is False
+    assert score_deterministic(expects, unqueried)["denominator"]["passed"] is False
+
+
 def test_denominator_requires_query_evidence_and_exact_prose_pair() -> None:
     expects = {"denominator": True, "denominator_total": 2746}
     payload = {
