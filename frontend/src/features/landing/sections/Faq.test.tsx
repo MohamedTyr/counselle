@@ -2,9 +2,13 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import { Faq } from "./Faq";
 afterEach(() => vi.restoreAllMocks());
+const questionToggles = () =>
+  screen
+    .getAllByRole("button")
+    .filter((button) => button.classList.contains("lp-faq-toggle"));
 it("keeps aria-controls targets mounted and opens answers immediately from keyboard", () => {
   render(<Faq />);
-  const toggles = screen.getAllByRole("button");
+  const toggles = questionToggles();
   toggles.forEach((button) =>
     expect(
       document.getElementById(button.getAttribute("aria-controls")!),
@@ -27,7 +31,7 @@ it("keeps aria-controls targets mounted and opens answers immediately from keybo
 });
 it("enables pointer feedback and handles rapid open/close without stale answers", () => {
   render(<Faq />);
-  const button = screen.getAllByRole("button")[1]!;
+  const button = questionToggles()[1]!;
   fireEvent.click(button, { detail: 1 });
   expect(button.closest(".lp-faq-list")).toHaveAttribute(
     "data-pointer-motion",
@@ -39,4 +43,26 @@ it("enables pointer feedback and handles rapid open/close without stale answers"
     "aria-hidden",
     "true",
   );
+});
+it("filters between students and schools and opens the first question of each", () => {
+  render(<Faq />);
+  const students = screen.getByRole("button", { name: "Students" });
+  const schools = screen.getByRole("button", { name: "Schools & counselors" });
+  expect(students).toHaveAttribute("aria-pressed", "true");
+  expect(
+    screen.getByRole("button", { name: "Why not just ask ChatGPT?" }),
+  ).toHaveAttribute("aria-expanded", "true");
+  expect(
+    screen.queryByRole("button", { name: "What can a counselor see?" }),
+  ).toBeNull();
+  fireEvent.click(schools);
+  expect(schools).toHaveAttribute("aria-pressed", "true");
+  expect(
+    screen.getByRole("button", {
+      name: "Does it replace our school counselors?",
+    }),
+  ).toHaveAttribute("aria-expanded", "true");
+  expect(
+    screen.queryByRole("button", { name: "Why not just ask ChatGPT?" }),
+  ).toBeNull();
 });
