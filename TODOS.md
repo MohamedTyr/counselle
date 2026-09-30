@@ -49,6 +49,12 @@
   - The 37px "Skip to content" link, accepted: it is a keyboard target, not a touch target.
   - The unused registry exports knip still lists, and test-only Python helpers.
 
+## Focused Answer speed pass (`plans/quick-answers-plan.md`): what is left
+
+- **Which ranking denominator is right.** The `denominator_honesty` evals expect "covered out of 2,746 profiled schools", and the base prompt's composition law agrees, but the `db-recipes` `fact_coverage` recipe returns the view's own `total` (2,239, the schools with a CollegeData crawl). No answer can pass, under Gemini or DeepSeek (0/4 in every run). Decide which denominator is honest, then fix the recipe or the eval.
+- **`get_school_profile` still overflows.** One school's full profile is ~84,000 characters, so a call always spills to a read-back round. It is rare in Focused Answer (4 calls in 37 cases); the same compact-row treatment as `get_facts` would fix it.
+- **One eval run is noisy.** Single-case flips between identical runs are common (the memory case picked `update_profile` over `remember`; a score-band answer added an invented threshold). Judge a change on two runs, not one.
+
 ## DeepSeek on Fireworks (ADR 0043): what is left
 
 Every live model call moved from Gemini on Vertex to DeepSeek V4.1 Flash on Fireworks (`plans/fireworks-deepseek-plan.md`). Still open:

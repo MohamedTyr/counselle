@@ -365,10 +365,19 @@ def test_get_facts_mints_one_db_citation_with_facts_vintage_and_per_fact_vintage
     assert citation.tier is None
     assert citation.vintage == "Counselle school data · checked August 2026"
     assert citation.facts_updated_at == date(2026, 8, 15)
-    row = result["rows"][0]
-    assert row["marker"] == "[1]"
-    assert row["available"] is True
-    assert row["vintage"] == "Counselle school data · 2025-26 · checked August 2026"
+    # The model sees one compact row per fact: what it cites, and nothing that
+    # repeats per row (the shared citation rides once at top level).
+    assert result["rows"] == [
+        {
+            "fact_key": "admissions.rate",
+            "label": "Admit rate",
+            "display": "6%",
+            "vintage": "Counselle school data · 2025-26 · checked August 2026",
+            "marker": "[1]",
+        }
+    ]
+    assert result["marker"] == "[1]"
+    assert result["citation"]["vintage"] == "Counselle school data · checked August 2026"
 
 
 def test_get_facts_falls_back_to_identity_vintage_when_facts_updated_at_is_null() -> None:
@@ -494,3 +503,44 @@ def test_query_database_mints_no_db_citation() -> None:
 
     assert len(registry) == 0
     assert result == payload
+
+
+def test_compact_facts_rows_keep_caveats_and_leave_unavailable_untouched() -> None:
+    """The model's compact `get_facts` rows drop only repeated envelope
+    fields: a row's caveats and the per-key absence states survive."""
+    from app.tool_middleware import compact_facts_for_model
+
+    unavailable = [
+        {"fact_key": "admissions.yield", "state": "not_reported", "display": "Not reported"}
+    ]
+    result = {
+        "school": {"unitid": 1, "name": "A"},
+        "rows": [
+            {
+                "field": "admissions.rate",
+                "label": "Admit rate",
+                "display": "6%",
+                "raw": 0.06,
+                "vintage": "v",
+                "marker": "[1]",
+                "caveats": [{"kind": "stale_facts", "text": "old"}],
+                "observed_at": "2026-08-15",
+            }
+        ],
+        "unavailable": unavailable,
+    }
+
+    compact = compact_facts_for_model(result, "get_facts")
+
+    assert compact["rows"] == [
+        {
+            "fact_key": "admissions.rate",
+            "label": "Admit rate",
+            "display": "6%",
+            "vintage": "v",
+            "marker": "[1]",
+            "caveats": [{"kind": "stale_facts", "text": "old"}],
+        }
+    ]
+    assert compact["unavailable"] is unavailable
+    assert compact_facts_for_model(result, "get_school_profile") is result

@@ -296,10 +296,11 @@ def _make_get_facts_tool(catalog: Any, middleware: ToolMiddlewareContext | None)
         (``truncated: true`` means narrow further and call again); ``rows``
         fills the budget first since it carries real data.
 
-        Each ``rows`` entry carries a preformatted ``display``, its typed
-        ``value``, and a code-owned ``vintage`` naming the reporting period it
-        covers (or that the period is unstated) and when it was checked. **Copy
-        ``display`` and ``vintage`` verbatim** — never reformat a number and
+        Each ``rows`` entry carries its ``fact_key``, ``label``, a preformatted
+        ``display``, a code-owned ``vintage`` naming the reporting period it
+        covers (or that the period is unstated) and when it was checked, and
+        the ``marker`` to cite it with. **Copy ``display`` and ``vintage``
+        verbatim** — never reformat a number and
         never merge two facts' vintages into one shared period. Each
         ``unavailable`` entry carries its own ``display`` (the exact absence
         word for its ``state``) — copy it verbatim too, never invent a

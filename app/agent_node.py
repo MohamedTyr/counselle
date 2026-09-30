@@ -106,14 +106,18 @@ from app.records import (
     now_iso,
 )
 from app.skills import (
+    FOCUSED_ANSWER,
     SelectedSkillValidationError,
     make_load_skill_tool,
     render_selected_skills,
     validate_selected_skills,
+    with_default_response_mode,
+    without_response_mode,
 )
 from app.sources import SourceRegistry
 from app.steps import CloseReason, EmissionRouter, StepMapper
 from app.student_context import STUDENT_CONTEXT_UNAUTHENTICATED
+from app.tool_budget import ToolRoundBudget
 from app.tool_middleware import ToolMiddlewareContext, process_tool_result
 from app.tool_overflow import ToolResultStore
 from app.toolset import GATEABLE_TOOLS, build_db_tools, build_tools, make_tool_deps
@@ -1777,7 +1781,20 @@ async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
             update={"edu": source_config.edu and "search_school_site" in mounted_names}
         )
     )
-    selected_instructions = render_selected_skills(ids["selected_skills"])
+    # A chat turn always runs in a response mode (Focused Answer unless one
+    # was chosen). A goal turn runs in goal mode instead, and the essay panel
+    # has no mode picker, so both keep the selection as sent.
+    selected_skills: list[str] = list(ids["selected_skills"])
+    if goal_mode:
+        selected_skills = without_response_mode(selected_skills)
+    elif surface is Surface.CHAT:
+        selected_skills = with_default_response_mode(selected_skills)
+    selected_instructions = render_selected_skills(selected_skills)
+    tool_budget = (
+        [ToolRoundBudget(settings.focused_answer_max_tool_rounds)]
+        if surface is Surface.CHAT and FOCUSED_ANSWER in selected_skills
+        else []
+    )
     # D6: one shared RunUsage for the WHOLE turn — the agent's own iterations
     # AND (goal mode only) the criteria/judge calls — so every dollar spent
     # on this turn counts against one ledger (never invisible to it). Named
@@ -1903,6 +1920,7 @@ async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
         capabilities=[
             PlanReminder(plan_state),
             *compaction_capabilities(settings, writer, goal_mode=goal_mode),
+            *tool_budget,
         ],
         # Normal-run output: prose or one validated ask_student draft
         # (app/clarification.py — factored out so an A2 continuation run can
@@ -2112,6 +2130,9 @@ async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
         ts=now_iso(),
         messages_offset=offset,
         synthesized_answer=synthesized,
+        # The student's own selection, not the run's effective one (defaulted
+        # mode, or modes dropped on a goal turn): the UI rebuilds its picker
+        # from this and a parked turn resumes with it.
         selected_skills=ids["selected_skills"],
         continuation_of=continuation_of,
         source_config=record_source_config,

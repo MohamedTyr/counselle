@@ -54,6 +54,7 @@ from app.run_handle import RunHandleStore
 from app.run_turn import run_continuation_turn, run_turn
 from app.state import TemporalContext
 from app.steps import EmissionRouter
+from app.tool_budget import BUDGET_SPENT_INSTRUCTION
 from app.toolset import ToolDeps
 from app.transcript import extract_transcript
 from app.viz_signature import render_spec_signature, viz_payload_signature
@@ -102,6 +103,7 @@ class FakeSettings:
     # float-typed so tests can drop it to 0.1 to fire the watchdog fast.
     agent_turn_timeout_s: float = 3600
     agent_tool_result_max_chars: int = 8_000
+    focused_answer_max_tool_rounds: int = 4
     essay_context_max_chars: int = 8_000
     # Phase-1 fields (BC-01 / BC-08) — also read directly after CFG-02 removes
     # their getattr fallbacks; the stub MUST carry them or __init__ /
@@ -2333,6 +2335,41 @@ async def test_budget_cutoff_closes_steps_and_streams_the_budget_delta() -> None
     _assert_every_step_start_has_a_terminal(events)
 
 
+async def test_focused_answer_withdraws_tools_after_its_rounds_and_still_answers() -> None:
+    """A chat turn defaults to Focused Answer, whose tool rounds are capped:
+    the request after the cap carries no tools (not even ``ask_student``) and
+    the budget instruction, so the turn ends in an answer rather than the
+    budget apology or a question."""
+    tool_counts: list[int] = []
+    output_tools: list[list[str]] = []
+    instructions: list[str] = []
+
+    def searcher(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+        tool_counts.append(len(info.function_tools))
+        output_tools.append([tool.name for tool in info.output_tools])
+        instructions.append(info.instructions or "")
+        if info.function_tools:
+            return ModelResponse(parts=[ToolCallPart(tool_name="search_web", args={"query": "x"})])
+        return ModelResponse(parts=[TextPart("Here is the answer from what I found.")])
+
+    settings = FakeSettings()
+    settings.focused_answer_max_tool_rounds = 2
+    rig = Rig(_fn_model(searcher), settings=settings)
+
+    events = await rig.turn(str(uuid4()), "hi", _WEB_ONLY)
+
+    assert _done_status(events) == "complete"
+    assert "Here is the answer from what I found." in _text(events)
+    assert "tool budget" not in _text(events)
+    assert rig.tavily.calls == 2
+    assert [count > 0 for count in tool_counts] == [True, True, False]
+    # A clarifying question cannot stand in for the answer once it is spent.
+    assert "ask_student" in output_tools[0]
+    assert output_tools[2] == []
+    assert BUDGET_SPENT_INSTRUCTION not in instructions[1]
+    assert BUDGET_SPENT_INSTRUCTION in instructions[2]
+
+
 # ---------------------------------------------------------------------------
 # (i) B1b: the turn record + the prose invariant
 # ---------------------------------------------------------------------------
@@ -2452,7 +2489,7 @@ async def test_selected_response_mode_is_injected_once_with_precedence() -> None
     prompt = "\n".join(seen_prompts)
     assert prompt.count("Selection group: response-mode") == 1
     assert prompt.count("### Selected skill: focused-answer") == 1
-    assert prompt.count("Use the smallest evidence set that changes the decision.") == 1
+    assert prompt.count("Thorough multi-source research") == 1
 
 
 async def test_malformed_restored_selection_fails_before_meta_or_record_write() -> None:
