@@ -105,6 +105,7 @@ class FakeSettings:
     agent_tool_result_max_chars: int = 8_000
     focused_answer_max_tool_rounds: int = 4
     focused_answer_max_searches: int = 2
+    model_read_timeout_s: float = 45.0
     essay_context_max_chars: int = 8_000
     # Phase-1 fields (BC-01 / BC-08) — also read directly after CFG-02 removes
     # their getattr fallbacks; the stub MUST carry them or __init__ /
@@ -592,9 +593,16 @@ async def _run_node_capturing_model_factory(
     """Run the node with no injected model factory and return the
     ``(model_setting, reasoning_effort)`` it asked the real factory for."""
     factory_calls: list[tuple[str, str]] = []
+    read_timeouts: list[float | None] = []
 
-    def capture_factory(_settings: Any, model_setting: str, reasoning_effort: str) -> Any:
+    def capture_factory(
+        _settings: Any,
+        model_setting: str,
+        reasoning_effort: str,
+        read_timeout_s: float | None = None,
+    ) -> Any:
         factory_calls.append((model_setting, reasoning_effort))
+        read_timeouts.append(read_timeout_s)
         return object()
 
     _CapturingAgent.captured_model_settings = []
@@ -623,6 +631,8 @@ async def _run_node_capturing_model_factory(
     # The effort rides on the model; no per-run settings may override it
     # (the goal-only summarizing compaction tier would never see them).
     assert _CapturingAgent.captured_model_settings == [None]
+    # A chat turn streams every request, so it gets the stall timeout.
+    assert read_timeouts == [settings.model_read_timeout_s]
     return factory_calls[0]
 
 

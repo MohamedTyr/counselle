@@ -31,6 +31,7 @@ def _settings(**overrides: object) -> SimpleNamespace:
     values: dict[str, object] = {
         "fireworks_api_key": "fw-test-key",
         "agent_model_retry_attempts": 3,
+        "model_read_timeout_s": 45.0,
     }
     values.update(overrides)
     return SimpleNamespace(**values)
@@ -46,6 +47,13 @@ def test_builds_a_fireworks_model_at_the_requested_effort_without_network() -> N
     assert str(client.base_url).rstrip("/") == FIREWORKS_BASE_URL
     # `agent_model_retry_attempts` counts the first try; the SDK counts retries.
     assert client.max_retries == 2
+    # A non-streamed call keeps the SDK default; a streamed turn passes the
+    # stall timeout, so a request stalled before its first byte is retried.
+    assert client.timeout == openai.DEFAULT_TIMEOUT
+    streamed = build_model(_settings(), _MODEL, reasoning_effort="high", read_timeout_s=45.0)
+    assert isinstance(streamed, OpenAIChatModel)
+    assert isinstance(streamed.client.timeout, httpx.Timeout)
+    assert streamed.client.timeout.read == 45.0
 
 
 def test_missing_key_raises_a_clear_error() -> None:

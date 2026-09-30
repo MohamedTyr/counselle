@@ -186,7 +186,11 @@ async def test_all_messages_seed_a_continuation_run_with_no_first_run_tool_repla
     # payload) so a real continuation would not choke on a dangling tool
     # call or malformed turn.
     production_model = build_model(
-        SimpleNamespace(fireworks_api_key="offline-test-key", agent_model_retry_attempts=1),
+        SimpleNamespace(
+            fireworks_api_key="offline-test-key",
+            agent_model_retry_attempts=1,
+            model_read_timeout_s=45.0,
+        ),
         "fireworks:accounts/fireworks/models/deepseek-v4p1-flash",
         reasoning_effort="none",
     )

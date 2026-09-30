@@ -82,7 +82,11 @@ async def test_stripped_history_is_accepted_and_sends_no_think_text() -> None:
     assert result.output == "Both are reaches."
 
     production_model = build_model(
-        SimpleNamespace(fireworks_api_key="offline-test-key", agent_model_retry_attempts=1),
+        SimpleNamespace(
+            fireworks_api_key="offline-test-key",
+            agent_model_retry_attempts=1,
+            model_read_timeout_s=45.0,
+        ),
         "fireworks:accounts/fireworks/models/deepseek-v4p1-flash",
         reasoning_effort="low",
     )

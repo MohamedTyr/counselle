@@ -222,6 +222,15 @@ class Settings(BaseSettings):
     # and connection/timeout errors -- never a blanket retry, so a genuine
     # 400/401/403 still surfaces immediately.
     agent_model_retry_attempts: int = Field(default=3, gt=0)
+    # Seconds a chat turn's (streamed) model request may wait for its next
+    # byte, the first included, before it times out and is retried. Measured
+    # 2026-09-30: headers and the first token arrive together in 0.4-2.7s, one
+    # request in twenty waited 13s, and eval turns stalled 100-211s before any
+    # byte. Streams never paused
+    # mid-way (high-effort reasoning streams with gaps under 1.5s), so this
+    # binds only on those stalls. Non-streamed calls (judge, titles) and goal
+    # turns keep the SDK default: they send nothing until the answer is done.
+    model_read_timeout_s: float = Field(default=45.0, gt=0)
     agent_max_model_requests: int = 80
     # Focused Answer (the default response mode) on the chat surface may call
     # tools in this many model requests; the next request has no function
