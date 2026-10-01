@@ -20,6 +20,7 @@ const PRODUCT_LINKS = [
   { label: "Testimonials", href: "#testimonials-heading" },
 ];
 const COMPANY_LINKS = [
+  { label: "About", href: "/about" },
   { label: "FAQ", href: "#faq" },
   { label: "Contact", href: `mailto:${CONTACT_EMAIL}` },
   { label: "Privacy", href: PRIVACY_URL },

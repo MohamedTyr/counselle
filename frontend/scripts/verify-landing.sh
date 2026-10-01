@@ -81,7 +81,8 @@ check "a bad source is a 400" '[ "$(signup "$BASE" "{\"email\":\"x@check.invalid
 check "a U+202E email is a 400" '[ "$(signup "$BASE" "{\"email\":\"a\\u202eb@check.invalid\",\"side\":\"me\",\"source\":\"nav\"}" -H "Origin: $BASE")" = 400 ]'
 check "no Origin is a 403" '[ "$(signup "$BASE" "{\"email\":\"x@check.invalid\",\"side\":\"me\",\"source\":\"<img>\"}")" = 403 ]'
 
-echo "Legal pages and clean URLs"
+echo "About, legal pages and clean URLs"
+check "/about 200 with its title" 'grep -q "<title>About · Acceptra" <<<"$(curl -s "$BASE/about")"'
 check "/privacy 200 with its title" 'grep -q "<title>Privacy Policy" <<<"$(curl -s "$BASE/privacy")"'
 check "/terms 200 with its title" 'grep -q "<title>Terms of Service" <<<"$(curl -s "$BASE/terms")"'
 check "/privacy.html is one 308 to /privacy" '[[ "$(hop "$BASE/privacy.html")" =~ ^308\ .*/privacy$ ]]'
@@ -92,7 +93,7 @@ check "404 page body" 'grep -q "This page doesn" <<<"$(curl -s "$BASE/not-a-page
 echo "Crawl files"
 check "robots.txt is text/plain" 'curl -sI "$BASE/robots.txt" | grep -qi "^content-type: text/plain"'
 check "robots.txt is byte-identical" 'diff -q <(curl -s "$BASE/robots.txt") "$HERE/public-landing/robots.txt" >/dev/null'
-check "sitemap lists three URLs" '[ "$(curl -s "$BASE/sitemap.xml" | grep -c "<loc>")" -eq 3 ]'
+check "sitemap lists four URLs" '[ "$(curl -s "$BASE/sitemap.xml" | grep -c "<loc>")" -eq 4 ]'
 check "/admin is in no crawl file" '! curl -s "$BASE/sitemap.xml" "$BASE/robots.txt" | grep -q "/admin"'
 check "llms.txt served" '[ "$(status "$BASE/llms.txt")" = 200 ]'
 llms="$(curl -s "$BASE/llms.txt")"
