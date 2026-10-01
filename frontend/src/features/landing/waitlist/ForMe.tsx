@@ -4,18 +4,19 @@ import { EmailField } from "./EmailField";
 import { CheckRows } from "./CheckRows";
 import { track } from "../analytics";
 import { failure, submitWaitlist, type WaitlistEntry } from "./waitlist";
-import { CLASS_YEARS, ROLES, type ClassYear, type Role } from "./contract";
+import {
+  CLASS_YEARS,
+  ROLE_LABELS,
+  ROLES,
+  type ClassYear,
+  type Role,
+} from "./contract";
 
 const POINTS = [
   "Essay feedback, line by line",
   "A school list built around you",
   "Deadlines, scholarships and SAT practice",
 ];
-const ROLE_LABELS: Record<Role, string> = {
-  student: "Student",
-  parent: "Parent",
-  counselor: "Counselor",
-};
 const ROLE_OPTIONS = ROLES.map((value) => ({
   value,
   label: ROLE_LABELS[value],
