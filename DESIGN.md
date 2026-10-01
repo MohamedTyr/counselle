@@ -1643,8 +1643,20 @@ These are the recurring shapes. Match them; do not invent a sixth.
 
 `rounded-xl` · `border` (`--edge` at rest, `--edge-strong` on hover) ·
 `--surface-raised` fill · `--elevation-1`. **Hover changes border colour only** — no
-shadow escalation, no transform. Applies to school cards, task cards, essay cards, and
-activity rows alike.
+shadow escalation, no transform. Applies to task cards, essay cards, and activity rows.
+
+**The one exception is the Explore school card**, which is washed in the school's own
+colour. The colour is data, not palette: `scripts/build_school_colours.py` derives a fill
+and a text shade (the same hue darkened to 5.2:1 on white) from each school's favicon
+into `school-colours.json`, and `SchoolResultCard` sets them inline as
+`--school-colour`/`--school-colour-ink`. `schools.css` turns them into a 10%-to-0% tint,
+a 22% border and the admit-rate ink. Hover follows the landing's testimonial cards and
+stays flat: the card rises 3px and its wash and border deepen a shade, with no shadow
+(pointer devices only, no rise under reduced motion). A school with
+no dominant colour falls back to neutral grey. The card carries two figures only, the
+admit rate with its band and the yearly cost, and a missing one still says "not
+available". School colour never marks state: the band is a word, and On list is the
+ink pill.
 
 ### 17.2 The two legal container shapes
 

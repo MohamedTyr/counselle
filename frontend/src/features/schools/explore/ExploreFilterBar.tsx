@@ -469,10 +469,10 @@ export function ExploreFilterBar({
         aria-controls="explore-filter-panel"
         aria-expanded={panelOpen}
         className={cn(
-          "inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg border px-2.5 text-sm font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] pointer-coarse:min-h-11",
+          "inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border px-3 text-sm font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] pointer-coarse:min-h-11",
           panelOpen || activeCount > 0
             ? "border-[var(--school-filter-chip-active-border)] bg-[var(--school-filter-chip-active-surface)] text-[var(--school-filter-chip-active-ink)]"
-            : "border-transparent bg-[var(--school-filter-chip-surface)] text-[var(--ink-secondary)] hover:bg-[var(--school-filter-chip-hover)]",
+            : "border-[var(--school-filter-chip-border)] bg-[var(--school-filter-chip-surface)] text-[var(--ink-secondary)] shadow-[var(--school-filter-chip-shadow)] hover:border-[var(--school-filter-chip-border-hover)]",
         )}
         onClick={onTogglePanel}
         type="button"
