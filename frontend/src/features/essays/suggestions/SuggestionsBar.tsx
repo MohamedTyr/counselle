@@ -9,7 +9,10 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import type { EssaySuggestion } from "@/domain/essay-suggestion";
-import { essayPaperInsetClass } from "@/features/essays/essay-paper-inset";
+import {
+  essayPaperInsetClass,
+  essayPaperWidthClass,
+} from "@/features/essays/essay-paper-inset";
 import {
   lockedClass,
   ResolveButtons,
@@ -282,7 +285,10 @@ export function SuggestionsBar({
              * opacity alone; leaving the exit unguarded meant dismissing the
              * last change still animated a height nobody asked for. */
             animate={{ height: "auto", opacity: 1 }}
-            className="mx-auto w-full max-w-[820px] overflow-hidden"
+            className={cn(
+              "mx-auto w-full overflow-hidden",
+              essayPaperWidthClass,
+            )}
             exit={reduceMotion ? { opacity: 0 } : { height: 0, opacity: 0 }}
             initial={reduceMotion ? false : { height: 0, opacity: 0 }}
             ref={barRef}

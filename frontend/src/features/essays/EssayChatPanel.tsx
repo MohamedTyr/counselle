@@ -49,13 +49,6 @@ type EssayChatPanelProps = {
   onClearSelection: () => void;
   onClose: () => void;
   /**
-   * The panel has finished arriving. Covering, that is the moment the document
-   * behind it stops being visible — so it is the only moment the editor can
-   * safely change the document's own layout (see the tools band in
-   * `EssayEditorRoute`).
-   */
-  onEnterComplete: () => void;
-  /**
    * A turn finished. The agent's edits arrive as suggestions written straight
    * to the essay, so the essay has to be re-read — nothing in the chat stream
    * carries them into the workspace cache on its own.
@@ -81,7 +74,6 @@ export function EssayChatPanel({
   essayTitle,
   onClearSelection,
   onClose,
-  onEnterComplete,
   onTurnSettled,
   selection,
 }: EssayChatPanelProps) {
@@ -139,7 +131,6 @@ export function EssayChatPanel({
       )}
       exit={closed}
       initial={reduceMotion ? false : closed}
-      onAnimationComplete={onEnterComplete}
       transition={
         reduceMotion ? { duration: 0 } : { duration: 0.2, ease: [0, 0, 0.2, 1] }
       }

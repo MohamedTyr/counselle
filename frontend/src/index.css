@@ -5,6 +5,8 @@
 @import "shadcn/tailwind.css";
 @import "@fontsource-variable/instrument-sans";
 @import "@fontsource-variable/geist";
+@import "@fontsource-variable/newsreader/opsz.css";
+@import "@fontsource-variable/newsreader/opsz-italic.css";
 
 /*
  * Design-token layer. Four strict tiers, imported in dependency order
@@ -472,10 +474,15 @@
   .essay-editor-shell .ProseMirror {
     min-height: 740px;
     outline: none;
+    caret-color: var(--essay-caret);
+  }
+
+  .essay-editor-shell .ProseMirror ::selection {
+    background: var(--essay-selection);
   }
 
   .essay-editor-shell .ProseMirror > * + * {
-    margin-top: 1.15rem;
+    margin-top: 1.1em;
   }
 
   .essay-editor-shell .ProseMirror h1 {
@@ -502,8 +509,9 @@
   .essay-editor-shell .ProseMirror blockquote {
     color: var(--essay-document-foreground);
     font-family: var(--font-document);
-    font-size: 1rem;
-    line-height: 1.95;
+    font-size: 1.125rem;
+    line-height: 1.75;
+    text-wrap: pretty;
   }
 
   .essay-editor-shell .ProseMirror ul,

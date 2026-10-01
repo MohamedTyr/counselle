@@ -111,6 +111,11 @@
   --essay-suggestion-stale-ink: var(--ink-faint);
 
   /* ---- the paper ---- */
+  /* Selected text and the caret take the brand green, the same green the
+   * focus ring uses, instead of the browser's blue. The selection is a tint,
+   * so the student's words stay full-contrast ink under it. */
+  --essay-selection: color-mix(in oklch, var(--accent-solid) 16%, transparent);
+  --essay-caret: var(--accent-solid);
   --essay-document-surface: var(--document);
   --essay-document-foreground: var(--document-foreground);
   --essay-document-muted: var(--document-muted);

@@ -364,14 +364,17 @@ values exist and why they are not drift.
 ```
 --font-sans:     "Instrument Sans Variable", system-ui, sans-serif
 --font-heading:  var(--font-sans)      /* deliberately the same — one voice */
---font-document: Georgia, ui-serif, serif
+--font-document: "Newsreader Variable", Georgia, ui-serif, serif
 ```
 
 Loaded via `@fontsource-variable/instrument-sans` (npm, self-hosted — no Google Fonts
 request, no FOUT from a third-party origin). One family for the entire interface.
-**Georgia is reserved for essay documents** — the ProseMirror editor and the document
+**Newsreader is reserved for essay documents** — the ProseMirror editor and the document
 preview — because an essay is a piece of writing, not a piece of UI, and the serif
-signals that the surface belongs to the student.
+signals that the surface belongs to the student. It is self-hosted
+(`@fontsource-variable/newsreader`, optical-size axis) rather than left to Georgia,
+which most Linux machines do not have and which fell back to Times there. Essay prose
+is 18px at a 1.75 line height.
 
 Do not add a third family. Do not use `--font-heading` as a hook to introduce one; it
 exists so that *if* a display face is ever justified, one token flips.
@@ -577,7 +580,7 @@ Two tiers, and only two, exposed by `PageContainer` (§9.3):
 
 Before this rule there were three widths across five pages (1064 / 896 / 768) with no
 rule behind the split. *(Four literal widths still exist outside the vocabulary:
-`max-w-[700px]` in the composer landing, `max-w-[820px]` in the essay editor,
+`max-w-[700px]` in the composer landing, `max-w-[720px]` in the essay editor,
 `max-w-3xl` in the chat transcript, `max-w-md` in error panels. The chat and essay
 widths are justified by measure, not layout — see §6.5.)*
 
@@ -692,10 +695,14 @@ third header shape entirely (`h-14`, `text-base`, `px-5`). The chat routes opt o
 legitimately — they have a different shape. See §20.
 
 The essay editor **does** render through `PageHeader` (it can't use `PageContainer` — its
-body is a centred sheet, not the standard scroll column). Its chrome is three flush bands
-separated by hairlines: title, formatting toolbar, then the canvas. It used to be a raised
-header card plus a toolbar pill floating over the page, which put three competing objects
-on screen when the document is meant to be the only one that floats.
+body is a centred sheet, not the standard scroll column). The page is transparent, so the
+shell's faint beams show through it as on every other route, and the paper is the one
+white object on screen. The header carries the essay's identity (school mark, title,
+status badge, one line of school · type · due date) and its page actions: the word-count
+meter, a quiet "Saved" line that only becomes a button when a save fails, Prompt, and
+an outline "Ask Counselle" pill that opens the panel. The formatting toolbar is the
+paper's own first row, pinned to the top of the scroll column while the essay scrolls
+under it, so the tools stay attached to the thing they edit.
 
 ### 9.4 Routes
 
@@ -1548,8 +1555,8 @@ legal measure: `896 − 56` (the row's `lg:px-7`) `− 320` (the rail and its gu
 One rung down it is 46 characters and the rail costs more than it is worth (§6.6: on a
 document-focused page the task rail gives up width first). Keying it to the column also
 makes it *appear* below 1280 — from a ~944px viewport with the sidebar collapsed — which
-is kept, because with the rail the paper measures 61–74ch and without it the paper sits
-on its `max-w-[820px]` cap at 108–115ch.
+is kept. Without the rail the paper sits on its `max-w-[720px]` cap, which at 18px
+Newsreader is about 72 characters a line.
 
 Opening animates the panel's **width** over 200ms `ease-out` — the accordion carve-out of
 §12.1 rule 2, so the paper follows it frame for frame. The rail spends the same carve-out

@@ -60,7 +60,10 @@ function ToolButton({
       onClick={onClick}
       render={
         <Button
-          className={cn(active && "bg-(--essay-editor-toolbar-active)")}
+          className={cn(
+            "text-(--ink-secondary) hover:text-foreground",
+            active && "bg-(--essay-editor-toolbar-active) text-foreground",
+          )}
           size="icon-sm"
           title={label}
           type="button"
@@ -98,11 +101,7 @@ export function EssayEditorToolbar({
   return (
     <Toolbar
       aria-label="Essay formatting toolbar"
-      /*
-       * Flush chrome: the toolbar is a row of the editor's header block, not a
-       * raised object floating over the page, so it drops the card's surface,
-       * border, radius and shadow and inherits the chrome plane it sits on.
-       */
+      /* A row of the paper, not an object on it: no surface of its own. */
       className="inline-flex w-max flex-nowrap items-center justify-start rounded-none border-0 bg-transparent p-0 shadow-none"
     >
       <ToolbarGroup>
@@ -114,7 +113,7 @@ export function EssayEditorToolbar({
         >
           <SelectTrigger
             aria-label="Font"
-            className="h-7 min-h-7 w-[116px] min-w-[116px] rounded-md border-border px-2 text-xs font-medium shadow-none sm:min-h-7"
+            className="h-7 min-h-7 w-[104px] min-w-[104px] rounded-full border-transparent bg-(--control-quiet-surface) px-3 text-xs font-medium shadow-none hover:bg-(--control-quiet-hover) sm:min-h-7"
             size="sm"
           >
             <SelectValue />

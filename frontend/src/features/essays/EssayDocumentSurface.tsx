@@ -1,10 +1,13 @@
 import { EditorContent, type Editor } from "@tiptap/react";
 import { motion } from "motion/react";
-import { useEffectEvent, useLayoutEffect } from "react";
+import { useEffectEvent, useLayoutEffect, type ReactNode } from "react";
 
 import type { TiptapContent } from "@/api/workspace/types";
 import type { EssaySuggestion } from "@/domain/essay-suggestion";
-import { essayPaperInsetClass } from "@/features/essays/essay-paper-inset";
+import {
+  essayPaperInsetClass,
+  essayPaperWidthClass,
+} from "@/features/essays/essay-paper-inset";
 import {
   emptyToolbarState,
   type ToolbarState,
@@ -30,12 +33,16 @@ export type EssayDocumentDensity = "editor" | "panel";
  * container-query scale was written for.
  */
 const densityClass: Record<EssayDocumentDensity, string> = {
+  editor: "min-h-[860px]",
+  panel: "",
+};
+
+const densityInsetClass: Record<EssayDocumentDensity, string> = {
   editor: cn(
-    "min-h-[860px] max-w-[820px]",
     essayPaperInsetClass,
-    "py-8 @xl/essay-canvas:py-10 @2xl/essay-canvas:py-11 @4xl/essay-canvas:py-14",
+    "py-8 @xl/essay-canvas:py-10 @2xl/essay-canvas:py-12 @4xl/essay-canvas:py-14",
   ),
-  panel: cn("max-w-[820px]", essayPaperInsetClass, "py-8"),
+  panel: cn(essayPaperInsetClass, "py-8"),
 };
 
 type EssayDocumentSurfaceProps = {
@@ -62,6 +69,8 @@ type EssayDocumentSurfaceProps = {
   /** Pending tracked changes to paint. Omit to render the paper alone. */
   suggestions?: EssaySuggestion[];
   syncContent: boolean;
+  /** Rendered as the paper's own top row, pinned while the essay scrolls. */
+  toolbar?: ReactNode;
 };
 
 export function EssayDocumentSurface({
@@ -75,6 +84,7 @@ export function EssayDocumentSurface({
   onUpdate,
   suggestions,
   syncContent,
+  toolbar,
 }: EssayDocumentSurfaceProps) {
   const { editor, toolbarState } = useEssayEditor({
     content,
@@ -107,7 +117,8 @@ export function EssayDocumentSurface({
   return (
     <motion.div
       className={cn(
-        "essay-editor-shell mx-auto w-full rounded-lg border border-(--essay-document-border) bg-(--essay-document-surface) text-(--essay-document-foreground) shadow-[var(--elevation-1)]",
+        "essay-editor-shell mx-auto w-full rounded-2xl border border-(--essay-document-border) bg-(--essay-document-surface) text-(--essay-document-foreground) shadow-[var(--elevation-1)]",
+        essayPaperWidthClass,
         densityClass[density],
       )}
       layoutId={layoutId}
@@ -132,7 +143,19 @@ export function EssayDocumentSurface({
       layoutDependency={density}
       transition={{ layout: { duration: 0.42, ease: [0.22, 1, 0.36, 1] } }}
     >
-      <EditorContent editor={editor} />
+      {toolbar ? (
+        <div
+          className={cn(
+            "sticky top-0 z-[1] overflow-x-auto rounded-t-2xl border-b border-(--essay-document-border) bg-(--essay-document-surface) py-2",
+            essayPaperInsetClass,
+          )}
+        >
+          {toolbar}
+        </div>
+      ) : null}
+      <div className={densityInsetClass[density]}>
+        <EditorContent editor={editor} />
+      </div>
     </motion.div>
   );
 }

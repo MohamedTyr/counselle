@@ -2,17 +2,15 @@ import type { Editor } from "@tiptap/core";
 import { useEditorState } from "@tiptap/react";
 import { useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import { ArrowLeft, PanelRight, Save } from "lucide-react";
+import { ArrowLeft, Check, LoaderCircle, Sparkles } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/workspace/PageHeader";
 import { EssayDocumentSurface } from "@/features/essays/EssayDocumentSurface";
 import {
   EssayContextTrail,
-  EssayStatusIndicator,
-  HeaderDivider,
   PromptMenu,
 } from "@/features/essays/EssayEditorHeader";
 import { EssayEditorToolbar } from "@/features/essays/EssayEditorToolbar";
@@ -21,14 +19,14 @@ import {
   emptyToolbarState,
   type ToolbarState,
 } from "@/features/essays/essay-toolbar-config";
-import {
-  getEssayPrompt,
-  getSchoolFallback,
-  getSchoolFaviconUrl,
-} from "@/features/essays/essay-content";
+import { getEssayPrompt } from "@/features/essays/essay-content";
+import { EssayWordProgress } from "@/features/essays/EssayWordProgress";
 import type { EssayEditorUpdate } from "@/features/essays/useEssayEditor";
 import type { EssayEditorPageProps } from "@/features/essays/essays-types";
-import { useEssayAutosave } from "@/features/essays/useEssayAutosave";
+import {
+  useEssayAutosave,
+  type EssaySaveState,
+} from "@/features/essays/useEssayAutosave";
 import { EssayChatPanel } from "@/features/essays/EssayChatPanel";
 import { SuggestionPopover } from "@/features/essays/suggestions/SuggestionPopover";
 import { countPendingChanges } from "@/features/essays/suggestions/suggestion-counts";
@@ -36,9 +34,10 @@ import { SuggestionsBar } from "@/features/essays/suggestions/SuggestionsBar";
 import { useSuggestionReview } from "@/features/essays/suggestions/useSuggestionReview";
 import { useEssaySuggestions } from "@/features/essays/suggestions/useEssaySuggestions";
 import { useAcceptAllWordCount } from "@/features/essays/suggestions/word-projection";
+import { SchoolAvatar } from "@/features/schools/school-cells";
 import { useDebounce } from "@/hooks/useDebounce";
 import { workspaceKeys } from "@/api/workspace/keys";
-import { getEssayActivityLabel } from "@/lib/essay-display";
+import { essayStatusVariant } from "@/lib/essay-display";
 import { cn } from "@/lib/utils";
 
 /*
@@ -90,6 +89,46 @@ function useIsPanelDocked(): boolean {
 /* The chip is a reminder of what is attached, not the text itself. */
 const SELECTION_CHIP_MAX_CHARS = 80;
 
+/* Saving is the normal state, so it reads as a quiet line of text; only a
+ * failed save becomes something to press. */
+function SaveState({
+  onRetry,
+  state,
+}: {
+  onRetry: () => void;
+  state: EssaySaveState;
+}) {
+  if (state === "error") {
+    return (
+      <Button
+        onClick={onRetry}
+        size="sm"
+        type="button"
+        variant="destructive-outline"
+      >
+        Retry save
+      </Button>
+    );
+  }
+
+  const Icon = state === "saving" ? LoaderCircle : Check;
+  return (
+    <span
+      className="flex items-center gap-1.5 px-2 text-sm whitespace-nowrap text-muted-foreground"
+      role="status"
+    >
+      <Icon
+        aria-hidden="true"
+        className={cn(
+          "size-3.5",
+          state === "saving" && "animate-spin motion-reduce:animate-none",
+        )}
+      />
+      {state === "saving" ? "Saving…" : "Saved"}
+    </span>
+  );
+}
+
 export function EssayEditorPage({ essay, onBack }: EssayEditorPageProps) {
   const [wordCount, setWordCount] = useState(essay.wordCount);
   /* The document surface owns the editor; the toolbar lives up here in its own
@@ -99,19 +138,6 @@ export function EssayEditorPage({ essay, onBack }: EssayEditorPageProps) {
     toolbarState: ToolbarState;
   } | null>(null);
   const [panelOpen, setPanelOpen] = useState(false);
-  /*
-   * The panel has finished arriving, so anything behind it is genuinely hidden.
-   *
-   * The tools band below keys off this rather than off `panelOpen`, because its
-   * 50px leaves the layout the instant it unmounts: dropping it on the click
-   * jumped the document up 50px (measured 183 → 133) while the panel was still
-   * off the right edge and 560px of prose was still on screen — a visible jolt
-   * for the ~230ms of the slide. Deferring to here puts the shift under an
-   * opaque surface. The close direction needs no signal: resetting it in
-   * `closePanel` restores the band while the panel is still covering, so that
-   * shift is hidden too.
-   */
-  const [panelSettled, setPanelSettled] = useState(false);
   const panelDocked = useIsPanelDocked();
   const reduceMotion = useReducedMotion();
   const [dismissedSelection, setDismissedSelection] = useState<string | null>(
@@ -173,7 +199,6 @@ export function EssayEditorPage({ essay, onBack }: EssayEditorPageProps) {
 
   const closePanel = useCallback(() => {
     setPanelOpen(false);
-    setPanelSettled(false);
     /* The one explicit focus move this panel needs: closing a non-modal
      * surface should leave focus on the control that closed it, not on
      * `<body>` where the next Tab starts over from the top of the page. */
@@ -181,14 +206,7 @@ export function EssayEditorPage({ essay, onBack }: EssayEditorPageProps) {
   }, []);
 
   const prompt = getEssayPrompt(essay);
-  const schoolFallback = getSchoolFallback(essay.schoolName);
-  const hasWordLimit = essay.wordLimit !== null && essay.wordLimit > 0;
   const displayedWordCount = autosave.isDirty ? wordCount : essay.wordCount;
-  const isOverLimit =
-    hasWordLimit && displayedWordCount > (essay.wordLimit ?? 0);
-  const modifiedLabel = autosave.isDirty
-    ? "Unsaved changes"
-    : getEssayActivityLabel(essay);
   /* What the count becomes if every applicable change is accepted, or null
    * when that number is not knowable — see `word-projection.ts`. Checked
    * against the count actually on screen, so the two can never disagree. */
@@ -204,121 +222,54 @@ export function EssayEditorPage({ essay, onBack }: EssayEditorPageProps) {
     autosave.flush();
   }
 
-  const saveLabel =
-    autosave.saveState === "error"
-      ? "Retry"
-      : autosave.saveState === "saving"
-        ? "Saving"
-        : "Saved";
-
   return (
-    <section className="relative flex min-h-0 flex-1 flex-col overflow-hidden bg-(--essay-editor-chrome-surface)">
+    <section className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
       {/*
-       * Flush chrome in three bands — identity, then tools, then the canvas —
-       * separated by hairlines rather than by raised surfaces. The editor should
-       * have exactly one object the eye lands on, the sheet of paper; a bordered
-       * shadowed header card and a floating toolbar pill made three. The title
-       * band borrows PageHeader's geometry (min-h-16, px-6/md:px-10) so it sits
-       * on the same baseline every other workspace route does.
+       * Transparent, so the shell's faint beams carry through the editor the
+       * way they do on every other page, and the paper is the one white object
+       * on screen. The formatting tools live on the paper itself (below), so
+       * the header holds only who the essay is for and the page's own actions.
        */}
-      <div className="shrink-0 border-b">
+      <div className="shrink-0 border-b border-(--hairline)">
         <div className="px-6 md:px-10">
           <PageHeader
             actions={
-              <div className="flex items-center gap-3">
-                {/*
-                 * Metadata is text; icons mean "you can press this". The old row
-                 * icon-prefixed every item, so the two real controls read as more
-                 * inert labels in a chain of five.
-                 */}
-                <div className="flex items-center gap-3 text-sm whitespace-nowrap text-muted-foreground">
-                  <span className="tabular-nums shrink-0">
-                    <span
-                      className={cn(
-                        "font-semibold",
-                        isOverLimit ? "text-destructive" : "text-foreground",
-                      )}
-                    >
-                      {displayedWordCount}
+              <div className="flex items-center gap-1.5">
+                {/* The number a student checks most, so it leads. The
+                 * projection only appears while there are changes to accept,
+                 * and is the first thing to go when the bar gets tight. */}
+                <span className="flex items-center gap-2 sm:mr-2">
+                  <EssayWordProgress
+                    className="w-24 sm:w-40"
+                    essay={{
+                      wordCount: displayedWordCount,
+                      wordLimit: essay.wordLimit,
+                    }}
+                  />
+                  {projectedWordCount !== null && (
+                    <span className="hidden text-xs whitespace-nowrap text-muted-foreground tabular-nums xl:inline">
+                      {`· ${projectedWordCount} if you accept all`}
                     </span>
-                    {hasWordLimit ? ` / ${essay.wordLimit} words` : " words"}
-                    {/*
-                     * Only ever present while there is something to project,
-                     * and it is the added part of this segment rather than its
-                     * content — so it is the part that drops when the bar gets
-                     * tight, one step later than "Modified …" does. Below `xl`
-                     * the sidebar is still at full width and the actions column
-                     * is `shrink-0`: measured at 1024, showing this clause takes
-                     * a realistic prompt title from 204px to 97px.
-                     */}
-                    {projectedWordCount !== null && (
-                      <span className="hidden text-xs xl:inline">
-                        {` · ${projectedWordCount} if you accept all`}
-                      </span>
-                    )}
-                  </span>
-                  {/*
-                   * PageHeader's actions column is `shrink-0`, so anything left
-                   * in here is width the title can never reclaim. Between `md`
-                   * (where the header goes back to a single row) and `xl` the
-                   * sidebar is still at full width, which leaves the bar around
-                   * 410px to hold nine things — so the two most expendable drop
-                   * out by priority rather than squeezing the title to an
-                   * ellipsis. "Modified" is the least load-bearing; the status
-                   * is next, and the essay list already carries it.
-                   */}
-                  <span className="hidden items-center gap-3 xl:flex">
-                    <HeaderDivider />
-                    {modifiedLabel}
-                  </span>
-                </div>
-                <HeaderDivider />
-                <div className="flex items-center gap-0.5">
-                  <PromptMenu essayId={essay.id} prompt={prompt} />
-                  <Button
-                    className={cn(
-                      "h-8",
-                      autosave.saveState === "saved" &&
-                        "text-muted-foreground hover:text-foreground",
-                    )}
-                    disabled={autosave.saveState === "saving"}
-                    onClick={
-                      autosave.saveState === "error"
-                        ? autosave.retry
-                        : undefined
-                    }
-                    type="button"
-                    variant={
-                      autosave.saveState === "error" ? "default" : "ghost"
-                    }
-                  >
-                    <Save aria-hidden="true" data-icon="inline-start" />
-                    {saveLabel}
-                  </Button>
-                  <Button
-                    aria-label={
-                      panelOpen
-                        ? "Close Counselle panel"
-                        : "Open Counselle panel"
-                    }
-                    aria-pressed={panelOpen}
-                    className="h-8"
-                    onClick={() =>
-                      panelOpen ? closePanel() : setPanelOpen(true)
-                    }
-                    ref={panelToggleRef}
-                    size="icon-sm"
-                    title={
-                      panelOpen
-                        ? "Close Counselle panel"
-                        : "Open Counselle panel"
-                    }
-                    type="button"
-                    variant={panelOpen ? "secondary" : "ghost"}
-                  >
-                    <PanelRight aria-hidden="true" />
-                  </Button>
-                </div>
+                  )}
+                </span>
+                <SaveState
+                  onRetry={autosave.retry}
+                  state={autosave.saveState}
+                />
+                <PromptMenu essayId={essay.id} prompt={prompt} />
+                <Button
+                  aria-pressed={panelOpen}
+                  className="ml-1.5"
+                  onClick={() =>
+                    panelOpen ? closePanel() : setPanelOpen(true)
+                  }
+                  ref={panelToggleRef}
+                  type="button"
+                  variant={panelOpen ? "secondary" : "outline"}
+                >
+                  <Sparkles aria-hidden="true" data-icon="inline-start" />
+                  <span className="max-sm:sr-only">Ask Counselle</span>
+                </Button>
               </div>
             }
             heading={
@@ -334,31 +285,23 @@ export function EssayEditorPage({ essay, onBack }: EssayEditorPageProps) {
                 >
                   <ArrowLeft />
                 </Button>
-                {/*
-                 * The school mark is the first thing to go when the bar gets
-                 * tight: the breadcrumb directly under the title already names
-                 * the school, so below `xl` this is the one purely decorative
-                 * item competing with the title for width.
-                 */}
-                <Avatar className="hidden size-9 shrink-0 rounded-lg ring-1 ring-[var(--edge-strong)] xl:flex">
-                  <AvatarImage
-                    alt=""
-                    className="rounded-lg"
-                    src={getSchoolFaviconUrl(essay.schoolWebsiteUrl)}
+                <span className="hidden shrink-0 sm:flex">
+                  <SchoolAvatar
+                    name={essay.schoolName}
+                    websiteUrl={essay.schoolWebsiteUrl}
                   />
-                  <AvatarFallback className="rounded-lg text-xs font-semibold">
-                    {schoolFallback}
-                  </AvatarFallback>
-                </Avatar>
+                </span>
                 <div className="min-w-0">
                   <div className="flex min-w-0 items-center gap-x-2.5">
-                    <h1 className="min-w-0 truncate text-xl leading-none font-semibold tracking-tight">
+                    <h1 className="min-w-0 truncate text-xl leading-6 font-semibold tracking-[-0.015em]">
                       {essay.title}
                     </h1>
-                    <EssayStatusIndicator
+                    <Badge
                       className="hidden lg:inline-flex"
-                      status={essay.status}
-                    />
+                      variant={essayStatusVariant[essay.status]}
+                    >
+                      {essay.status}
+                    </Badge>
                   </div>
                   <EssayContextTrail essay={essay} />
                 </div>
@@ -367,27 +310,6 @@ export function EssayEditorPage({ essay, onBack }: EssayEditorPageProps) {
             title={essay.title}
           />
         </div>
-        {/*
-         * Its own band, ruled above (PageHeader's) and below (this block's), so
-         * the tools read as a distinct register from the essay's identity rather
-         * than as more header. It scrolls sideways on narrow viewports rather
-         * than wrapping — a toolbar that changes height as the window resizes
-         * moves the document out from under the cursor.
-         *
-         * Gone entirely once the panel covers the document — the same condition
-         * that makes the column `inert` below, held until the panel has
-         * actually arrived (see `panelSettled`). Bold on prose nobody can see
-         * is merely confusing; Undo on it is worse — it can revert a change the
-         * student accepted a moment ago, off-screen, silently.
-         */}
-        {!(panelOpen && !panelDocked && panelSettled) && (
-          <div className="overflow-x-auto px-6 py-1.5 md:px-10">
-            <EssayEditorToolbar
-              editor={editorHandle?.editor ?? null}
-              state={editorHandle?.toolbarState ?? emptyToolbarState}
-            />
-          </div>
-        )}
       </div>
 
       {/*
@@ -401,7 +323,7 @@ export function EssayEditorPage({ essay, onBack }: EssayEditorPageProps) {
          * step that keys on the viewport keeps paying wide-screen margins on a
          * sheet of paper that no longer has wide-screen room. */}
         <div
-          className="@container/essay-canvas min-h-0 flex-1 overflow-y-auto bg-(--essay-editor-chrome-surface)"
+          className="@container/essay-canvas min-h-0 flex-1 overflow-y-auto"
           /* Fully covered by the panel here, and content nobody can see is
            * content nobody should be able to Tab into. */
           inert={panelOpen && !panelDocked}
@@ -438,6 +360,15 @@ export function EssayEditorPage({ essay, onBack }: EssayEditorPageProps) {
                 onUpdate={handleUpdate}
                 suggestions={essay.pendingSuggestions}
                 syncContent={!autosave.isDirty}
+                toolbar={
+                  /* Scrolls sideways on narrow paper rather than wrapping: a
+                   * toolbar that changes height moves the essay out from under
+                   * the cursor. */
+                  <EssayEditorToolbar
+                    editor={editor}
+                    state={editorHandle?.toolbarState ?? emptyToolbarState}
+                  />
+                }
               />
             </div>
             {/*
@@ -477,10 +408,8 @@ export function EssayEditorPage({ essay, onBack }: EssayEditorPageProps) {
              * the two branches overlap and neither is pinned to the cap.
              * What the rail holds is the low end — 61ch at its own
              * threshold, against 18ch pre-fix. The high end is the paper's
-             * own `max-w-[820px]`: past ~1150px of column it caps at 690px
-             * of text (820 less the `px-16` inset) = 108ch, with the rail
-             * in or out. Rule 17 (≤70ch) is that cap's problem, not this
-             * threshold's; see TODOS.md.
+             * own width cap (`essayPaperWidthClass`), with the rail in or
+             * out.
              *
              * Known thin margin: at 1600 with the sidebar expanded and the
              * panel docked the column is 898px in a browser that paints a
@@ -596,7 +525,6 @@ export function EssayEditorPage({ essay, onBack }: EssayEditorPageProps) {
               essayTitle={essay.title}
               onClearSelection={() => setDismissedSelection(settledSelection)}
               onClose={closePanel}
-              onEnterComplete={() => setPanelSettled(true)}
               onTurnSettled={refetchEssay}
               selection={selection}
             />

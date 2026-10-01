@@ -579,11 +579,7 @@ describe("EssayEditorPage", () => {
     expect(
       await screen.findByRole("heading", { name: "Stanford Roommate Note" }),
     ).toBeInTheDocument();
-    expect(
-      screen.getByText(
-        (_, element) => element?.textContent === "216 / 250 words",
-      ),
-    ).toBeInTheDocument();
+    expect(screen.getByText("216 / 250")).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: /Prompt/ }));
 
