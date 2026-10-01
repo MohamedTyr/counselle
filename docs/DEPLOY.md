@@ -248,11 +248,11 @@ A delete is pessimistic and has no undo: the row is gone when the page says so, 
 
 Access setup, once (the owner enables Zero Trust in the dashboard; the rest goes through the API with `CLOUDFLARE_ACCESS_TOKEN`):
 
-- [ ] Owner: Zero Trust → Get started, team name `acceptra`, plan Free
-- [ ] The one-time PIN identity provider
-- [ ] The self-hosted application "Acceptra admin" on `acceptra.ai/admin` (that path covers subpaths): 24h session, HttpOnly, SameSite Lax, binding cookie, hidden from the App Launcher, one-time PIN only, auto-redirect to it
-- [ ] The "Founders" allow policy, with one `email` include per founder
-- [ ] `ACCESS_TEAM_DOMAIN = "https://acceptra.cloudflareaccess.com"` (exactly the token's `iss`: no trailing slash, or every request is a 404), the application's `aud` as `ACCESS_AUD`, and the same emails as `ADMIN_EMAILS` in `wrangler.toml` `[vars]`, then merge and `npm run deploy:landing`
+- [x] Owner: Zero Trust → Get started, plan Free (done 2026-09-30; Cloudflare named the team `falling-sunset-df85`, renamed to `acceptra` over the API)
+- [x] The one-time PIN identity provider
+- [x] The self-hosted application "Acceptra admin" on `acceptra.ai/admin` (that path covers subpaths): 24h session, HttpOnly, SameSite Lax, binding cookie, hidden from the App Launcher, one-time PIN only, auto-redirect to it
+- [x] The "Founders" allow policy (a reusable policy attached to the app), with one `email` include per founder
+- [x] `ACCESS_TEAM_DOMAIN = "https://acceptra.cloudflareaccess.com"` (exactly the token's `iss`: no trailing slash, or every request is a 404), the application's `aud` as `ACCESS_AUD`, and the same emails as `ADMIN_EMAILS` in `wrangler.toml` `[vars]`, then merge and `npm run deploy:landing`
 - [ ] `PAGES_DEV_URL=https://acceptra.pages.dev scripts/verify-landing.sh https://acceptra.ai` passes its admin checks (`/admin/` redirects to the Access login, the API is a 401 without a session, and `acceptra.pages.dev/admin/*` is the site 404)
 
 **Adding or removing an admin** is two edits that must match: the email in the "Founders" policy, and in `ADMIN_EMAILS` (then deploy). Either alone is not enough, by design: a policy widened by mistake still meets the allowlist.

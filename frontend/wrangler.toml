@@ -16,5 +16,5 @@ migrations_dir = "migrations-landing"
 # the gate fails closed and /admin is a 404 (docs/DEPLOY.md § The admin page).
 [vars]
 ACCESS_TEAM_DOMAIN = "https://acceptra.cloudflareaccess.com"
-ACCESS_AUD = ""
-ADMIN_EMAILS = ""
+ACCESS_AUD = "922af717d4682d71e5a0ae5ee03489e91989843540c03131b287d87f83af6638"
+ADMIN_EMAILS = "counselle.ai@gmail.com"
