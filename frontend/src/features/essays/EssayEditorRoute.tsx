@@ -364,7 +364,6 @@ export function EssayEditorPage({ essay, onBack }: EssayEditorPageProps) {
                 </div>
               </div>
             }
-            rule="full"
             title={essay.title}
           />
         </div>
