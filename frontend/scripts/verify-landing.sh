@@ -36,7 +36,7 @@ for heading in "We do what a \$10,000 counselor does" "How Acceptra compares" \
 done
 for text in "Why not just ask ChatGPT?" "What can a counselor see?" \
   "A real mentor, twice a month" "Line-by-line comments in minutes" \
-  "A list built on facts, not vibes" "Money you actually qualify for" \
+  "A list built on facts" "Money you actually qualify for" \
   "Programs that fit what you already do" \
   "Official SAT questions, until your mistakes run out" \
   "Every school’s dates, one calendar"; do

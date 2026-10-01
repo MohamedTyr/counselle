@@ -52,7 +52,7 @@ export const FEATURES: Feature[] = [
   },
   {
     id: "colleges",
-    title: "A list built on facts, not vibes",
+    title: "A list built on facts",
     blurb:
       "Reach, target and safety schools matched to your grades, scores, budget and what you want to study. Every admit rate and cost is cited.",
     size: "wide",
