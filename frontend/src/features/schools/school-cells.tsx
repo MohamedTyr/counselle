@@ -51,19 +51,28 @@ function faviconUrlFromWebsite(websiteUrl: string | null) {
 
 export function SchoolAvatar({
   name,
+  size = "lg",
   websiteUrl,
 }: {
   name: string;
+  size?: "sm" | "lg";
   websiteUrl: string | null;
 }) {
+  const radius = size === "sm" ? "rounded-md" : "rounded-lg";
   return (
-    <Avatar size="lg" className="rounded-lg">
+    <Avatar
+      size={size}
+      className={cn(
+        radius,
+        size === "sm" ? "after:rounded-md" : "after:rounded-lg",
+      )}
+    >
       <AvatarImage
         alt=""
-        className="rounded-lg"
+        className={radius}
         src={faviconUrlFromWebsite(websiteUrl)}
       />
-      <AvatarFallback className="rounded-lg">
+      <AvatarFallback className={radius}>
         {getSchoolInitials(name)}
       </AvatarFallback>
     </Avatar>

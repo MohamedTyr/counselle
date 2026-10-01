@@ -445,10 +445,12 @@ function buildCreateInput({
 
 function useNewEssayDialogState({
   applications,
+  initialApplicationId,
   initialType,
   isCreating,
 }: {
   applications: ApplicationView[];
+  initialApplicationId: string | null;
   initialType: EssayType;
   isCreating: boolean;
 }) {
@@ -459,7 +461,7 @@ function useNewEssayDialogState({
     useState(NO_PROMPT_VALUE);
   const [selectedApplicationId, setSelectedApplicationId] = useState<
     string | null
-  >(null);
+  >(initialApplicationId);
   const [supplementPrompt, setSupplementPrompt] = useState("");
   const [supplementWordLimitText, setSupplementWordLimitText] = useState("");
   const [addSchoolOpen, setAddSchoolOpen] = useState(false);
@@ -635,6 +637,7 @@ function NewEssayDialogFields({
 
 export function NewEssayDialog({
   applications,
+  initialApplicationId = null,
   initialType,
   isCreating,
   onCreate,
@@ -642,6 +645,7 @@ export function NewEssayDialog({
   open,
 }: {
   applications: ApplicationView[];
+  initialApplicationId?: string | null;
   initialType: EssayType;
   isCreating: boolean;
   onCreate: (input: NewEssayCreateInput) => void;
@@ -650,6 +654,7 @@ export function NewEssayDialog({
 }) {
   const state = useNewEssayDialogState({
     applications,
+    initialApplicationId,
     initialType,
     isCreating,
   });

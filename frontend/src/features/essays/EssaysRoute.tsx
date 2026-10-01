@@ -29,7 +29,8 @@ import { Tabs, TabsList, TabsTab } from "@/components/ui/tabs";
 import { PageHeader } from "@/components/workspace/PageHeader";
 import { essayFromSummary, type Essay } from "@/domain/essay";
 import { UNDO_WINDOW_MS } from "@/hooks/useUndoableDelete";
-import { EssayLibraryCard } from "@/features/essays/EssayLibraryCard";
+import { EssaysBySchool } from "@/features/essays/EssaysBySchool";
+import { groupEssaysBySchool } from "@/features/essays/essays-by-school";
 import {
   countEssaysByFilter,
   type EssayFilter,
@@ -41,7 +42,6 @@ import {
   NewEssayDialog,
   type NewEssayCreateInput,
 } from "@/features/essays/NewEssayDialog";
-import { cn } from "@/lib/utils";
 
 function FilterTabLabel({ count, label }: { count: number; label: string }) {
   return (
@@ -56,16 +56,14 @@ function FilterTabLabel({ count, label }: { count: number; label: string }) {
 
 function EssaysSkeleton() {
   return (
-    <div
-      className={cn(
-        "grid gap-4",
-        "[grid-template-columns:repeat(auto-fill,minmax(248px,1fr))]",
-      )}
-    >
-      {Array.from({ length: 8 }, (_, index) => (
-        <Skeleton className="h-[15.5rem] w-full rounded-xl" key={index} />
-      ))}
-    </div>
+    <>
+      <Skeleton className="h-16 w-full rounded-2xl" />
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        {Array.from({ length: 3 }, (_, index) => (
+          <Skeleton className="h-56 w-full rounded-[18px]" key={index} />
+        ))}
+      </div>
+    </>
   );
 }
 
@@ -96,6 +94,8 @@ export function EssaysPage({ onOpenEssay }: EssaysPageProps = {}) {
   const [createOpen, setCreateOpen] = useState(false);
   const [initialCreateType, setInitialCreateType] =
     useState<EssayType>("Supplement");
+  const [initialCreateApplicationId, setInitialCreateApplicationId] =
+    useState<string | null>(null);
   const [filter, setFilter] = useState<EssayFilter>("all");
   const [pendingArchiveUndo, setPendingArchiveUndo] = useState<{
     id: string;
@@ -113,6 +113,15 @@ export function EssaysPage({ onOpenEssay }: EssaysPageProps = {}) {
     () => filterEssays(essays, filter, query),
     [essays, filter, query],
   );
+  const groups = useMemo(
+    () => groupEssaysBySchool(essays, applications),
+    [essays, applications],
+  );
+  const visibleIds = useMemo(
+    () => new Set(filteredEssays.map((essay) => essay.id)),
+    [filteredEssays],
+  );
+  const isFiltering = filter !== "all" || query.trim().length > 0;
   const clearArchiveUndo = useCallback(() => {
     window.clearTimeout(archiveUndoTimeoutRef.current);
     setPendingArchiveUndo(null);
@@ -132,8 +141,12 @@ export function EssaysPage({ onOpenEssay }: EssaysPageProps = {}) {
 
   useEffect(() => clearArchiveUndo, [clearArchiveUndo]);
 
-  function openCreateDialog(type: EssayType = "Supplement") {
+  function openCreateDialog(
+    type: EssayType = "Supplement",
+    applicationId: string | null = null,
+  ) {
     setInitialCreateType(type);
+    setInitialCreateApplicationId(applicationId);
     setCreateOpen(true);
   }
 
@@ -196,7 +209,7 @@ export function EssaysPage({ onOpenEssay }: EssaysPageProps = {}) {
 
   return (
     <section className="relative flex min-h-0 min-w-0 flex-1 overflow-hidden">
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-6 overflow-y-auto pr-8 pb-6 pl-6 md:pr-10">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-6 overflow-y-auto pr-6 pb-6 pl-6 md:pr-10">
         <PageHeader
           actions={
             <Button
@@ -279,24 +292,24 @@ export function EssaysPage({ onOpenEssay }: EssaysPageProps = {}) {
               </div>
             </div>
 
-            {filteredEssays.length > 0 ? (
-              <div
-                className={cn(
-                  "grid items-stretch gap-4",
-                  "[grid-template-columns:repeat(auto-fill,minmax(248px,1fr))]",
-                )}
-              >
-                {filteredEssays.map((essay) => (
-                  <EssayLibraryCard
-                    essay={essay}
-                    key={essay.id}
-                    onArchiveEssay={(item) => void archiveEssay(item)}
-                    onDuplicateEssay={(item) => void duplicateEssay(item)}
-                    onMarkReady={markReady}
-                    onOpenEssay={onOpenEssay}
-                  />
-                ))}
-              </div>
+            {!isFiltering || filteredEssays.length > 0 ? (
+              <EssaysBySchool
+                actions={{
+                  onArchiveEssay: (item) => void archiveEssay(item),
+                  onDuplicateEssay: (item) => void duplicateEssay(item),
+                  onMarkReady: markReady,
+                  onOpenEssay,
+                }}
+                groups={groups}
+                isFiltering={isFiltering}
+                onAddEssay={(applicationId) =>
+                  openCreateDialog("Supplement", applicationId)
+                }
+                onStartPersonalStatement={() =>
+                  openCreateDialog("Personal statement")
+                }
+                visible={visibleIds}
+              />
             ) : (
               <Empty>
                 <EmptyHeader>
@@ -330,6 +343,7 @@ export function EssaysPage({ onOpenEssay }: EssaysPageProps = {}) {
       {createOpen ? (
         <NewEssayDialog
           applications={applications}
+          initialApplicationId={initialCreateApplicationId}
           initialType={initialCreateType}
           isCreating={createEssayMutation.isPending}
           onCreate={(input) => void createEssay(input)}
