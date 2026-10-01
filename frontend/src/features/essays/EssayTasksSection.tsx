@@ -16,6 +16,7 @@ import { UndoToast } from "@/components/undo-toast";
 import { taskFromApi } from "@/domain/task";
 import { QuickAddBar } from "@/features/tasks/QuickAddBar";
 import { TaskRow } from "@/features/tasks/TaskRow";
+import { TaskList, TaskSheet } from "@/features/tasks/TaskSheet";
 import { useTaskRowActions } from "@/features/tasks/useTaskRowActions";
 
 function listOrEmpty<TItem>(value: TItem[] | undefined): TItem[] {
@@ -70,19 +71,21 @@ export function EssayTasksSection({ essayId }: { essayId: string }) {
         essays={essays}
       />
       {tasks.length > 0 && (
-        <ul className="-mx-2 flex flex-col" role="list">
-          {tasks.map((task) => (
-            <TaskRow
-              {...actions}
-              applicationsById={applicationsById}
-              essaysById={essaysById}
-              isSelected={false}
-              key={task.id}
-              suppress={{ label: true }}
-              task={task}
-            />
-          ))}
-        </ul>
+        <TaskSheet>
+          <TaskList>
+            {tasks.map((task) => (
+              <TaskRow
+                {...actions}
+                applicationsById={applicationsById}
+                essaysById={essaysById}
+                isSelected={false}
+                key={task.id}
+                suppress={{ label: true }}
+                task={task}
+              />
+            ))}
+          </TaskList>
+        </TaskSheet>
       )}
       <UndoToast {...undoToastProps} />
     </section>

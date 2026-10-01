@@ -16,6 +16,14 @@
    * that group headers, the quick-add input, the waiting hint, and the
    * footer link all line up against, instead of silently breaking it. */
   --task-row-spine: calc(--spacing(2) + --spacing(4) + --spacing(3));
+  /* Rows sit on a raised sheet over the page's beams, inset by this much so
+   * a row's hover fill keeps a concentric radius inside the sheet's. The
+   * title column every header, hint and footer aligns to is the sheet's
+   * inset plus the row's own spine. */
+  --task-sheet-inset: --spacing(1);
+  --task-title-inset: calc(var(--task-sheet-inset) + var(--task-row-spine));
+  --task-sheet-surface: var(--surface-raised);
+  --task-sheet-border: var(--hairline);
 
   /* ---- row states (aliases; a raised-surface embed re-points these in
    * one place instead of forty) ---- */

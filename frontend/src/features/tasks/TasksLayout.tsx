@@ -34,6 +34,7 @@ import {
 import { PlanWithCounselleButton } from "@/features/tasks/task-actions";
 import { TaskDetailPanel } from "@/features/tasks/TaskDetailPanel";
 import { TaskSearch } from "@/features/tasks/TaskSearch";
+import { TaskList, TaskSheet } from "@/features/tasks/TaskSheet";
 import { buildTasksDraftPrompt } from "@/features/tasks/task-plan-prompt";
 import {
   getAnytimeGroups,
@@ -113,72 +114,34 @@ function ViewTab({
     <NavLink
       aria-selected={active}
       className={cn(
-        "relative inline-flex h-8 cursor-pointer items-center gap-1.5 text-sm outline-none",
-        "transition-[color] duration-150 ease-out",
-        "focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--canvas)] focus-visible:rounded-sm",
+        "relative inline-flex h-8 cursor-pointer items-center gap-2 rounded-full px-3.5 text-sm outline-none",
+        "transition-[color,scale] duration-150 ease-out active:scale-[0.97] motion-reduce:transition-none",
+        "focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]",
         active
-          ? "font-medium text-[var(--ink)] after:absolute after:inset-x-0 after:-bottom-px after:h-0.5 after:rounded-full after:bg-[var(--brand)]"
-          : "text-[var(--ink-faint)] hover:text-[var(--ink-secondary)]",
+          ? "font-medium text-[var(--ink)]"
+          : "text-[var(--ink-secondary)] hover:text-[var(--ink)]",
       )}
       end
       role="tab"
       to={to}
     >
-      {label}
-      <span className="ml-2 text-[var(--ink-faint)] tabular-nums">{count}</span>
-    </NavLink>
-  );
-}
-
-/**
- * design doc §2.5 — one group-header treatment, every view. `isFirst` drops
- * the 24px `mt-6` for whichever group renders directly under the quick-add
- * bar (that gap is already the quick-add-to-content 8px, not the 24px
- * between-groups rhythm). `sticky` is true for Upcoming and Anytime only —
- * Today and Logbook have too few groups for it to matter.
- */
-export function TaskGroupHeader({
-  count,
-  isFirst = false,
-  label,
-  sticky = false,
-  variant,
-}: {
-  count: number;
-  isFirst?: boolean;
-  label: string;
-  sticky?: boolean;
-  variant?: "unplanned-deadlines";
-}) {
-  return (
-    <div
-      className={cn(
-        "-mx-2 mb-1 flex h-7 items-center bg-[var(--canvas)] pr-2 pl-[var(--task-row-spine)]",
-        !isFirst && "mt-6",
-        sticky && "sticky top-0 z-[var(--z-sticky)]",
+      {active && (
+        <span
+          aria-hidden="true"
+          className="absolute inset-0 rounded-full bg-[var(--surface-raised)] shadow-[var(--elevation-1)]"
+        />
       )}
-    >
+      <span className="relative">{label}</span>
       <span
         className={cn(
-          "text-chrome font-medium",
-          variant === "unplanned-deadlines"
-            ? "text-[var(--ink-secondary)]"
-            : "text-[var(--ink)]",
+          "relative text-xs tabular-nums",
+          active ? "text-[var(--ink-secondary)]" : "text-[var(--ink-faint)]",
         )}
       >
-        {label}
-      </span>
-      <span className="ml-2 text-chrome text-[var(--ink-faint)] tabular-nums">
         {count}
       </span>
-    </div>
+    </NavLink>
   );
-}
-
-/** design doc §2.5 — the hairline that closes "Deadlines without a plan",
- * the one rule in the list body. */
-export function TaskGroupCloseRule() {
-  return <div className="mt-3 h-px bg-[var(--hairline)]" aria-hidden="true" />;
 }
 
 export function TasksLayout() {
@@ -441,7 +404,10 @@ export function TasksLayout() {
       title={VIEW_TITLES[view]}
       width="wide"
     >
-      <div className="mb-4 flex h-8 items-center gap-6" role="tablist">
+      <div
+        className="mb-5 inline-flex w-fit items-center gap-0.5 rounded-full bg-[var(--control-quiet-surface)] p-1"
+        role="tablist"
+      >
         <ViewTab
           active={view === "today"}
           count={todayCount}
@@ -463,7 +429,7 @@ export function TasksLayout() {
       </div>
 
       {view !== "logbook" && (
-        <div className="mb-2">
+        <div className="mb-6">
           <QuickAddBar
             applications={applications}
             defaults={quickAddDefaults}
@@ -473,16 +439,18 @@ export function TasksLayout() {
       )}
 
       {isLoading ? (
-        <div className="flex flex-col gap-0" role="list">
-          {[0, 1, 2, 3, 4].map((index) => (
-            <div className="flex h-9 items-center px-2" key={index}>
-              <Skeleton className="h-4 w-4 rounded-[4px]" />
-              <Skeleton className="ml-3 h-4 w-48 rounded-sm" />
-            </div>
-          ))}
-        </div>
+        <TaskSheet>
+          <TaskList>
+            {[0, 1, 2, 3, 4].map((index) => (
+              <li className="flex h-10 items-center px-2" key={index}>
+                <Skeleton className="size-4 rounded-full" />
+                <Skeleton className="ml-3 h-4 w-48 rounded-sm" />
+              </li>
+            ))}
+          </TaskList>
+        </TaskSheet>
       ) : isError ? (
-        <div className="rounded-xl border bg-card p-6">
+        <div className="rounded-xl border border-[var(--task-sheet-border)] bg-[var(--task-sheet-surface)] p-6 shadow-[var(--elevation-1)]">
           <div className="max-w-md space-y-3">
             <h2 className="font-heading text-lg font-medium">
               Could not load tasks

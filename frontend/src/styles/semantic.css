@@ -164,7 +164,9 @@
   );
   --canvas-hover: color-mix(in oklab, var(--gray-900) 4%, var(--canvas));
   --canvas-active: color-mix(in oklab, var(--gray-900) 7%, var(--canvas));
-  --surface-selected: color-mix(in oklch, var(--green-600) 10%, var(--canvas));
+  /* in oklab, not oklch: the canvas is pure white, whose hue reads as 0, and
+   * an oklch mix walks the hue from there toward green through pink. */
+  --surface-selected: color-mix(in oklab, var(--green-600) 10%, var(--canvas));
 
   /* ---- ink — text, on any of the four surfaces. FOUR tiers, not five.
    *

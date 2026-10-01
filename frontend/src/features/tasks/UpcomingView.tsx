@@ -12,10 +12,12 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
+import type { Task } from "@/domain/task";
 import {
-  TaskGroupCloseRule,
-  TaskGroupHeader,
-} from "@/features/tasks/TasksLayout";
+  TaskGroup,
+  TaskSheet,
+  TaskSheetSection,
+} from "@/features/tasks/TaskSheet";
 import { useTasksOutletContext } from "@/features/tasks/tasks-outlet-context";
 import { TaskRow } from "@/features/tasks/TaskRow";
 
@@ -47,7 +49,11 @@ export function UpcomingView() {
           </EmptyDescription>
         </EmptyHeader>
         <EmptyContent>
-          <Button render={<Link to="/app/tasks/anytime" />} size="sm" variant="ghost">
+          <Button
+            render={<Link to="/app/tasks/anytime" />}
+            size="sm"
+            variant="ghost"
+          >
             Go to Anytime
           </Button>
         </EmptyContent>
@@ -55,38 +61,57 @@ export function UpcomingView() {
     );
   }
 
+  const unplanned = upcomingGroups.filter(
+    (group) => group.variant === "unplanned-deadlines",
+  );
+  const dated = upcomingGroups.filter(
+    (group) => group.variant !== "unplanned-deadlines",
+  );
+
+  function renderRow(task: Task, isUnplanned: boolean) {
+    return (
+      <TaskRow
+        applicationsById={applicationsById}
+        essaysById={essaysById}
+        isSelected={task.id === activeTaskId}
+        key={task.id}
+        onComplete={onComplete}
+        onDelete={onDelete}
+        onOpen={onOpenTask}
+        onSchedule={onSchedule}
+        onToggleFlag={onToggleFlag}
+        scheduleAffordanceAtRest={isUnplanned}
+        suppress={isUnplanned ? undefined : { when: true }}
+        task={task}
+      />
+    );
+  }
+
   return (
-    <div className="flex flex-col">
-      {upcomingGroups.map((group, index) => (
-        <div key={group.id}>
-          <TaskGroupHeader
-            count={group.tasks.length}
-            isFirst={index === 0}
-            label={group.label}
-            sticky
-            variant={group.variant}
-          />
-          <ul className="-mx-2 flex flex-col" role="list">
-            {group.tasks.map((task) => (
-              <TaskRow
-                applicationsById={applicationsById}
-                essaysById={essaysById}
-                isSelected={task.id === activeTaskId}
-                key={task.id}
-                onComplete={onComplete}
-                onDelete={onDelete}
-                onOpen={onOpenTask}
-                onSchedule={onSchedule}
-                onToggleFlag={onToggleFlag}
-                scheduleAffordanceAtRest={group.variant === "unplanned-deadlines"}
-                suppress={group.variant === "unplanned-deadlines" ? undefined : { when: true }}
-                task={task}
-              />
-            ))}
-          </ul>
-          {group.variant === "unplanned-deadlines" && <TaskGroupCloseRule />}
-        </div>
+    <div className="flex flex-col gap-8">
+      {unplanned.map((group) => (
+        <TaskGroup
+          count={group.tasks.length}
+          key={group.id}
+          label={group.label}
+          variant={group.variant}
+        >
+          {group.tasks.map((task) => renderRow(task, true))}
+        </TaskGroup>
       ))}
+      {dated.length > 0 && (
+        <TaskSheet>
+          {dated.map((group) => (
+            <TaskSheetSection
+              count={group.tasks.length}
+              key={group.id}
+              label={group.label}
+            >
+              {group.tasks.map((task) => renderRow(task, false))}
+            </TaskSheetSection>
+          ))}
+        </TaskSheet>
+      )}
     </div>
   );
 }

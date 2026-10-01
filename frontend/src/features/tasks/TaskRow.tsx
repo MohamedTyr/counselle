@@ -137,10 +137,16 @@ function DeadlineChip({ task }: { task: Task }) {
       ? `Overdue — deadline was ${formatOverdueAriaDate(task.deadline_on)}`
       : undefined;
 
+  // A date that needs attention is a tinted pill, so the column of dates
+  // can be scanned for colour before it is read; an ordinary one stays text.
   return (
     <span
       aria-label={ariaLabel}
-      className="inline-flex shrink-0 items-center gap-1 text-xs tabular-nums"
+      className={cn(
+        "inline-flex h-5 shrink-0 items-center gap-1 rounded-full text-xs tabular-nums",
+        state === "overdue" && "bg-[var(--danger-surface)] px-2",
+        state === "due-soon" && "bg-[var(--warning-surface)] px-2",
+      )}
     >
       {state === "overdue" && (
         <CircleAlert
@@ -151,9 +157,11 @@ function DeadlineChip({ task }: { task: Task }) {
       <span
         aria-hidden={ariaLabel ? "true" : undefined}
         className={cn(
+          // On a phone the pill's colour already says "due" or "overdue".
+          state !== "normal" && "max-sm:sr-only",
           state === "overdue" && "font-medium text-[var(--danger-fg)]",
-          (state === "due-soon" || state === "normal") &&
-            "text-[var(--ink-faint)]",
+          state === "due-soon" && "text-[var(--warning-fg)]",
+          state === "normal" && "text-[var(--ink-faint)]",
         )}
       >
         {word}
@@ -293,7 +301,7 @@ export function TaskRow({
       <motion.li
         animate={{ opacity: isRowExiting ? 0 : 1 }}
         className={cn(
-          "group/row relative flex h-11 items-center gap-3 rounded-md px-2 outline-none md:h-9",
+          "group/row relative flex min-h-11 items-center gap-3 rounded-lg px-2 py-1.5 outline-none md:h-10 md:min-h-0 md:py-0",
           "transition-[background-color] duration-150 ease-out motion-reduce:transition-none",
           // The row rule. At 896px a bare row leaves ~400px of empty canvas
           // between a title and its date, and the eye stops tracking across it;
@@ -302,6 +310,7 @@ export function TaskRow({
           // a group never closes with a dangling line.
           "before:pointer-events-none before:absolute before:right-2 before:bottom-0 before:left-[var(--task-row-spine)] before:h-px before:bg-[var(--hairline)]",
           "last:before:hidden",
+          "hover:before:opacity-0 has-[+li:hover]:before:opacity-0 data-[selected]:before:opacity-0 has-[+li[data-selected]]:before:opacity-0",
           isSelected
             ? "bg-[var(--surface-selected)] hover:bg-[var(--task-row-selected-hover)]"
             : cn(
@@ -375,7 +384,7 @@ export function TaskRow({
           <Checkbox
             aria-label={`Complete "${task.title}"`}
             checked={visualDone}
-            className="shrink-0"
+            className="shrink-0 rounded-full"
             onCheckedChange={(checked) => handleCheckedChange(checked === true)}
           />
         </span>
@@ -398,7 +407,7 @@ export function TaskRow({
           >
             <span
               className={cn(
-                "relative min-w-0 truncate text-sm leading-5 font-normal text-[var(--ink)]",
+                "relative min-w-0 text-sm leading-5 font-normal text-[var(--ink)] max-sm:line-clamp-2 max-sm:after:hidden sm:truncate",
                 "transition-[color] duration-200 ease-out",
                 "after:absolute after:inset-x-0 after:top-1/2 after:h-px after:bg-[var(--ink-faint)] after:content-[''] after:[clip-path:inset(0_100%_0_0)]",
                 "after:transition-[clip-path] after:ease-out after:motion-reduce:hidden",
@@ -406,7 +415,7 @@ export function TaskRow({
                   ? "after:duration-[120ms]"
                   : "after:duration-[180ms]",
                 visualDone &&
-                  "text-[var(--ink-faint)] after:[clip-path:inset(0_0_0_0)] motion-reduce:line-through",
+                  "text-[var(--ink-faint)] after:[clip-path:inset(0_0_0_0)] max-sm:line-through motion-reduce:line-through",
               )}
               data-done={visualDone || undefined}
               title={task.title}
@@ -434,7 +443,7 @@ export function TaskRow({
           would announce as "Finish the Penn supplement Essay · Penn".
         */}
           {showLabel && (
-            <span className="hidden max-w-[9rem] shrink truncate text-xs leading-4 font-normal text-[var(--ink-faint)] sm:inline sm:max-w-[14rem]">
+            <span className="hidden h-5 max-w-[9rem] shrink items-center truncate rounded-full bg-[var(--control-quiet-surface)] px-2 text-xs leading-5 text-[var(--ink-secondary)] sm:inline-block sm:max-w-[16rem]">
               {derivedLabel}
             </span>
           )}
@@ -456,7 +465,7 @@ export function TaskRow({
               <button
                 aria-label={`Reschedule ${task.title}, currently ${whenLabel}`}
                 className={cn(
-                  "-mx-1.5 inline-flex h-5 shrink-0 items-center rounded-sm px-1.5 text-xs tabular-nums text-[var(--ink-secondary)] outline-none",
+                  "-mx-1.5 inline-flex h-5 shrink-0 items-center rounded-full px-2 text-xs tabular-nums text-[var(--ink-secondary)] outline-none",
                   "transition-[background-color] duration-150 ease-out",
                   "hover:bg-[var(--surface-inset)] active:bg-[var(--control-quiet-active)]",
                   "data-[popup-open]:bg-[var(--surface-inset)]",
@@ -483,9 +492,9 @@ export function TaskRow({
               <button
                 aria-label={`Add a when date to "${task.title}"`}
                 className={cn(
-                  "order-1 inline-flex h-5.5 shrink-0 items-center gap-1 rounded-md border border-[var(--edge)] px-1.5 text-xs text-[var(--ink-secondary)] outline-none",
-                  "transition-[background-color,border-color,color] duration-150 ease-out motion-reduce:transition-none",
-                  "hover:border-[var(--edge-strong)] hover:bg-[var(--surface-inset)] hover:text-[var(--ink)]",
+                  "order-1 inline-flex h-6 shrink-0 items-center gap-1 rounded-full border border-[var(--edge)] bg-[var(--surface-raised)] px-2 text-xs text-[var(--ink-secondary)] outline-none",
+                  "transition-[background-color,border-color,color,scale] duration-150 ease-out active:scale-[0.96] motion-reduce:transition-none",
+                  "hover:border-[var(--edge-strong)] hover:text-[var(--ink)]",
                   "active:bg-[var(--control-quiet-active)]",
                   "data-[popup-open]:bg-[var(--surface-inset)]",
                   "focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--canvas)]",

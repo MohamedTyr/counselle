@@ -1076,11 +1076,20 @@ of the old mapping below, cross-checked in full against this section in
   student's own mark on the task, the same claim `--brand` already makes for "the
   current selection" — and keeping it out of red is what lets red mean exactly one
   thing on the page: a date the world has already passed.
-- **The deadline is plain text, not a badge: amber (`--warning-fg`) at ≤2 days out,
-  red (`--danger-fg`) once overdue, nothing beyond 7 days or when absent.** Not the
-  old 14-day error-badge threshold — fourteen days of red in a forty-row list is why
-  the previous board read as an alarm; two days of amber and an ink-only overdue
-  state let red mean "already missed" and nothing softer.
+- **The deadline is not a badge: amber (`--warning-fg` on `--warning-surface`) at ≤2
+  days out, red (`--danger-fg` on `--danger-surface`) once overdue, plain faint text
+  otherwise, nothing beyond 7 days or when absent.** The two warning states are a
+  tinted pill so the date column can be scanned for colour before it is read; on a
+  phone the pill drops its "due"/"overdue" word to `sr-only`. Not the old 14-day
+  error-badge threshold — fourteen days of red in a forty-row list is why the
+  previous board read as an alarm; two days of amber let red mean "already missed"
+  and nothing softer.
+- **Rows sit on raised sheets over the beams** (`TaskSheet.tsx`). A view whose groups
+  are slices of one timeline (Upcoming's days, Anytime's labels, the Logbook) is one
+  sheet with a section per group; a group that still needs a place (Today's "Due
+  soon", Upcoming's "Deadlines without a plan") is its own dashed sheet with its name
+  above it. The view tabs are a pill segmented control, the quick-add is drawn as a
+  sheet, the checkbox is round, and the derived label is a quiet pill.
 
 The old mapping (status → `waiting: warning`/`done: success`/`todo`,`doing:
 secondary`; priority → `high: error`/`med`,`low: secondary`; category → one shared
