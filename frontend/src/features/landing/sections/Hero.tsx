@@ -88,11 +88,10 @@ function HeroHeadline() {
     <h1 className="lp-headline">
       {/* The spaces keep the words apart in raw HTML; flex layout ignores them. */}
       <span className="lp-headline-line lp-headline-line-1">
-        <span>AI College</span> <span>counseling</span>
+        <span>Elite college</span> <span>counseling.</span>
       </span>{" "}
       <span className="lp-headline-line lp-headline-line-2">
-        <span>For your next</span>{" "}
-        <span className="lp-headline-serif">Chapter</span>
+        <span>For everyone.</span>
       </span>
     </h1>
   );
