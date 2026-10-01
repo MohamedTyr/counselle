@@ -40,9 +40,9 @@ export const FEATURES: Feature[] = [
   },
   {
     id: "essay",
-    title: "Essay feedback, line by line",
+    title: "Line-by-line comments in minutes",
     blurb:
-      "It reads what you wrote and marks it up like an editor would. Every note is a suggestion you accept or reject.",
+      "Paste a draft and get comments on structure, clichés, weak verbs and the parts an admissions reader will skim. You accept or reject each note. It never rewrites your story for you.",
     size: "wide",
     color: "#121214",
     tint: "#ededf0",
@@ -52,9 +52,9 @@ export const FEATURES: Feature[] = [
   },
   {
     id: "colleges",
-    title: "Colleges that match you",
+    title: "A list built on facts",
     blurb:
-      "A list built from your grades, budget and goals, with reach, target and safety already sorted.",
+      "Reach, target and safety schools matched to your grades, scores, budget and what you want to study. Every admit rate and cost is cited.",
     size: "wide",
     color: "#3d3183",
     tint: "#ecebf8",
@@ -63,8 +63,9 @@ export const FEATURES: Feature[] = [
   },
   {
     id: "scholarships",
-    title: "Scholarships you match",
-    blurb: "Every award you qualify for, with the ones worth your time on top.",
+    title: "Money you actually qualify for",
+    blurb:
+      "Ranked by fit and deadline, with the requirements spelled out. No 2,000-item lists of awards you can’t apply to.",
     size: "third",
     color: "#6b2233",
     tint: "#f7e9ed",
@@ -74,9 +75,9 @@ export const FEATURES: Feature[] = [
   },
   {
     id: "activities",
-    title: "Activities that fit you",
+    title: "Programs that fit what you already do",
     blurb:
-      "Research, competitions and summer programs that fit what you are already into.",
+      "Research, competitions and summer programs. If you count birds at 5am, it finds the ecology programs. Filtered by grade, cost and deadline, with the free ones marked.",
     size: "third",
     color: "#7a4213",
     tint: "#f5ede4",
@@ -88,7 +89,7 @@ export const FEATURES: Feature[] = [
     id: "sat",
     title: "Official SAT questions, until your mistakes run out",
     blurb:
-      "Real questions, one at a time. Get one wrong and it explains the step you skipped, then serves more of that kind.",
+      "Practice with real College Board questions. Acceptra tracks what you miss and serves it back until you don’t.",
     size: "wide",
     color: "#16336b",
     tint: "#e8eef8",
@@ -98,9 +99,9 @@ export const FEATURES: Feature[] = [
   },
   {
     id: "deadlines",
-    title: "Tasks and deadlines, all in one place",
+    title: "Every school’s dates, one calendar",
     blurb:
-      "Every school’s dates pulled in for you, next to the work you planned for the week.",
+      "ED, EA, regular, financial aid, scholarship and portfolio deadlines for every school on your list, with reminders before each one.",
     size: "wide",
     color: "#0f4d32",
     tint: "#e6f4ec",
