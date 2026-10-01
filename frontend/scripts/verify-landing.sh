@@ -6,7 +6,7 @@
 #   PAGES_DEV_URL=https://acceptra.pages.dev scripts/verify-landing.sh https://acceptra.ai
 # Run it against production or a local build only, never a preview: previews
 # refuse every waitlist write, so the 400 checks would correctly get 403s.
-# The host-redirect and analytics-proxy checks run only against production;
+# The host-redirect, analytics-proxy and Access checks run only against production;
 # CHECK_COM=1 adds acceptra.com once that domain is owned.
 set -uo pipefail
 
@@ -71,6 +71,7 @@ for path in /palette-preview.html /palette-first-directions.html; do
   check "$path is not served" '[ "$(status "$BASE$path")" = 404 ]'
 done
 check "no app bundle referenced" '! grep -q "/assets/app-" <<<"$page"'
+check "no admin asset referenced" '! grep -q "/assets/admin-" <<<"$page"'
 chunk="$(curl -s "$BASE$(grep -oE '/assets/landing-[^"]+\.js' <<<"$page" | head -1)")"
 check "analytics posts to /ingest" 'grep -qE "[^[:alnum:]_/]/ingest[^[:alnum:]_/]" <<<"$chunk"'
 check "analytics never calls PostHog directly" '! grep -qF "us.i.posthog.com" <<<"$chunk"'
@@ -92,6 +93,7 @@ echo "Crawl files"
 check "robots.txt is text/plain" 'curl -sI "$BASE/robots.txt" | grep -qi "^content-type: text/plain"'
 check "robots.txt is byte-identical" 'diff -q <(curl -s "$BASE/robots.txt") "$HERE/public-landing/robots.txt" >/dev/null'
 check "sitemap lists three URLs" '[ "$(curl -s "$BASE/sitemap.xml" | grep -c "<loc>")" -eq 3 ]'
+check "/admin is in no crawl file" '! curl -s "$BASE/sitemap.xml" "$BASE/robots.txt" | grep -q "/admin"'
 check "llms.txt served" '[ "$(status "$BASE/llms.txt")" = 200 ]'
 llms="$(curl -s "$BASE/llms.txt")"
 check "llms.txt names the head term" 'grep -qF "AI college admissions counselor" <<<"$llms"'
@@ -126,12 +128,21 @@ if [ "$BASE" = "$PRODUCTION" ]; then
   echo "Analytics proxy"
   key="$(grep -oE 'phc_[A-Za-z0-9]+' <<<"$chunk" | head -1)"
   check "/ingest serves the project config" 'curl -s -D - -o /dev/null "$BASE/ingest/array/$key/config" | grep -qi "^content-type: application/json" && [ "$(status "$BASE/ingest/array/$key/config")" = 200 ]'
+  echo "Admin page (Cloudflare Access in front)"
+  check "/admin/ redirects to the Access login" '[[ "$(hop "$BASE/admin/")" =~ ^302\ https://[a-z0-9-]+\.cloudflareaccess\.com/ ]]'
+  check "the admin API is a 401 without a session" '[ "$(status -H "X-Requested-With: XMLHttpRequest" "$BASE/admin/api/waitlist")" = 401 ]'
+  check "an unauthenticated DELETE never succeeds" '[[ "$(status -X DELETE -H "Origin: $BASE" -H "Content-Type: application/json" -d "{\"email\":\"x@check.invalid\"}" "$BASE/admin/api/waitlist")" != 2* ]]'
 fi
 if [ -n "${PAGES_DEV_URL:-}" ]; then
   echo "Preview host"
   check "$PAGES_DEV_URL sends noindex" 'curl -sI "$PAGES_DEV_URL/" | grep -qi "^x-robots-tag: noindex"'
   # The Origin matches, so only the host check can refuse this.
   check "$PAGES_DEV_URL refuses waitlist writes" '[ "$(signup "$PAGES_DEV_URL" "{\"email\":\"x@check.invalid\",\"side\":\"me\",\"source\":\"nav\"}" -H "Origin: $PAGES_DEV_URL")" = 403 ]'
+  # No Access here, and the production D1 is bound: the Function's own host
+  # check is all that stands between this host and the list.
+  check "$PAGES_DEV_URL/admin/ is a 404" '[ "$(status "$PAGES_DEV_URL/admin/")" = 404 ]'
+  admin_api="$(curl -s -D - "$PAGES_DEV_URL/admin/api/waitlist")"
+  check "$PAGES_DEV_URL/admin/api/waitlist is the site 404" 'grep -q "^HTTP/[0-9.]* 404" <<<"$admin_api" && grep -q "This page doesn" <<<"$admin_api" && ! grep -q "\"rows\"" <<<"$admin_api"'
 fi
 
 echo

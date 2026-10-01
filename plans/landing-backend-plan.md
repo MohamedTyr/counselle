@@ -17,7 +17,7 @@ A third need is separable and ships on its own:
 
 3. **Get analytics past ad blockers.** PostHog is wired (`landing/analytics.ts`), but it talks to `us.i.posthog.com` directly, and ad blockers hide 25–40% of those visits.
 
-**Non-goals.** The app API, accounts, and the FastAPI backend: none of them deploy now. No email of any kind goes out (§12 is gated). No admin dashboard: PostHog and the D1 console cover it. No CAPTCHA until bot signups appear.
+**Non-goals.** The app API, accounts, and the FastAPI backend: none of them deploy now. No email of any kind goes out (§12 is gated). No admin dashboard: PostHog and the D1 console cover it. (Reversed by `plans/landing-admin-plan.md`: the private waitlist page at `/admin/`.) No CAPTCHA until bot signups appear.
 
 ## 2. Decisions
 

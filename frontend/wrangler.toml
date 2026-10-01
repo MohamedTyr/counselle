@@ -9,3 +9,12 @@ binding = "DB"
 database_name = "acceptra-waitlist"
 database_id = "759094ce-221d-4aee-9d6e-60522441d4fd"
 migrations_dir = "migrations-landing"
+
+# The /admin gate (functions/admin/_middleware.ts). None of these is secret.
+# ACCESS_AUD is the Access application's audience tag, and ADMIN_EMAILS must
+# list the same emails as the Access "Founders" policy. While any is empty
+# the gate fails closed and /admin is a 404 (docs/DEPLOY.md § The admin page).
+[vars]
+ACCESS_TEAM_DOMAIN = "https://acceptra.cloudflareaccess.com"
+ACCESS_AUD = ""
+ADMIN_EMAILS = ""

@@ -71,3 +71,6 @@ frontend/.vite-school-chances-fixture/
 # Wrangler local state (D1 local database, dev cache)
 .wrangler/
 .env.deploy
+
+# Wrangler local secrets (frontend/.dev.vars): the admin dev bypass.
+.dev.vars

@@ -44,10 +44,18 @@
   - WebP for the three PNG logo tiles.
   - A `<details>` FAQ for no-JS visitors (the answers are in the HTML, but collapsed without JS).
   - A server-side honeypot check (today the client drops a filled trap).
-  - Spreadsheet-safe CSV export of the list.
   - Trimming the ~40 kB of inline SVG data URIs.
   - The 37px "Skip to content" link, accepted: it is a keyboard target, not a touch target.
   - The unused registry exports knip still lists, and test-only Python helpers.
+
+## Waitlist admin (`plans/landing-admin-plan.md`): what is left
+
+The page, its API and the gate are built and tested locally (`docs/DEPLOY.md` § The admin page). Open:
+
+- **Access setup and go-live.** The owner enables Zero Trust once (team `acceptra`, Free); then the Access app, the "Founders" policy and the three `wrangler.toml` `[vars]` go in over the API, followed by a deploy, the production checks in `verify-landing.sh`, and one real sign-in on a laptop and a phone (including the "Your session ended" state after deleting the `CF_Authorization` cookie). Until the vars are set, the Function fails closed and `/admin/` is a 404 everywhere.
+- **The ESLint import ban the plan asked for is a test instead.** A `no-restricted-imports` rule on `src/features/waitlist-admin/**` (banning `@/features/landing/analytics` and `posthog-js`) was blocked by a local hook that refuses any `eslint.config.js` edit; `src/features/waitlist-admin/no-analytics.test.ts` enforces the same ban. Swap it for the lint rule if the hook is lifted.
+- **`verify-landing.sh` checks two FAQ questions the page no longer has** ("What is Acceptra?" and "Is my data sold or used for advertising?"), since the FAQ was rewritten in `9656ff73`/`40eb0d6a`. Both checks fail against any build of `main`; update them to the current questions.
+- **Two stale labels in the app, out of this plan's scope:** `AdminGate`'s doc comment (`src/app/auth/AdminGate.tsx`) still describes gating three `/app/admin/cds/*` routes, though it now guards `/app/admin/facts`; and the sidebar entry for that page is titled "CDS" (`src/app/shell/navigation.tsx`).
 
 ## Focused Answer speed pass (`plans/quick-answers-plan.md`): what is left
 
