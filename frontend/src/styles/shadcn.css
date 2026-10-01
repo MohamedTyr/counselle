@@ -41,8 +41,8 @@
   /* --input is a BORDER color (shadcn's `border-input` on <input>/
    * <textarea>/<select>, confirmed in components/ui/{input,textarea,
    * select}.tsx: `border border-input bg-background`) — it is not the
-   * same role as --workspace-input (a background-fill token consumed by
-   * --activity-control-surface). Deliberately NOT aliased to
+   * same role as --workspace-input (a background-fill token).
+   * Deliberately NOT aliased to
    * --workspace-input: that chain resolved to --surface-sunken (L 0.955),
    * a functional control border only 1.11:1 against the page background
    * — effectively invisible on the login/register screens. Routed

@@ -50,8 +50,8 @@ import {
   timingOptions,
 } from "@/domain/activity";
 import {
-  getActivityStats,
-  getHonorStats,
+  getActivitySlots,
+  getHonorSlots,
 } from "@/features/activities/activities-mutations";
 import {
   renumber,
@@ -62,6 +62,7 @@ import { ActivityDrawer } from "@/features/activities/ActivityDrawer";
 import { ActivityRow } from "@/features/activities/ActivityRow";
 import { HonorDrawer } from "@/features/activities/HonorDrawer";
 import { HonorRow } from "@/features/activities/HonorRow";
+import { AddSlotRow } from "@/features/activities/RankedRow";
 import { SectionStatus } from "@/features/activities/SectionStatus";
 import { useActivitiesDeepLink } from "@/features/activities/useActivitiesDeepLink";
 import { useReorderDrag } from "@/features/activities/useReorderDrag";
@@ -176,15 +177,36 @@ function honorPatchToApi(patch: Partial<Honor>): HonorPatch {
   return next;
 }
 
+/** The surface both lists sit on: one raised sheet over the page beams, the
+ * same shape as the task lists, rows inset so their hover fill keeps a
+ * concentric radius. */
+const listSheetClass =
+  "rounded-xl border border-[var(--activity-sheet-border)] bg-[var(--activity-sheet-surface)] p-[var(--activity-sheet-inset)] shadow-[var(--elevation-1)]";
+
+const emptySheetClass =
+  "rounded-xl border border-dashed border-[var(--edge)] bg-[var(--activity-sheet-surface)] py-12";
+
 function ActivityListSkeleton() {
   return (
-    <div className="rounded-xl border border-[color:var(--activity-list-border)] bg-[color:var(--activity-list-surface)] p-1.5">
-      <div className="flex flex-col gap-1.5">
-        {Array.from({ length: 3 }, (_, index) => (
-          <Skeleton className="h-24 w-full rounded-xl" key={index} />
-        ))}
-      </div>
+    <div className={listSheetClass}>
+      {Array.from({ length: 3 }, (_, index) => (
+        <div className="flex gap-3 px-3 py-3.5" key={index}>
+          <Skeleton className="size-[var(--activity-rank-size)] rounded-full" />
+          <div className="flex flex-1 flex-col gap-2 pt-1">
+            <Skeleton className="h-3.5 w-48" />
+            <Skeleton className="h-3 w-full max-w-lg" />
+          </div>
+        </div>
+      ))}
     </div>
+  );
+}
+
+function TabCount({ count, max }: { count: number; max: number }) {
+  return (
+    <span className="text-xs font-normal text-[var(--ink-faint)] tabular-nums">
+      {count}/{max}
+    </span>
   );
 }
 
@@ -252,11 +274,11 @@ export function ActivitiesPage() {
   );
   const activeHonor = honors.find((honor) => honor.id === activeHonorId);
 
-  const activityStats = useMemo(
-    () => getActivityStats(activities),
+  const activitySlots = useMemo(
+    () => getActivitySlots(activities),
     [activities],
   );
-  const honorStats = useMemo(() => getHonorStats(honors), [honors]);
+  const honorSlots = useMemo(() => getHonorSlots(honors), [honors]);
 
   function updateActivity(id: string, patch: Partial<Activity>) {
     updateActivityMutation.mutate({ id, patch: activityPatchToApi(patch) });
@@ -410,7 +432,8 @@ export function ActivitiesPage() {
   const honorsFull = honors.length >= MAX_HONORS;
   const activeActivityPosition = activeActivity ? activeActivity.order : 0;
   const activeHonorPosition = activeHonor ? activeHonor.order : 0;
-  const activeStats = visibleTab === "activities" ? activityStats : honorStats;
+  const activeSlots = visibleTab === "activities" ? activitySlots : honorSlots;
+  const activeMax = visibleTab === "activities" ? MAX_ACTIVITIES : MAX_HONORS;
   const activeAddLabel =
     visibleTab === "activities"
       ? activitiesFull
@@ -446,44 +469,30 @@ export function ActivitiesPage() {
     >
       <>
         <Tabs
-          className="w-full gap-5"
+          className="w-full gap-6"
           onValueChange={(value) =>
             setActiveTab(value as "activities" | "honors")
           }
           value={visibleTab}
         >
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <TabsList className="w-full justify-start sm:w-fit">
-              <TabsTab
-                className="h-8 px-3 text-sm sm:h-8 sm:px-3 sm:text-sm"
-                value="activities"
-              >
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <TabsList className="w-full sm:w-fit" variant="pill">
+              <TabsTab value="activities">
                 Activities
-                <span className="text-xs text-muted-foreground tabular-nums">
-                  {activities.length}/{MAX_ACTIVITIES}
-                </span>
+                <TabCount count={activities.length} max={MAX_ACTIVITIES} />
               </TabsTab>
-              <TabsTab
-                className="h-8 px-3 text-sm sm:h-8 sm:px-3 sm:text-sm"
-                value="honors"
-              >
+              <TabsTab value="honors">
                 Honors
-                <span className="text-xs text-muted-foreground tabular-nums">
-                  {honors.length}/{MAX_HONORS}
-                </span>
+                <TabCount count={honors.length} max={MAX_HONORS} />
               </TabsTab>
             </TabsList>
-            <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center lg:justify-end">
-              <SectionStatus
-                className="sm:justify-end"
-                notReady={activeStats.notReady}
-                overLimit={activeStats.overLimit}
-                ready={activeStats.ready}
-              />
+            <div className="flex flex-wrap items-center justify-between gap-x-5 gap-y-3 lg:justify-end">
+              {activeListUnavailable ? null : (
+                <SectionStatus max={activeMax} slots={activeSlots} />
+              )}
               <Button
                 disabled={activeAddDisabled}
                 onClick={() => void handleActiveAdd()}
-                className="h-8 w-fit px-3 text-sm"
                 size="sm"
                 type="button"
                 variant="outline"
@@ -494,7 +503,7 @@ export function ActivitiesPage() {
             </div>
           </div>
 
-          <TabsPanel className="flex flex-col gap-4" value="activities">
+          <TabsPanel value="activities">
             {activitiesQuery.isLoading ? (
               <ActivityListSkeleton />
             ) : activitiesQuery.isError ? (
@@ -503,7 +512,7 @@ export function ActivitiesPage() {
                 onRetry={() => void activitiesQuery.refetch()}
               />
             ) : activities.length === 0 ? (
-              <Empty className="min-h-56 rounded-xl border border-dashed border-[color:var(--edge)] bg-[color:var(--activity-list-surface)] py-12">
+              <Empty className={emptySheetClass}>
                 <EmptyHeader>
                   <EmptyMedia variant="icon">
                     <ListChecks aria-hidden="true" />
@@ -526,49 +535,40 @@ export function ActivitiesPage() {
                 </EmptyContent>
               </Empty>
             ) : (
-              <div className="rounded-xl border border-[color:var(--activity-list-border)] bg-[color:var(--activity-list-surface)] p-1.5">
-                <div className="flex flex-col">
-                  <AnimatePresence initial={false}>
-                    {activities.map((activity, index) => (
-                      <ActivityRow
-                        activity={activity}
-                        index={index}
-                        isDragging={activityDrag.draggingId === activity.id}
-                        key={activity.id}
-                        layout={layout}
-                        onArmDrag={activityDrag.armDrag}
-                        onDelete={deleteActivity}
-                        onDragEnd={activityDrag.handleDragEnd}
-                        onDragOver={activityDrag.handleDragOver}
-                        onDragStart={activityDrag.handleDragStart}
-                        onDrop={activityDrag.handleDrop}
-                        onMove={moveActivity}
-                        onOpen={openActivity}
-                        total={activities.length}
-                      />
-                    ))}
-                  </AnimatePresence>
-                </div>
-
+              <ul className={listSheetClass}>
+                <AnimatePresence initial={false}>
+                  {activities.map((activity, index) => (
+                    <ActivityRow
+                      activity={activity}
+                      index={index}
+                      isDragging={activityDrag.draggingId === activity.id}
+                      key={activity.id}
+                      layout={layout}
+                      onArmDrag={activityDrag.armDrag}
+                      onDelete={deleteActivity}
+                      onDragEnd={activityDrag.handleDragEnd}
+                      onDragOver={activityDrag.handleDragOver}
+                      onDragStart={activityDrag.handleDragStart}
+                      onDrop={activityDrag.handleDrop}
+                      onMove={moveActivity}
+                      onOpen={openActivity}
+                      total={activities.length}
+                    />
+                  ))}
+                </AnimatePresence>
                 {!activitiesFull ? (
-                  <button
-                    className="mt-1.5 flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-[color:var(--activity-add-row-border)] py-3 text-xs text-muted-foreground transition-colors hover:bg-[color:var(--activity-row-hover)] hover:text-foreground focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] focus-visible:outline-none"
-                    onClick={() => void addActivity()}
-                    type="button"
-                  >
-                    <Plus aria-hidden="true" className="size-3.5" />
-                    {MAX_ACTIVITIES - activities.length} open{" "}
-                    {MAX_ACTIVITIES - activities.length === 1
-                      ? "slot"
-                      : "slots"}{" "}
-                    - add activity
-                  </button>
+                  <AddSlotRow
+                    disabled={createActivityMutation.isPending}
+                    label="Add activity"
+                    onAdd={() => void addActivity()}
+                    open={MAX_ACTIVITIES - activities.length}
+                  />
                 ) : null}
-              </div>
+              </ul>
             )}
           </TabsPanel>
 
-          <TabsPanel className="flex flex-col gap-4" value="honors">
+          <TabsPanel value="honors">
             {honorsQuery.isLoading ? (
               <ActivityListSkeleton />
             ) : honorsQuery.isError ? (
@@ -577,7 +577,7 @@ export function ActivitiesPage() {
                 onRetry={() => void honorsQuery.refetch()}
               />
             ) : honors.length === 0 ? (
-              <Empty className="min-h-48 rounded-xl border border-dashed border-[color:var(--edge)] bg-[color:var(--activity-list-surface)] py-10">
+              <Empty className={emptySheetClass}>
                 <EmptyHeader>
                   <EmptyMedia variant="icon">
                     <Award aria-hidden="true" />
@@ -600,30 +600,36 @@ export function ActivitiesPage() {
                 </EmptyContent>
               </Empty>
             ) : (
-              <div className="rounded-xl border border-[color:var(--activity-list-border)] bg-[color:var(--activity-list-surface)] p-1.5">
-                <div className="flex flex-col">
-                  <AnimatePresence initial={false}>
-                    {honors.map((honor, index) => (
-                      <HonorRow
-                        honor={honor}
-                        index={index}
-                        isDragging={honorDrag.draggingId === honor.id}
-                        key={honor.id}
-                        layout={layout}
-                        onArmDrag={honorDrag.armDrag}
-                        onDelete={deleteHonor}
-                        onDragEnd={honorDrag.handleDragEnd}
-                        onDragOver={honorDrag.handleDragOver}
-                        onDragStart={honorDrag.handleDragStart}
-                        onDrop={honorDrag.handleDrop}
-                        onMove={moveHonor}
-                        onOpen={openHonor}
-                        total={honors.length}
-                      />
-                    ))}
-                  </AnimatePresence>
-                </div>
-              </div>
+              <ul className={listSheetClass}>
+                <AnimatePresence initial={false}>
+                  {honors.map((honor, index) => (
+                    <HonorRow
+                      honor={honor}
+                      index={index}
+                      isDragging={honorDrag.draggingId === honor.id}
+                      key={honor.id}
+                      layout={layout}
+                      onArmDrag={honorDrag.armDrag}
+                      onDelete={deleteHonor}
+                      onDragEnd={honorDrag.handleDragEnd}
+                      onDragOver={honorDrag.handleDragOver}
+                      onDragStart={honorDrag.handleDragStart}
+                      onDrop={honorDrag.handleDrop}
+                      onMove={moveHonor}
+                      onOpen={openHonor}
+                      total={honors.length}
+                    />
+                  ))}
+                </AnimatePresence>
+                {!honorsFull ? (
+                  <AddSlotRow
+                    disabled={createHonorMutation.isPending}
+                    label="Add honor"
+                    onAdd={() => void addHonor()}
+                    open={MAX_HONORS - honors.length}
+                  />
+                ) : null}
+              </ul>
             )}
           </TabsPanel>
         </Tabs>

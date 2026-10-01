@@ -11,11 +11,8 @@ export type ActivitiesPageProps = {
 
 export type ActivitiesTab = "activities" | "honors";
 
-export type SectionStats = {
-  notReady: number;
-  overLimit: number;
-  ready: number;
-};
+/** One Common App slot: paste-ready, still to finish, or over a limit. */
+export type SlotStatus = "ready" | "todo" | "over";
 
 export type DeepLinkState = {
   activity: string | null;

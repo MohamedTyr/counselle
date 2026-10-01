@@ -15,8 +15,8 @@ import {
 import {
   createActivity,
   createHonor,
-  getActivityStats,
-  getHonorStats,
+  getActivitySlots,
+  getHonorSlots,
   insertAt,
   removeById,
   updateItemById,
@@ -172,7 +172,7 @@ describe("readiness, limits, and missing fields", () => {
     ).toBe(false);
   });
 
-  it("summarises activity and honor stats", () => {
+  it("reports each slot as ready, to finish, or over a limit", () => {
     const activities = [
       activity({ id: "ready", order: 1 }),
       activity({ description: "", id: "not-ready", order: 2 }),
@@ -183,22 +183,14 @@ describe("readiness, limits, and missing fields", () => {
       }),
     ];
 
-    expect(getActivityStats(activities)).toEqual({
-      notReady: 2,
-      overLimit: 1,
-      ready: 1,
-    });
+    expect(getActivitySlots(activities)).toEqual(["ready", "todo", "over"]);
 
     const honors = [
       honor({ id: "ready", order: 1 }),
       honor({ id: "over", order: 2, title: "y".repeat(120) }),
     ];
 
-    expect(getHonorStats(honors)).toEqual({
-      notReady: 1,
-      overLimit: 1,
-      ready: 1,
-    });
+    expect(getHonorSlots(honors)).toEqual(["ready", "over"]);
     expect(isHonorReady(honors[0])).toBe(true);
   });
 });

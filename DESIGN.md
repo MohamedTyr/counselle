@@ -665,6 +665,18 @@ It renders a `<section>` (bounds, `overflow-hidden`) wrapping a scrolling column
 surfaces, `panel` (1160px) for rail-and-panel pages — Profile and a school's detail. The
 header tracks the same column as the body, so a page reads as one aligned column.
 
+**Activities** and Honors are ranked lists on one raised sheet, the task lists' shape:
+rows inset by `--activity-sheet-inset`, ruled by a hairline inset to the rank column
+(`RankedRow`). The rank disc is filled `--success-surface` once the entry is
+paste-ready and dashed while it is not, and on hover it turns into the drag grip. A
+row that is not ready says what it is missing in words. The description's character
+budget is a count with a short meter beside it, in the rows and in the drawer. After
+the last entry, the open slots continue the column as a dashed disc with a plus. The
+header carries a slot strip: one segment per Common App slot, in list order, green
+when paste-ready, amber while there is work left, red when over a limit, and empty
+for an open slot. The text next to it states the same counts, so colour is never the
+only signal.
+
 `PageHeader` guarantees:
 - a **fixed `min-h-16` (64px)** — before it existed, header height varied 64/60/52px per
   page depending on which action buttons happened to be present, so the rule under the
@@ -1111,8 +1123,10 @@ that drove it.
   common row on the page.
 
 **Activities** (`features/activities/activities-config.ts`)
-- `Ready` (success, always shown) · `Not ready` (warning, only if >0) ·
-  `Over limit` (error, only if >0, **with an `AlertTriangle` icon**).
+- Not badges: the slot strip (`SectionStatus.tsx`), with `--progress-fill` for ready,
+  `--warning-solid` for to finish, `--danger-solid` for over a limit, and
+  `--control-quiet-surface` for an open slot. The text beside it reads
+  "N paste-ready · N to finish · N over limit", and a count of zero is left out.
 - Character budget: `empty` → `--ink-faint`, `ok` → muted, `near` (≥90%) → warning,
   `over` → danger + `font-medium`.
 
