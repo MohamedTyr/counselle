@@ -39,6 +39,7 @@ export function llmsText(): string {
       "## Links",
       list([
         `[Home](${SITE_URL}/)`,
+        `[About](${SITE_URL}/about)`,
         `[Privacy Policy](${SITE_URL}/privacy)`,
         `[Terms of Service](${SITE_URL}/terms)`,
         `[Contact](mailto:${CONTACT_EMAIL})`,
