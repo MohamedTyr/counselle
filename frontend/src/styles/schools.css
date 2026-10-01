@@ -480,3 +480,17 @@
     translate: none;
   }
 }
+
+/* ---- the school profile (the About tab) ----
+ * Institutional figures are drawn in ink at four steps of strength, so the
+ * one accent stays free for the figure a block points at. The profile swaps
+ * --school-viz-accent for the school's own colour inline: a school's own
+ * colour marks its own number, never Counselle's brand. */
+:root {
+  --school-viz-mark: color-mix(in oklch, var(--ink) 74%, transparent);
+  --school-viz-mark-2: color-mix(in oklch, var(--ink) 48%, transparent);
+  --school-viz-mark-3: color-mix(in oklch, var(--ink) 26%, transparent);
+  --school-viz-mark-4: color-mix(in oklch, var(--ink) 14%, transparent);
+  --school-viz-track: var(--control-track);
+  --school-viz-accent: var(--accent-solid);
+}

@@ -1420,6 +1420,33 @@ incompatible, stale, or partial values remain explicitly labeled rather than bei
 filled, normalized, or turned into an admission claim. Every graphic has a complete
 text-equivalent description and does not rely on hover or color.
 
+### 15.5.2 School About (the profile)
+
+The About tab reads a school's data like a magazine profile, one chapter at a time
+(`features/schools/facts/profile/`): a sticky chapter rail (Getting in, Paying for it,
+Applying, Academics, Campus life, Finishing; a Select below `md`), then the open
+chapter at 720px reading width — a serif sentence that says what its numbers add up
+to, then its blocks one after another under hairlines, never in cards. Each block is
+one designed unit (the odds, the price, deadlines) that names the fact keys it draws.
+
+Marks are ink at four strengths (`--school-viz-mark*`); the one accent
+(`--school-viz-accent`) marks the figure a block points at and takes the school's own
+colour, never Counselle's brand.
+
+What the profile may and may not write:
+
+- **It composes its own headings, sentences and captions, from published values
+  only.** Simple arithmetic on published figures ("1 in 9", a countdown, a sum of
+  buckets) is allowed; a figure the school didn't publish (a net price, a median) is
+  not, and an absent value is never drawn as zero.
+- **Every caution is the server's, verbatim.** The freshness line; each server
+  section's `line` and `foot` with the chapter that shows its facts (or above the page
+  when no chapter does); each group's `foot` under the block that draws it; the
+  deadline note under the deadlines; and the `reported_period` of a block's figures
+  beside its title.
+- **Nothing published is dropped.** A published fact no block draws is listed in a
+  "More figures" chapter; a block with nothing published doesn't render.
+
 ### 15.6 Tracked changes
 
 The agent's edits to a student's essay arrive as **proposals**, not writes. They are

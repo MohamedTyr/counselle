@@ -10,10 +10,11 @@ import type {
 } from "@/features/schools/facts/school-facts-types";
 
 /*
- * Honesty-critical: every sentence a student reads on this page is composed
- * server-side and carried verbatim on the wire (plan §5.2). These tests
- * check that the panel renders exactly what it is given, distinguishes the
- * whole-page states correctly, and never authors a word of its own.
+ * Honesty-critical. The profile composes its own headings and sentences from
+ * published values, but every caution is the server's and must reach the
+ * student verbatim: the freshness line, each section's line and foot, each
+ * group's foot, the deadline note, and the year a figure covers. A published
+ * figure is never dropped, and a block with nothing published never shows.
  */
 
 function identity(): SchoolFactsResponse["identity"] {
@@ -182,9 +183,7 @@ describe("whole-page states", () => {
 
   test("any section still ok renders the normal panel, never a whole-page Empty", () => {
     renderPanel(response());
-    expect(
-      screen.getByRole("heading", { level: 2, name: "Getting in" }),
-    ).toBeInTheDocument();
+    expect(screen.getByText("42")).toBeInTheDocument();
     expect(screen.queryByText(/haven't checked/)).toBeNull();
   });
 
@@ -205,9 +204,6 @@ describe("whole-page states", () => {
         ],
       }),
     );
-    expect(
-      screen.getByRole("heading", { level: 2, name: "Getting in" }),
-    ).toBeInTheDocument();
     expect(screen.getByText("42")).toBeInTheDocument();
     expect(screen.queryByText(/haven't checked/)).toBeNull();
     expect(screen.queryByText(/couldn't read/)).toBeNull();
@@ -314,5 +310,100 @@ describe("no band-caption literal on the client", () => {
       }),
     );
     expect(screen.getByText(caption)).toBeInTheDocument();
+  });
+});
+
+describe("the profile keeps every published figure and every caution", () => {
+  test("a figure no block draws is still listed, with its year", () => {
+    renderPanel(
+      response({
+        sections: [
+          section({
+            id: "getting-in",
+            title: "Getting in",
+            groups: [
+              {
+                id: "g1",
+                label: null,
+                foot: null,
+                chart: null,
+                facts: [
+                  scalarFact({
+                    key: "new.unknown_metric",
+                    label: "A metric no block knows",
+                    display: "17",
+                    reported_period: "2024-25",
+                  }),
+                ],
+              },
+            ],
+          }),
+        ],
+      }),
+    );
+    expect(screen.getByText("A metric no block knows")).toBeInTheDocument();
+    expect(screen.getByText("17")).toBeInTheDocument();
+    expect(screen.getByText("2024-25")).toBeInTheDocument();
+  });
+
+  test("a block whose figures are dated says which year", () => {
+    renderPanel(
+      response({
+        sections: [
+          section({
+            id: "outcomes",
+            title: "Outcomes",
+            groups: [
+              {
+                id: "g1",
+                label: null,
+                foot: null,
+                chart: null,
+                facts: [
+                  scalarFact({
+                    key: "outcomes.average_indebtedness",
+                    label: "Average indebtedness",
+                    display: "$18,728",
+                    value: 18728,
+                    reported_period: "2024-25",
+                  }),
+                ],
+              },
+            ],
+          }),
+        ],
+      }),
+    );
+    expect(screen.getByText("2024-25 figures")).toBeInTheDocument();
+  });
+
+  test("the deadline note renders verbatim beside the deadlines", () => {
+    renderPanel(
+      response({
+        deadlines: {
+          rows: [
+            {
+              round: "Regular decision",
+              state: "value",
+              date: "2099-01-01",
+              display: "January 1, 2099",
+              reported_period: null,
+              observed_at: null,
+            },
+          ],
+          foot: "Confirm on the school's site before you apply.",
+        },
+      }),
+      "apply",
+    );
+    expect(
+      screen.getByText("Confirm on the school's site before you apply."),
+    ).toBeInTheDocument();
+  });
+
+  test("a block with nothing published never renders", () => {
+    renderPanel(response());
+    expect(screen.queryByText("Test scores")).toBeNull();
+    expect(screen.queryByText("Deadlines")).toBeNull();
   });
 });

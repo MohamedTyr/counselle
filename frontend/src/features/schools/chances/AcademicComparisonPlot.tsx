@@ -1,4 +1,4 @@
-import { ChartFigure } from "@/features/schools/facts/charts/chart-shell";
+import { ChartFigure } from "@/features/schools/chances/ChartFigure";
 import { cn } from "@/lib/utils";
 
 import {
