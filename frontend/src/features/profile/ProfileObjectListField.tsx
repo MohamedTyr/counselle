@@ -1,6 +1,6 @@
-import { XIcon } from "lucide-react";
+import { PlusIcon, XIcon } from "lucide-react";
 import type React from "react";
-import { useEffect, useId, useRef } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,12 +18,17 @@ import type {
   SelectFieldConfig,
 } from "@/features/profile/profile-field-types";
 import {
-  profileGroupBoxClass,
+  profileChipClass,
+  profileDashedAddClass,
   profileInlineLabelClass,
-  profileSegmentedControlClass,
-  profileSegmentedOptionClass,
+  profileScoreOptionClass,
+  profileScorePickerClass,
 } from "@/features/profile/profile-control-styles";
-import { useFieldDraft } from "@/features/profile/use-field-draft";
+import {
+  ProfileFieldLabel,
+  ProfileFieldRow,
+} from "@/features/profile/ProfileFieldLabel";
+import { cn } from "@/lib/utils";
 
 type Item = Record<string, unknown>;
 
@@ -33,6 +38,31 @@ function emptyItem(config: ObjectListFieldConfig): Item {
     item[field.key] = field.kind === "boolean" ? null : "";
   }
   return item;
+}
+
+/** A whole-number scale short enough to show every step (an AP score,
+ * 1–5) is a row of buttons rather than a box to type into. */
+const MAX_SCALE_STEPS = 7;
+
+function isShortScale(field: ScalarFieldConfig | SelectFieldConfig) {
+  return (
+    field.kind === "int" &&
+    field.min !== undefined &&
+    field.max !== undefined &&
+    field.max - field.min + 1 <= MAX_SCALE_STEPS
+  );
+}
+
+function scaleSteps(field: ScalarFieldConfig | SelectFieldConfig): number[] {
+  if (
+    field.kind !== "int" ||
+    field.min === undefined ||
+    field.max === undefined
+  ) {
+    return [];
+  }
+  const { min } = field;
+  return Array.from({ length: field.max - min + 1 }, (_, index) => min + index);
 }
 
 function itemsFromValue(value: unknown): Item[] {
@@ -46,12 +76,15 @@ function isItemComplete(
   return fields.every((field) => fieldError(field, item[field.key]) === null);
 }
 
+function isBlank(value: unknown): boolean {
+  return value === null || value === undefined || value === "";
+}
+
 function fieldError(
   field: ScalarFieldConfig | SelectFieldConfig,
   value: unknown,
 ): string | null {
-  const isBlank = value === null || value === undefined || value === "";
-  if (isBlank) {
+  if (isBlank(value)) {
     return field.required ? "Required to save this entry." : null;
   }
   if (field.kind !== "int") {
@@ -76,13 +109,30 @@ function fieldError(
 export function ProfileObjectListField({
   config,
   onCommit,
+  showLabel = true,
   value,
 }: {
   config: ObjectListFieldConfig;
   onCommit: (value: Item[] | null) => void;
+  /** Off when the group heading above already says the same word. */
+  showLabel?: boolean;
   value: unknown;
 }) {
-  const [draft, setDraft] = useFieldDraft(itemsFromValue(value));
+  const serverItems = itemsFromValue(value);
+  const serverKey = JSON.stringify(serverItems);
+  const [draft, setDraft] = useState(serverItems);
+  const [lastServerKey, setLastServerKey] = useState(serverKey);
+  // Resync from the server ("adjust state during render", as in
+  // `useFieldDraft`), but carry over entries still being filled in: they
+  // were never sent, so the server's copy cannot contain them, and dropping
+  // them on the echo of a sibling's save would delete what is being typed.
+  if (serverKey !== lastServerKey) {
+    setLastServerKey(serverKey);
+    setDraft([
+      ...serverItems,
+      ...draft.filter((item) => !isItemComplete(item, config.itemFields)),
+    ]);
+  }
   const draftRef = useRef(draft);
   const committedRef = useRef(JSON.stringify(itemsFromValue(value)));
   const listId = useId();
@@ -96,14 +146,16 @@ export function ProfileObjectListField({
     setDraft(nextItems);
     // Incomplete items (e.g. a just-added AP score with no subject/score
     // yet) stay in the local draft only — sending them would 422 against a
-    // required backend field. The array saves once every item is complete.
-    if (!nextItems.every((item) => isItemComplete(item, config.itemFields))) {
-      return;
-    }
-    const serialized = JSON.stringify(nextItems);
+    // required backend field. Every complete item still saves, so removing
+    // or editing one while a new row is half-filled is never silently held
+    // back; the half-filled row says it is unsaved until it is complete.
+    const complete = nextItems.filter((item) =>
+      isItemComplete(item, config.itemFields),
+    );
+    const serialized = JSON.stringify(complete);
     if (serialized !== committedRef.current) {
       committedRef.current = serialized;
-      onCommit(nextItems.length > 0 ? nextItems : null);
+      onCommit(complete.length > 0 ? complete : null);
     }
   }
 
@@ -127,12 +179,9 @@ export function ProfileObjectListField({
     commit(draftRef.current.filter((_, itemIndex) => itemIndex !== index));
   }
 
-  return (
-    <div className="flex flex-col gap-3.5">
-      <span className="text-sm font-medium text-[var(--profile-field-label)]">
-        {config.label}
-      </span>
-      <div className="flex flex-col gap-3" id={listId}>
+  const list = (
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-2 empty:hidden" id={listId}>
         {draft.map((item, index) => (
           <ObjectListRow
             config={config}
@@ -148,21 +197,30 @@ export function ProfileObjectListField({
           />
         ))}
       </div>
-      {draft.length === 0 ? (
-        <p className="text-sm text-[var(--profile-field-helper)]">
-          No entries added yet.
-        </p>
-      ) : null}
       <Button
-        className="self-start border-[var(--profile-field-border)] bg-transparent text-[var(--profile-field-label)] hover:border-[var(--profile-field-hover-border)] hover:bg-[var(--profile-control-selected-surface)]"
+        className={cn(
+          "h-10 self-start rounded-xl px-3.5",
+          profileDashedAddClass,
+        )}
         onClick={addItem}
-        size="sm"
         type="button"
         variant="outline"
       >
+        <PlusIcon />
         {config.addLabel}
       </Button>
     </div>
+  );
+
+  return showLabel ? (
+    <ProfileFieldRow
+      label={<ProfileFieldLabel label={config.label} />}
+      width="full"
+    >
+      {list}
+    </ProfileFieldRow>
+  ) : (
+    list
   );
 }
 
@@ -183,46 +241,79 @@ function ObjectListRow({
   onChange: (key: string, value: unknown) => void;
   onRemove: () => void;
 }) {
-  const errors = config.itemFields
-    .map((field) => fieldError(field, item[field.key]))
-    .filter((error): error is string => error !== null);
+  // A blank required field is not a mistake yet, so it is named in one quiet
+  // line under the row; only a value that is actually wrong turns its own
+  // field red.
+  const missing = config.itemFields.filter(
+    (field) => field.required && isBlank(item[field.key]),
+  );
   const summary = config.itemSummary(item);
 
+  // Entries read as one table: the first carries the column labels, the rest
+  // keep theirs for screen readers only.
+  const showLabels = index === 0;
+
   return (
-    <div className={`grid gap-4 sm:grid-cols-2 ${profileGroupBoxClass}`}>
-      <div className="col-span-full flex items-center justify-between gap-3">
-        <span className="text-sm font-medium text-[var(--profile-field-label)]">
-          {summary === "New entry" ? `${config.label} ${index + 1}` : summary}
-        </span>
+    <div className="flex flex-col gap-1.5">
+      <div className="flex flex-wrap items-start gap-2">
+        {config.itemFields.map((field) => (
+          <ObjectListItemField
+            config={field}
+            error={
+              isBlank(item[field.key])
+                ? null
+                : fieldError(field, item[field.key])
+            }
+            id={`${id}-${field.key}`}
+            key={field.key}
+            onBlur={onBlur}
+            onChange={(nextValue) => onChange(field.key, nextValue)}
+            showLabel={showLabels}
+            value={item[field.key]}
+          />
+        ))}
         <Button
-          aria-label={`Remove ${summary}`}
-          className="text-muted-foreground hover:text-destructive-foreground"
+          aria-label={`Remove ${summary === "New entry" ? `${config.label} ${index + 1}` : summary}`}
+          className={cn(
+            "text-[var(--ink-faint)] hover:text-destructive-foreground",
+            showLabels && "mt-[22px]",
+          )}
           onClick={onRemove}
-          size="icon-sm"
+          size="icon-lg"
           type="button"
           variant="ghost"
         >
           <XIcon />
         </Button>
       </div>
-      {config.itemFields.map((field) => (
-        <ObjectListItemField
-          config={field}
-          error={fieldError(field, item[field.key])}
-          id={`${id}-${field.key}`}
-          key={field.key}
-          onBlur={onBlur}
-          onChange={(nextValue) => onChange(field.key, nextValue)}
-          value={item[field.key]}
-        />
-      ))}
-      {errors.length > 0 ? (
-        <p className="col-span-full text-xs leading-5 text-[var(--profile-field-helper)]">
-          Complete or correct the highlighted fields to save this entry.
+      {missing.length > 0 ? (
+        <p className="text-xs leading-5 text-[var(--ink-faint)]">
+          Add{" "}
+          {missing
+            .map((field) => `a ${field.label.toLowerCase()}`)
+            .join(" and ")}{" "}
+          to save this.
         </p>
       ) : null}
     </div>
   );
+}
+
+/** Each column is as wide as what it holds, as in the settings rows. */
+function itemWidthClass(field: ScalarFieldConfig | SelectFieldConfig): string {
+  switch (field.kind) {
+    case "int":
+    case "decimal":
+      return "w-24";
+    case "date":
+      return "w-40";
+    case "select":
+      return "w-44";
+    case "boolean":
+      return "";
+    default:
+      return "min-w-40 flex-1";
+  }
 }
 
 function ObjectListItemField({
@@ -231,6 +322,7 @@ function ObjectListItemField({
   id,
   onBlur,
   onChange,
+  showLabel,
   value,
 }: {
   config: ScalarFieldConfig | SelectFieldConfig;
@@ -238,15 +330,20 @@ function ObjectListItemField({
   id: string;
   onBlur: () => void;
   onChange: (value: unknown) => void;
+  showLabel: boolean;
   value: unknown;
 }) {
+  const labelClass = showLabel ? profileInlineLabelClass : "sr-only";
+
   if (config.kind === "select") {
     const currentValue =
       typeof value === "string" && value !== "" ? value : "__unset__";
     const helperId = `${id}-helper`;
     return (
-      <div className="flex min-w-0 flex-col gap-2">
-        <label className={profileInlineLabelClass} htmlFor={id}>
+      <div
+        className={cn("flex min-w-0 flex-col gap-1.5", itemWidthClass(config))}
+      >
+        <label className={labelClass} htmlFor={id}>
           {config.label}
         </label>
         <Select
@@ -282,48 +379,70 @@ function ObjectListItemField({
   }
 
   if (config.kind === "boolean") {
-    const currentValue =
-      value === true ? "true" : value === false ? "false" : "__unset__";
     return (
       <div
         aria-labelledby={id}
-        className="flex min-w-0 flex-col gap-2"
+        className="flex min-w-0 flex-col gap-1.5"
         role="group"
       >
-        <span className={profileInlineLabelClass} id={id}>
+        <span className={labelClass} id={id}>
           {config.label}
         </span>
-        <div className="flex min-h-10 items-center">
-          <div className={profileSegmentedControlClass}>
-            {[
-              { label: "Not set", value: "__unset__" },
-              { label: "Yes", value: "true" },
-              { label: "No", value: "false" },
-            ].map((option) => {
-              const isSelected = option.value === currentValue;
-              return (
-                <Button
-                  aria-pressed={isSelected}
-                  className={`h-8 px-3 text-sm sm:h-7 sm:px-2.5 sm:text-xs ${profileSegmentedOptionClass(isSelected)}`}
-                  key={option.value}
-                  onClick={() => {
-                    onChange(
-                      option.value === "__unset__"
-                        ? null
-                        : option.value === "true",
-                    );
-                    onBlur();
-                  }}
-                  size="sm"
-                  type="button"
-                  variant="outline"
-                >
-                  {option.label}
-                </Button>
-              );
-            })}
-          </div>
+        <div className="flex min-h-10 items-center gap-1.5">
+          {[true, false].map((option) => {
+            const isSelected = value === option;
+            return (
+              <Button
+                aria-pressed={isSelected}
+                className={profileChipClass(isSelected)}
+                key={String(option)}
+                onClick={() => {
+                  onChange(isSelected ? null : option);
+                  onBlur();
+                }}
+                type="button"
+                variant="outline"
+              >
+                {option ? "Yes" : "No"}
+              </Button>
+            );
+          })}
         </div>
+      </div>
+    );
+  }
+
+  if (isShortScale(config)) {
+    return (
+      <div
+        aria-labelledby={id}
+        className="flex min-w-0 flex-col gap-1.5"
+        role="group"
+      >
+        <span className={labelClass} id={id}>
+          {config.label}
+        </span>
+        <div className={profileScorePickerClass}>
+          {scaleSteps(config).map((step) => {
+            const isSelected = value === step;
+            return (
+              <button
+                aria-label={`${config.label} ${step}`}
+                aria-pressed={isSelected}
+                className={profileScoreOptionClass(isSelected)}
+                key={step}
+                onClick={() => {
+                  onChange(isSelected ? null : step);
+                  onBlur();
+                }}
+                type="button"
+              >
+                {step}
+              </button>
+            );
+          })}
+        </div>
+        <InlineFieldError id={`${id}-helper`} text={error} />
       </div>
     );
   }
@@ -340,14 +459,17 @@ function ObjectListItemField({
   const helperId = `${id}-helper`;
 
   return (
-    <div className="flex min-w-0 flex-col gap-2">
-      <label className={profileInlineLabelClass} htmlFor={id}>
+    <div
+      className={cn("flex min-w-0 flex-col gap-1.5", itemWidthClass(config))}
+    >
+      <label className={labelClass} htmlFor={id}>
         {config.label}
       </label>
       <Input
         aria-describedby={error ? helperId : undefined}
         aria-invalid={error ? true : undefined}
         id={id}
+        size="lg"
         max={config.kind === "int" ? config.max : undefined}
         min={config.kind === "int" ? config.min : undefined}
         onBlur={onBlur}

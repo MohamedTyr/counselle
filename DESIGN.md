@@ -371,7 +371,10 @@ Loaded via `@fontsource-variable/instrument-sans` (npm, self-hosted — no Googl
 request, no FOUT from a third-party origin). One family for the entire interface.
 **Newsreader is reserved for essay documents** — the ProseMirror editor and the document
 preview — because an essay is a piece of writing, not a piece of UI, and the serif
-signals that the surface belongs to the student. It is self-hosted
+signals that the surface belongs to the student. The one other use is the Profile's
+questions ("Where are you in high school?"): each is a line addressed to the student
+rather than a label on a box, and the serif is what tells the two apart on a page full
+of labels. Nothing else on Profile — labels, values, chips, the section title — is serif. It is self-hosted
 (`@fontsource-variable/newsreader`, optical-size axis) rather than left to Georgia,
 which most Linux machines do not have and which fell back to Times there. Essay prose
 is 18px at a 1.75 line height.
@@ -664,6 +667,42 @@ It renders a `<section>` (bounds, `overflow-hidden`) wrapping a scrolling column
 **Widths.** `full` for dense data surfaces, `wide` (896px) for linear read-and-enter
 surfaces, `panel` (1160px) for rail-and-panel pages — Profile and a school's detail. The
 header tracks the same column as the body, so a page reads as one aligned column.
+
+**Profile** keeps one geometry on all three tabs: a 200px column, then a raised sheet
+(`PROFILE_LAYOUT_CLASS`, `profileSheetClass`). On the Profile tab the column is the
+section rail: plain titles, the selected one in the app sidebar's own active state
+(`bg-sidebar-active`, `text-sidebar-active-foreground`, medium weight) on a pill that
+slides to the new row when the section changes — one shared pill, measured from the
+row, not a background per row. On
+Documents and Memory it names the tab (`ProfileTabFrame`). Below `md` the rail becomes
+a scrolling strip of pills. The tabs use `TabsList variant="pill"`, the same quiet track
+and raised pill as the Tasks views. Empty or failed lists, the document upload box,
+and the "Add …" buttons are dashed, which is the tasks' "needs a place" signal.
+
+A section is a run of **questions** (`FieldGroupConfig.question`), not a settings form.
+Each question is its own band on the sheet: on the left, the question in Newsreader,
+an optional one-line `why` saying what the answer changes, and a mark that reads
+"Optional" until something under it is saved and "Answered" after (`ProfileQuestionMark`,
+a ring that cross-fades into a check). On the right, its fields, label above control. The
+section header carries a meter with one segment per question and the same count in
+words ("2 of 4 answered") — it counts questions, never fields, and never nags.
+
+Every choice is **on show**: selects and Yes/No are chips (`profileChipClass`), one click
+to answer and one more on the chosen chip to take it back; the chosen chip carries the
+brand tint, an `--accent-solid` rim and a heavier weight, and a multi-select's chosen
+chips add a check. Fields sit on a six-column answer grid (`PROFILE_ANSWER_GRID_CLASS`,
+two columns on a phone) at the width of what they hold — a score or date is a third, a
+name is a half, a set of choices or a paragraph is the row — and `layoutRows` keeps chips
+and boxes on separate rows and stretches a text field left alone on its row.
+
+Tests are **score tiles** (`layout: "tiles"`, `ProfileScoreTiles`): a test already sat is
+a tile with its headline score set large beside its ceiling ("1480 / 1600") and its
+other fields under it; a test not taken is a dashed "+ ACT / 36" button that opens its
+tile. A list of entries (AP scores) is one inline row per entry, and a short whole-number
+scale (an AP score, 1–5) is a row of buttons rather than a box. A blank required field
+in a new entry is named in one quiet line ("Add a subject to save this."), never red;
+only a value that is actually wrong turns its field red. A list of strings is a tag
+input: Enter or a comma adds a tag, and Backspace removes the last one.
 
 **Activities** and Honors are ranked lists on one raised sheet, the task lists' shape:
 rows inset by `--activity-sheet-inset`, ruled by a hairline inset to the rank column

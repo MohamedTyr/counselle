@@ -72,13 +72,21 @@ export type FieldConfig =
   | ObjectFieldConfig
   | ObjectListFieldConfig;
 
-/** A labelled run of fields inside one section ("Grades", "Class rank").
- * The label is the only heading its fields get: a group holding exactly one
- * object field renders that object's children directly under the group
- * label, because a legend repeating what the label already said is chrome
- * for nothing. */
+/** One question inside a section ("Where are you in high school?") and the
+ * fields that answer it. The question is the only heading its fields get:
+ * an object field renders its children directly under it, because a legend
+ * repeating what the question already asked is chrome for nothing.
+ *
+ * `label` is the group's short name — its React key, and what an
+ * object-list's own label is compared against to avoid saying a word twice.
+ * `why` is one line on what the answer changes; leave it off when the
+ * question explains itself. `layout: "tiles"` lays each object field out as
+ * a score tile (SAT, ACT, …), with tests not yet taken folded into "+" buttons. */
 export type FieldGroupConfig = {
   label: string;
+  question: string;
+  why?: string;
+  layout?: "tiles";
   fields: readonly FieldConfig[];
 };
 
@@ -91,8 +99,5 @@ export type SectionConfig = {
   title: string;
   description: string;
   group: SectionGroupKey;
-  /** One line on what this section changes, shown in place of the fact
-   * line while the section is empty. */
-  matters: string;
   groups: readonly FieldGroupConfig[];
 };

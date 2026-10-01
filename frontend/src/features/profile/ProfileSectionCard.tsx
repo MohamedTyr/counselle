@@ -1,24 +1,33 @@
-import { ChevronLeftIcon, ChevronRightIcon, PlusIcon } from "lucide-react";
-import { useState } from "react";
+import { ArrowRightIcon, ChevronLeftIcon, PlusIcon } from "lucide-react";
+import { useId, useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { PROFILE_ANSWER_GRID_CLASS } from "@/features/profile/ProfileFieldLabel";
+import {
+  type FieldPlacement,
+  layoutRows,
+} from "@/features/profile/profile-field-layout";
 import { ProfileObjectListField } from "@/features/profile/ProfileObjectListField";
+import { ProfileQuestionMark } from "@/features/profile/ProfileQuestionMark";
 import { ProfileScalarField } from "@/features/profile/ProfileScalarField";
-import { sectionFacts } from "@/features/profile/profile-facts";
+import { ProfileScoreTiles } from "@/features/profile/ProfileScoreTiles";
+import { hasAnyValue } from "@/features/profile/profile-facts";
 import type {
   FieldConfig,
   FieldGroupConfig,
   SectionConfig,
 } from "@/features/profile/profile-field-types";
+import { profileSheetClass } from "@/features/profile/profile-control-styles";
 import { getAtPath } from "@/features/profile/profile-patch";
 import { PROFILE_NOTE_FIELD } from "@/features/profile/profile-sections-config";
+import { crossFieldValidator } from "@/features/profile/profile-validators";
 import { cn } from "@/lib/utils";
 
 type CommitField = (path: string[], value: unknown) => void;
 
 /** A field and the full path from the profile root it commits to. Object
- * fields are flattened into their children here: the group label already
- * names them, so a nested legend would say the same word twice. */
+ * fields are flattened into their children here: the question already
+ * names them, so a nested legend would say the same thing twice. */
 type FieldSlot = { field: FieldConfig; path: string[] };
 
 function groupSlots(group: FieldGroupConfig, sectionKey: string): FieldSlot[] {
@@ -37,53 +46,17 @@ function groupSlots(group: FieldGroupConfig, sectionKey: string): FieldSlot[] {
   });
 }
 
-/** Three columns of short controls is the section's rhythm; anything that
- * holds a sentence or a set takes the width it needs instead of being
- * squeezed into a third. */
-function spanClass(field: FieldConfig): string {
-  if (field.kind === "object-list") {
-    return "md:col-span-3";
-  }
-  return field.kind === "textarea" ||
-    field.kind === "string-list" ||
-    field.kind === "multi-select"
-    ? "md:col-span-2"
-    : "";
+/** A question counts as answered once anything under it is saved. It is a
+ * state, never a score: the header counts questions, not fields, so a long
+ * question is not worth more than a short one. */
+function isAnswered(group: FieldGroupConfig, value: unknown): boolean {
+  return group.fields.some((field) =>
+    hasAnyValue(getAtPath(value, [field.key])),
+  );
 }
 
-function finiteNumber(value: unknown): number | null {
-  return typeof value === "number" && Number.isFinite(value) ? value : null;
-}
-
-/** Rank and size are only wrong relative to each other, so the check runs on
- * whichever of the pair just changed, against the committed other. */
-function rankValidator(
-  section: SectionConfig,
-  field: FieldConfig,
-  value: unknown,
-) {
-  if (
-    section.key !== "academics" ||
-    (field.key !== "class_rank" && field.key !== "class_size")
-  ) {
-    return undefined;
-  }
-  return (nextValue: unknown) => {
-    const rank = finiteNumber(
-      field.key === "class_rank" ? nextValue : getAtPath(value, ["class_rank"]),
-    );
-    const size = finiteNumber(
-      field.key === "class_size" ? nextValue : getAtPath(value, ["class_size"]),
-    );
-    return rank !== null && size !== null && rank > size
-      ? "Class rank can’t be higher than class size."
-      : null;
-  };
-}
-
-/** One profile section (Basics, Academics, ...) as the detail panel beside
- * the section rail: what the section is and what it currently says, then its
- * fields in labelled groups, then the way on to the next section. */
+/** One profile section (Basics, Academics, ...) as a run of plain questions,
+ * each with the fields that answer it, then the way on to the next section. */
 export function ProfileSectionCard({
   groupLabel,
   nextSection,
@@ -101,26 +74,32 @@ export function ProfileSectionCard({
   section: SectionConfig;
   value: unknown;
 }) {
+  const answered = section.groups.map((group) => isAnswered(group, value));
+
   return (
-    <div className="w-full overflow-hidden rounded-xl border border-[var(--profile-section-border)] bg-[var(--profile-section-surface)]">
-      <SectionHeading groupLabel={groupLabel} section={section} value={value} />
-      <div className="flex flex-col px-6">
+    <div className={cn("w-full overflow-hidden", profileSheetClass)}>
+      <SectionHeading
+        answered={answered}
+        groupLabel={groupLabel}
+        section={section}
+      />
+      <div className="flex flex-col">
         {section.groups.map((group, index) => (
-          <FieldGroup
+          <Question
+            answered={answered[index]}
             group={group}
             key={group.label}
             onFieldCommit={onFieldCommit}
             section={section}
-            showDivider={index > 0}
             value={value}
           />
         ))}
-        <SectionNote
-          onFieldCommit={onFieldCommit}
-          sectionKey={section.key}
-          value={getAtPath(value, [PROFILE_NOTE_FIELD.key])}
-        />
       </div>
+      <SectionNote
+        onFieldCommit={onFieldCommit}
+        sectionKey={section.key}
+        value={getAtPath(value, [PROFILE_NOTE_FIELD.key])}
+      />
       <SectionPager
         nextSection={nextSection}
         onSelect={onSelect}
@@ -130,112 +109,153 @@ export function ProfileSectionCard({
   );
 }
 
+/** The section's name, what it is for, and how many of its questions have
+ * an answer — a meter with one segment per question, and the same count in
+ * words so the state never rests on colour. */
 function SectionHeading({
+  answered,
   groupLabel,
   section,
-  value,
 }: {
+  answered: readonly boolean[];
   groupLabel: string;
   section: SectionConfig;
-  value: unknown;
 }) {
-  const facts = sectionFacts(section, value);
+  const count = answered.filter(Boolean).length;
 
   return (
-    <header className="flex flex-col gap-2 border-b border-[var(--profile-section-divider)] px-6 py-5">
-      <p className="text-xs font-medium text-[var(--profile-field-helper)]">
-        {groupLabel}
-      </p>
-      <h2 className="text-lg font-semibold text-foreground">{section.title}</h2>
-      <p className="max-w-prose text-sm leading-6 text-muted-foreground">
-        {section.description}
-      </p>
-      {/* Read back verbatim, or — with nothing saved yet — what the section
-       * would change. Never a count, never a score.
-       *
-       * Each fact is its own `dir="auto"` isolate. Saved values can be
-       * right-to-left (pronouns commonly are), and one RTL run in a
-       * `·`-joined string reorders its neighbours around it — "Saif ·
-       * طبزك · 10th" renders as "Saif · 10 · طبزك", which is the student's
-       * own data shown wrong. */}
-      <p className="text-sm text-[var(--profile-field-label)]">
-        {facts.length > 0 ? (
-          <>
-            {"Right now: "}
-            {facts.map((fact, index) => (
-              <span key={fact}>
-                {index > 0 ? " · " : null}
-                <span dir="auto">{fact}</span>
-              </span>
-            ))}
-          </>
-        ) : (
-          section.matters
-        )}
-      </p>
+    <header className="flex flex-col gap-5 border-b border-[var(--profile-section-divider)] bg-[linear-gradient(to_bottom,var(--brand-subtle),transparent)] px-6 pt-7 pb-6 sm:flex-row sm:items-end sm:justify-between md:px-10 md:pt-9 md:pb-7">
+      <div className="flex max-w-prose flex-col gap-1.5">
+        {/* The rail names the group on desktop; stacked on a phone, the
+         * rail scrolls away, so the sheet says it. */}
+        <p className="text-xs text-[var(--ink-faint)] md:hidden">
+          {groupLabel}
+        </p>
+        <h2 className="text-[1.375rem] leading-7 font-semibold tracking-[-0.01em] text-balance text-[var(--ink)]">
+          {section.title}
+        </h2>
+        <p className="text-sm leading-6 text-pretty text-[var(--ink-secondary)]">
+          {section.description}
+        </p>
+      </div>
+      <div className="flex shrink-0 flex-col gap-2 sm:items-end">
+        <div aria-hidden="true" className="flex gap-1">
+          {answered.map((isOn, index) => (
+            <span
+              className={cn(
+                "h-1 w-6 rounded-full transition-colors duration-200 ease-out motion-reduce:transition-none",
+                isOn
+                  ? "bg-[var(--progress-fill)]"
+                  : "bg-[color-mix(in_oklch,var(--edge-control)_45%,transparent)]",
+              )}
+              key={index}
+            />
+          ))}
+        </div>
+        <p
+          aria-live="polite"
+          className="text-xs text-[var(--ink-faint)] tabular-nums"
+        >
+          {count} of {answered.length} answered
+        </p>
+      </div>
     </header>
   );
 }
 
-function FieldGroup({
+/** One question: asked on the left in the reader's voice, answered on the
+ * right. The question is set in the document serif because it is the one
+ * line on the page addressed to the student rather than labelling a box. */
+function Question({
+  answered,
   group,
   onFieldCommit,
   section,
-  showDivider,
   value,
 }: {
+  answered: boolean;
   group: FieldGroupConfig;
   onFieldCommit: CommitField;
   section: SectionConfig;
-  showDivider: boolean;
   value: unknown;
 }) {
+  const headingId = useId();
+  const slots = groupSlots(group, section.key);
+  const placements = layoutRows(slots.map((slot) => slot.field));
+  const isSingle = slots.length === 1;
+
   return (
     <section
-      className={cn(
-        "flex flex-col gap-3 py-5",
-        showDivider && "border-t border-[var(--profile-section-divider)]",
-      )}
+      aria-labelledby={headingId}
+      className="grid gap-x-10 gap-y-5 border-t border-[var(--profile-section-divider)] px-6 py-7 first:border-t-0 md:grid-cols-[minmax(0,15rem)_minmax(0,1fr)] md:px-10 md:py-9"
     >
-      <h3 className="text-xs font-medium text-[var(--profile-field-helper)]">
-        {group.label}
-      </h3>
-      <div className="grid grid-cols-1 gap-x-4 gap-y-5 md:grid-cols-3">
-        {groupSlots(group, section.key).map((slot) => (
-          <div className={spanClass(slot.field)} key={slot.path.join(".")}>
+      <div className="flex flex-col items-start">
+        <h3
+          className="font-document text-[1.4375rem] leading-[1.25] font-normal tracking-[-0.01em] text-balance text-[var(--ink)]"
+          id={headingId}
+        >
+          {group.question}
+        </h3>
+        {group.why ? (
+          <p className="mt-2.5 text-chrome text-pretty text-[var(--ink-faint)]">
+            {group.why}
+          </p>
+        ) : null}
+        <ProfileQuestionMark answered={answered} className="mt-3.5" />
+      </div>
+      <div className={PROFILE_ANSWER_GRID_CLASS}>
+        {group.layout === "tiles" ? (
+          <ProfileScoreTiles
+            fields={group.fields}
+            onFieldCommit={onFieldCommit}
+            path={[section.key]}
+            value={value}
+          />
+        ) : (
+          slots.map((slot, index) => (
             <SectionField
+              hideLabel={isSingle}
+              key={slot.path.join(".")}
+              groupLabel={group.label}
               onFieldCommit={onFieldCommit}
-              section={section}
               slot={slot}
               value={value}
+              placement={placements[index]}
             />
-          </div>
-        ))}
+          ))
+        )}
       </div>
     </section>
   );
 }
 
 function SectionField({
+  groupLabel,
+  hideLabel,
   onFieldCommit,
-  section,
   slot,
+  placement,
   value,
 }: {
+  groupLabel: string;
+  hideLabel: boolean;
   onFieldCommit: CommitField;
-  section: SectionConfig;
   slot: FieldSlot;
   value: unknown;
+  placement: FieldPlacement;
 }) {
   const fieldValue = getAtPath(value, slot.path.slice(1));
 
   if (slot.field.kind === "object-list") {
     return (
-      <ProfileObjectListField
-        config={slot.field}
-        onCommit={(nextValue) => onFieldCommit(slot.path, nextValue)}
-        value={fieldValue}
-      />
+      <div className="col-span-2 sm:col-span-6">
+        <ProfileObjectListField
+          config={slot.field}
+          onCommit={(nextValue) => onFieldCommit(slot.path, nextValue)}
+          showLabel={slot.field.label !== groupLabel}
+          value={fieldValue}
+        />
+      </div>
     );
   }
 
@@ -247,16 +267,18 @@ function SectionField({
   return (
     <ProfileScalarField
       config={slot.field}
+      hideLabel={hideLabel}
+      placement={placement}
       onCommit={(nextValue) => onFieldCommit(slot.path, nextValue)}
-      validate={rankValidator(section, slot.field, value)}
+      validate={crossFieldValidator(slot.path, value)}
       value={fieldValue}
     />
   );
 }
 
-/** Every section ends in the same free-text note. Left in the grid it was
- * always the largest control on the screen and always the last thing filled,
- * so it opens on request and the autosave contract sits beside it. */
+/** Every section ends in the same free-text note. It is always the last
+ * thing filled and, left open, the largest control on the sheet, so it
+ * opens on request; the autosave contract sits beside it. */
 function SectionNote({
   onFieldCommit,
   sectionKey,
@@ -271,33 +293,35 @@ function SectionNote({
   );
 
   return (
-    <div className="flex flex-col gap-4 border-t border-[var(--profile-section-divider)] py-5">
+    <div className="flex flex-col gap-3 border-t border-[var(--profile-section-divider)] px-6 py-5 md:px-10">
       {isOpen ? (
-        <ProfileScalarField
-          config={PROFILE_NOTE_FIELD}
-          onCommit={(nextValue) =>
-            onFieldCommit([sectionKey, PROFILE_NOTE_FIELD.key], nextValue)
-          }
-          value={value}
-        />
+        <div className={PROFILE_ANSWER_GRID_CLASS}>
+          <ProfileScalarField
+            config={PROFILE_NOTE_FIELD}
+            onCommit={(nextValue) =>
+              onFieldCommit([sectionKey, PROFILE_NOTE_FIELD.key], nextValue)
+            }
+            value={value}
+          />
+        </div>
       ) : null}
       <div className="flex flex-wrap items-center justify-between gap-3">
         {isOpen ? (
           <span />
         ) : (
           <Button
-            className="-ml-2 text-[var(--profile-field-label)]"
+            className="-ml-2.5 text-[var(--ink-secondary)]"
             onClick={() => setIsOpen(true)}
             size="sm"
             type="button"
             variant="ghost"
           >
             <PlusIcon />
-            Add a note
+            Anything else? Add a note
           </Button>
         )}
-        <span className="text-xs text-[var(--profile-field-helper)]">
-          Autosaves when you click away.
+        <span className="text-xs text-[var(--ink-faint)]">
+          Saves when you click away.
         </span>
       </div>
     </div>
@@ -314,9 +338,10 @@ function SectionPager({
   previousSection?: SectionConfig;
 }) {
   return (
-    <div className="flex items-center justify-between gap-3 border-t border-[var(--profile-section-divider)] px-4 py-3">
+    <div className="flex items-center justify-between gap-3 border-t border-[var(--profile-section-divider)] bg-[var(--canvas-hover)] px-4 py-3 md:px-8">
       {previousSection ? (
         <Button
+          className="text-[var(--ink-secondary)]"
           onClick={() => onSelect(previousSection.key)}
           size="sm"
           type="button"
@@ -329,14 +354,9 @@ function SectionPager({
         <span />
       )}
       {nextSection ? (
-        <Button
-          onClick={() => onSelect(nextSection.key)}
-          size="sm"
-          type="button"
-          variant="ghost"
-        >
-          {nextSection.title}
-          <ChevronRightIcon />
+        <Button onClick={() => onSelect(nextSection.key)} type="button">
+          Next: {nextSection.title}
+          <ArrowRightIcon />
         </Button>
       ) : null}
     </div>
