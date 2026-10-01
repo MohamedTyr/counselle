@@ -28,24 +28,25 @@ hop() { curl -s -o /dev/null -w '%{http_code} %{redirect_url}' "$1"; }
 echo "Home page ($BASE/)"
 page="$(curl -s "$BASE/")"
 has() { grep -qF -- "$1" <<<"$page"; }
-check "H1 with every word separated" 'has "AI College</span> <span>counseling</span></span> <span"'
-for heading in "Everything a \$10,000 counselor does" "How Acceptra compares" \
+check "H1 with every word separated" 'has "Elite AI college</span> <span>counseling.</span></span> <span"'
+for heading in "We do what a \$10,000 counselor does" "How Acceptra compares" \
   "Drop the consultants, keep the results" "Know which students need you" \
   "Questions families" "Students who tested it"; do
   check "H2: $heading" 'has "$heading"'
 done
-for text in "What is Acceptra?" "Is my data sold or used for advertising?" \
-  "A real mentor, twice a month" "Essay feedback, line by line" \
-  "Colleges that match you" "Scholarships you match" "Activities that fit you" \
+for text in "Why not just ask ChatGPT?" "What can a counselor see?" \
+  "A real mentor, twice a month" "Line-by-line comments in minutes" \
+  "A list built on facts, not vibes" "Money you actually qualify for" \
+  "Programs that fit what you already do" \
   "Official SAT questions, until your mistakes run out" \
-  "Tasks and deadlines, all in one place"; do
+  "Every school’s dates, one calendar"; do
   check "text: $text" 'has "$text"'
 done
 check "FAQ answers are in the HTML" '[ "$(grep -o "class=\"lp-faq-answer\"" <<<"$page" | wc -l)" -ge 9 ]'
 check "JSON-LD block" 'has "application/ld+json"'
 check "canonical" 'has "<link rel=\"canonical\" href=\"https://acceptra.ai/\""'
 check "og:image" 'has "og:image\" content=\"https://acceptra.ai/og.png\""'
-check "two font preloads" '[ "$(grep -o "as=\"font\"" <<<"$page" | wc -l)" -eq 2 ]'
+check "one font preload" '[ "$(grep -o "as=\"font\"" <<<"$page" | wc -l)" -eq 1 ]'
 check "no <noscript>" '! has "<noscript"'
 check "no Cloudflare email obfuscation" '! has "/cdn-cgi/l/email-protection"'
 check "no 400+ schools" '! has "400+ schools"'
