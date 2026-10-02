@@ -1,4 +1,4 @@
-import { SearchX, Star } from "lucide-react";
+import { Coins, SearchX, Star } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -15,6 +15,20 @@ import {
 } from "@/features/scholarships/scholarship-filters";
 
 const PANEL = "rounded-xl border border-[var(--edge)] bg-[var(--surface-raised)] py-14 shadow-[var(--elevation-1)]";
+
+/** Nothing is published yet: no filter can help, so none is suggested. */
+export function NothingPublishedEmpty() {
+  return (
+    <Empty className={PANEL}>
+      <EmptyHeader>
+        <EmptyMedia variant="icon">
+          <Coins />
+        </EmptyMedia>
+        <EmptyTitle>No scholarships yet</EmptyTitle>
+      </EmptyHeader>
+    </Empty>
+  );
+}
 
 export function SavedEmpty({ onBrowse }: { onBrowse: () => void }) {
   return (

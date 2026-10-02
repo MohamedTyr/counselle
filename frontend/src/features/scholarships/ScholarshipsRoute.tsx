@@ -25,7 +25,7 @@ import { PageContainer } from "@/components/workspace/PageContainer";
 import { evaluateCriteria, readProfileFacts, summarizeFit } from "@/features/scholarships/eligibility";
 import { ProfileMatchBar } from "@/features/scholarships/ProfileMatchBar";
 import { ScholarshipDetail, type DetailActions } from "@/features/scholarships/ScholarshipDetail";
-import { FilteredEmpty, SavedEmpty } from "@/features/scholarships/ScholarshipEmpty";
+import { FilteredEmpty, NothingPublishedEmpty, SavedEmpty } from "@/features/scholarships/ScholarshipEmpty";
 import {
   applyFilters,
   clearAllFilters,
@@ -88,7 +88,7 @@ function useDetailActions(selected: ScholarshipPublic | null, savedIds: readonly
   if (!selected) return undefined;
   return {
     isSaved: savedIds.includes(selected.id),
-    onToggleSave: () => toggleSaved.mutate(selected.id),
+    onToggleSave: () => toggleSaved.toggle(selected.id),
     isAddingToTasks: createTask.isPending,
     onAddToTasks: () =>
       createTask.mutate(
@@ -102,7 +102,9 @@ function useDetailActions(selected: ScholarshipPublic | null, savedIds: readonly
       ),
     onAsk: () =>
       void navigate("/app/ai", {
-        state: { draftPrompt: `Help me decide whether to apply for the ${selected.name} (${selected.sponsor}) and how to make my application strong.` },
+        state: {
+          draftPrompt: `Help me decide whether to apply for the ${selected.name} (${selected.sponsor}, scholarship id ${selected.id}) and how to make my application strong.`,
+        },
       }),
   };
 }
@@ -157,7 +159,21 @@ export function ScholarshipsRoute() {
       ?.scrollIntoView({ block: "center" });
   }, [selectedParam, scholarships.isPending]);
 
-  useScholarshipKeys({ ids: visibleIds, selectedId, onSelect: select, onToggleSave: (id) => toggleSaved.mutate(id) });
+  // A deep link to a record that's no longer listed: clear it, but only once
+  // the list has actually loaded, never while loading or after a failure.
+  useEffect(() => {
+    if (!scholarships.isSuccess || !selectedParam) return;
+    if (items.some((item) => item.id === selectedParam)) return;
+    select(null);
+    toast.error("That scholarship isn't available any more.");
+  }, [items, scholarships.isSuccess, select, selectedParam]);
+
+  // Without saved ids the list still works; say so rather than showing "no saves".
+  useEffect(() => {
+    if (saved.isError) toast.error("Couldn't load your saved scholarships.");
+  }, [saved.isError, saved.errorUpdatedAt]);
+
+  useScholarshipKeys({ ids: visibleIds, selectedId, onSelect: select, onToggleSave: (id) => toggleSaved.toggle(id) });
 
   const setView = (view: ScholarshipTab) => update({ ...filters, view });
   const toggleIgnored = (kind: EligibilityKind) =>
@@ -189,6 +205,8 @@ export function ScholarshipsRoute() {
     );
   } else if (scholarships.isPending) {
     body = <ScholarshipListSkeleton />;
+  } else if (items.length === 0) {
+    body = <NothingPublishedEmpty />;
   } else if (isEmpty && filters.view === "saved" && savedIds.length === 0) {
     body = <SavedEmpty onBrowse={() => setView("foryou")} />;
   } else if (isEmpty) {

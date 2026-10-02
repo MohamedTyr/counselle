@@ -61,3 +61,32 @@ describe("errorFromResponse — surfaces the envelope's real message", () => {
     expect(error.message).toBe("That request is invalid.");
   });
 });
+
+describe("errorFromResponse — keeps the parsed envelope", () => {
+  it("exposes a 409's current_version on body", async () => {
+    const response = jsonResponse(
+      { error: { message: "Someone else changed this scholarship.", trace_id: "t", current_version: 7 } },
+      { status: 409 },
+    );
+
+    const error = await errorFromResponse(response);
+
+    expect(error.kind).toBe("conflict");
+    expect(error.message).toBe("Someone else changed this scholarship.");
+    expect(error.body).toEqual({
+      error: { message: "Someone else changed this scholarship.", trace_id: "t", current_version: 7 },
+    });
+  });
+
+  it("exposes a 422's problems on body", async () => {
+    const response = jsonResponse(
+      { error: { message: "This scholarship isn't ready to publish.", trace_id: "t", problems: ["award", "fresh"] } },
+      { status: 422 },
+    );
+
+    const error = await errorFromResponse(response);
+
+    expect(error.kind).toBe("invalid_edit");
+    expect((error.body as { error: { problems: string[] } }).error.problems).toEqual(["award", "fresh"]);
+  });
+});

@@ -78,7 +78,7 @@ function Editor({ record, others }: { record: AdminScholarship | null; others: A
         return;
       }
       save.mutate(
-        { id: record?.id ?? null, draft: next },
+        { id: record?.id ?? null, draft: next, expected_version: record?.version ?? null },
         {
           onSuccess: (saved) => {
             const savedDraft = toDraft(saved);

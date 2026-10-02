@@ -1,0 +1,1361 @@
+[
+  {
+    "status": "published",
+    "other_eligibility": [
+      "Leadership and service in your school or community"
+    ],
+    "fields": [],
+    "basis": [
+      "merit"
+    ],
+    "logo_url": "",
+    "name": "Coca-Cola Scholars",
+    "sponsor": "Coca-Cola Scholars Foundation",
+    "summary": "A leadership award for seniors who have made a measurable difference in their school and community.",
+    "apply_url": "https://www.coca-colascholarsfoundation.org/apply/",
+    "source_url": "https://www.coca-colascholarsfoundation.org/",
+    "award": {
+      "kind": "fixed",
+      "amount": 20000,
+      "min": null,
+      "max": null,
+      "renewable": false,
+      "years": null,
+      "awards_count": 150
+    },
+    "eligibility": [
+      {
+        "kind": "citizenship",
+        "any_of": [
+          "us_citizen",
+          "permanent_resident",
+          "daca"
+        ]
+      },
+      {
+        "kind": "grade",
+        "any_of": [
+          "12"
+        ]
+      },
+      {
+        "kind": "gpa_min",
+        "value": 3
+      }
+    ],
+    "requirements": {
+      "essays": [
+        {
+          "prompt": "Describe a time you led change in your community.",
+          "words": 250
+        }
+      ],
+      "recommendations": 0,
+      "transcript": true,
+      "financial_documents": false,
+      "interview": true
+    },
+    "deadline": {
+      "kind": "fixed",
+      "recurs_annually": true
+    },
+    "deadline_in_days": 30,
+    "opens_in_days": -30,
+    "checked_days_ago": 114
+  },
+  {
+    "status": "published",
+    "other_eligibility": [],
+    "fields": [],
+    "basis": [
+      "merit",
+      "need"
+    ],
+    "logo_url": "",
+    "name": "Elks Most Valuable Student",
+    "sponsor": "Elks National Foundation",
+    "summary": "Scholarships for seniors judged on scholarship, leadership and financial need.",
+    "apply_url": "https://www.elks.org/scholars/scholarships/mvs.cfm",
+    "source_url": "https://www.elks.org/scholars/",
+    "award": {
+      "kind": "range",
+      "amount": null,
+      "min": 4000,
+      "max": 50000,
+      "renewable": true,
+      "years": 4,
+      "awards_count": 500
+    },
+    "eligibility": [
+      {
+        "kind": "citizenship",
+        "any_of": [
+          "us_citizen"
+        ]
+      },
+      {
+        "kind": "grade",
+        "any_of": [
+          "12"
+        ]
+      }
+    ],
+    "requirements": {
+      "essays": [
+        {
+          "prompt": "What is the most important lesson you have learned, and how will it shape your future?",
+          "words": 500
+        },
+        {
+          "prompt": "Describe your leadership in one activity.",
+          "words": 250
+        }
+      ],
+      "recommendations": 2,
+      "transcript": true,
+      "financial_documents": true,
+      "interview": false
+    },
+    "deadline": {
+      "kind": "fixed",
+      "recurs_annually": true
+    },
+    "deadline_in_days": 45,
+    "opens_in_days": null,
+    "checked_days_ago": 16
+  },
+  {
+    "status": "published",
+    "other_eligibility": [
+      "Pell Grant eligible",
+      "Restricted to students from specific backgrounds — see the sponsor's criteria"
+    ],
+    "fields": [],
+    "basis": [
+      "need",
+      "merit"
+    ],
+    "logo_url": "",
+    "name": "The Gates Scholarship",
+    "sponsor": "Gates Foundation",
+    "summary": "A last-dollar award covering the full cost of attendance for outstanding, high-need seniors.",
+    "apply_url": "https://www.thegatesscholarship.org/scholarship",
+    "source_url": "https://www.thegatesscholarship.org/",
+    "award": {
+      "kind": "full_ride",
+      "amount": null,
+      "min": null,
+      "max": null,
+      "renewable": true,
+      "years": 4,
+      "awards_count": 300
+    },
+    "eligibility": [
+      {
+        "kind": "citizenship",
+        "any_of": [
+          "us_citizen",
+          "permanent_resident"
+        ]
+      },
+      {
+        "kind": "grade",
+        "any_of": [
+          "12"
+        ]
+      },
+      {
+        "kind": "gpa_min",
+        "value": 3.3
+      },
+      {
+        "kind": "financial_need"
+      }
+    ],
+    "requirements": {
+      "essays": [
+        {
+          "prompt": "Eight short-answer essays on your experiences and goals.",
+          "words": 500
+        }
+      ],
+      "recommendations": 2,
+      "transcript": true,
+      "financial_documents": true,
+      "interview": true
+    },
+    "deadline": {
+      "kind": "fixed",
+      "recurs_annually": true
+    },
+    "deadline_in_days": -16,
+    "opens_in_days": -90,
+    "checked_days_ago": 27
+  },
+  {
+    "status": "published",
+    "other_eligibility": [
+      "Family income up to $95,000"
+    ],
+    "fields": [],
+    "basis": [
+      "need",
+      "merit"
+    ],
+    "logo_url": "",
+    "name": "Jack Kent Cooke College Scholarship",
+    "sponsor": "Jack Kent Cooke Foundation",
+    "summary": "Up to $55,000 a year for high-achieving seniors with financial need.",
+    "apply_url": "https://www.jkcf.org/our-scholarships/college-scholarship-program/",
+    "source_url": "https://www.jkcf.org/",
+    "award": {
+      "kind": "fixed",
+      "amount": 55000,
+      "min": null,
+      "max": null,
+      "renewable": true,
+      "years": 4,
+      "awards_count": 60
+    },
+    "eligibility": [
+      {
+        "kind": "grade",
+        "any_of": [
+          "12"
+        ]
+      },
+      {
+        "kind": "gpa_min",
+        "value": 3.5
+      },
+      {
+        "kind": "financial_need"
+      }
+    ],
+    "requirements": {
+      "essays": [
+        {
+          "prompt": "Several short essays about your interests and goals.",
+          "words": 400
+        }
+      ],
+      "recommendations": 2,
+      "transcript": true,
+      "financial_documents": true,
+      "interview": false
+    },
+    "deadline": {
+      "kind": "fixed",
+      "recurs_annually": true
+    },
+    "deadline_in_days": 68,
+    "opens_in_days": -14,
+    "checked_days_ago": 13
+  },
+  {
+    "status": "published",
+    "other_eligibility": [
+      "In an approved college-readiness program for at least two years",
+      "Pell Grant eligible"
+    ],
+    "fields": [],
+    "basis": [
+      "need"
+    ],
+    "logo_url": "",
+    "name": "Dell Scholars Program",
+    "sponsor": "Michael & Susan Dell Foundation",
+    "summary": "Money plus a laptop, textbook credits and ongoing support for students who've overcome obstacles.",
+    "apply_url": "https://www.dellscholars.org/scholarship/",
+    "source_url": "https://www.dellscholars.org/",
+    "award": {
+      "kind": "fixed",
+      "amount": 20000,
+      "min": null,
+      "max": null,
+      "renewable": true,
+      "years": 4,
+      "awards_count": null
+    },
+    "eligibility": [
+      {
+        "kind": "citizenship",
+        "any_of": [
+          "us_citizen",
+          "permanent_resident"
+        ]
+      },
+      {
+        "kind": "grade",
+        "any_of": [
+          "12"
+        ]
+      },
+      {
+        "kind": "gpa_min",
+        "value": 2.4
+      },
+      {
+        "kind": "financial_need"
+      }
+    ],
+    "requirements": {
+      "essays": [
+        {
+          "prompt": "Tell us about the obstacles you've faced.",
+          "words": 500
+        }
+      ],
+      "recommendations": 0,
+      "transcript": true,
+      "financial_documents": true,
+      "interview": false
+    },
+    "deadline": {
+      "kind": "fixed",
+      "recurs_annually": true
+    },
+    "deadline_in_days": 105,
+    "opens_in_days": 30,
+    "checked_days_ago": 10
+  },
+  {
+    "status": "published",
+    "other_eligibility": [
+      "Household income generally under $65,000 for a family of four"
+    ],
+    "fields": [],
+    "basis": [
+      "need"
+    ],
+    "logo_url": "",
+    "name": "QuestBridge National College Match",
+    "sponsor": "QuestBridge",
+    "summary": "Admission and a full four-year scholarship at a partner college for high-achieving, low-income seniors.",
+    "apply_url": "https://www.questbridge.org/high-school-students/national-college-match",
+    "source_url": "https://www.questbridge.org/",
+    "award": {
+      "kind": "full_ride",
+      "amount": null,
+      "min": null,
+      "max": null,
+      "renewable": true,
+      "years": 4,
+      "awards_count": 2000
+    },
+    "eligibility": [
+      {
+        "kind": "grade",
+        "any_of": [
+          "12"
+        ]
+      },
+      {
+        "kind": "financial_need"
+      }
+    ],
+    "requirements": {
+      "essays": [
+        {
+          "prompt": "Biographical and personal essays.",
+          "words": 800
+        }
+      ],
+      "recommendations": 2,
+      "transcript": true,
+      "financial_documents": true,
+      "interview": false
+    },
+    "deadline": {
+      "kind": "fixed",
+      "recurs_annually": true
+    },
+    "deadline_in_days": -2,
+    "opens_in_days": null,
+    "checked_days_ago": 101
+  },
+  {
+    "status": "published",
+    "other_eligibility": [],
+    "fields": [],
+    "basis": [
+      "merit",
+      "need"
+    ],
+    "logo_url": "",
+    "name": "Burger King Scholars",
+    "sponsor": "Burger King Foundation",
+    "summary": "Awards for graduating seniors with strong grades, work experience and community service.",
+    "apply_url": "https://burgerkingfoundation.org/programs/burger-king-scholars",
+    "source_url": "https://burgerkingfoundation.org/",
+    "award": {
+      "kind": "range",
+      "amount": null,
+      "min": 1000,
+      "max": 60000,
+      "renewable": false,
+      "years": null,
+      "awards_count": null
+    },
+    "eligibility": [
+      {
+        "kind": "citizenship",
+        "any_of": [
+          "us_citizen",
+          "permanent_resident"
+        ]
+      },
+      {
+        "kind": "grade",
+        "any_of": [
+          "12"
+        ]
+      },
+      {
+        "kind": "gpa_min",
+        "value": 2.5
+      }
+    ],
+    "requirements": {
+      "essays": [],
+      "recommendations": 0,
+      "transcript": true,
+      "financial_documents": false,
+      "interview": false
+    },
+    "deadline": {
+      "kind": "fixed",
+      "recurs_annually": true
+    },
+    "deadline_in_days": 105,
+    "opens_in_days": 0,
+    "checked_days_ago": 120
+  },
+  {
+    "status": "published",
+    "other_eligibility": [
+      "Adjusted gross family income of $65,000 or less"
+    ],
+    "fields": [],
+    "basis": [
+      "need"
+    ],
+    "logo_url": "",
+    "name": "Horatio Alger National Scholarship",
+    "sponsor": "Horatio Alger Association",
+    "summary": "For students who have shown integrity and perseverance in overcoming adversity.",
+    "apply_url": "https://scholars.horatioalger.org/scholarships/",
+    "source_url": "https://scholars.horatioalger.org/",
+    "award": {
+      "kind": "fixed",
+      "amount": 25000,
+      "min": null,
+      "max": null,
+      "renewable": false,
+      "years": null,
+      "awards_count": 106
+    },
+    "eligibility": [
+      {
+        "kind": "citizenship",
+        "any_of": [
+          "us_citizen"
+        ]
+      },
+      {
+        "kind": "grade",
+        "any_of": [
+          "11",
+          "12"
+        ]
+      },
+      {
+        "kind": "gpa_min",
+        "value": 2
+      },
+      {
+        "kind": "financial_need"
+      }
+    ],
+    "requirements": {
+      "essays": [
+        {
+          "prompt": "Describe the adversity you've overcome.",
+          "words": 500
+        }
+      ],
+      "recommendations": 1,
+      "transcript": false,
+      "financial_documents": true,
+      "interview": false
+    },
+    "deadline": {
+      "kind": "fixed",
+      "recurs_annually": true
+    },
+    "deadline_in_days": 39,
+    "opens_in_days": null,
+    "checked_days_ago": 60
+  },
+  {
+    "status": "published",
+    "other_eligibility": [],
+    "fields": [],
+    "basis": [
+      "need",
+      "merit"
+    ],
+    "logo_url": "",
+    "name": "Cal Grant A",
+    "sponsor": "California Student Aid Commission",
+    "summary": "State grant that pays tuition at California public universities for eligible residents.",
+    "apply_url": "https://www.csac.ca.gov/cal-grants",
+    "source_url": "https://www.csac.ca.gov/",
+    "award": {
+      "kind": "full_tuition",
+      "amount": null,
+      "min": null,
+      "max": null,
+      "renewable": true,
+      "years": 4,
+      "awards_count": null
+    },
+    "eligibility": [
+      {
+        "kind": "state",
+        "any_of": [
+          "CA"
+        ]
+      },
+      {
+        "kind": "citizenship",
+        "any_of": [
+          "us_citizen",
+          "permanent_resident",
+          "daca"
+        ]
+      },
+      {
+        "kind": "gpa_min",
+        "value": 3
+      },
+      {
+        "kind": "financial_need"
+      }
+    ],
+    "requirements": {
+      "essays": [],
+      "recommendations": 0,
+      "transcript": false,
+      "financial_documents": true,
+      "interview": false
+    },
+    "deadline": {
+      "kind": "fixed",
+      "recurs_annually": true
+    },
+    "deadline_in_days": 150,
+    "opens_in_days": null,
+    "checked_days_ago": 100
+  },
+  {
+    "status": "published",
+    "other_eligibility": [],
+    "fields": [],
+    "basis": [
+      "need"
+    ],
+    "logo_url": "",
+    "name": "TEXAS Grant",
+    "sponsor": "Texas Higher Education Coordinating Board",
+    "summary": "Need-based grant for Texas residents attending public colleges in the state.",
+    "apply_url": "https://www.collegeforalltexans.com/",
+    "source_url": "https://www.highered.texas.gov/",
+    "award": {
+      "kind": "fixed",
+      "amount": 5000,
+      "min": null,
+      "max": null,
+      "renewable": true,
+      "years": 4,
+      "awards_count": null
+    },
+    "eligibility": [
+      {
+        "kind": "state",
+        "any_of": [
+          "TX"
+        ]
+      },
+      {
+        "kind": "financial_need"
+      }
+    ],
+    "requirements": {
+      "essays": [],
+      "recommendations": 0,
+      "transcript": false,
+      "financial_documents": true,
+      "interview": false
+    },
+    "deadline": {
+      "kind": "fixed",
+      "recurs_annually": true
+    },
+    "deadline_in_days": 135,
+    "opens_in_days": null,
+    "checked_days_ago": 118
+  },
+  {
+    "status": "published",
+    "other_eligibility": [
+      "An original research project with a written report"
+    ],
+    "fields": [
+      "Biology",
+      "Chemistry",
+      "Computer science",
+      "Engineering",
+      "Mathematics",
+      "Physics"
+    ],
+    "basis": [
+      "merit"
+    ],
+    "logo_url": "",
+    "name": "Regeneron Science Talent Search",
+    "sponsor": "Society for Science",
+    "summary": "The country's oldest science competition for seniors, judged on an original research project.",
+    "apply_url": "https://www.societyforscience.org/regeneron-sts/",
+    "source_url": "https://www.societyforscience.org/",
+    "award": {
+      "kind": "range",
+      "amount": null,
+      "min": 2000,
+      "max": 250000,
+      "renewable": false,
+      "years": null,
+      "awards_count": 300
+    },
+    "eligibility": [
+      {
+        "kind": "grade",
+        "any_of": [
+          "12"
+        ]
+      },
+      {
+        "kind": "major",
+        "any_of": [
+          "Biology",
+          "Chemistry",
+          "Computer science",
+          "Engineering",
+          "Mathematics",
+          "Physics"
+        ]
+      }
+    ],
+    "requirements": {
+      "essays": [
+        {
+          "prompt": "Research report and several short essays.",
+          "words": null
+        }
+      ],
+      "recommendations": 2,
+      "transcript": true,
+      "financial_documents": false,
+      "interview": false
+    },
+    "deadline": {
+      "kind": "fixed",
+      "recurs_annually": true
+    },
+    "deadline_in_days": 52,
+    "opens_in_days": null,
+    "checked_days_ago": 73
+  },
+  {
+    "status": "published",
+    "other_eligibility": [
+      "18 or younger on the deadline",
+      "A completed, significant piece of work"
+    ],
+    "fields": [
+      "Science",
+      "Technology",
+      "Engineering",
+      "Mathematics",
+      "Literature",
+      "Music"
+    ],
+    "basis": [
+      "merit"
+    ],
+    "logo_url": "",
+    "name": "Davidson Fellows",
+    "sponsor": "Davidson Institute",
+    "summary": "For students 18 or under who have completed a significant piece of work in STEM, literature or music.",
+    "apply_url": "https://www.davidsongifted.org/gifted-programs/fellows-scholarship/",
+    "source_url": "https://www.davidsongifted.org/",
+    "award": {
+      "kind": "range",
+      "amount": null,
+      "min": 25000,
+      "max": 50000,
+      "renewable": false,
+      "years": null,
+      "awards_count": 20
+    },
+    "eligibility": [],
+    "requirements": {
+      "essays": [
+        {
+          "prompt": "Three essays and a project description.",
+          "words": 1000
+        }
+      ],
+      "recommendations": 3,
+      "transcript": false,
+      "financial_documents": false,
+      "interview": false
+    },
+    "deadline": {
+      "kind": "fixed",
+      "recurs_annually": true
+    },
+    "deadline_in_days": -40,
+    "opens_in_days": null,
+    "checked_days_ago": 15
+  },
+  {
+    "status": "published",
+    "other_eligibility": [],
+    "fields": [],
+    "basis": [],
+    "logo_url": "",
+    "name": "Niche $25,000 No Essay Scholarship",
+    "sponsor": "Niche",
+    "summary": "A monthly drawing. Enter once with a short form; no essay, no GPA requirement.",
+    "apply_url": "https://www.niche.com/colleges/scholarships/no-essay-scholarship/",
+    "source_url": "https://www.niche.com/colleges/scholarships/",
+    "award": {
+      "kind": "fixed",
+      "amount": 25000,
+      "min": null,
+      "max": null,
+      "renewable": false,
+      "years": null,
+      "awards_count": 1
+    },
+    "eligibility": [
+      {
+        "kind": "citizenship",
+        "any_of": [
+          "us_citizen",
+          "permanent_resident"
+        ]
+      }
+    ],
+    "requirements": {
+      "essays": [],
+      "recommendations": 0,
+      "transcript": false,
+      "financial_documents": false,
+      "interview": false
+    },
+    "deadline": {
+      "kind": "fixed",
+      "recurs_annually": false
+    },
+    "deadline_in_days": 8,
+    "opens_in_days": null,
+    "checked_days_ago": 12
+  },
+  {
+    "status": "published",
+    "other_eligibility": [],
+    "fields": [],
+    "basis": [],
+    "logo_url": "",
+    "name": "Bridging the Dream",
+    "sponsor": "Sallie Mae Fund",
+    "summary": "Monthly no-essay drawing for students planning to attend college.",
+    "apply_url": "https://www.salliemae.com/scholarships/",
+    "source_url": "https://www.salliemae.com/scholarships/",
+    "award": {
+      "kind": "fixed",
+      "amount": 2000,
+      "min": null,
+      "max": null,
+      "renewable": false,
+      "years": null,
+      "awards_count": null
+    },
+    "eligibility": [],
+    "requirements": {
+      "essays": [],
+      "recommendations": 0,
+      "transcript": false,
+      "financial_documents": false,
+      "interview": false
+    },
+    "deadline": {
+      "kind": "rolling",
+      "recurs_annually": false
+    },
+    "deadline_in_days": null,
+    "opens_in_days": null,
+    "checked_days_ago": 23
+  },
+  {
+    "status": "published",
+    "other_eligibility": [],
+    "fields": [],
+    "basis": [
+      "need"
+    ],
+    "logo_url": "",
+    "name": "First-Gen Futures Award",
+    "sponsor": "Bright Path Fund",
+    "summary": "For students who will be the first in their family to earn a four-year degree.",
+    "apply_url": "https://example.org/first-gen-futures",
+    "source_url": "https://example.org/first-gen-futures",
+    "award": {
+      "kind": "fixed",
+      "amount": 5000,
+      "min": null,
+      "max": null,
+      "renewable": true,
+      "years": 2,
+      "awards_count": 40
+    },
+    "eligibility": [
+      {
+        "kind": "first_gen"
+      },
+      {
+        "kind": "grade",
+        "any_of": [
+          "12"
+        ]
+      },
+      {
+        "kind": "gpa_min",
+        "value": 2.8
+      }
+    ],
+    "requirements": {
+      "essays": [
+        {
+          "prompt": "What would being the first to graduate mean to your family?",
+          "words": 400
+        }
+      ],
+      "recommendations": 1,
+      "transcript": false,
+      "financial_documents": false,
+      "interview": false
+    },
+    "deadline": {
+      "kind": "fixed",
+      "recurs_annually": true
+    },
+    "deadline_in_days": 21,
+    "opens_in_days": null,
+    "checked_days_ago": 73
+  },
+  {
+    "status": "published",
+    "other_eligibility": [],
+    "fields": [
+      "Computer science",
+      "Software engineering"
+    ],
+    "basis": [
+      "merit"
+    ],
+    "logo_url": "",
+    "name": "Code the Future Scholarship",
+    "sponsor": "Open Source Education Alliance",
+    "summary": "For students planning to study computer science who have built something they're proud of.",
+    "apply_url": "https://example.org/code-the-future",
+    "source_url": "https://example.org/code-the-future",
+    "award": {
+      "kind": "fixed",
+      "amount": 10000,
+      "min": null,
+      "max": null,
+      "renewable": false,
+      "years": null,
+      "awards_count": 12
+    },
+    "eligibility": [
+      {
+        "kind": "major",
+        "any_of": [
+          "Computer science",
+          "Software engineering",
+          "Data science"
+        ]
+      },
+      {
+        "kind": "grade",
+        "any_of": [
+          "11",
+          "12"
+        ]
+      }
+    ],
+    "requirements": {
+      "essays": [
+        {
+          "prompt": "Link to and describe a project you built.",
+          "words": 300
+        }
+      ],
+      "recommendations": 0,
+      "transcript": false,
+      "financial_documents": false,
+      "interview": false
+    },
+    "deadline": {
+      "kind": "fixed",
+      "recurs_annually": true
+    },
+    "deadline_in_days": 12,
+    "opens_in_days": null,
+    "checked_days_ago": 26
+  },
+  {
+    "status": "published",
+    "other_eligibility": [
+      "Open to women and nonbinary students"
+    ],
+    "fields": [
+      "Engineering"
+    ],
+    "basis": [
+      "merit"
+    ],
+    "logo_url": "",
+    "name": "Women in Engineering Scholarship",
+    "sponsor": "Engineering Futures Society",
+    "summary": "Supports women and nonbinary students entering an engineering program.",
+    "apply_url": "https://example.org/women-in-engineering",
+    "source_url": "https://example.org/women-in-engineering",
+    "award": {
+      "kind": "range",
+      "amount": null,
+      "min": 1500,
+      "max": 7500,
+      "renewable": false,
+      "years": null,
+      "awards_count": 30
+    },
+    "eligibility": [
+      {
+        "kind": "major",
+        "any_of": [
+          "Engineering",
+          "Mechanical engineering",
+          "Electrical engineering",
+          "Civil engineering"
+        ]
+      },
+      {
+        "kind": "gpa_min",
+        "value": 3
+      }
+    ],
+    "requirements": {
+      "essays": [
+        {
+          "prompt": "Why engineering?",
+          "words": 500
+        }
+      ],
+      "recommendations": 1,
+      "transcript": true,
+      "financial_documents": false,
+      "interview": false
+    },
+    "deadline": {
+      "kind": "fixed",
+      "recurs_annually": true
+    },
+    "deadline_in_days": 88,
+    "opens_in_days": null,
+    "checked_days_ago": 15
+  },
+  {
+    "status": "published",
+    "other_eligibility": [
+      "Live in a participating chapter's area"
+    ],
+    "fields": [],
+    "basis": [
+      "merit"
+    ],
+    "logo_url": "",
+    "name": "Community Builders Award",
+    "sponsor": "Rotary Foundation (local chapters)",
+    "summary": "Local awards for students with a record of community service.",
+    "apply_url": "https://example.org/community-builders",
+    "source_url": "https://example.org/community-builders",
+    "award": {
+      "kind": "varies",
+      "amount": null,
+      "min": null,
+      "max": null,
+      "renewable": false,
+      "years": null,
+      "awards_count": null
+    },
+    "eligibility": [
+      {
+        "kind": "grade",
+        "any_of": [
+          "12"
+        ]
+      }
+    ],
+    "requirements": {
+      "essays": [
+        {
+          "prompt": "Describe your service.",
+          "words": 300
+        }
+      ],
+      "recommendations": 1,
+      "transcript": false,
+      "financial_documents": false,
+      "interview": false
+    },
+    "deadline": {
+      "kind": "fixed",
+      "recurs_annually": true
+    },
+    "deadline_in_days": 120,
+    "opens_in_days": 60,
+    "checked_days_ago": 78
+  },
+  {
+    "status": "published",
+    "other_eligibility": [
+      "Family income of $125,000 or less"
+    ],
+    "fields": [],
+    "basis": [
+      "need"
+    ],
+    "logo_url": "",
+    "name": "Excelsior Scholarship",
+    "sponsor": "New York State HESC",
+    "summary": "Tuition at SUNY and CUNY colleges for New York residents under an income cap.",
+    "apply_url": "https://www.hesc.ny.gov/",
+    "source_url": "https://www.hesc.ny.gov/",
+    "award": {
+      "kind": "full_tuition",
+      "amount": null,
+      "min": null,
+      "max": null,
+      "renewable": true,
+      "years": 4,
+      "awards_count": null
+    },
+    "eligibility": [
+      {
+        "kind": "state",
+        "any_of": [
+          "NY"
+        ]
+      },
+      {
+        "kind": "citizenship",
+        "any_of": [
+          "us_citizen",
+          "permanent_resident"
+        ]
+      }
+    ],
+    "requirements": {
+      "essays": [],
+      "recommendations": 0,
+      "transcript": false,
+      "financial_documents": true,
+      "interview": false
+    },
+    "deadline": {
+      "kind": "fixed",
+      "recurs_annually": true
+    },
+    "deadline_in_days": 240,
+    "opens_in_days": null,
+    "checked_days_ago": 220
+  },
+  {
+    "status": "published",
+    "other_eligibility": [
+      "Aged 15–18 on the deadline"
+    ],
+    "fields": [
+      "Visual arts",
+      "Music",
+      "Theater",
+      "Dance",
+      "Writing",
+      "Film"
+    ],
+    "basis": [
+      "merit"
+    ],
+    "logo_url": "",
+    "name": "YoungArts Award",
+    "sponsor": "National YoungArts Foundation",
+    "summary": "Recognition and cash awards for artists aged 15–18 across ten disciplines.",
+    "apply_url": "https://youngarts.org/apply/",
+    "source_url": "https://youngarts.org/",
+    "award": {
+      "kind": "range",
+      "amount": null,
+      "min": 250,
+      "max": 10000,
+      "renewable": false,
+      "years": null,
+      "awards_count": 700
+    },
+    "eligibility": [
+      {
+        "kind": "grade",
+        "any_of": [
+          "10",
+          "11",
+          "12"
+        ]
+      }
+    ],
+    "requirements": {
+      "essays": [
+        {
+          "prompt": "Portfolio or performance submission with an artist statement.",
+          "words": 250
+        }
+      ],
+      "recommendations": 0,
+      "transcript": false,
+      "financial_documents": false,
+      "interview": false
+    },
+    "deadline": {
+      "kind": "fixed",
+      "recurs_annually": true
+    },
+    "deadline_in_days": 14,
+    "opens_in_days": null,
+    "checked_days_ago": 51
+  },
+  {
+    "status": "published",
+    "other_eligibility": [
+      "Of Hispanic heritage"
+    ],
+    "fields": [],
+    "basis": [
+      "merit",
+      "need"
+    ],
+    "logo_url": "",
+    "name": "HSF Scholar Program",
+    "sponsor": "Hispanic Scholarship Fund",
+    "summary": "Merit awards and support services for students of Hispanic heritage.",
+    "apply_url": "https://www.hsf.net/scholarship",
+    "source_url": "https://www.hsf.net/",
+    "award": {
+      "kind": "range",
+      "amount": null,
+      "min": 500,
+      "max": 5000,
+      "renewable": false,
+      "years": null,
+      "awards_count": 10000
+    },
+    "eligibility": [
+      {
+        "kind": "citizenship",
+        "any_of": [
+          "us_citizen",
+          "permanent_resident",
+          "daca"
+        ]
+      },
+      {
+        "kind": "gpa_min",
+        "value": 3
+      }
+    ],
+    "requirements": {
+      "essays": [
+        {
+          "prompt": "Several short essays.",
+          "words": 600
+        }
+      ],
+      "recommendations": 0,
+      "transcript": true,
+      "financial_documents": true,
+      "interview": false
+    },
+    "deadline": {
+      "kind": "fixed",
+      "recurs_annually": true
+    },
+    "deadline_in_days": 150,
+    "opens_in_days": 90,
+    "checked_days_ago": 12
+  },
+  {
+    "status": "draft",
+    "other_eligibility": [],
+    "fields": [
+      "Education"
+    ],
+    "basis": [
+      "merit"
+    ],
+    "logo_url": "",
+    "name": "Future Teachers Fellowship",
+    "sponsor": "Educators for Tomorrow",
+    "summary": "For students planning to teach in a public school after graduating.",
+    "apply_url": "https://example.org/future-teachers",
+    "source_url": "https://example.org/future-teachers",
+    "award": {
+      "kind": "fixed",
+      "amount": 3000,
+      "min": null,
+      "max": null,
+      "renewable": true,
+      "years": 4,
+      "awards_count": null
+    },
+    "eligibility": [
+      {
+        "kind": "major",
+        "any_of": [
+          "Education"
+        ]
+      }
+    ],
+    "requirements": {
+      "essays": [
+        {
+          "prompt": "Why do you want to teach?",
+          "words": 400
+        }
+      ],
+      "recommendations": 2,
+      "transcript": false,
+      "financial_documents": false,
+      "interview": false
+    },
+    "deadline": {
+      "kind": "fixed",
+      "recurs_annually": true
+    },
+    "deadline_in_days": 75,
+    "opens_in_days": null,
+    "checked_days_ago": 34
+  },
+  {
+    "status": "draft",
+    "other_eligibility": [],
+    "fields": [],
+    "basis": [
+      "merit"
+    ],
+    "logo_url": "",
+    "name": "Rural Scholars Grant",
+    "sponsor": "Heartland Community Trust",
+    "summary": "",
+    "apply_url": "",
+    "source_url": "",
+    "award": {
+      "kind": "fixed",
+      "amount": 2500,
+      "min": null,
+      "max": null,
+      "renewable": false,
+      "years": null,
+      "awards_count": null
+    },
+    "eligibility": [],
+    "requirements": {
+      "essays": [],
+      "recommendations": 0,
+      "transcript": false,
+      "financial_documents": false,
+      "interview": false
+    },
+    "deadline": {
+      "kind": "fixed",
+      "recurs_annually": true
+    },
+    "deadline_in_days": -5,
+    "opens_in_days": null,
+    "checked_days_ago": 300
+  },
+  {
+    "status": "archived",
+    "other_eligibility": [],
+    "fields": [],
+    "basis": [
+      "merit"
+    ],
+    "logo_url": "",
+    "name": "Civic Voices Essay Contest",
+    "sponsor": "Civic Voices Project",
+    "summary": "An essay contest on civic participation. The sponsor ended the program.",
+    "apply_url": "https://example.org/civic-voices",
+    "source_url": "https://example.org/civic-voices",
+    "award": {
+      "kind": "fixed",
+      "amount": 1000,
+      "min": null,
+      "max": null,
+      "renewable": false,
+      "years": null,
+      "awards_count": null
+    },
+    "eligibility": [
+      {
+        "kind": "grade",
+        "any_of": [
+          "9",
+          "10",
+          "11",
+          "12"
+        ]
+      }
+    ],
+    "requirements": {
+      "essays": [
+        {
+          "prompt": "What does civic duty mean to you?",
+          "words": 800
+        }
+      ],
+      "recommendations": 0,
+      "transcript": false,
+      "financial_documents": false,
+      "interview": false
+    },
+    "deadline": {
+      "kind": "fixed",
+      "recurs_annually": true
+    },
+    "deadline_in_days": -200,
+    "opens_in_days": null,
+    "checked_days_ago": 89
+  }
+]
