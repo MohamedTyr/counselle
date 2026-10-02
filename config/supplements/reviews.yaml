@@ -1,0 +1,78 @@
+# Human review of the supplements source, keyed by the source page's heading
+# (config/supplements/icc_schools.csv). Applied on every sync, after
+# extraction and verification.
+#
+# checked: common_app    — compared prompt by prompt against the school's own
+#                          Common App questions.
+#          official_site — compared against the school's admissions website
+#                          (weaker: some sites lag their Common App questions).
+# status: none   — a reviewer found the block holds no prompt to write.
+# corrections: fields to override on prompts whose text contains `match`
+#              (or `drop: true` to remove one), where the compilation is
+#              contradicted by the school's own source or is itself inconsistent.
+#
+# A correction is tied to the source text it was written against: when the
+# school's block changes, sync drops that school back to unchecked and
+# reports the correction for re-review instead of applying it blind.
+
+cycle: "2026-2027"
+
+schools:
+  Boston University: {checked: common_app, checked_on: 2026-10-01, block_sha256: cf59292dc72d}
+  Colgate University: {checked: common_app, checked_on: 2026-10-01}
+  College of Charleston:
+    checked: common_app
+    checked_on: 2026-10-01
+    block_sha256: 1c124212eb5e
+    # Common App: required only for these applicants, optional for everyone else.
+    corrections:
+      - match: "anomalies or extenuating circumstances"
+        requirement: optional
+        applies_to: "Required if you graduated early, took a gap semester or year, or are completing a post-graduate year"
+  Connecticut College: {checked: common_app, checked_on: 2026-10-01, block_sha256: 8a9a45d11bcf}
+  Elon University: {checked: common_app, checked_on: 2026-10-01, block_sha256: 2863e3840c7c}
+  Johns Hopkins University: {checked: common_app, checked_on: 2026-10-01, block_sha256: b1ed311541cc}
+  Smith College: {checked: common_app, checked_on: 2026-10-01, block_sha256: 2c7cc02767ff}
+  Texas Tech University: {checked: common_app, checked_on: 2026-10-01, block_sha256: f238389e32b4}
+  University of Arizona: {checked: common_app, checked_on: 2026-10-01, block_sha256: 23d70f3f1b6d}
+  The University of Oklahoma: {checked: common_app, checked_on: 2026-10-01, block_sha256: d55858042b57}
+  University of Notre Dame: {checked: common_app, checked_on: 2026-10-01, block_sha256: 5d5346751e4f}
+  Washington University in Saint Louis: {checked: official_site, checked_on: 2026-10-01, block_sha256: ee89158645a1}
+  New York University: {checked: official_site, checked_on: 2026-10-01, block_sha256: 60e689e7c728}
+  University of Washington: {checked: official_site, checked_on: 2026-10-01, block_sha256: 7381d69a1e36}
+  Virginia Tech: {checked: official_site, checked_on: 2026-10-01, block_sha256: 251116ebfd78}
+  University of Richmond: {checked: official_site, checked_on: 2026-10-01, block_sha256: a65a6e16385f}
+  Georgia Tech: {checked: official_site, checked_on: 2026-10-01}
+  James Madison University Honors College:
+    block_sha256: d49fc5ac0164
+    checked: official_site
+    checked_on: 2026-10-01
+    # jmu.edu/honors/prospective-students/apply.shtml states 200 words for both.
+    corrections:
+      - {match: "ideal college experience", word_limit: 200}
+      - {match: "which one matters most to you", word_limit: 200}
+  Williams College:
+    block_sha256: f018a58f1081
+    checked: official_site
+    checked_on: 2026-10-01
+    # The block offers only an optional upload of a past academic paper.
+    status: none
+  Texas Christian University:
+    block_sha256: 656d0cd191fd
+    checked: official_site
+    checked_on: 2026-10-01
+    # The block offers only an optional upload (essay, poem, art or a URL).
+    status: none
+  Boston College:
+    checked: unchecked
+    block_sha256: 07b2563e79ab
+    # The block's "(400 word limit)" covers the one essay every applicant writes;
+    # Human Centered Engineering applicants write Prompt #5 instead of 1-4.
+    corrections:
+      - {match: "One goal of a Jesuit", word_limit: 400}
+  Georgetown University:
+    checked: unchecked
+    block_sha256: 62e1342cc619
+    # The block lists the School of Health prompt twice; one copy has a typo.
+    corrections:
+      - {match: "develivery", drop: true}

@@ -428,6 +428,16 @@ class Settings(BaseSettings):
     # enqueue tick, plan §4.2/appendix J-iii) — read only by the SQL
     # statement in app/facts/jobs.py, never a Python timer.
     facts_crawl_interval_hours: int = Field(default=24, gt=0)
+    # Supplemental essay prompts (app/supplements): scraped once a day from
+    # one public compilation page, the tab for `supplements_cycle`. The UA is
+    # truthful and carries a contact URL; the source's firewall refuses any
+    # UA containing "bot", which this one does not need to say.
+    supplements_source_url: str = "https://internationalcollegecounselors.com/in-the-essay/"
+    supplements_cycle: str = "2026-2027"
+    supplements_user_agent: str = "Counselle/1.0 (+https://acceptra.ai)"
+    supplements_reasoning_effort: ReasoningEffort = "low"
+    supplements_extract_concurrency: int = Field(default=6, gt=0)
+    supplements_extract_attempts: int = Field(default=3, gt=0)
     # observed_at_spread's "compared at different times" threshold (days) —
     # much tighter than facts_stale_days (120): two facts on the same
     # school observed more than this many days apart get a spread caveat.
