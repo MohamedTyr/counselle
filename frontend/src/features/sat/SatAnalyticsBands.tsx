@@ -12,7 +12,7 @@ import { useState } from "react";
 import type { SatDifficultyBandStat, SatStatsResponse } from "@/api/sat/types";
 import { Tabs, TabsList, TabsTab } from "@/components/ui/tabs";
 import { ChartFigure } from "@/components/workspace/chart-figure";
-import { clampScoreBandPace, formatDuration, summarizeScoreBands } from "@/features/sat/sat-analytics";
+import { formatDuration, summarizeScoreBands } from "@/features/sat/sat-analytics";
 import { SAT_ANALYTICS_COPY } from "@/features/sat/sat-analytics-copy";
 import { analyticsSheetClass } from "@/features/sat/sat-analytics-styles";
 import { cn } from "@/lib/utils";
@@ -80,7 +80,7 @@ export function SatAnalyticsBands({ stats }: { stats: SatStatsResponse }): React
       accuracy: attempted > 0 ? stat.accuracyPct : null,
       attempted,
       band,
-      pace: attempted > 0 ? clampScoreBandPace(stat.avgTimeSeconds) : null,
+      pace: attempted > 0 ? stat.avgTimeSeconds : null,
     };
   });
 
@@ -97,7 +97,7 @@ export function SatAnalyticsBands({ stats }: { stats: SatStatsResponse }): React
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center gap-3">
         <Tabs onValueChange={(value) => setSection(value as Section)} value={section}>
-          <TabsList aria-label={copy.heading} variant="pill">
+          <TabsList aria-label={SAT_ANALYTICS_COPY.sections.label} variant="pill">
             <TabsTab value="all">{copy.sectionSegments.all}</TabsTab>
             <TabsTab value="ebrw">{copy.sectionSegments.ebrw}</TabsTab>
             <TabsTab value="math">{copy.sectionSegments.math}</TabsTab>
@@ -108,8 +108,9 @@ export function SatAnalyticsBands({ stats }: { stats: SatStatsResponse }): React
       <div className={cn(analyticsSheetClass, "p-4 @[640px]/sat-analytics:p-6")}>
         <ChartFigure summary={summary}>
           <div className="flex flex-col gap-3">
-            <div className={cn(GRID_CLASS, "pt-5")}>
-              <span className="pb-2 text-xs text-[var(--ink-secondary)]">{copy.accuracyRow}</span>
+            <p className="text-xs text-[var(--ink-secondary)]">{copy.accuracyRow}</p>
+            <div className={cn(GRID_CLASS, "pt-4")}>
+              <span aria-hidden="true" />
               {rows.map((row) => (
                 <BandColumn key={row.band} row={row} />
               ))}
@@ -121,6 +122,9 @@ export function SatAnalyticsBands({ stats }: { stats: SatStatsResponse }): React
                   {row.band}
                 </span>
               ))}
+              <span className="col-span-7 col-start-2 pt-1 text-left text-[11px] leading-none text-[var(--ink-faint)]">
+                {copy.bandDirection}
+              </span>
             </div>
             <div className={cn(GRID_CLASS, "items-center text-center text-xs tabular-nums")}>
               <span className="text-left text-[var(--ink-secondary)]">{copy.paceRow}</span>

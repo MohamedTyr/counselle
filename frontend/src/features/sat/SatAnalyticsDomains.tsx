@@ -16,6 +16,7 @@ import {
   InputGroupInput,
 } from "@/components/ui/input-group";
 import { Tabs, TabsList, TabsTab } from "@/components/ui/tabs";
+import { ErrorCard } from "@/components/ui/error-card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AnalyticsMeter } from "@/features/sat/SatAnalyticsMeter";
 import { formatDuration } from "@/features/sat/sat-analytics";
@@ -112,16 +113,25 @@ function SkillRow({
   );
 }
 
-function ColumnHeader(): React.ReactElement {
+/** Wide layouts only: the column labels stay pinned at the top of the
+ * scroll area so every domain group below them is still labelled. */
+function StickyColumnHeader(): React.ReactElement {
   const columns = SAT_ANALYTICS_COPY.domains.columns;
   return (
-    <>
-      <span className={WIDE_ONLY_CLASS}>{columns.firstTry}</span>
-      <span className={WIDE_ONLY_CLASS}>{columns.overall}</span>
-      <span className={WIDE_ONLY_CLASS}>{columns.questions}</span>
-      <span className={WIDE_ONLY_CLASS}>{columns.pace}</span>
-      <span aria-hidden="true" className={WIDE_ONLY_CLASS} />
-    </>
+    <div
+      aria-hidden="true"
+      className={cn(
+        ROW_GRID_CLASS,
+        "sticky top-0 z-10 -mb-4 hidden border-b border-[var(--hairline)] bg-[var(--canvas)] px-[calc(0.75rem+1px)] py-2 text-xs text-[var(--ink-secondary)] @[760px]/sat-analytics:grid",
+      )}
+    >
+      <span>{columns.skill}</span>
+      <span>{columns.firstTry}</span>
+      <span>{columns.overall}</span>
+      <span>{columns.questions}</span>
+      <span>{columns.pace}</span>
+      <span />
+    </div>
   );
 }
 
@@ -164,6 +174,16 @@ export function SatAnalyticsDomains({
     0,
   );
 
+  if (taxonomyQuery.isError) {
+    return (
+      <ErrorCard
+        message={SAT_ANALYTICS_COPY.loadFailed.description}
+        onRetry={() => taxonomyQuery.refetch()}
+        retryLabel={SAT_ANALYTICS_COPY.loadFailed.retry}
+        title={SAT_ANALYTICS_COPY.loadFailed.title}
+      />
+    );
+  }
   if (taxonomyQuery.isLoading || !taxonomyQuery.data) {
     return (
       <div className="flex flex-col gap-3">
@@ -189,21 +209,12 @@ export function SatAnalyticsDomains({
     })
     .filter((group) => group.skills.length > 0);
 
-  // Column headings label the first group only; every group shares the grid.
-  const body = groups.map(({ domain, skills }, index) => (
+  const body = groups.map(({ domain, skills }) => (
     <section className="flex flex-col gap-2" key={domain.code}>
       <div className={cn(analyticsSheetClass, "overflow-hidden")}>
-        <div
-          className={cn(
-            ROW_GRID_CLASS,
-            "flex flex-col gap-0.5 border-b border-[var(--hairline)] bg-[var(--canvas)] px-3 pt-2.5 pb-2 text-xs text-[var(--ink-secondary)]",
-          )}
-        >
-          <h4 className="min-w-0 truncate text-sm font-semibold text-[var(--ink)]">
-            {domain.name}
-          </h4>
-          {index === 0 && <ColumnHeader />}
-        </div>
+        <h4 className="truncate border-b border-[var(--hairline)] bg-[var(--canvas)] px-3 pt-2.5 pb-2 text-sm font-semibold text-[var(--ink)]">
+          {domain.name}
+        </h4>
         <ul>
           {skills.map((skill) => (
             <SkillRow
@@ -227,7 +238,7 @@ export function SatAnalyticsDomains({
           value={section}
         >
           <TabsList
-            aria-label={SAT_ANALYTICS_COPY.sections.ebrw}
+            aria-label={SAT_ANALYTICS_COPY.sections.label}
             className="max-w-full overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
             variant="pill"
           >
@@ -262,7 +273,10 @@ export function SatAnalyticsDomains({
           </Button>
         </div>
       ) : (
-        <div className="flex flex-col gap-6">{body}</div>
+        <div className="flex flex-col gap-6">
+          <StickyColumnHeader />
+          {body}
+        </div>
       )}
     </div>
   );

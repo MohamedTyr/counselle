@@ -40,6 +40,8 @@ import { SatAnalyticsRadar } from "@/features/sat/SatAnalyticsRadar";
 import { SatImportConfirmDialog } from "@/features/sat/SatAnalyticsImportDialog";
 import { SatResetConfirmDialog } from "@/features/sat/SatAnalyticsResetDialog";
 
+const FOOTER_INSET_CLASS = "pl-4 pr-[calc(1rem+var(--sat-gutter,0px))] sm:pl-6 sm:pr-[calc(1.5rem+var(--sat-gutter,0px))]";
+
 export type SatAnalyticsTab = "overview" | "radar" | "pace" | "bands" | "domains";
 
 export const SAT_ANALYTICS_TABS: readonly SatAnalyticsTab[] = [
@@ -113,12 +115,35 @@ export function SatAnalytics({
     }
   }, [open]);
 
-  // On a narrow screen the strip scrolls; keep the current tab in view.
+  const stats = statsQuery.data;
+  const hasAnyAttempts = (stats?.totalAttemptsCount ?? 0) > 0;
+
+  // On a narrow screen the strip scrolls; keep the current tab in view. The
+  // strip only exists once stats have loaded, and a portaled shell mounts a
+  // frame after `open` flips, so the scroll waits a frame.
   useEffect(() => {
-    tabStripRef.current
-      ?.querySelector("[data-active]")
-      ?.scrollIntoView?.({ block: "nearest", inline: "center" });
-  }, [tab, open]);
+    if (!open || !hasAnyAttempts) return;
+    const frame = requestAnimationFrame(() => {
+      tabStripRef.current
+        ?.querySelector("[data-active]")
+        ?.scrollIntoView?.({ block: "nearest", inline: "center" });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [tab, open, hasAnyAttempts]);
+
+  // The body reserves a scrollbar gutter so tabs of different heights don't
+  // shift the layout; the footer pads by the same width so its right edge
+  // lines up with the sheets above it.
+  const [bodyEl, setBodyEl] = useState<HTMLDivElement | null>(null);
+  const [scrollbarWidth, setScrollbarWidth] = useState(0);
+  useEffect(() => {
+    if (!bodyEl) return;
+    const measure = () => setScrollbarWidth(bodyEl.offsetWidth - bodyEl.clientWidth);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(bodyEl);
+    return () => observer.disconnect();
+  }, [bodyEl]);
 
   const busy = resetMutation.isPending || importMutation.isPending;
   // `ConfirmDialogContent`'s `DismissableLayer.Branch` makes Radix's own
@@ -198,9 +223,6 @@ export function SatAnalytics({
     toast.success(SAT_ANALYTICS_COPY.footer.exportingToast(`${todayKey}.liprep`));
   }
 
-  const stats = statsQuery.data;
-  const hasAnyAttempts = (stats?.totalAttemptsCount ?? 0) > 0;
-
   const header = (
     <div className="flex flex-col gap-3">
       <span className="pr-10 text-base font-semibold tracking-tight">{SAT_ANALYTICS_COPY.title}</span>
@@ -224,6 +246,7 @@ export function SatAnalytics({
     <div
       className="@container/sat-analytics flex min-h-0 flex-1 flex-col overflow-y-auto bg-[var(--canvas)] p-4 [scrollbar-gutter:stable] sm:p-6"
       data-slot="sat-analytics-body"
+      ref={setBodyEl}
     >
       {statsQuery.isError ? (
         <ErrorCard
@@ -266,8 +289,12 @@ export function SatAnalytics({
   );
 
   const footer = stats ? (
-    <div className="border-t border-[var(--hairline)] bg-[var(--surface-raised)]" data-slot="sat-analytics-footer">
-      <div className="flex items-center justify-end gap-3 px-4 py-2.5 sm:px-6">
+    <div
+      className="border-t border-[var(--hairline)] bg-[var(--surface-raised)]"
+      data-slot="sat-analytics-footer"
+      style={{ "--sat-gutter": `${scrollbarWidth}px` } as React.CSSProperties}
+    >
+      <div className={cn("flex items-center justify-end gap-3 py-2.5", FOOTER_INSET_CLASS)}>
         <Button
           aria-expanded={drawerOpen}
           onClick={() => setDrawerOpen((v) => !v)}
@@ -284,7 +311,12 @@ export function SatAnalytics({
         </Button>
       </div>
       {drawerOpen && (
-        <div className="flex flex-col gap-2 border-t border-[var(--hairline)] px-4 py-3 sm:flex-row sm:items-center sm:px-6">
+        <div
+          className={cn(
+            "grid grid-cols-2 gap-2 border-t border-[var(--hairline)] py-3 sm:flex sm:items-center",
+            FOOTER_INSET_CLASS,
+          )}
+        >
           <Button
             render={
               <a
@@ -293,6 +325,7 @@ export function SatAnalytics({
                 onClick={handleExportClick}
               />
             }
+            size="sm"
             variant="outline"
           >
             <Download />
@@ -305,11 +338,16 @@ export function SatAnalytics({
             ref={fileInputRef}
             type="file"
           />
-          <Button onClick={() => fileInputRef.current?.click()} variant="outline">
+          <Button onClick={() => fileInputRef.current?.click()} size="sm" variant="outline">
             <Upload />
             {SAT_ANALYTICS_COPY.footer.importProgress}
           </Button>
-          <Button className="sm:ml-auto" onClick={handleResetPress} variant="destructive-outline">
+          <Button
+            className="col-span-2 sm:ml-auto"
+            onClick={handleResetPress}
+            size="sm"
+            variant="destructive-outline"
+          >
             {SAT_ANALYTICS_COPY.reset.pressSequence[resetPresses]}
           </Button>
         </div>
@@ -331,7 +369,7 @@ export function SatAnalytics({
   ) : (
     <Dialog onOpenChange={handleOpenChange} open={open}>
       <DialogContent
-        className="flex h-[min(860px,92dvh)] max-w-[1080px] flex-col gap-0 overflow-hidden rounded-2xl bg-[var(--surface-raised)] p-0 shadow-[var(--elevation-3)] sm:max-w-[1080px]"
+        className="flex h-[min(860px,92dvh)] max-w-[min(1080px,calc(100vw-2rem))] flex-col gap-0 overflow-hidden rounded-2xl bg-[var(--surface-raised)] p-0 shadow-[var(--elevation-3)] sm:max-w-[min(1080px,calc(100vw-2rem))]"
         onOpenAutoFocus={(event) => {
           // Land on the panel, not on the close button: a focus ring on ✕
           // the moment the dialog opens reads as a pending action.

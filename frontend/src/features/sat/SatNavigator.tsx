@@ -8,7 +8,6 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import {
   Sheet,
   SheetContent,
-  SheetHeader,
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
@@ -52,7 +51,7 @@ function DifficultyDots({ tier }: { tier: Tier }): React.ReactElement {
   return (
     <span aria-hidden="true" className="flex gap-[2px]">
       {Array.from({ length: TIER_DOTS[tier] }, (_, i) => (
-        <span className="size-[3px] rounded-full bg-current opacity-50" key={i} />
+        <span className="size-1 rounded-full bg-current opacity-60" key={i} />
       ))}
     </span>
   );
@@ -74,7 +73,7 @@ interface TileProps {
 function tileLabel(p: TileProps): string {
   return `Question ${p.number}, ${p.tier}${
     p.incorrect ? ", incorrect" : p.correct ? ", correct" : ""
-  }${p.upsolved ? ", upsolved" : ""}${p.bookmarked ? ", marked for review" : ""}`;
+  }${p.upsolved ? ", missed then got right" : ""}${p.bookmarked ? ", marked for review" : ""}`;
 }
 
 /** The state of a tile is carried by fill and rim, never by a glyph alone:
@@ -177,8 +176,8 @@ function NavigatorLegend(): React.ReactElement {
   const legend = SAT_PRACTICE_COPY.navigator.legend;
   const item = "inline-flex items-center gap-1.5";
   return (
-    <div className="flex flex-col gap-1.5">
-      <ul className="flex flex-wrap gap-x-3 gap-y-1.5 text-xs text-[var(--ink-secondary)]">
+    <div className="flex flex-col gap-2">
+      <ul className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-xs text-[var(--ink-secondary)]">
         <li className={item}>
           <Swatch className="border-[var(--success-border)] bg-[var(--success-surface)]" />
           {legend.correct}
@@ -202,6 +201,12 @@ function NavigatorLegend(): React.ReactElement {
         <li className={item}>
           <Swatch className="border-[var(--ink)] bg-[var(--surface-raised)] shadow-[0_0_0_1px_var(--ink)]" />
           {legend.current}
+        </li>
+        <li className={item}>
+          <Swatch className="items-center justify-center border-[var(--hairline)] bg-[var(--surface-raised)] text-[var(--ink-secondary)]">
+            <DifficultyDots tier="hard" />
+          </Swatch>
+          {legend.difficulty}
         </li>
       </ul>
       <p className="text-xs text-[var(--ink-faint)]">{SAT_PRACTICE_COPY.navigator.caption}</p>
@@ -310,12 +315,14 @@ type NavigatorBodyProps = Pick<
   /** The title row: the popover has its own, the sheet renders it in the
    * sheet header, so the body only renders the pager beside it. */
   title?: React.ReactNode;
+  titleClassName?: string;
 };
 
 /** Mounted only while open, so each open starts on the page holding the
  * current question. */
 function NavigatorBody({
   title,
+  titleClassName,
   columns,
   ...grid
 }: NavigatorBodyProps): React.ReactElement {
@@ -324,7 +331,7 @@ function NavigatorBody({
   const [page, setPage] = useState(() => pageOf(grid.currentIndex));
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex min-h-8 items-center justify-between gap-2">
+      <div className={cn("flex min-h-8 items-center justify-between gap-2", titleClassName)}>
         {title ?? <span />}
         <PageControls onPage={setPage} page={page} pages={pages} total={total} />
       </div>
@@ -371,15 +378,21 @@ export function SatNavigator({
       <Sheet onOpenChange={onOpenChange} open={open}>
         <SheetTrigger render={anchor as React.ReactElement} />
         <SheetContent
-          className="max-h-[85dvh]"
+          className="max-h-[85dvh] rounded-t-2xl"
           initialFocus={currentTileRef}
           side="bottom"
         >
-          <SheetHeader>
-            <SheetTitle>{SAT_PRACTICE_COPY.navigator.title}</SheetTitle>
-          </SheetHeader>
-          <div className="overflow-y-auto p-4">
-            <NavigatorBody {...body} columns="grid-cols-7" />
+          <div className="overflow-y-auto px-4 pt-4 pb-6">
+            <NavigatorBody
+              {...body}
+              columns="grid-cols-7"
+              title={
+                <SheetTitle className="text-[15px] leading-5 tracking-[-0.015em]">
+                  {SAT_PRACTICE_COPY.navigator.title}
+                </SheetTitle>
+              }
+              titleClassName="pr-10"
+            />
           </div>
         </SheetContent>
       </Sheet>

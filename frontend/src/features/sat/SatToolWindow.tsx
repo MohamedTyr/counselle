@@ -111,6 +111,8 @@ export function SatToolWindow({
             onClose();
             return;
           }
+          // Arrows on the Dock/Close buttons are theirs, not the window's.
+          if (event.target !== event.currentTarget) return;
           if (!fullscreen && !docked) moveOrResize(event, toolWindow);
         }}
         ref={headerRef}

@@ -217,7 +217,9 @@ export function useSatSession(source: SatSessionSource): UseSatSessionApi {
           local_date: toLocalDateKey(new Date()),
         });
         dispatch({ type: "submit_succeeded", questionId, result });
-        void queryClient.invalidateQueries({ queryKey: satKeys.attempts(questionId) });
+        // The submit response already carries the attempts list including this
+        // one, so the verdict shows its time without waiting for a refetch.
+        queryClient.setQueryData(satKeys.attempts(questionId), result.attempts);
         void queryClient.invalidateQueries({ queryKey: [...satKeys.all, "counts"] });
         void queryClient.invalidateQueries({ queryKey: [...satKeys.all, "stats"] });
       } catch (error) {

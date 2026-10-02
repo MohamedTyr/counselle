@@ -30,7 +30,7 @@ const ROW_STYLES = {
   none: {
     open: "border-[var(--edge)] bg-[var(--surface-raised)] hover:border-[var(--edge-strong)] hover:bg-[var(--canvas-hover)] focus-visible:ring-[var(--focus-ring)]",
     selected:
-      "border-[var(--accent-solid)] bg-[var(--brand-subtle)] shadow-[inset_0_0_0_1px_var(--accent-solid)] focus-visible:ring-[var(--focus-ring)]",
+      "border-[var(--ink)] bg-[var(--canvas-active)] shadow-[inset_0_0_0_1px_var(--ink)] focus-visible:ring-[var(--focus-ring)]",
     locked:
       "border-[var(--edge)] bg-[var(--surface-raised)] focus-visible:ring-[var(--focus-ring)]",
   },
@@ -42,8 +42,7 @@ const ROW_STYLES = {
 
 const DISC_STYLES = {
   idle: "border-[var(--edge-strong)] bg-transparent text-[var(--ink-secondary)]",
-  selected:
-    "border-[var(--accent-solid)] bg-[var(--accent-solid)] text-[var(--on-brand)]",
+  selected: "border-[var(--brand)] bg-[var(--brand)] text-[var(--on-brand)]",
   correct:
     "border-[var(--success-solid)] bg-[var(--success-solid)] text-[var(--on-brand)]",
   wrong:
@@ -66,8 +65,8 @@ function discStyle(result: ChoiceResult, selected: boolean): string {
 }
 
 /** The tag that survives a reveal: what was right, and which row was yours —
- * with an icon, so colour never carries it alone. It rides the row's top
- * border instead of taking a column, so revealing never re-wraps the text. */
+ * with an icon, so colour never carries it alone. It sits inside the row:
+ * under the text on a phone, in the row's right edge from `sm` up. */
 function ResultMark({
   result,
   selected,
@@ -87,7 +86,7 @@ function ResultMark({
   return (
     <span
       className={cn(
-        "absolute -top-[9px] right-3 flex h-[18px] items-center gap-1 rounded-full border px-2 text-xs font-medium whitespace-nowrap",
+        "col-start-2 mt-1.5 flex h-5 items-center gap-1 justify-self-start rounded-full border px-2 text-xs font-medium whitespace-nowrap sm:col-start-3 sm:row-start-1 sm:mt-0 sm:justify-self-end",
         result === "wrong"
           ? "border-[var(--danger-border)] bg-[var(--danger-surface)] text-[var(--danger-fg)]"
           : "border-[var(--success-border)] bg-[var(--success-surface)] text-[var(--success-fg)]",
@@ -102,8 +101,8 @@ function ResultMark({
 /**
  * One MCQ answer row (ui-spec §4: "Answer choices"). A row `button` with
  * `aria-pressed`, not a `radiogroup` — upstream's semantics (Q17); no arrow
- * key selection. The cross-out column is reserved for the whole question so
- * revealing never shifts the row.
+ * key selection. The strike column on the right is reserved whether or not
+ * elimination is switched on, so toggling it never shifts the text.
  */
 export function SatAnswerChoice({
   label,
@@ -131,11 +130,12 @@ export function SatAnswerChoice({
       <button
         aria-disabled={disabled || undefined}
         aria-pressed={selected}
+        data-sat-enter-submit=""
         className={cn(
-          "relative grid min-h-12 w-full min-w-0 grid-cols-[2rem_minmax(0,1fr)] items-center gap-x-3 rounded-xl border px-3.5 py-2.5 text-left",
+          "relative grid min-h-12 w-full min-w-0 grid-cols-[2rem_minmax(0,1fr)] items-center gap-x-3 rounded-xl border py-2.5 pr-11 pl-3.5 text-left",
+          result !== "none" && "sm:grid-cols-[2rem_minmax(0,1fr)_auto] sm:pr-3.5",
           "transition-[background-color,border-color,box-shadow,transform] duration-150 ease-out motion-reduce:transition-none",
           "focus-visible:ring-[3px] focus-visible:outline-none",
-          eliminateMode && "pr-12",
           rowStyle(result, selected, revealed),
           !disabled && "active:scale-[0.97] motion-reduce:active:scale-100",
           eliminated && !revealed && "opacity-70",

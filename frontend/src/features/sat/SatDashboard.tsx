@@ -5,7 +5,7 @@
  * (plan §5.3's "kept apart by lifetime" table).
  */
 import { ChartColumn } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useNavigation, useSearchParams } from "react-router";
 
 import { Button } from "@/components/ui/button";
@@ -60,10 +60,10 @@ function sumCounts(counts: SatCounts | undefined): number | undefined {
 }
 
 /** The header's one stable line: where the student stands, not a greeting. */
-function buildStatLine(stats: SatStatsResponse | undefined): string {
-  if (!stats) return "\u00a0";
-  if (stats.totalAttemptsCount === 0)
-    return SAT_DASHBOARD_COPY.noPracticeStatLine;
+function buildStatLine(
+  stats: SatStatsResponse | undefined,
+): string | undefined {
+  if (!stats || stats.totalAttemptsCount === 0) return undefined;
   const parts = [
     `${stats.today.ebrwSolved + stats.today.mathSolved} solved today`,
   ];
@@ -285,6 +285,20 @@ export function SatDashboard() {
     taxonomy && selectedSkills && selectedBands,
   );
 
+  // The floating start bar only appears once the session sheet has scrolled
+  // out of view; until then the sheet is the one Start.
+  const sessionRef = useRef<HTMLDivElement>(null);
+  const [sessionInView, setSessionInView] = useState(true);
+  useEffect(() => {
+    const node = sessionRef.current;
+    if (!node) return;
+    const observer = new IntersectionObserver(([entry]) =>
+      setSessionInView(entry.isIntersecting),
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [topicsAndFiltersReady, taxonomyError]);
+
   const isRefetching = countsQuery.isFetching && Boolean(countsQuery.data);
   const selectedSkillCount = selectedSkills?.size ?? 0;
 
@@ -368,8 +382,11 @@ export function SatDashboard() {
               )}
             </div>
 
-            <div className="contents @[880px]/sat-dash:order-none @[880px]/sat-dash:flex @[880px]/sat-dash:flex-col @[880px]/sat-dash:gap-8 [@media(min-height:780px)]:@[880px]/sat-dash:sticky [@media(min-height:780px)]:@[880px]/sat-dash:top-0">
-              <div className="order-1 min-w-0 @[880px]/sat-dash:order-none">
+            <div className="contents @[880px]/sat-dash:order-none @[880px]/sat-dash:flex @[880px]/sat-dash:flex-col @[880px]/sat-dash:gap-8 [@media(min-height:780px)]:@[880px]/sat-dash:sticky [@media(min-height:780px)]:@[880px]/sat-dash:top-6">
+              <div
+                className="order-1 min-w-0 @[880px]/sat-dash:order-none"
+                ref={sessionRef}
+              >
                 {topicsAndFiltersReady && selectedBands ? (
                   <SatSessionSheet
                     bandTiers={bandTiers}
@@ -417,6 +434,7 @@ export function SatDashboard() {
               questionCount={questionCount}
               selectedSkillCount={selectedSkillCount}
               startDisabledReason={startDisabledReason}
+              visible={!sessionInView}
             />
           )}
         </div>

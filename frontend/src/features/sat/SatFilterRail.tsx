@@ -283,6 +283,8 @@ export function SatSessionSheet({
 export interface SatStartBarProps extends SatStartButtonProps {
   questionCount: number | null;
   selectedSkillCount: number;
+  /** Shown only while the session sheet's own Start is out of view. */
+  visible: boolean;
 }
 
 /** ui-spec §3.1's F18 addition: a trailing sibling of the grid, so its
@@ -294,11 +296,17 @@ export function SatStartBar({
   startDisabledReason,
   isStarting,
   onStart,
+  visible,
 }: SatStartBarProps): React.ReactElement {
   return (
     <div
-      className="sticky bottom-3 z-[var(--z-sticky)] flex items-center gap-3 rounded-2xl border border-[var(--hairline)] bg-[var(--surface-raised)] py-2 pr-2 pl-4 shadow-[var(--elevation-2)] @[880px]/sat-dash:hidden"
+      aria-hidden={!visible}
+      className={cn(
+        "sticky bottom-3 z-[var(--z-sticky)] flex items-center gap-3 rounded-2xl border border-[var(--hairline)] bg-[var(--surface-raised)] py-2 pr-2 pl-4 shadow-[var(--elevation-2)] transition-[opacity,translate] duration-200 ease-out motion-reduce:transition-none @[880px]/sat-dash:hidden",
+        !visible && "pointer-events-none translate-y-2 opacity-0",
+      )}
       data-slot="sat-start-bar"
+      inert={!visible}
     >
       <div className="flex min-w-0 flex-1 flex-col">
         <span className="truncate text-sm font-semibold tabular-nums">

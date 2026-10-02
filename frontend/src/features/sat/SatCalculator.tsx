@@ -1,8 +1,8 @@
 import type React from "react";
-import { useEffect, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 
 import { SatToolWindow } from "@/features/sat/SatToolWindow";
-import { useToolWindow } from "@/features/sat/use-tool-window";
+import { computeSpawnPosition, useToolWindow } from "@/features/sat/use-tool-window";
 
 export interface SatCalculatorProps {
   /** `Settings.sat_desmos_embed_url`, served through `/v1/config` (plan
@@ -23,20 +23,9 @@ export interface SatCalculatorProps {
 const DEFAULT_SIZE = { width: 440, height: 380 };
 const MIN_SIZE = { width: 320, height: 280 };
 const MAX_VIEWPORT_FRACTION = { width: 0.9, height: 0.85 };
-const SPAWN_EDGE = 16;
-/** Clears the bottom bar (56px) with a gap. */
-const SPAWN_BOTTOM = 84;
 const MIN_Y = 64;
 
-/** Opens in the bottom-right corner: the stem and the choices fill the top
- * of the sheet and read from the left, so the lower right is the part of the
- * screen the student is least likely to be reading. */
-function spawnPosition(): { x: number; y: number } {
-  return {
-    x: Math.max(SPAWN_EDGE, window.innerWidth - DEFAULT_SIZE.width - SPAWN_EDGE),
-    y: Math.max(MIN_Y, window.innerHeight - DEFAULT_SIZE.height - SPAWN_BOTTOM),
-  };
-}
+const SPAWN_FALLBACK = { x: 16, y: MIN_Y };
 
 interface Rect {
   top: string;
@@ -60,16 +49,32 @@ export function SatCalculator({
   onFloat,
   onClose,
 }: SatCalculatorProps): React.ReactElement | null {
-  const [spawn] = useState(spawnPosition);
   const toolWindow = useToolWindow({
-    defaultPosition: spawn,
+    defaultPosition: SPAWN_FALLBACK,
     defaultSize: DEFAULT_SIZE,
     sizeBounds: { min: MIN_SIZE, maxViewportFraction: MAX_VIEWPORT_FRACTION },
     minY: MIN_Y,
   });
   const [dockedRect, setDockedRect] = useState<Rect | null>(null);
+  const { placeAt } = toolWindow;
 
-  useEffect(() => {
+  // The window mounts with the page, before the question sheet it must avoid
+  // exists, so it is placed the first time it floats into view and not again:
+  // after that its position is the student's.
+  const placedRef = useRef(false);
+  useLayoutEffect(() => {
+    if (docked) {
+      placedRef.current = false;
+      return;
+    }
+    if (!visible || placedRef.current) return;
+    placedRef.current = true;
+    placeAt(computeSpawnPosition(DEFAULT_SIZE, MIN_Y));
+  }, [visible, docked, placeAt]);
+
+  // Layout effect: the first docked frame must already have the slot's
+  // rectangle, not a zero-size placeholder.
+  useLayoutEffect(() => {
     if (!docked) {
       setDockedRect(null);
       return;

@@ -10,7 +10,7 @@ import type { SatStatsResponse } from "@/api/sat/types";
 import { Button } from "@/components/ui/button";
 import { ChartFigure } from "@/components/workspace/chart-figure";
 import { AnalyticsMeter } from "@/features/sat/SatAnalyticsMeter";
-import { formatDuration, hasSkillData, summarizeDonut } from "@/features/sat/sat-analytics";
+import { formatDuration, hasSkillData, plural, summarizeDonut } from "@/features/sat/sat-analytics";
 import { SAT_ANALYTICS_COPY } from "@/features/sat/sat-analytics-copy";
 import {
   analyticsGroupLabelClass,
@@ -18,6 +18,9 @@ import {
 } from "@/features/sat/sat-analytics-styles";
 import { cn } from "@/lib/utils";
 
+
+/** A skill is worth another look when its first-try accuracy is under this. */
+const REINFORCE_BELOW_PCT = 80;
 
 function SectionRow({
   accuracyPct,
@@ -35,7 +38,7 @@ function SectionRow({
         <span className="text-sm font-medium">{name}</span>
         <span className="text-sm font-semibold tabular-nums">{started ? `${accuracyPct}%` : "—"}</span>
       </div>
-      <AnalyticsMeter label={`${name} first-try accuracy`} value={started ? accuracyPct : null} />
+      <AnalyticsMeter label={`${name} first try`} value={started ? accuracyPct : null} />
     </div>
   );
 }
@@ -43,9 +46,9 @@ function SectionRow({
 function Headline({ stats }: { stats: SatStatsResponse }): React.ReactElement {
   const copy = SAT_ANALYTICS_COPY.overview;
   return (
-    <section className="flex flex-col gap-3 p-6" aria-labelledby="sat-headline">
-      <h3 className="text-[13px] font-medium text-[var(--ink-secondary)]" id="sat-headline">
-        {copy.headline}
+    <section className="flex flex-col justify-center gap-3 p-6" aria-labelledby="sat-headline">
+      <h3 className="text-[13px] font-medium text-[var(--ink-secondary)] tabular-nums" id="sat-headline">
+        {copy.headline} · {plural(stats.uniqueQuestionsAttempted, "question")}
       </h3>
       <p className="text-[44px] leading-none font-semibold tracking-[-0.03em] tabular-nums">
         {stats.firstTryOverallAccuracyPct}
@@ -130,7 +133,9 @@ export function SatAnalyticsOverview({
   onDrill: (skillCode: string) => void;
 }): React.ReactElement {
   const copy = SAT_ANALYTICS_COPY.overview;
-  const weakest = stats.weakestSkills.slice(0, 4);
+  const weakest = stats.weakestSkills.filter(
+    (skill) => skill.accuracyPct < REINFORCE_BELOW_PCT,
+  );
 
   return (
     <div className="flex flex-col gap-8">
@@ -165,7 +170,10 @@ export function SatAnalyticsOverview({
 
       {hasSkillData(weakest) && (
         <section className="flex flex-col gap-2">
-          <h3 className={analyticsGroupLabelClass}>{copy.skillsToReinforce.heading}</h3>
+          <h3 className={analyticsGroupLabelClass}>
+            {copy.skillsToReinforce.heading}
+            <span className="font-normal text-[var(--ink-faint)]"> · {copy.skillsToReinforce.measure}</span>
+          </h3>
           <ul className={cn(analyticsSheetClass, "overflow-hidden")}>
             {weakest.map((skill) => (
               <li

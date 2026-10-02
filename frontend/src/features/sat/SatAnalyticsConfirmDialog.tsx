@@ -9,16 +9,15 @@
  * context, that any outside-interaction check (`onPointerDownOutside`,
  * `onFocusOutside`) treats as "inside" for every currently-mounted Radix
  * dismissable layer — including the shell's. This local variant wraps the
- * *whole* `DialogPrimitive.Content` (children + close button — the shared
- * `DialogContent`'s ✕ is a sibling of `{children}`, so a wrapper around just
- * `{children}` wouldn't contain it) in one `Branch`, mirroring
- * `DialogContent`'s own markup/classes, since `DialogContent` doesn't expose
- * a way to inject a wrapper around itself.
+ * *whole* `DialogPrimitive.Content` in one `Branch`, mirroring
+ * `DialogContent`'s own markup/classes (minus its ✕ — a confirm closes
+ * through Cancel only), since `DialogContent` doesn't expose a way to inject
+ * a wrapper around itself.
  *
  * That branch check alone is not sufficient, though: Radix's own
  * `usePointerDownOutside` defers a click's outside-check to the browser's
  * *next* `click` event so text selection isn't misread as a dismiss. Cancel
- * (or ✕) both (a) flips this dialog's own `open` to `false` and (b) fires a
+ * both (a) flips this dialog's own `open` to `false` and (b) fires a
  * *native* click that keeps bubbling to `document` — and because this
  * dialog's `Presence`-driven exit here runs with no detected CSS animation
  * (`getComputedStyle(...).animationName === "none"`, which is what a
@@ -27,20 +26,18 @@
  * before that native click reaches `document`. So by the time the shell's
  * deferred check runs, the branch that would have exempted it is already
  * gone — Branch fixes this whenever the exit is actually animated, but not
- * reliably. `stopPropagation()` on Cancel/✕'s own click (below) is what
+ * reliably. `stopPropagation()` on Cancel's own click (below) is what
  * makes this deterministic instead of animation-timing-dependent: it keeps
  * the native click from ever reaching `document`, so Radix's own
  * interception bookkeeping (`wasOutsideInteractionIntercepted`, keyed off
  * whether the click's document-level listener actually fired) reports it as
  * intercepted and the shell's outside-check is never dispatched at all.
  */
-import { X } from "lucide-react";
 import { Dialog as DialogPrimitive } from "radix-ui";
 import { DismissableLayer } from "radix-ui/internal";
 import type React from "react";
 
-import { Button } from "@/components/ui/button";
-import { DialogClose, DialogOverlay, DialogPortal } from "@/components/ui/dialog";
+import { DialogOverlay, DialogPortal } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 
 export function ConfirmDialogContent({
@@ -61,17 +58,6 @@ export function ConfirmDialogContent({
           {...props}
         >
           {children}
-          <DialogClose data-slot="dialog-close" asChild>
-            <Button
-              className="absolute top-2 right-2"
-              onClick={(event) => event.stopPropagation()}
-              size="icon-sm"
-              variant="ghost"
-            >
-              <X />
-              <span className="sr-only">Close</span>
-            </Button>
-          </DialogClose>
         </DialogPrimitive.Content>
       </DismissableLayer.Branch>
     </DialogPortal>

@@ -60,7 +60,6 @@ export function SatVerdictStrip({
           : "border-[var(--danger-border)] bg-[var(--danger-surface)] text-[var(--danger-fg)]",
       )}
       ref={ref}
-      role="status"
     >
       <span
         className={cn(

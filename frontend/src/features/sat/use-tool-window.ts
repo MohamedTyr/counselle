@@ -58,11 +58,33 @@ export interface UseToolWindowApi {
   headerHandlers: ToolWindowPointerHandlers;
   /** The 16px corner resize handle, outside the iframe (plan §6.4). */
   resizeHandleHandlers: ToolWindowPointerHandlers;
+  /** Jumps to `position` (clamped to the viewport) — used to spawn the
+   * window once the layout it must avoid has been measured. */
+  placeAt: (position: ToolWindowPosition) => void;
   /** Keyboard: arrows move ±16px (ui-spec §4.1). */
   moveBy: (dx: number, dy: number) => void;
   /** Keyboard: Shift+arrows resize ±16px (ui-spec §4.1). */
   resizeBy: (dw: number, dh: number) => void;
   reset: () => void;
+}
+
+const SPAWN_EDGE = 16;
+/** Clears the practice screen's bottom bar (64px) with a gap. */
+const SPAWN_BOTTOM = 84;
+
+/** Where a tool window first opens, so it covers as little of the question
+ * as it can: in the empty margin to the right of the question sheet when the
+ * window fits there, otherwise pinned bottom-right, over the lower choices
+ * rather than the stem and its figure. */
+export function computeSpawnPosition(size: ToolWindowSize, minY: number): ToolWindowPosition {
+  const sheet = document.querySelector("[data-sat-question-sheet]");
+  const sheetRight = sheet?.getBoundingClientRect().right ?? window.innerWidth;
+  const x = Math.max(SPAWN_EDGE, window.innerWidth - size.width - SPAWN_EDGE);
+  const fitsInMargin = window.innerWidth - sheetRight - 2 * SPAWN_EDGE >= size.width;
+  const y = fitsInMargin
+    ? minY
+    : Math.max(minY, window.innerHeight - size.height - SPAWN_BOTTOM);
+  return { x, y };
 }
 
 function clampNum(value: number, min: number, max: number): number {
@@ -238,6 +260,15 @@ export function useToolWindow({
     [clampPosition],
   );
 
+  const placeAt = useCallback(
+    (target: ToolWindowPosition) => {
+      const next = clampPosition(target, sizeRef.current);
+      positionRef.current = next;
+      setPosition(next);
+    },
+    [clampPosition],
+  );
+
   const resizeBy = useCallback(
     (dw: number, dh: number) => {
       const nextSize = clampSize({
@@ -280,6 +311,7 @@ export function useToolWindow({
       onPointerUp: endResize,
       onPointerCancel: endResize,
     },
+    placeAt,
     moveBy,
     resizeBy,
     reset,

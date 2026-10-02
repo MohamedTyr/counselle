@@ -39,6 +39,13 @@ export interface SatQuestionPaneProps {
 
 const SPR_MASK = /^[0-9./-]{0,7}$/;
 
+/** The input group's wrapper owns the border, fill and focus ring; the field
+ * inside is bare in every state. `Input` draws its own bordered span around
+ * the native input, so each of its hover and focus variants is overridden
+ * here (important, because variants outrank plain utilities). */
+const SPR_INNER_FIELD_CLASS =
+  "text-lg tabular-nums border-0! bg-transparent! shadow-none! ring-0! before:hidden has-focus-visible:border-0! has-focus-visible:ring-0! hover:not-has-focus-visible:not-has-disabled:border-0!";
+
 /** The newest attempt's time — the one the verdict strip is about. */
 function latestAttemptSeconds(
   attempts: readonly SatAttemptOut[],
@@ -168,7 +175,8 @@ export function SatQuestionPane({
             >
               <InputGroupInput
                 aria-describedby={revealed ? "sat-verdict" : undefined}
-                className="text-lg tabular-nums"
+                className={SPR_INNER_FIELD_CLASS}
+                data-sat-enter-submit=""
                 id="sat-spr-input"
                 maxLength={7}
                 onChange={(event) => {
@@ -202,20 +210,28 @@ export function SatQuestionPane({
           </div>
         )}
 
-        {reveal && (
-          <div className="flex flex-col gap-4" id="sat-verdict">
+        {/* Mounted empty and filled on reveal: a live region that arrives
+            already populated is not announced. */}
+        <div
+          className="flex flex-col gap-4 empty:-mt-5"
+          id="sat-verdict"
+          role="status"
+        >
+          {reveal && (
             <SatVerdictStrip
               correctAnswers={reveal.correctAnswers}
               isCorrect={reveal.isCorrect}
               seconds={latestAttemptSeconds(attempts)}
             />
-            <SatRevealPanel
-              attempts={attempts}
-              contentSha={question.content_sha256}
-              questionId={question.question_id}
-              rationale={reveal.rationale}
-            />
-          </div>
+          )}
+        </div>
+        {reveal && (
+          <SatRevealPanel
+            attempts={attempts}
+            contentSha={question.content_sha256}
+            questionId={question.question_id}
+            rationale={reveal.rationale}
+          />
         )}
       </div>
     </div>

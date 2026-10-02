@@ -19,6 +19,11 @@ export const satSheetClass =
 export const satScrollFadeClass =
   "[mask-image:linear-gradient(to_bottom,transparent,var(--surface-raised)_1.25rem,var(--surface-raised)_calc(100%-1.25rem),transparent)]";
 
+/** Stacked on a phone the page itself scrolls under the bottom bar; its last
+ * stretch dissolves instead of ending on a hard line. */
+export const satPageBottomFadeClass =
+  "max-[860px]:[mask-image:linear-gradient(to_bottom,var(--surface-raised)_calc(100%-1.5rem),transparent)]";
+
 /** The tools sit in one quiet track; each item is a pill. */
 export const satToolTrackClass =
   "inline-flex items-center gap-0.5 rounded-full bg-[var(--control-quiet-surface)] p-0.5";

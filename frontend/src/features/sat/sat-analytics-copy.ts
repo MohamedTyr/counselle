@@ -12,11 +12,12 @@ export const SAT_ANALYTICS_COPY = {
     domains: "Skills",
   },
   sections: {
+    label: "Section",
     ebrw: "Reading & Writing",
     math: "Math",
   },
   overview: {
-    headline: "First-try accuracy",
+    headline: "First try",
     sectionsHeading: "By section",
     standingHeading: "Where your questions stand",
     standing: {
@@ -32,17 +33,18 @@ export const SAT_ANALYTICS_COPY = {
     },
     skillsToReinforce: {
       heading: "Skills to reinforce",
+      measure: "first try",
       practiceDrill: "Practice",
     },
   },
   radar: {
-    chartHeading: "First-try accuracy by domain",
+    chartHeading: "Accuracy by domain",
     domainSummary: "By domain",
     noData: "No data yet",
-    legendFirstTry: "First attempt",
+    legendFirstTry: "First try",
     legendOverall: "All attempts",
     tooltip: {
-      firstTry: (value: string) => `First attempt: ${value}`,
+      firstTry: (value: string) => `First try: ${value}`,
       overall: (value: string) => `All attempts: ${value}`,
     },
   },
@@ -54,8 +56,9 @@ export const SAT_ANALYTICS_COPY = {
       slowInaccurate: "Slow and inaccurate",
     },
     axisSeconds: "Seconds per attempt",
-    axisAccuracy: "First-try accuracy",
+    axisAccuracy: "Accuracy · first try",
     targetLine: (seconds: number) => `SAT pace · ${seconds}s`,
+    targetOffscreen: (seconds: number) => `SAT pace ${seconds}s →`,
     legendReading: "Reading & Writing",
     legendMath: "Math",
     pointMeta: (accuracyPct: number, avgSeconds: number, attempts: number) =>
@@ -68,7 +71,8 @@ export const SAT_ANALYTICS_COPY = {
       math: "Math",
     },
     heading: "Band",
-    accuracyRow: "Accuracy",
+    accuracyRow: "Accuracy · all attempts",
+    bandDirection: "easier → harder",
     paceRow: "Pace",
     attemptsRow: "Attempts",
     emptyBand: "—",

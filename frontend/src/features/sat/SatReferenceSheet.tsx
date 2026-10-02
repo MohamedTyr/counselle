@@ -2,25 +2,16 @@ import type React from "react";
 import { useState } from "react";
 
 import { SatToolWindow } from "@/features/sat/SatToolWindow";
-import { useToolWindow } from "@/features/sat/use-tool-window";
+import { computeSpawnPosition, useToolWindow } from "@/features/sat/use-tool-window";
 
 export interface SatReferenceSheetProps {
   onClose: () => void;
 }
 
-const DEFAULT_SIZE = { width: 880, height: 600 };
+const DEFAULT_SIZE = { width: 880, height: 460 };
 const MIN_SIZE = { width: 0, height: 380 };
 const MAX_VIEWPORT_FRACTION = { width: 0.95, height: 0.9 };
-const SPAWN_TOP = 72;
 const MIN_Y = 64;
-
-/** Centered under the top bar. */
-function spawnPosition(): { x: number; y: number } {
-  return {
-    x: Math.max(16, (window.innerWidth - DEFAULT_SIZE.width) / 2),
-    y: SPAWN_TOP,
-  };
-}
 
 const ROW_ONE = [1, 2, 3, 4];
 const ROW_TWO = [5, 6, 7, 8, 9, 10, 11];
@@ -37,7 +28,7 @@ const FACT_LINES = [
  * calculator.
  */
 export function SatReferenceSheet({ onClose }: SatReferenceSheetProps): React.ReactElement {
-  const [spawn] = useState(spawnPosition);
+  const [spawn] = useState(() => computeSpawnPosition(DEFAULT_SIZE, MIN_Y));
   const toolWindow = useToolWindow({
     defaultPosition: spawn,
     defaultSize: DEFAULT_SIZE,

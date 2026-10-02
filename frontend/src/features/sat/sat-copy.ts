@@ -31,7 +31,6 @@ export const SAT_DASHBOARD_COPY = {
   legendLess: "Less",
   legendMore: "More",
   noPracticeYet: "No practice yet. Your days fill in as you solve questions.",
-  noPracticeStatLine: "Choose your skills, then start a session",
   activityError: {
     title: "Could not load your activity",
     description: "The workspace could not reach your practice history.",
@@ -93,8 +92,6 @@ export const SAT_PRACTICE_COPY = {
   questionNumber: (n: number) => `Question ${n}`,
   studentProducedResponseLabel: "Student-produced response",
   sprPlaceholder: "e.g. 3/4 or 0.75",
-  sprCorrect: "Correct",
-  sprIncorrect: (accepted: readonly string[]) => `Incorrect. Accepted: ${accepted.join(", ")}`,
   explanation: "Explanation",
   previousAttempts: (count: number) => `Previous attempts (${count})`,
   solved: "Solved",
@@ -111,11 +108,11 @@ export const SAT_PRACTICE_COPY = {
       correct: "Correct",
       incorrect: "Incorrect",
       forReview: "For review",
-      upsolved: "Upsolved",
+      upsolved: "Missed, then got right",
       current: "Current",
       difficulty: "Difficulty",
     },
-    caption: "Correct and incorrect are from this session. Upsolved counts every attempt. Dots show difficulty, one for easy to three for hard.",
+    caption: "Correct and incorrect are from this session. Missed, then got right counts every attempt. Dots show difficulty, one for easy to three for hard.",
     range: (from: number, to: number, total: number) =>
       `${from.toLocaleString("en-US")}–${to.toLocaleString("en-US")} of ${total.toLocaleString("en-US")}`,
     previousPage: "Previous page",
@@ -136,18 +133,14 @@ export const SAT_PRACTICE_COPY = {
   },
   filteredToZero: {
     title: "No questions match",
-    description: (filterLabel: string, count: number) =>
-      `${filterLabel} is the narrowest filter — ${count} questions match everything else.`,
     allZero: "Nothing matches even with one filter removed.",
-    relax: (filterLabel: string) => `Relax ${filterLabel}`,
     backToFilters: "Back to filters",
   },
   unknownQuestion: {
     title: "Question not found",
-    description: (questionId: string) => `Question ${questionId} is not in the question bank.`,
+    description: "This question is not in the question bank.",
     backToPractice: "Back to SAT practice",
   },
-  submitFailedToast: "Could not check your answer. Try again.",
   notAvailable: "not available",
 } as const;
 
