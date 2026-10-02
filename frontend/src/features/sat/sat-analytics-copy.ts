@@ -94,6 +94,7 @@ export const SAT_ANALYTICS_COPY = {
     questionsCell: (unique: number, attempts: number) =>
       attempts === unique ? `${unique}` : `${unique} (${plural(attempts, "attempt")})`,
     practice: "Practice",
+    noAttempts: "No attempts yet",
     noSkillsMatch: {
       title: "No skills match",
       description: (count: number) =>

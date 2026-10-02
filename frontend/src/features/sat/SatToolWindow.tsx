@@ -94,6 +94,7 @@ export function SatToolWindow({
         fullscreen && "fixed inset-0 z-[var(--z-modal)] rounded-none border-0 shadow-none",
         className,
       )}
+      data-docked={docked || undefined}
       data-hidden={hidden || undefined}
       role="dialog"
       style={style}

@@ -1,7 +1,7 @@
 /**
  * The Domains & skills tab (ui-spec §5; parity A10). Rows come from the
  * static topic tree, not from the data (S17/S18) — a skill with no
- * attempts still renders, as "Untested".
+ * attempts still renders, as "No attempts yet".
  */
 import { Search } from "lucide-react";
 import type React from "react";
@@ -31,8 +31,69 @@ type Section = "all" | "reading" | "math";
 const ROW_GRID_CLASS =
   "@[760px]/sat-analytics:grid @[760px]/sat-analytics:grid-cols-[minmax(0,1fr)_9.5rem_5.5rem_6rem_4rem_5.5rem] @[760px]/sat-analytics:items-center @[760px]/sat-analytics:gap-x-3";
 const WIDE_ONLY_CLASS = "hidden @[760px]/sat-analytics:block";
-const NARROW_ONLY_CLASS =
-  "text-[var(--ink-faint)] @[760px]/sat-analytics:hidden";
+/** Column labels sit inline on narrow layouts and become screen-reader
+ * only on wide ones, where the pinned header carries them visually. */
+const CELL_LABEL_CLASS = "text-[var(--ink-faint)] @[760px]/sat-analytics:sr-only";
+
+function PracticeButton({
+  className,
+  onDrill,
+  skill,
+}: {
+  className?: string;
+  skill: { code: string; name: string };
+  onDrill: (skillCode: string) => void;
+}): React.ReactElement {
+  const label = SAT_ANALYTICS_COPY.domains.practice;
+  return (
+    <Button
+      aria-label={`${label} ${skill.name}`}
+      className={cn("h-7 px-3 text-xs", className)}
+      onClick={() => onDrill(skill.code)}
+      size="sm"
+      variant="outline"
+    >
+      {label}
+    </Button>
+  );
+}
+
+function SkillStats({
+  skill,
+  stat,
+}: {
+  skill: { name: string };
+  stat: SatSkillPerformance | undefined;
+}): React.ReactElement {
+  const copy = SAT_ANALYTICS_COPY.domains;
+  return (
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-[var(--ink-secondary)] tabular-nums @[760px]/sat-analytics:contents">
+      <div className="flex items-center gap-2 @[760px]/sat-analytics:gap-3">
+        <span className={CELL_LABEL_CLASS}>{copy.columns.firstTry}</span>
+        <AnalyticsMeter
+          className="w-14 @[760px]/sat-analytics:w-20"
+          label={`${skill.name} ${copy.columns.firstTry}`}
+          value={stat?.firstTryAccuracyPct ?? 0}
+        />
+        <span className="w-8 text-right text-sm text-[var(--ink)] @[760px]/sat-analytics:w-9">
+          {stat?.firstTryAccuracyPct}%
+        </span>
+      </div>
+      <span className="@[760px]/sat-analytics:text-sm">
+        <span className={CELL_LABEL_CLASS}>{copy.columns.overall} </span>
+        {stat?.overallAccuracyPct}%
+      </span>
+      <span className="@[760px]/sat-analytics:text-sm">
+        <span className={CELL_LABEL_CLASS}>{copy.columns.questions} </span>
+        {copy.questionsCell(stat?.uniqueQuestions ?? 0, stat?.totalAttempts ?? 0)}
+      </span>
+      <span className="@[760px]/sat-analytics:text-sm">
+        <span className={CELL_LABEL_CLASS}>{copy.columns.pace} </span>
+        {formatDuration(stat?.avgTimeSeconds ?? 0)}
+      </span>
+    </div>
+  );
+}
 
 function SkillRow({
   onDrill,
@@ -43,9 +104,7 @@ function SkillRow({
   stat: SatSkillPerformance | undefined;
   onDrill: (skillCode: string) => void;
 }): React.ReactElement {
-  const copy = SAT_ANALYTICS_COPY.domains;
   const started = (stat?.uniqueQuestions ?? 0) > 0;
-  const dash = <span className="text-[var(--ink-faint)]">—</span>;
   return (
     <li
       className={cn(
@@ -54,61 +113,17 @@ function SkillRow({
       )}
     >
       <div className="flex min-w-0 items-center justify-between gap-2">
-        <div className="flex min-w-0 items-center gap-2">
-          <span className="truncate text-sm">{skill.name}</span>
-        </div>
-        <Button
-          className="@[760px]/sat-analytics:hidden"
-          onClick={() => onDrill(skill.code)}
-          size="sm"
-          variant="ghost"
-        >
-          {copy.practice}
-        </Button>
+        <span className="truncate text-sm">{skill.name}</span>
+        <PracticeButton className="@[760px]/sat-analytics:hidden" onDrill={onDrill} skill={skill} />
       </div>
-      <div
-        className={cn(
-          "flex-wrap items-center gap-x-4 gap-y-1 text-xs text-[var(--ink-secondary)] tabular-nums @[760px]/sat-analytics:contents",
-          started ? "flex" : "hidden @[760px]/sat-analytics:contents",
-        )}
-      >
-        <div className="flex items-center gap-2 @[760px]/sat-analytics:gap-3">
-          <span className={NARROW_ONLY_CLASS}>{copy.columns.firstTry}</span>
-          <AnalyticsMeter
-            className="w-14 @[760px]/sat-analytics:w-20"
-            label={`${skill.name} ${copy.columns.firstTry}`}
-            value={started ? (stat?.firstTryAccuracyPct ?? 0) : null}
-          />
-          <span className="w-8 text-right text-sm text-[var(--ink)] @[760px]/sat-analytics:w-9">
-            {started ? `${stat?.firstTryAccuracyPct}%` : dash}
-          </span>
-        </div>
-        <span className="@[760px]/sat-analytics:text-sm">
-          <span className={NARROW_ONLY_CLASS}>{copy.columns.overall} </span>
-          {started ? `${stat?.overallAccuracyPct}%` : dash}
+      {started ? (
+        <SkillStats skill={skill} stat={stat} />
+      ) : (
+        <span className="text-xs text-[var(--ink-faint)] @[760px]/sat-analytics:col-span-4">
+          {SAT_ANALYTICS_COPY.domains.noAttempts}
         </span>
-        <span className="@[760px]/sat-analytics:text-sm">
-          <span className={NARROW_ONLY_CLASS}>{copy.columns.questions} </span>
-          {started
-            ? copy.questionsCell(
-                stat?.uniqueQuestions ?? 0,
-                stat?.totalAttempts ?? 0,
-              )
-            : dash}
-        </span>
-        <span className="@[760px]/sat-analytics:text-sm">
-          <span className={NARROW_ONLY_CLASS}>{copy.columns.pace} </span>
-          {started ? formatDuration(stat?.avgTimeSeconds ?? 0) : dash}
-        </span>
-      </div>
-      <Button
-        className={cn(WIDE_ONLY_CLASS, "justify-self-end")}
-        onClick={() => onDrill(skill.code)}
-        size="sm"
-        variant="ghost"
-      >
-        {copy.practice}
-      </Button>
+      )}
+      <PracticeButton className={cn(WIDE_ONLY_CLASS, "justify-self-end")} onDrill={onDrill} skill={skill} />
     </li>
   );
 }
@@ -155,14 +170,16 @@ export function SatAnalyticsDomains({
     [taxonomyQuery.data],
   );
 
-  const ebrwDomainCount =
-    modules.find((m) => m.code === "reading")?.domains.length ?? 0;
-  const mathDomainCount =
-    modules.find((m) => m.code === "math")?.domains.length ?? 0;
+  const skillCount = (code: string): number =>
+    modules
+      .find((m) => m.code === code)
+      ?.domains.reduce((sum, d) => sum + d.skills.length, 0) ?? 0;
+  const ebrwSkillCount = skillCount("reading");
+  const mathSkillCount = skillCount("math");
   const segments = copy.sectionSegments(
-    ebrwDomainCount,
-    mathDomainCount,
-    ebrwDomainCount + mathDomainCount,
+    ebrwSkillCount,
+    mathSkillCount,
+    ebrwSkillCount + mathSkillCount,
   );
 
   const scopedModules =

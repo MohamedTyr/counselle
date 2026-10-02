@@ -117,6 +117,7 @@ export function SatAnalytics({
 
   const stats = statsQuery.data;
   const hasAnyAttempts = (stats?.totalAttemptsCount ?? 0) > 0;
+  const isEmpty = stats !== undefined && !hasAnyAttempts;
 
   // On a narrow screen the strip scrolls; keep the current tab in view. The
   // strip only exists once stats have loaded, and a portaled shell mounts a
@@ -266,8 +267,10 @@ export function SatAnalytics({
       ) : !hasAnyAttempts ? (
         <Empty className={cn(profileEmptySheetClass, "my-auto flex-none")}>
           <EmptyHeader>
-            <EmptyMedia variant="icon">
-              <ChartColumn />
+            <EmptyMedia className="mb-5" variant="default">
+              <span className="grid size-10 place-items-center rounded-xl bg-[var(--surface-inset)] text-[var(--ink-secondary)]">
+                <ChartColumn aria-hidden="true" className="size-5" />
+              </span>
             </EmptyMedia>
             <EmptyTitle>{SAT_ANALYTICS_COPY.empty.title}</EmptyTitle>
             <EmptyDescription>{SAT_ANALYTICS_COPY.empty.description}</EmptyDescription>
@@ -369,7 +372,10 @@ export function SatAnalytics({
   ) : (
     <Dialog onOpenChange={handleOpenChange} open={open}>
       <DialogContent
-        className="flex h-[min(860px,92dvh)] max-w-[min(1080px,calc(100vw-2rem))] flex-col gap-0 overflow-hidden rounded-2xl bg-[var(--surface-raised)] p-0 shadow-[var(--elevation-3)] sm:max-w-[min(1080px,calc(100vw-2rem))]"
+        className={cn(
+          "flex max-w-[min(1080px,calc(100vw-2rem))] flex-col gap-0 overflow-hidden rounded-2xl bg-[var(--surface-raised)] p-0 shadow-[var(--elevation-3)] sm:max-w-[min(1080px,calc(100vw-2rem))]",
+          isEmpty ? "max-h-[92dvh]" : "h-[min(860px,92dvh)]",
+        )}
         onOpenAutoFocus={(event) => {
           // Land on the panel, not on the close button: a focus ring on ✕
           // the moment the dialog opens reads as a pending action.

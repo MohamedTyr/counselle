@@ -25,7 +25,7 @@ function minDistance(spots: readonly { left: number; top: number }[]): number {
 describe("layoutPaceMarkers", () => {
   it("leaves a lone point on its true position, inset from the edges", () => {
     const [only] = layoutPaceMarkers([{ x: 60, y: 50 }], SIZE, 120);
-    expect(only).toEqual({ left: 300, top: 150 });
+    expect(only).toMatchObject({ left: 300, top: 150, homeLeft: 300, homeTop: 150 });
     const [top] = layoutPaceMarkers([{ x: 60, y: 100 }], SIZE, 120);
     expect(top.top).toBe(paceVerticalPad(MARKER));
   });
@@ -64,7 +64,22 @@ describe("layoutPaceMarkers", () => {
     ];
     const first = layoutPaceMarkers(input, SIZE, 120);
     expect(layoutPaceMarkers(input, SIZE, 120)).toEqual(first);
-    expect(first[0]).toEqual({ left: 75, top: SIZE.height - paceVerticalPad(MARKER) });
+    expect(first[0]).toMatchObject({ left: 75, top: SIZE.height - paceVerticalPad(MARKER) });
+  });
+});
+
+describe("nudge cap", () => {
+  it("keeps every marker within a few gaps of its true point", () => {
+    const spots = layoutPaceMarkers(
+      Array.from({ length: 8 }, () => ({ x: 60, y: 50 })),
+      SIZE,
+      120,
+    );
+    for (const spot of spots) {
+      expect(Math.hypot(spot.left - spot.homeLeft, spot.top - spot.homeTop)).toBeLessThanOrEqual(
+        4 * paceMarkerGap(MARKER) + 4,
+      );
+    }
   });
 });
 

@@ -19,12 +19,14 @@ import { analyticsMetaClass, analyticsSheetClass } from "@/features/sat/sat-anal
 import {
   type CaptionBox,
   layoutPaceMarkers,
+  leaderSegment,
   markerCoversCaption,
   paceAxis,
   paceMarkerSize,
   type PaceAxis,
-  type MarkerPosition,
+  type PlacedMarker,
   type PlotSize,
+  paceVerticalPad,
   paceYPx,
 } from "@/features/sat/sat-pace-layout";
 import { cn } from "@/lib/utils";
@@ -33,6 +35,10 @@ import { cn } from "@/lib/utils";
  * y-axis title. */
 const PLOT_INSET = { bottom: 56, left: 44, right: 16, top: 34 } as const;
 const LEGEND_MARKER_PX = 12;
+const TRUE_POINT_DOT_PX = 2.5;
+/** Below the lowest marker: the x tick labels, then the axis title. */
+const TICK_GAP_PX = 4;
+const TITLE_GAP_PX = 24;
 const CAPTION_CHAR_PX = 5.8;
 const CAPTION_HEIGHT_PX = 12;
 const CAPTION_SIDE_PX = 12;
@@ -98,7 +104,7 @@ interface FrameProps {
   axis: PaceAxis;
   markerPx: number;
   size: PlotSize;
-  spots: readonly MarkerPosition[];
+  spots: readonly PlacedMarker[];
 }
 
 function captionBoxes(size: PlotSize, markerPx: number): Record<string, CaptionBox> {
@@ -160,6 +166,36 @@ function TargetLine({ axis, size }: { axis: PaceAxis; size: PlotSize }): React.R
   );
 }
 
+/** A thin line from a nudged marker back to the point its data sits on,
+ * ended by a small dot there when no marker already shows that point. */
+function Leaders({
+  markerPx,
+  spots,
+}: {
+  markerPx: number;
+  spots: readonly PlacedMarker[];
+}): React.ReactElement | null {
+  const segments = spots.flatMap((spot) => leaderSegment(spot, spots, markerPx) ?? []);
+  if (segments.length === 0) return null;
+  return (
+    <svg aria-hidden="true" className="pointer-events-none absolute inset-0 size-full overflow-visible">
+      {segments.map((segment) => (
+        <g key={`${segment.x1}-${segment.y1}`}>
+          <line
+            stroke="var(--ink-secondary)"
+            strokeWidth={1}
+            x1={segment.x1}
+            x2={segment.x2}
+            y1={segment.y1}
+            y2={segment.y2}
+          />
+          {segment.dot && <circle cx={segment.dot.x} cy={segment.dot.y} fill="var(--ink-secondary)" r={TRUE_POINT_DOT_PX} />}
+        </g>
+      ))}
+    </svg>
+  );
+}
+
 function PlotFrame(props: FrameProps): React.ReactElement {
   const { axis, markerPx, size } = props;
   const copy = SAT_ANALYTICS_COPY.pace;
@@ -186,7 +222,7 @@ function PlotFrame(props: FrameProps): React.ReactElement {
         <span
           className={cn(analyticsMetaClass, "absolute -translate-x-1/2 leading-none")}
           key={tick}
-          style={{ left: (tick / axis.max) * size.width, top: yBase + 10 }}
+          style={{ left: (tick / axis.max) * size.width, top: yBase + paceVerticalPad(markerPx) + TICK_GAP_PX }}
         >
           {tick}s
         </span>
@@ -201,7 +237,7 @@ function PlotFrame(props: FrameProps): React.ReactElement {
       </span>
       <span
         className={cn(analyticsMetaClass, "absolute inset-x-0 text-center leading-none")}
-        style={{ top: yBase + 34 }}
+        style={{ top: yBase + paceVerticalPad(markerPx) + TITLE_GAP_PX }}
       >
         {copy.axisSeconds}
       </span>
@@ -242,6 +278,7 @@ function PaceChart({
         }}
       >
         {size.width > 0 && <PlotFrame axis={axis} markerPx={markerPx} size={size} spots={spots} />}
+        <Leaders markerPx={markerPx} spots={spots} />
         {points.map((point, index) => {
           const spot = spots[index];
           if (!spot) return null;
@@ -260,7 +297,7 @@ function PaceChart({
                   onFocus={() => onActiveChange(point.code)}
                   onPointerEnter={() => onActiveChange(point.code)}
                   onPointerLeave={() => onActiveChange(null)}
-                  role="img"
+                  role="button"
                   style={{ left: spot.left, top: spot.top }}
                   tabIndex={0}
                 >

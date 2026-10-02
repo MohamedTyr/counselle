@@ -39,7 +39,7 @@ export function SatReferenceSheet({ onClose }: SatReferenceSheetProps): React.Re
   return (
     <SatToolWindow onClose={onClose} title="Reference sheet" window={toolWindow}>
       <div className="h-full overflow-y-auto p-4">
-        <div className="grid grid-cols-5 gap-3">
+        <div className="grid grid-cols-2 gap-3 min-[640px]:grid-cols-5">
           {ROW_ONE.map((n) => (
             <img
               alt={`Reference figure ${n}`}
@@ -56,7 +56,7 @@ export function SatReferenceSheet({ onClose }: SatReferenceSheetProps): React.Re
             src="/sat/reference/special-triangles.png"
           />
         </div>
-        <div className="mt-3 grid grid-cols-7 gap-3">
+        <div className="mt-3 grid grid-cols-2 gap-3 min-[640px]:grid-cols-7">
           {ROW_TWO.map((n) => (
             <img
               alt={`Reference figure ${n}`}

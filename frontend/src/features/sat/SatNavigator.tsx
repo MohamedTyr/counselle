@@ -202,14 +202,13 @@ function NavigatorLegend(): React.ReactElement {
           <Swatch className="border-[var(--ink)] bg-[var(--surface-raised)] shadow-[0_0_0_1px_var(--ink)]" />
           {legend.current}
         </li>
-        <li className={item}>
+        <li className={item} title={legend.difficultyHint}>
           <Swatch className="items-center justify-center border-[var(--hairline)] bg-[var(--surface-raised)] text-[var(--ink-secondary)]">
             <DifficultyDots tier="hard" />
           </Swatch>
           {legend.difficulty}
         </li>
       </ul>
-      <p className="text-xs text-[var(--ink-faint)]">{SAT_PRACTICE_COPY.navigator.caption}</p>
     </div>
   );
 }

@@ -6,23 +6,14 @@
  */
 import type React from "react";
 import { useEffect, useRef, useState } from "react";
-import {
-  PolarAngleAxis,
-  PolarGrid,
-  PolarRadiusAxis,
-  Radar,
-  RadarChart,
-  Tooltip,
-} from "recharts";
-
 import type { SatStatsResponse } from "@/api/sat/types";
-import { ChartContainer } from "@/components/ui/chart";
 import { ChartFigure } from "@/components/workspace/chart-figure";
 import { AnalyticsMeter } from "@/features/sat/SatAnalyticsMeter";
 import { analyticsGroupLabelClass, analyticsSheetClass } from "@/features/sat/sat-analytics-styles";
 import { cn } from "@/lib/utils";
-import { skipMissingVertices, summarizeRadar } from "@/features/sat/sat-analytics";
+import { canDrawWeb, skipMissingVertices, summarizeRadar } from "@/features/sat/sat-analytics";
 import { SAT_ANALYTICS_COPY } from "@/features/sat/sat-analytics-copy";
+import { type RadarRow, SatAnalyticsRadarChart } from "@/features/sat/SatAnalyticsRadarChart";
 
 /** The eight short axis/tooltip forms upstream uses (A7). Not in
  * `sat-copy.ts` — this file owns the one place they're needed and that
@@ -38,17 +29,6 @@ const DOMAIN_SHORT_LABEL: Record<string, string> = {
   SEC: "Std English",
 };
 
-/** Below this container width the full domain names would not fit around
- * the web, so the axes carry the short forms. */
-const NARROW_CONTAINER_PX = 520;
-const WRAP_FULL_CHARS = 18;
-const WRAP_SHORT_CHARS = 10;
-const RADAR_MARGIN_WIDE = { bottom: 36, left: 96, right: 96, top: 36 } as const;
-const RADAR_MARGIN_NARROW = { bottom: 36, left: 36, right: 36, top: 36 } as const;
-/** Between the top and top-right axes, clear of every axis label. */
-const RADIUS_LABEL_ANGLE = 67.5;
-const TICK_LINE_EM = 1.15;
-
 function useContainerWidth(): [React.RefObject<HTMLDivElement | null>, number] {
   const ref = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(0);
@@ -60,84 +40,6 @@ function useContainerWidth(): [React.RefObject<HTMLDivElement | null>, number] {
     return () => observer.disconnect();
   }, []);
   return [ref, width];
-}
-
-/** The outer ring is the only one labelled, upright rather than rotated
- * with the axis. */
-function RingTick({
-  x = 0,
-  y = 0,
-  payload,
-}: {
-  x?: number | string;
-  y?: number | string;
-  payload?: { value: string | number };
-}): React.ReactElement {
-  return payload?.value === 100 ? (
-    <text fill="var(--ink-faint)" fontSize={10} textAnchor="start" x={Number(x) + 4} y={y}>
-      100%
-    </text>
-  ) : (
-    <g />
-  );
-}
-
-function wrapLabel(text: string, maxChars: number): string[] {
-  const lines: string[] = [];
-  for (const word of text.split(" ")) {
-    const last = lines[lines.length - 1];
-    if (last !== undefined && last.length + 1 + word.length <= maxChars) {
-      lines[lines.length - 1] = `${last} ${word}`;
-    } else {
-      lines.push(word);
-    }
-  }
-  return lines;
-}
-
-interface AxisTickProps {
-  x?: number | string;
-  y?: number | string;
-  textAnchor?: "start" | "middle" | "end" | "inherit";
-  payload?: { value: string };
-  index?: number;
-}
-
-function makeAxisTick(maxChars: number, fontSize: number, noData: readonly boolean[]) {
-  return function AxisTick({ x = 0, y = 0, textAnchor, payload, index = 0 }: AxisTickProps): React.ReactElement {
-    const lines = wrapLabel(payload?.value ?? "", maxChars);
-    if (noData[index]) lines.push(SAT_ANALYTICS_COPY.radar.noData);
-    return (
-      <text fill="var(--ink-secondary)" fontSize={fontSize} textAnchor={textAnchor} x={x} y={y}>
-        {lines.map((line, lineIndex) => (
-          <tspan
-            dy={lineIndex === 0 ? `${(-(lines.length - 1) * TICK_LINE_EM) / 2 + 0.35}em` : `${TICK_LINE_EM}em`}
-            fill={noData[index] && lineIndex === lines.length - 1 ? "var(--ink-faint)" : undefined}
-            key={line}
-            x={x}
-          >
-            {line}
-          </tspan>
-        ))}
-      </text>
-    );
-  };
-}
-
-interface RadarRow {
-  code: string;
-  label: string;
-  fullName: string;
-  /** Plotted radii; an axis with no data follows the edge between its
-   * neighbours (`skipMissingVertices`) rather than dipping to 0%. */
-  firstTry: number;
-  overall: number;
-  overallPct: number;
-  hasFirst: boolean;
-  hasOverall: boolean;
-  uniqueQuestions: number;
-  avgTimeSeconds: number;
-  firstTryAccuracyPct: number;
 }
 
 export function SatAnalyticsRadar({ stats }: { stats: SatStatsResponse }): React.ReactElement {
@@ -183,19 +85,13 @@ export function SatAnalyticsRadar({ stats }: { stats: SatStatsResponse }): React
   const overallPlot = skipMissingVertices(measured.map((row) => row.overallRaw));
   const rows: RadarRow[] = measured.map((row, index) => ({
     ...row,
-    firstTry: firstTryPlot[index] ?? 0,
-    overall: overallPlot[index] ?? 0,
+    firstTry: firstTryPlot[index] ?? null,
+    overall: overallPlot[index] ?? null,
   }));
+  const drawFirstWeb = canDrawWeb(firstTryPlot, measured.filter((row) => row.hasFirst).length);
+  const drawOverallWeb = canDrawWeb(overallPlot, measured.filter((row) => row.hasOverall).length);
 
-  const [chartRef, containerWidth] = useContainerWidth();
-  const narrow = containerWidth > 0 && containerWidth < NARROW_CONTAINER_PX;
-  const chartRows = rows.map((row) => ({ ...row, label: narrow ? row.label : row.fullName }));
-  const axisTick = makeAxisTick(
-    narrow ? WRAP_SHORT_CHARS : WRAP_FULL_CHARS,
-    narrow ? 11 : 12,
-    rows.map((row) => !row.hasFirst),
-  );
-
+    const [chartRef, containerWidth] = useContainerWidth();
   const summary = summarizeRadar(
     rows.map((row) => ({
       firstTryAccuracyPct: row.firstTryAccuracyPct,
@@ -227,64 +123,12 @@ export function SatAnalyticsRadar({ stats }: { stats: SatStatsResponse }): React
           ref={chartRef}
         >
           <ChartFigure summary={summary}>
-            <ChartContainer className="mx-auto aspect-square max-h-[520px] w-full" config={{}}>
-              <RadarChart
-                data={chartRows}
-                margin={narrow ? RADAR_MARGIN_NARROW : RADAR_MARGIN_WIDE}
-                outerRadius={narrow ? "72%" : "76%"}
-              >
-                <PolarGrid stroke="var(--edge)" />
-                <PolarAngleAxis dataKey="label" tick={axisTick} />
-                <PolarRadiusAxis
-                  angle={RADIUS_LABEL_ANGLE}
-                  axisLine={false}
-                  domain={[0, 100]}
-                  tick={RingTick}
-                  tickCount={2}
-                  tickLine={false}
-                />
-                <Radar
-                  dataKey="firstTry"
-                  fill="var(--brand-scale-2)"
-                  fillOpacity={0.22}
-                  dot={({ cx, cy, payload }: { cx?: number; cy?: number; payload?: RadarRow }) =>
-                    payload?.hasFirst ? (
-                      <circle cx={cx} cy={cy} fill="var(--brand-scale-2)" key={payload.code} r={3.5} />
-                    ) : (
-                      <g key={payload?.code} />
-                    )
-                  }
-                  isAnimationActive={false}
-                  stroke="var(--brand-scale-2)"
-                  strokeWidth={2}
-                />
-                <Radar
-                  dataKey="overall"
-                  fill="none"
-                  isAnimationActive={false}
-                  stroke="var(--ink-secondary)"
-                  strokeDasharray="4 3"
-                  strokeWidth={2}
-                />
-                <Tooltip
-                  content={({ payload }) => {
-                    const row = payload?.[0]?.payload as RadarRow | undefined;
-                    if (!row) return null;
-                    return (
-                      <div className="rounded-lg border border-[var(--hairline)] bg-[var(--surface-raised)] p-2 text-xs shadow-[var(--elevation-2)]">
-                        <p className="font-medium">{row.fullName}</p>
-                        <p className="tabular-nums">
-                          {copy.tooltip.firstTry(row.hasFirst ? `${row.firstTryAccuracyPct}%` : copy.noData)}
-                        </p>
-                        <p className="tabular-nums">
-                          {copy.tooltip.overall(row.hasOverall ? `${row.overallPct}%` : copy.noData)}
-                        </p>
-                      </div>
-                    );
-                  }}
-                />
-              </RadarChart>
-            </ChartContainer>
+            <SatAnalyticsRadarChart
+              drawFirstWeb={drawFirstWeb}
+              drawOverallWeb={drawOverallWeb}
+              rows={rows}
+              width={containerWidth}
+            />
           </ChartFigure>
         </div>
       </div>

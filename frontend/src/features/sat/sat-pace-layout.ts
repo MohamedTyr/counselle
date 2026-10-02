@@ -20,6 +20,14 @@ export interface MarkerPosition {
   readonly top: number;
 }
 
+/** A drawn marker and the point its data truly sits on. They differ only
+ * when the marker was nudged off a crowded spot; the chart then draws a
+ * leader between the two so position is never misleading. */
+export interface PlacedMarker extends MarkerPosition {
+  readonly homeLeft: number;
+  readonly homeTop: number;
+}
+
 /** Marker diameters: the full size, and the one used when the plot is too
  * narrow for eight full-size markers to sit apart. */
 export const PACE_MARKER_PX = 24;
@@ -27,16 +35,72 @@ export const PACE_MARKER_COMPACT_PX = 20;
 const COMPACT_BELOW_PLOT_WIDTH_PX = 420;
 /** A 2px surface ring keeps neighbours separable. */
 const MARKER_RING_PX = 2;
+/** Clear space kept between neighbouring markers so a leader line is
+ * visible in the gap between them. */
+const LEADER_ROOM_PX = 6;
 const NUDGE_STEP_PX = 4;
 const NUDGE_DIRECTIONS = 12;
+/** A marker is never moved further than this many gaps from its true
+ * point, so the leader stays short and the quadrant it reads in is still
+ * the true one. */
+const MAX_NUDGE_GAPS = 4;
 
 export function paceMarkerSize(plotWidth: number): number {
   return plotWidth < COMPACT_BELOW_PLOT_WIDTH_PX ? PACE_MARKER_COMPACT_PX : PACE_MARKER_PX;
 }
 
-/** Two centres closer than this read as overlapping. */
+/** Two centres closer than this read as overlapping (or leave no room for
+ * a leader line between them). */
 export function paceMarkerGap(markerPx: number): number {
-  return markerPx + MARKER_RING_PX;
+  return markerPx + MARKER_RING_PX + LEADER_ROOM_PX;
+}
+
+/** How far from its centre a marker's edge (ring included) reaches. */
+export function paceMarkerReach(markerPx: number): number {
+  return markerPx / 2 + MARKER_RING_PX;
+}
+
+export interface LeaderSegment {
+  readonly x1: number;
+  readonly y1: number;
+  readonly x2: number;
+  readonly y2: number;
+  /** The true point, when no marker sits on it to show it. */
+  readonly dot: { readonly x: number; readonly y: number } | null;
+}
+
+const LEADER_MIN_PX = 3;
+const COVERED_WITHIN_PX = 2;
+
+/** The leader for a nudged marker: from its edge back to its true point,
+ * stopping at the edge of the marker that holds that point. `null` for a
+ * marker that was not moved, or when no line fits between the two. */
+export function leaderSegment(
+  spot: PlacedMarker,
+  all: readonly PlacedMarker[],
+  markerPx: number,
+): LeaderSegment | null {
+  const dx = spot.homeLeft - spot.left;
+  const dy = spot.homeTop - spot.top;
+  const distance = Math.hypot(dx, dy);
+  if (distance <= LEADER_MIN_PX) return null;
+  const reach = paceMarkerReach(markerPx);
+  const ux = dx / distance;
+  const uy = dy / distance;
+  const covered = all.some(
+    (other) =>
+      other !== spot &&
+      Math.hypot(other.left - spot.homeLeft, other.top - spot.homeTop) <= COVERED_WITHIN_PX,
+  );
+  const end = covered ? distance - reach : distance;
+  if (end - reach < LEADER_MIN_PX) return null;
+  return {
+    dot: covered ? null : { x: spot.homeLeft, y: spot.homeTop },
+    x1: spot.left + ux * reach,
+    x2: spot.left + ux * end,
+    y1: spot.top + uy * reach,
+    y2: spot.top + uy * end,
+  };
 }
 
 /** Space kept between the 0% / 100% lines and the plot edge so a marker
@@ -72,10 +136,10 @@ function isInside(spot: MarkerPosition, size: PlotSize, markerPx: number): boole
   );
 }
 
-/** Walks outward from `home` on a fixed spiral until a spot is both inside
- * the plot and clear of every placed marker. The search covers the whole
- * plot, so a spot is found whenever one exists; the order of rings and
- * angles is fixed, so the result is deterministic. */
+/** Walks outward from `home` on a fixed spiral, no further than the nudge
+ * cap, until a spot is both inside the plot and clear of every placed
+ * marker. The order of rings and angles is fixed, so the result is
+ * deterministic. */
 function findClearSpot(
   home: MarkerPosition,
   placed: readonly MarkerPosition[],
@@ -84,7 +148,7 @@ function findClearSpot(
 ): MarkerPosition {
   const gap = paceMarkerGap(markerPx);
   if (isClear(home, placed, gap)) return home;
-  const maxRing = Math.ceil(Math.hypot(size.width, size.height) / NUDGE_STEP_PX);
+  const maxRing = Math.ceil((MAX_NUDGE_GAPS * gap) / NUDGE_STEP_PX);
   for (let ring = 1; ring <= maxRing; ring += 1) {
     for (let step = 0; step < NUDGE_DIRECTIONS; step += 1) {
       const angle = (step / NUDGE_DIRECTIONS) * Math.PI * 2;
@@ -101,23 +165,25 @@ function findClearSpot(
 }
 
 /** Where each marker is drawn. A point whose true position is crowded by an
- * earlier one slides outward until it clears, so every marker stays visible
- * and hoverable. The order of `points` decides who keeps the true spot. The
- * tooltip and key always report the true values. */
+ * earlier one slides outward (within the nudge cap) until it clears, so
+ * every marker stays visible and hoverable. The order of `points` decides
+ * who keeps the true spot. The tooltip and key always report the true
+ * values. */
 export function layoutPaceMarkers(
   points: readonly PaceMarkerInput[],
   size: PlotSize,
   xMax: number,
   markerPx: number = PACE_MARKER_PX,
-): MarkerPosition[] {
+): PlacedMarker[] {
   const radius = markerPx / 2;
-  const placed: MarkerPosition[] = [];
+  const placed: PlacedMarker[] = [];
   for (const point of points) {
     const home: MarkerPosition = {
       left: Math.min(size.width - radius, Math.max(radius, (point.x / xMax) * size.width)),
       top: paceYPx(point.y, size.height, markerPx),
     };
-    placed.push(findClearSpot(home, placed, size, markerPx));
+    const spot = findClearSpot(home, placed, size, markerPx);
+    placed.push({ ...spot, homeLeft: home.left, homeTop: home.top });
   }
   return placed;
 }

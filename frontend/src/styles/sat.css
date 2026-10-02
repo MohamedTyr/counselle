@@ -68,6 +68,13 @@
   overflow-wrap: anywhere;
 }
 
+/* Native text selection stays on the app's tokens, not the browser blue. */
+.sat-content ::selection,
+.sat-content::selection {
+  background-color: var(--brand-subtle);
+  color: var(--ink);
+}
+
 /* Paragraph rhythm: the sanitiser keeps <p> but Tailwind's reset zeroes
  * their margins, so consecutive paragraphs would touch. */
 .sat-content p + p,

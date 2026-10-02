@@ -30,7 +30,7 @@ const ROW_STYLES = {
   none: {
     open: "border-[var(--edge)] bg-[var(--surface-raised)] hover:border-[var(--edge-strong)] hover:bg-[var(--canvas-hover)] focus-visible:ring-[var(--focus-ring)]",
     selected:
-      "border-[var(--ink)] bg-[var(--canvas-active)] shadow-[inset_0_0_0_1px_var(--ink)] focus-visible:ring-[var(--focus-ring)]",
+      "border-[var(--ink)] bg-[var(--canvas-hover)] shadow-[inset_0_0_0_0.5px_var(--ink)] focus-visible:ring-[var(--focus-ring)]",
     locked:
       "border-[var(--edge)] bg-[var(--surface-raised)] focus-visible:ring-[var(--focus-ring)]",
   },

@@ -111,8 +111,8 @@ export const SAT_PRACTICE_COPY = {
       upsolved: "Missed, then got right",
       current: "Current",
       difficulty: "Difficulty",
+      difficultyHint: "One dot for easy, three for hard",
     },
-    caption: "Correct and incorrect are from this session. Missed, then got right counts every attempt. Dots show difficulty, one for easy to three for hard.",
     range: (from: number, to: number, total: number) =>
       `${from.toLocaleString("en-US")}–${to.toLocaleString("en-US")} of ${total.toLocaleString("en-US")}`,
     previousPage: "Previous page",

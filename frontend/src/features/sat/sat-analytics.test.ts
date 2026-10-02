@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { skipMissingVertices } from "@/features/sat/sat-analytics";
+import { canDrawWeb, skipMissingVertices } from "@/features/sat/sat-analytics";
 
 describe("skipMissingVertices", () => {
   it("leaves fully measured axes alone", () => {
@@ -14,7 +14,20 @@ describe("skipMissingVertices", () => {
     expect(gap).toBeCloseTo(50 * Math.cos(Math.PI / 4), 5);
   });
 
-  it("keeps gaps at the centre when fewer than two axes are measured", () => {
-    expect(skipMissingVertices([null, 40, null, null])).toEqual([0, 40, 0, 0]);
+  it("leaves gaps unplotted when fewer than two axes are measured", () => {
+    expect(skipMissingVertices([null, 40, null, null])).toEqual([null, 40, null, null]);
+  });
+
+  it("leaves a gap unplotted when no edge crosses it", () => {
+    const plotted = skipMissingVertices([50, 50, 50, null, null, null, null, null]);
+    expect(plotted.slice(3).every((value) => value === null)).toBe(true);
+  });
+});
+
+describe("canDrawWeb", () => {
+  it("needs three measured axes and no unplotted gap", () => {
+    expect(canDrawWeb([10, 20, null], 2)).toBe(false);
+    expect(canDrawWeb([10, 20, 30, 40], 4)).toBe(true);
+    expect(canDrawWeb([10, 20, 30, null], 3)).toBe(false);
   });
 });

@@ -74,7 +74,7 @@ export function SatStatusToolbar({
         <TabsList aria-label={SAT_DASHBOARD_COPY.statusLabel} variant="pill">
           {STATUS_ORDER.map((value) => (
             <TabsTab
-              className="group/status @max-[34rem]/sat-dash:px-2.5!"
+              className="group/status data-active:font-normal! @max-[34rem]/sat-dash:px-2.5!"
               key={value}
               value={value}
             >
@@ -258,9 +258,9 @@ export function SatSessionSheet({
           ))}
         </div>
 
-        {/* Below 880 cw this lives in the floating bar instead
-         * (`SatStartBar`) — the two never show at once. */}
-        <div className="hidden flex-col gap-2 border-t border-[var(--hairline)] px-4 py-4 @[880px]/sat-dash:flex">
+        {/* Always present; below 880 cw the floating bar (`SatStartBar`)
+         * takes over only once this sheet has scrolled out of view. */}
+        <div className="flex flex-col gap-2 border-t border-[var(--hairline)] px-4 py-4">
           <SatStartButton
             className="w-full"
             isStarting={isStarting}

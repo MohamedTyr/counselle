@@ -41,17 +41,21 @@ export function formatDuration(totalSeconds: number): string {
  * line when it is within the plotted range, and always labels it. */
 export const PACE_TARGET_SECONDS = 82;
 
+/** Fewest measured axes for which a filled web means anything. */
+export const MIN_WEB_AXES = 3;
+
 /** Fills each no-data axis with the radius at which the straight edge
  * between its nearest plotted neighbours crosses that axis, so the web
- * simply skips the vertex instead of dipping to 0%. With fewer than two
- * plotted axes there is no edge to follow and the gap stays at the centre. */
-export function skipMissingVertices(values: readonly (number | null)[]): number[] {
+ * simply skips the vertex instead of dipping to 0%. A gap with no such edge
+ * (fewer than two plotted axes, or neighbours half a turn or more apart)
+ * stays `null`: the web is never given a made-up radius there. */
+export function skipMissingVertices(values: readonly (number | null)[]): (number | null)[] {
   const count = values.length;
   const step = (Math.PI * 2) / count;
   const plotted = values.filter((value) => value !== null).length;
   return values.map((value, index) => {
     if (value !== null) return value;
-    if (plotted < 2) return 0;
+    if (plotted < 2) return null;
     let back = 1;
     while (values[(index - back + count) % count] === null) back += 1;
     let forward = 1;
@@ -60,10 +64,16 @@ export function skipMissingVertices(values: readonly (number | null)[]): number[
     const r2 = values[(index + forward) % count] ?? 0;
     const a1 = back * step;
     const a2 = forward * step;
-    if (a1 + a2 >= Math.PI) return 0;
+    if (a1 + a2 >= Math.PI) return null;
     const denominator = r1 * Math.sin(a2) + r2 * Math.sin(a1);
-    return denominator === 0 ? 0 : (r1 * r2 * Math.sin(a1 + a2)) / denominator;
+    return denominator === 0 ? null : (r1 * r2 * Math.sin(a1 + a2)) / denominator;
   });
+}
+
+/** A web is drawn only when enough axes are measured and every gap lies on
+ * an honest edge; otherwise the chart shows the measured points alone. */
+export function canDrawWeb(plotted: readonly (number | null)[], measuredCount: number): boolean {
+  return measuredCount >= MIN_WEB_AXES && plotted.every((value) => value !== null);
 }
 
 // ---- chart-summary helpers (sentences behind ChartFigure's `summary`) -----
