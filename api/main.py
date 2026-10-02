@@ -63,6 +63,7 @@ from api.routes import (
     sat,
     schools_facts,
     sessions,
+    supplements,
     system,
     tasks,
     workspace_events,
@@ -274,6 +275,7 @@ def create_app() -> FastAPI:
     app.include_router(calendar.router, prefix="/v1")
     app.include_router(tasks.router, prefix="/v1")
     app.include_router(essays.router, prefix="/v1")
+    app.include_router(supplements.router, prefix="/v1")
     app.include_router(activities.router, prefix="/v1")
     app.include_router(profile.router, prefix="/v1")
     app.include_router(onboarding.router, prefix="/v1")

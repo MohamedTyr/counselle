@@ -148,3 +148,52 @@ def prompts_hash(prompts: list[SupplementPrompt]) -> str:
         for p in prompts
     )
     return hashlib.sha256("\n".join(rows).encode()).hexdigest()
+
+
+#: Two prompt texts at least this similar are the same prompt reworded, not a
+#: removed prompt plus a new one.
+REWORDING_MIN_SIMILARITY = 0.6
+_TITLE_MAX_CHARS = 64
+_SENTENCE = re.compile(r"[^.?!]+[.?!]")
+_ASK_START = re.compile(
+    r"(?:please |briefly |in \w+ words or (?:fewer|less),? )?"
+    r"(?:describe|tell|explain|share|write|reflect|discuss|list|elaborate|consider|"
+    r"imagine|choose|select|provide|identify|name|recount|submit|respond|what|why|how|"
+    r"who|which|where|when|if)\b",
+    re.I,
+)
+
+
+def prompt_key(prompt: str) -> str:
+    """Stable identity of a prompt's text, shared by the catalog and essays."""
+    return hashlib.sha256(normalize(prompt).encode()).hexdigest()[:16]
+
+
+def essay_title(prompt: str) -> str:
+    """A short title for an essay answering *prompt*: its ask, shortened.
+
+    The ask is the first sentence that is a question or an instruction
+    ("Describe...", "Write..."); prompts often open with context sentences,
+    and a follow-up question comes after the ask. Falls back to the first
+    sentence, then cuts at a word boundary to fit a row.
+    """
+    sentences = [s.strip() for s in _SENTENCE.findall(" ".join(prompt.split()))]
+    asks = [s for s in sentences if s.endswith("?") or _ASK_START.match(s)]
+    title = (asks or sentences or [" ".join(prompt.split())])[0]
+    if len(title) <= _TITLE_MAX_CHARS:
+        return title
+    cut = title[: _TITLE_MAX_CHARS - 1].rsplit(" ", 1)[0].rstrip(",;:")
+    return f"{cut}\u2026"
+
+
+def best_rewording(old: str, candidates: list[str]) -> int | None:
+    """Index of the candidate that is *old* reworded, or None when none is close."""
+    from difflib import SequenceMatcher
+
+    target = normalize(old)
+    best, best_ratio = None, REWORDING_MIN_SIMILARITY
+    for index, text in enumerate(candidates):
+        ratio = SequenceMatcher(None, target, normalize(text)).ratio()
+        if ratio >= best_ratio:
+            best, best_ratio = index, ratio
+    return best

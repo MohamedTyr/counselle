@@ -406,6 +406,10 @@ class Essay(_Model):
     created_at: datetime
     updated_at: datetime
     archived_at: datetime | None = None
+    supplement_key: str | None = None
+    prompt_previous: str | None = None
+    prompt_updated_at: datetime | None = None
+    prompt_removed_at: datetime | None = None
 
 
 class EssaySummary(_Model):
@@ -430,6 +434,10 @@ class EssaySummary(_Model):
     created_at: datetime
     updated_at: datetime
     archived_at: datetime | None = None
+    supplement_key: str | None = None
+    prompt_previous: str | None = None
+    prompt_updated_at: datetime | None = None
+    prompt_removed_at: datetime | None = None
 
 
 class EssayCreate(_Model):
@@ -874,3 +882,35 @@ class ApplicationDetail(_Model):
     tasks: list[Task]
     essays: list[EssaySummary]
     reference: SchoolReference
+
+
+class SupplementPromptView(_Model):
+    """One catalog prompt for a school on the student's list, with the
+    student's essay for it when one exists."""
+
+    key: str
+    prompt: str
+    context: str | None = None
+    word_limit: int | None = None
+    requirement: Literal["required", "optional"]
+    group_label: str | None = None
+    choose_count: int | None = None
+    applies_to: str | None = None
+    essay_id: UUID | None = None
+
+
+class ApplicationSupplements(_Model):
+    """A listed school's supplemental prompts for the current cycle.
+
+    ``status``: ``prompts`` (listed), ``none`` (the source lists the school as
+    having no supplements) or ``unlisted`` (no data — never to be read as none).
+    """
+
+    application_id: UUID
+    school_unitid: int
+    cycle: str
+    status: Literal["prompts", "none", "unlisted"]
+    checked: Literal["unchecked", "common_app", "official_site"] | None = None
+    checked_on: Date | None = None
+    changed_at: datetime | None = None
+    prompts: list[SupplementPromptView] = Field(default_factory=list)

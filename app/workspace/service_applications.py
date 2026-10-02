@@ -29,6 +29,7 @@ from app.workspace.models import (
     WorkspaceValidationError,
 )
 from app.workspace.service_reference import get_school_reference
+from app.workspace.service_supplements import create_required_essays_for_new_application
 from app.workspace.service_utils import (
     SchoolIdentity,
     publish_events,
@@ -186,6 +187,15 @@ async def add_application(
         ) from exc
 
     publish_events(event_bus, user_id, events)
+    await create_required_essays_for_new_application(
+        app_pool,
+        event_bus,
+        user_id=user_id,
+        actor=actor,
+        application_id=app_id,
+        school_unitid=data.unitid,
+        cycle_year=data.cycle_year,
+    )
     application = await _application_view_by_id(app_pool, catalog, user_id, app_id)
     return ApplicationAddResult(application=application)
 

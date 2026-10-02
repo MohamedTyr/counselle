@@ -17,6 +17,8 @@ import asyncpg
 import structlog
 
 from app.supplements.sync import SyncReport, run_sync
+from app.workspace.changes import WorkspaceEventBus
+from app.workspace.service_supplements import apply_catalog_changes
 
 logger = structlog.get_logger(__name__)
 
@@ -37,9 +39,12 @@ SELECT
 
 
 class SupplementsWorker:
-    def __init__(self, pool: asyncpg.Pool, settings: Any) -> None:
+    def __init__(
+        self, pool: asyncpg.Pool, settings: Any, event_bus: WorkspaceEventBus | None = None
+    ) -> None:
         self._pool = pool
         self._settings = settings
+        self._event_bus = event_bus
         self._task: asyncio.Task[None] | None = None
 
     def start(self) -> None:
@@ -87,6 +92,10 @@ class SupplementsWorker:
         )
         try:
             report = await run_sync(self._pool, self._settings)
+            essays = await apply_catalog_changes(
+                self._pool, report.changed_unitids, self._event_bus
+            )
+            logger.info("supplements_essays_updated", essays=essays)
         except Exception as exc:
             logger.exception("supplements_sync_failed")
             await conn.execute(
@@ -129,7 +138,7 @@ async def start_supplements_worker(runtime: Any, settings: Any) -> SupplementsWo
     if not settings.supplements_worker_enabled:
         logger.info("supplements_worker_not_started", reason="supplements_worker_enabled_false")
         return None
-    worker = SupplementsWorker(runtime.app_pool, settings)
+    worker = SupplementsWorker(runtime.app_pool, settings, runtime.deps.workspace_events)
     worker.start()
     logger.info(
         "supplements_worker_started",

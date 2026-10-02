@@ -169,7 +169,11 @@ async def _add_schools_impl(ctx: ToolCtx, drafts: list[SchoolDraft]) -> dict[str
         "status": "warning" if skipped else "ok",
         "summary": f"Added {len(added)} school{'' if len(added) == 1 else 's'} to the list.",
         "added": added,
-        "footer": "No tasks or essays were created automatically.",
+        "footer": (
+            "Each school's required supplemental essays were added to the Essays tab "
+            "when its prompts are on file; choices, optional and program-specific "
+            "prompts are left for the student to start. No tasks were created."
+        ),
         "ui": {
             "widget": "school_added",
             "data": {

@@ -2,6 +2,8 @@
 
 - `sync [--force]`: one pass (the same `run_sync` the daily worker runs);
   `--force` re-reads every block with the model, not just changed ones.
+- `backfill`: create the required supplemental essays for every school
+  already on a student's list (adding a school does this from now on).
 - `export <dir>`: write the stored prompts, with school names, to
   `supplements.csv` and `supplements.json` in <dir>.
 """
@@ -72,6 +74,18 @@ async def _export(out_dir: Path) -> int:
     return 0
 
 
+async def _backfill() -> int:
+    from app.workspace.service_supplements import backfill_required_essays
+
+    settings = get_settings()
+    pool = await create_pool(dsn=settings.db_app_dsn, settings=settings)
+    try:
+        print(f"created {await backfill_required_essays(pool)} essays")
+    finally:
+        await pool.close()
+    return 0
+
+
 def _plain(value: object) -> object:
     return value.isoformat() if hasattr(value, "isoformat") else value
 
@@ -95,11 +109,14 @@ def main() -> int:
     sub = parser.add_subparsers(dest="command", required=True)
     sync = sub.add_parser("sync")
     sync.add_argument("--force", action="store_true")
+    sub.add_parser("backfill")
     export = sub.add_parser("export")
     export.add_argument("out_dir", type=Path)
     args = parser.parse_args()
     if args.command == "sync":
         return asyncio.run(_sync(args.force))
+    if args.command == "backfill":
+        return asyncio.run(_backfill())
     return asyncio.run(_export(args.out_dir))
 
 

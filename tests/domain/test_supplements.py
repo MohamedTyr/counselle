@@ -80,3 +80,44 @@ def test_hashes_ignore_order_and_whitespace_but_not_wording() -> None:
     assert prompts_hash([a]) != prompts_hash([a.model_copy(update={"word_limit": 150})])
     assert block_hash("Why  us?\n") == block_hash("Why us?")
     assert block_hash("Why us?") != block_hash("Why them?")
+
+
+def test_prompt_key_ignores_typography_but_not_wording() -> None:
+    from domain.supplements import prompt_key
+
+    assert prompt_key("Why  us\u2019?") == prompt_key("why us'?")
+    assert prompt_key("Why us?") != prompt_key("Why them?")
+
+
+def test_essay_title_prefers_the_question_and_fits_a_row() -> None:
+    from domain.supplements import essay_title
+
+    assert essay_title("Columbia is in New York. Why Columbia?") == "Why Columbia?"
+    long = "Describe " + "a very long thing " * 10 + "in detail."
+    title = essay_title(long)
+    assert len(title) <= 64 and title.endswith("\u2026")
+
+
+def test_best_rewording_matches_a_light_edit_and_rejects_a_new_prompt() -> None:
+    from domain.supplements import best_rewording
+
+    old = "Why are you interested in attending Duke, and what would you contribute?"
+    new = [
+        "What would you fight for?",
+        "Why are you interested in Duke, and what will you contribute?",
+    ]
+    assert best_rewording(old, new) == 1
+    assert best_rewording(old, ["What would you fight for?"]) is None
+
+
+def test_essay_title_skips_context_and_follow_up_questions() -> None:
+    from domain.supplements import essay_title
+
+    prompt = (
+        "Virtually all undergraduates live on campus. Write a note to your future "
+        "roommate. How will it help us know you?"
+    )
+    assert essay_title(prompt) == "Write a note to your future roommate."
+    assert essay_title("Harvard values debate. Describe a disagreement. How did you engage?") == (
+        "Describe a disagreement."
+    )
