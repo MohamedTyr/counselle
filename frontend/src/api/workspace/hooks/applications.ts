@@ -34,7 +34,7 @@ type ApplicationUpdateSnapshot = Snapshot<ApplicationView[]> & {
   previousDetail: ApplicationDetail | undefined;
 };
 
-type AddApplicationVariables = ApplicationCreate & {
+export type AddApplicationVariables = ApplicationCreate & {
   optimisticSchool?: SchoolSearchResult;
 };
 

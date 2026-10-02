@@ -12,6 +12,31 @@ export function humanize(value: string) {
     .replace(/^./, (character) => character.toUpperCase());
 }
 
+function formatMonthYear(iso: string) {
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    year: "numeric",
+  }).format(new Date(`${iso.slice(0, 10)}T00:00:00`));
+}
+
+/**
+ * Where a deadline came from, in the words the school page and the calendar
+ * both show: the student's own date, or Counselle's data and when it was last
+ * checked. `null` when there is nothing honest to say.
+ */
+export function deadlineSourceLabel(
+  source: "student" | "facts" | null,
+  checkedAt: string | null,
+): string | null {
+  if (source === "student") {
+    return "You set this date";
+  }
+  if (source === "facts" && checkedAt) {
+    return `From Counselle’s data, checked ${formatMonthYear(checkedAt)}`;
+  }
+  return null;
+}
+
 export function cycleLabel(cycleYear: number | null | undefined) {
   return cycleYear
     ? `${cycleYear - 1}-${String(cycleYear).slice(-2)}`

@@ -5,7 +5,7 @@ import { GuestOnly } from "@/app/auth/GuestOnly";
 import { OnboardingGate } from "@/app/auth/OnboardingGate";
 import { RequireAuth } from "@/app/auth/RequireAuth";
 import { WorkspaceShell } from "@/app/shell/WorkspaceShell";
-import { RouteSurface } from "@/app/routes/RouteSurface";
+import { CalendarPage } from "@/pages/calendar-page";
 import { LoginRoute } from "@/features/auth/LoginRoute";
 import { OnboardingRoute } from "@/features/onboarding/OnboardingRoute";
 import { RegisterRoute } from "@/features/auth/RegisterRoute";
@@ -142,7 +142,7 @@ export function createAppRouter() {
                 },
                 {
                   path: "calendar",
-                  element: <RouteSurface title="Calendar" />,
+                  element: <CalendarPage />,
                 },
                 {
                   path: "schools",

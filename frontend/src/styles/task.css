@@ -24,6 +24,9 @@
   --task-title-inset: calc(var(--task-sheet-inset) + var(--task-row-spine));
   --task-sheet-surface: var(--surface-raised);
   --task-sheet-border: var(--hairline);
+  /* The docked detail panel (TaskDetailPanel); the calendar reserves this
+   * much room beside its grid while one is open. */
+  --task-panel-width: 26rem;
 
   /* ---- row states (aliases; a raised-surface embed re-points these in
    * one place instead of forty) ---- */

@@ -53,6 +53,7 @@ import {
   useTaskKeymap,
   type TaskKeymapView,
 } from "@/features/tasks/useTaskKeymap";
+import { useTaskLookups } from "@/features/tasks/useTaskLookups";
 import { useTaskRowActions } from "@/features/tasks/useTaskRowActions";
 import { getNowDate } from "@/lib/time";
 import { cn } from "@/lib/utils";
@@ -163,15 +164,7 @@ export function TasksLayout() {
   );
   const applications = listOrEmpty(applicationsQuery.data);
   const essays = listOrEmpty(essaysQuery.data);
-  const applicationsById = useMemo(
-    () =>
-      new Map(applications.map((application) => [application.id, application])),
-    [applications],
-  );
-  const essaysById = useMemo(
-    () => new Map(essays.map((essay) => [essay.id, essay])),
-    [essays],
-  );
+  const { applicationsById, essaysById } = useTaskLookups(applications, essays);
 
   // Computed once, here, and threaded to every consumer (tabs, subtitle,
   // views) — the MUST from plan P6.1: never a separate count query, never

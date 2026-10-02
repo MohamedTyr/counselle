@@ -1,5 +1,14 @@
 # TODOS
 
+## Calendar: what is left after the shipped build
+
+`plans/calendar-plan.md` is built; it stays in `plans/` until the owner accepts it. Open:
+
+- **Browsers and assistive tech.** Only Chromium was driven. Safari and Firefox were not run, and the grid's APG semantics, the `aria-live` range title and the chips' state-first names have not been heard through a real screen reader.
+- **Notion Calendar side-by-side** (plan P8.2) was not done.
+- **The pinned aggregate is the day's first one.** On a day with several aggregates the pin keeps the earliest round visible (on Jan 15, 2027, `45 · ED II`) while a larger one (`94 · RD`) can sit behind `N more`. Pinning the largest might read better; untested with students.
+- **Plan §10 follow-ups:** decision-release dates as a layer; aid deadlines for all schools once the `financial_aid` vs `regular` overlap is checked; an `EA2` value for `Round`, so EA II rows can be added to the list; `service_applications._effective_deadline` should apply `OFFERED_KEY_FOR_DEADLINE` (a one-line change now that it lives in `domain/facts/inherit.py`); the owner call on "Counselle's data" vs "Acceptra's data" in the source line, which the school page shares; a week-start setting, ICS export and Google Calendar sync.
+
 ## Landing launch: what is left after the launch pass
 
 `plans/landing-launch-plan.md` and `plans/landing-finalize-plan.md` are built and deployed to `https://acceptra.ai`. Production equals `main`: deploy only with `npm run deploy:landing` (`docs/DEPLOY.md` § The public landing site). The PostHog overview is the project's primary dashboard ("Acceptra: launch overview"), emailed weekly on Mondays. What is still open, and why:

@@ -24,6 +24,7 @@ __all__ = [
     "AID_FACT_KEY",
     "ROUND_FACT_KEY",
     "DeadlineFact",
+    "OFFERED_KEY_FOR_DEADLINE",
     "InheritedDate",
     "inherited_date",
 ]
@@ -36,6 +37,14 @@ ROUND_FACT_KEY: dict[str, str] = {
     "RD": "deadlines.regular",
 }
 AID_FACT_KEY = "deadlines.financial_aid"
+# A round whose program flag is reported `False` has no deadline to show,
+# whatever date the deadline row itself carries.
+OFFERED_KEY_FOR_DEADLINE: dict[str, str] = {
+    "deadlines.early_decision": "admissions.early_decision_offered",
+    "deadlines.early_decision_2": "admissions.early_decision_offered",
+    "deadlines.early_action": "admissions.early_action_offered",
+    "deadlines.early_action_2": "admissions.early_action_offered",
+}
 
 
 @dataclass(frozen=True, slots=True)

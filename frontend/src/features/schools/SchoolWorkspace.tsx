@@ -22,7 +22,10 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { SchoolEssaysSection as EssaysSection } from "@/features/schools/SchoolEssaysSection";
 import { FieldSelect } from "@/features/schools/school-workspace-fields";
-import { cycleLabel } from "@/features/schools/school-workspace-format";
+import {
+  cycleLabel,
+  deadlineSourceLabel,
+} from "@/features/schools/school-workspace-format";
 import { useSyncedDraft } from "@/hooks/useSyncedDraft";
 
 const statuses: ApplicationStatus[] = [
@@ -39,13 +42,6 @@ const statuses: ApplicationStatus[] = [
 const listTypes: ListType[] = ["Reach", "Target", "Safety"];
 const rounds: Round[] = ["EA", "ED", "ED2", "REA", "RD", "Rolling", "Priority"];
 const testPlans: TestPlan[] = ["submit", "withhold", "undecided"];
-
-function formatMonthYear(iso: string) {
-  return new Intl.DateTimeFormat("en-US", {
-    month: "short",
-    year: "numeric",
-  }).format(new Date(`${iso}T00:00:00`));
-}
 
 function DeadlineField({
   label,
@@ -84,7 +80,7 @@ function DeadlineField({
       </label>
       {source === "facts" && checkedAt ? (
         <span className="text-xs font-normal text-muted-foreground">
-          From Counselle&rsquo;s data, checked {formatMonthYear(checkedAt)}
+          {deadlineSourceLabel(source, checkedAt)}
         </span>
       ) : null}
       {canUseInherited ? (

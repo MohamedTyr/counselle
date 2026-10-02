@@ -56,6 +56,7 @@
 41. [The Explore admit-rate estimate](#41-the-explore-admit-rate-estimate)
 42. [Goal mode: an independent-judge iteration loop](#42-goal-mode-an-independent-judge-iteration-loop)
 43. [SAT practice](#43-sat-practice)
+44. [Calendar](#44-calendar)
 
 ---
 
@@ -2185,6 +2186,41 @@ audit gate definitions, the differential test harness, state-management rational
 complete parity inventory), `plans/sat-practice/ui-spec.md` for the UI/UX specification, and
 ADR 0044 for the decision record — including Risk R0, which the ADR's status line reflects by
 staying Proposed/Draft rather than Accepted.
+
+## 44. Calendar
+
+The calendar is a date-oriented grid showing tasks, due dates, school deadlines, and all-schools
+deadline aggregates across Month, Week and Schedule (agenda) views, plus a compact month wherever the body is too narrow for seven columns. It
+reads four data sources — tasks (local `when_on`), task and essay dues, applications (student's
+list deadlines + aid + scholarship), and all-schools deadlines from a new `GET /v1/calendar/school-deadlines`
+endpoint — and derives four chip kinds through `buildCalendarItems` (rules for due-deduplication,
+task/due merging, essay filtering by status, and all-schools D1 deduplication against the application
+list). All-schools items are fetched once, filtered by toggle-enabled rounds (`allSchoolsRounds`),
+aggregated per (day, round), and grouped in the Day panel. The endpoint returns the full cycle
+(`cycle_year`, ~1.5k rows, ~25KB gzipped) with no paging, since month navigation needs no request.
+
+`GET /v1/calendar/school-deadlines` — implemented in `app/facts/calendar.py`, auth-required but not user-scoped — runs one
+parameterized query over `current_school_facts` for the five round keys and their offered flags, applies the `inherited_date` rule (per-field stale
+cutoff + cycle-period match + dated value check) and the same `OFFERED_KEY_FOR_DEADLINE` not-offered
+rule the facts page uses, filters to named schools with exact dates, and returns (school id, name,
+website, round, `value_date` as inherited date, `observed_at` as checked date). Cache-Control:
+`private, max-age=3600`, no ETag (depends on `now` staleness). The response carries denominator
+metadata: schools with dates, schools total (catalog.school_count, per `DATABASE_GUIDE` §6),
+and the reported period (formatted en-dash, e.g. "2026–27").
+
+Frontend: URL state (`?view=month|week|schedule&date=YYYY-MM-DD&task=<id>|&day=<date>&round=<round>`)
+plus localStorage for layer toggles. `useCalendarState` reads params and provides nav/open/close
+handlers. Chips are keyboard-navigable via roving tabindex (grid APG semantics); `j`/`k`/`n`/`p`
+for month nav; `t` for today; `c` for quick-add on the selected day; `.` for Go to date; `⌥←`/`⌥→`
+to move a task or due one day (via drag on fine pointers, keyboard otherwise). Completed tasks are
+shown struck-through and sorted last (default on, toggle in rail). Task context menu pins to deadline
+via `SchedulerPopover`; all-schools rows in the Day panel feature "Add to list" (matching Explore's
+mutation and toast).
+
+See `plans/calendar-plan.md` for the full product spec (the four chip forms and their state table,
+the width budget and layout rationale, motion and reduced-motion rules, and the complete keymap),
+and `DESIGN.md` §17.7 for the design-system patterns (chip forms, cell anatomy, drag divergence from
+§17.5).
 
 ---
 

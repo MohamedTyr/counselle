@@ -30,6 +30,7 @@
 @import "./styles/shell.css";
 @import "./styles/workspace.css";
 @import "./styles/task.css";
+@import "./styles/calendar.css";
 @import "./styles/onboarding.css";
 @import "./styles/activity.css";
 @import "./styles/essay.css";
