@@ -37,6 +37,7 @@ FUNCTION_TOOLS = {
     "archive_tasks",
     "restore_task",
     "search_schools",
+    "search_scholarships",
     "view_schools",
     "get_school",
     "add_schools",
@@ -168,6 +169,7 @@ _MAP_CALL_TABLE: list[tuple[str, dict[str, Any], str, str | None, list[str]]] = 
     ),
     ("restore_task", {"task_id": "abc"}, "workspace", None, ["archived task"]),
     ("search_schools", {"query": "duke"}, "workspace", None, ["colleges"]),
+    ("search_scholarships", {"query": "texas"}, "workspace", None, ["scholarships"]),
     ("view_schools", {}, "workspace", None, ["school list"]),
     ("get_school", {"application_id": "abc"}, "workspace", None, ["inside a school"]),
     ("add_schools", {"schools": [{"unitid": 198419}]}, "workspace", None, ["Adding a school"]),
@@ -433,13 +435,16 @@ def test_school_data_terminal_labels_use_safe_receipts(
 ) -> None:
     mapped = mapper.map_call(tool, args)
 
-    assert mapper.terminal_label(
-        mapped,
-        args,
-        detail,
-        errored=False,
-        retry=False,
-    ) == expected
+    assert (
+        mapper.terminal_label(
+            mapped,
+            args,
+            detail,
+            errored=False,
+            retry=False,
+        )
+        == expected
+    )
 
 
 @pytest.mark.parametrize(
@@ -466,13 +471,16 @@ def test_school_data_error_labels_are_specific_and_safe(
 ) -> None:
     mapped = mapper.map_call(tool, args)
 
-    assert mapper.terminal_label(
-        mapped,
-        args,
-        StepDetail(error="raw backend error"),
-        errored=True,
-        retry=False,
-    ) == expected
+    assert (
+        mapper.terminal_label(
+            mapped,
+            args,
+            StepDetail(error="raw backend error"),
+            errored=True,
+            retry=False,
+        )
+        == expected
+    )
 
 
 def test_school_data_terminal_without_receipt_uses_neutral_finished_copy(
@@ -481,13 +489,16 @@ def test_school_data_terminal_without_receipt_uses_neutral_finished_copy(
     args = {"unitid": 198419, "sections": ["admissions"]}
     mapped = mapper.map_call("get_facts", args)
 
-    assert mapper.terminal_label(
-        mapped,
-        args,
-        None,
-        errored=False,
-        retry=False,
-    ) == "Finished Duke University’s admissions data lookup"
+    assert (
+        mapper.terminal_label(
+            mapped,
+            args,
+            None,
+            errored=False,
+            retry=False,
+        )
+        == "Finished Duke University’s admissions data lookup"
+    )
 
 
 # ---------------------------------------------------------------------------

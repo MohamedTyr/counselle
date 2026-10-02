@@ -105,6 +105,7 @@ from app.records import (
     find_root_user_message_id,
     now_iso,
 )
+from app.scholarships.agent_tools import build_scholarship_tools
 from app.skills import (
     FOCUSED_ANSWER,
     SelectedSkillValidationError,
@@ -1736,6 +1737,8 @@ async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
                 tool for tool in workspace_tools if tool.name in _ESSAY_SURFACE_WORKSPACE_TOOLS
             ]
         extra_tools.extend(workspace_tools)
+    if user_id and deps.app_pool and surface is Surface.CHAT:
+        extra_tools.extend(build_scholarship_tools(deps.app_pool, UUID(user_id), tool_overflow))
     tools = build_tools(
         source_config,
         tool_deps,

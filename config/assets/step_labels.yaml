@@ -97,6 +97,10 @@ tools:
     kind: workspace
     tier: null
     label: "Searching colleges for “{query}”"
+  search_scholarships:
+    kind: workspace
+    tier: null
+    label: "Looking up scholarships"
   view_schools:
     kind: workspace
     tier: null
