@@ -267,11 +267,7 @@ export function SatAnalytics({
 
   const footer = stats ? (
     <div className="border-t border-[var(--hairline)] bg-[var(--surface-raised)]" data-slot="sat-analytics-footer">
-      <div className="flex items-center justify-between gap-3 px-4 py-2.5 sm:px-6">
-        <span className="min-w-0 truncate text-sm text-[var(--ink-secondary)] tabular-nums">
-          {hasAnyAttempts &&
-            SAT_ANALYTICS_COPY.footer.summary(stats.totalAttemptsCount, stats.avgTimeSeconds)}
-        </span>
+      <div className="flex items-center justify-end gap-3 px-4 py-2.5 sm:px-6">
         <Button
           aria-expanded={drawerOpen}
           onClick={() => setDrawerOpen((v) => !v)}

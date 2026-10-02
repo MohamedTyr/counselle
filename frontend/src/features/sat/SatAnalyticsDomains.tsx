@@ -9,13 +9,16 @@ import { useMemo, useState } from "react";
 
 import { useSatTaxonomy } from "@/api/sat/hooks";
 import type { SatSkillPerformance, SatStatsResponse } from "@/api/sat/types";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput,
+} from "@/components/ui/input-group";
 import { Tabs, TabsList, TabsTab } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AnalyticsMeter } from "@/features/sat/SatAnalyticsMeter";
-import { formatDuration, masteryLevel, type MasteryLevel } from "@/features/sat/sat-analytics";
+import { formatDuration } from "@/features/sat/sat-analytics";
 import { SAT_ANALYTICS_COPY } from "@/features/sat/sat-analytics-copy";
 import { analyticsSheetClass } from "@/features/sat/sat-analytics-styles";
 import { cn } from "@/lib/utils";
@@ -27,15 +30,8 @@ type Section = "all" | "reading" | "math";
 const ROW_GRID_CLASS =
   "@[760px]/sat-analytics:grid @[760px]/sat-analytics:grid-cols-[minmax(0,1fr)_9.5rem_5.5rem_6rem_4rem_5.5rem] @[760px]/sat-analytics:items-center @[760px]/sat-analytics:gap-x-3";
 const WIDE_ONLY_CLASS = "hidden @[760px]/sat-analytics:block";
-const NARROW_ONLY_CLASS = "text-[var(--ink-faint)] @[760px]/sat-analytics:hidden";
-
-function MasteryBadge({ level }: { level: MasteryLevel }): React.ReactElement {
-  return (
-    <Badge variant={level === "mastered" ? "success" : "secondary"}>
-      {SAT_ANALYTICS_COPY.domains.mastery[level]}
-    </Badge>
-  );
-}
+const NARROW_ONLY_CLASS =
+  "text-[var(--ink-faint)] @[760px]/sat-analytics:hidden";
 
 function SkillRow({
   onDrill,
@@ -48,7 +44,6 @@ function SkillRow({
 }): React.ReactElement {
   const copy = SAT_ANALYTICS_COPY.domains;
   const started = (stat?.uniqueQuestions ?? 0) > 0;
-  const level = masteryLevel(stat?.firstTryAccuracyPct ?? 0, stat?.uniqueQuestions ?? 0);
   const dash = <span className="text-[var(--ink-faint)]">—</span>;
   return (
     <li
@@ -60,13 +55,6 @@ function SkillRow({
       <div className="flex min-w-0 items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2">
           <span className="truncate text-sm">{skill.name}</span>
-          {started ? (
-            <MasteryBadge level={level} />
-          ) : (
-            <span className="text-xs text-[var(--ink-faint)] @[760px]/sat-analytics:hidden">
-              {copy.mastery.untested}
-            </span>
-          )}
         </div>
         <Button
           className="@[760px]/sat-analytics:hidden"
@@ -100,7 +88,12 @@ function SkillRow({
         </span>
         <span className="@[760px]/sat-analytics:text-sm">
           <span className={NARROW_ONLY_CLASS}>{copy.columns.questions} </span>
-          {started ? copy.questionsCell(stat?.uniqueQuestions ?? 0, stat?.totalAttempts ?? 0) : dash}
+          {started
+            ? copy.questionsCell(
+                stat?.uniqueQuestions ?? 0,
+                stat?.totalAttempts ?? 0,
+              )
+            : dash}
         </span>
         <span className="@[760px]/sat-analytics:text-sm">
           <span className={NARROW_ONLY_CLASS}>{copy.columns.pace} </span>
@@ -145,15 +138,25 @@ export function SatAnalyticsDomains({
   const [search, setSearch] = useState("");
 
   const modules = useMemo(
-    () => (taxonomyQuery.data ? [...taxonomyQuery.data.modules].sort((a, b) => a.order - b.order) : []),
+    () =>
+      taxonomyQuery.data
+        ? [...taxonomyQuery.data.modules].sort((a, b) => a.order - b.order)
+        : [],
     [taxonomyQuery.data],
   );
 
-  const ebrwDomainCount = modules.find((m) => m.code === "reading")?.domains.length ?? 0;
-  const mathDomainCount = modules.find((m) => m.code === "math")?.domains.length ?? 0;
-  const segments = copy.sectionSegments(ebrwDomainCount, mathDomainCount, ebrwDomainCount + mathDomainCount);
+  const ebrwDomainCount =
+    modules.find((m) => m.code === "reading")?.domains.length ?? 0;
+  const mathDomainCount =
+    modules.find((m) => m.code === "math")?.domains.length ?? 0;
+  const segments = copy.sectionSegments(
+    ebrwDomainCount,
+    mathDomainCount,
+    ebrwDomainCount + mathDomainCount,
+  );
 
-  const scopedModules = section === "all" ? modules : modules.filter((m) => m.code === section);
+  const scopedModules =
+    section === "all" ? modules : modules.filter((m) => m.code === section);
   const query = search.trim().toLowerCase();
 
   const totalSkillsInScope = scopedModules.reduce(
@@ -170,9 +173,11 @@ export function SatAnalyticsDomains({
     );
   }
 
-  const sections = scopedModules.flatMap((mod) =>
-    mod.domains.map((domain) => {
-      const domainNameMatches = query.length > 0 && domain.name.toLowerCase().includes(query);
+  const groups = scopedModules
+    .flatMap((mod) => mod.domains)
+    .map((domain) => {
+      const domainNameMatches =
+        query.length > 0 && domain.name.toLowerCase().includes(query);
       const skills = domain.skills.filter(
         (skill) =>
           query.length === 0 ||
@@ -180,51 +185,52 @@ export function SatAnalyticsDomains({
           skill.name.toLowerCase().includes(query) ||
           skill.code.toLowerCase().includes(query),
       );
-      if (skills.length === 0) return null;
-      const perf = stats.domainStats[domain.code];
-      return (
-        <section className="flex flex-col gap-2" key={domain.code}>
-          <div className={cn(analyticsSheetClass, "overflow-hidden")}>
-            <div
-              className={cn(
-                ROW_GRID_CLASS,
-                "flex flex-col gap-0.5 border-b border-[var(--hairline)] bg-[var(--canvas)] px-3 pt-2.5 pb-2 text-xs text-[var(--ink-secondary)]",
-              )}
-            >
-              <div className="flex min-w-0 flex-col">
-                <h4 className="flex items-center gap-2 text-sm font-semibold text-[var(--ink)]">
-                  <span className="truncate">{domain.name}</span>
-                  <Badge variant="secondary">{mod.code === "math" ? SAT_ANALYTICS_COPY.sections.math : SAT_ANALYTICS_COPY.sections.ebrw}</Badge>
-                </h4>
-                <span className="tabular-nums">
-                  {copy.domainSummaryLine(
-                    perf?.uniqueQuestions ?? 0,
-                    perf?.firstTryAccuracyPct ?? 0,
-                    perf?.avgTimeSeconds ?? 0,
-                  )}
-                </span>
-              </div>
-              <ColumnHeader />
-            </div>
-            <ul>
-              {skills.map((skill) => (
-                <SkillRow key={skill.code} onDrill={onDrill} skill={skill} stat={stats.skillStats[skill.code]} />
-              ))}
-            </ul>
-          </div>
-        </section>
-      );
-    }),
-  );
+      return { domain, skills };
+    })
+    .filter((group) => group.skills.length > 0);
 
-  const body = sections.filter((section) => section !== null);
+  // Column headings label the first group only; every group shares the grid.
+  const body = groups.map(({ domain, skills }, index) => (
+    <section className="flex flex-col gap-2" key={domain.code}>
+      <div className={cn(analyticsSheetClass, "overflow-hidden")}>
+        <div
+          className={cn(
+            ROW_GRID_CLASS,
+            "flex flex-col gap-0.5 border-b border-[var(--hairline)] bg-[var(--canvas)] px-3 pt-2.5 pb-2 text-xs text-[var(--ink-secondary)]",
+          )}
+        >
+          <h4 className="min-w-0 truncate text-sm font-semibold text-[var(--ink)]">
+            {domain.name}
+          </h4>
+          {index === 0 && <ColumnHeader />}
+        </div>
+        <ul>
+          {skills.map((skill) => (
+            <SkillRow
+              key={skill.code}
+              onDrill={onDrill}
+              skill={skill}
+              stat={stats.skillStats[skill.code]}
+            />
+          ))}
+        </ul>
+      </div>
+    </section>
+  ));
   const anyMatch = body.length > 0;
 
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-3 @[640px]/sat-analytics:flex-row @[640px]/sat-analytics:items-center @[640px]/sat-analytics:justify-between">
-        <Tabs onValueChange={(value) => setSection(value as Section)} value={section}>
-          <TabsList aria-label={SAT_ANALYTICS_COPY.sections.ebrw} className="max-w-full overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" variant="pill">
+        <Tabs
+          onValueChange={(value) => setSection(value as Section)}
+          value={section}
+        >
+          <TabsList
+            aria-label={SAT_ANALYTICS_COPY.sections.ebrw}
+            className="max-w-full overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+            variant="pill"
+          >
             <TabsTab value="all">{segments.all}</TabsTab>
             <TabsTab value="reading">{segments.ebrw}</TabsTab>
             <TabsTab value="math">{segments.math}</TabsTab>
@@ -245,7 +251,9 @@ export function SatAnalyticsDomains({
 
       {query.length > 0 && !anyMatch ? (
         <div className="flex flex-col items-center gap-3 py-12 text-center">
-          <p className="font-heading text-base font-medium">{copy.noSkillsMatch.title}</p>
+          <p className="font-heading text-base font-medium">
+            {copy.noSkillsMatch.title}
+          </p>
           <p className="text-sm text-[var(--ink-secondary)]">
             {copy.noSkillsMatch.description(totalSkillsInScope)}
           </p>

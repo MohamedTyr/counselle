@@ -18,7 +18,7 @@ import type { SatStatsResponse } from "@/api/sat/types";
 import { ChartContainer } from "@/components/ui/chart";
 import { ChartFigure } from "@/components/workspace/chart-figure";
 import { AnalyticsMeter } from "@/features/sat/SatAnalyticsMeter";
-import { analyticsGroupLabelClass, analyticsMetaClass, analyticsSheetClass } from "@/features/sat/sat-analytics-styles";
+import { analyticsGroupLabelClass, analyticsSheetClass } from "@/features/sat/sat-analytics-styles";
 import { cn } from "@/lib/utils";
 import { radarAxisRatio, summarizeRadar } from "@/features/sat/sat-analytics";
 import { SAT_ANALYTICS_COPY } from "@/features/sat/sat-analytics-copy";
@@ -183,11 +183,6 @@ export function SatAnalyticsRadar({ stats }: { stats: SatStatsResponse }): React
                 label={`${row.fullName} first-try accuracy`}
                 value={row.hasFirst ? row.firstTryAccuracyPct : null}
               />
-              {row.hasFirst && (
-                <span className={analyticsMetaClass}>
-                  {copy.questionsAndPace(row.uniqueQuestions, row.avgTimeSeconds)}
-                </span>
-              )}
             </li>
           ))}
         </ul>

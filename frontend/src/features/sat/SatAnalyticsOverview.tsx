@@ -14,30 +14,20 @@ import { formatDuration, hasSkillData, summarizeDonut } from "@/features/sat/sat
 import { SAT_ANALYTICS_COPY } from "@/features/sat/sat-analytics-copy";
 import {
   analyticsGroupLabelClass,
-  analyticsMetaClass,
   analyticsSheetClass,
 } from "@/features/sat/sat-analytics-styles";
 import { cn } from "@/lib/utils";
 
-/** Below this many questions the headline is flagged as a small sample. */
-const SMALL_SAMPLE_QUESTIONS = 10;
-
-function sectionName(module: string): string {
-  return module === "math" ? SAT_ANALYTICS_COPY.sections.math : SAT_ANALYTICS_COPY.sections.ebrw;
-}
 
 function SectionRow({
   accuracyPct,
-  avgSeconds,
   name,
   questions,
 }: {
   name: string;
   questions: number;
   accuracyPct: number;
-  avgSeconds: number;
 }): React.ReactElement {
-  const copy = SAT_ANALYTICS_COPY.overview;
   const started = questions > 0;
   return (
     <div className="flex flex-col gap-2">
@@ -46,16 +36,12 @@ function SectionRow({
         <span className="text-sm font-semibold tabular-nums">{started ? `${accuracyPct}%` : "—"}</span>
       </div>
       <AnalyticsMeter label={`${name} first-try accuracy`} value={started ? accuracyPct : null} />
-      <span className={analyticsMetaClass}>
-        {started ? copy.sectionMeta(questions, avgSeconds) : copy.sectionNotStarted}
-      </span>
     </div>
   );
 }
 
 function Headline({ stats }: { stats: SatStatsResponse }): React.ReactElement {
   const copy = SAT_ANALYTICS_COPY.overview;
-  const questions = stats.uniqueQuestionsAttempted;
   return (
     <section className="flex flex-col gap-3 p-6" aria-labelledby="sat-headline">
       <h3 className="text-[13px] font-medium text-[var(--ink-secondary)]" id="sat-headline">
@@ -65,12 +51,6 @@ function Headline({ stats }: { stats: SatStatsResponse }): React.ReactElement {
         {stats.firstTryOverallAccuracyPct}
         <span className="ml-0.5 text-2xl text-[var(--ink-faint)]">%</span>
       </p>
-      <p className="max-w-[36ch] text-sm text-[var(--ink-secondary)]">
-        {copy.headlineLine(stats.firstTryOverallAccuracyPct, questions)}
-      </p>
-      {questions < SMALL_SAMPLE_QUESTIONS && (
-        <p className="max-w-[36ch] text-xs text-[var(--ink-faint)]">{copy.smallSampleNote(questions)}</p>
-      )}
     </section>
   );
 }
@@ -112,7 +92,6 @@ function Standing({ stats }: { stats: SatStatsResponse }): React.ReactElement {
             </li>
           ))}
         </ul>
-        <p className="text-xs text-[var(--ink-faint)]">{copy.standingNote}</p>
       </div>
     </div>
   );
@@ -168,13 +147,11 @@ export function SatAnalyticsOverview({
           </h3>
           <SectionRow
             accuracyPct={stats.ebrw.firstTryAccuracyPct}
-            avgSeconds={stats.ebrw.avgTimeSeconds}
             name={SAT_ANALYTICS_COPY.sections.ebrw}
             questions={stats.ebrw.uniqueAttempted}
           />
           <SectionRow
             accuracyPct={stats.math.firstTryAccuracyPct}
-            avgSeconds={stats.math.avgTimeSeconds}
             name={SAT_ANALYTICS_COPY.sections.math}
             questions={stats.math.uniqueAttempted}
           />
@@ -188,22 +165,14 @@ export function SatAnalyticsOverview({
 
       {hasSkillData(weakest) && (
         <section className="flex flex-col gap-2">
-          <div className="flex items-baseline gap-2">
-            <h3 className={analyticsGroupLabelClass}>{copy.skillsToReinforce.heading}</h3>
-            <span className="text-xs text-[var(--ink-faint)]">{copy.skillsToReinforce.subtitle}</span>
-          </div>
+          <h3 className={analyticsGroupLabelClass}>{copy.skillsToReinforce.heading}</h3>
           <ul className={cn(analyticsSheetClass, "overflow-hidden")}>
             {weakest.map((skill) => (
               <li
                 className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-3 py-2.5 hover:bg-[var(--canvas-hover)] border-b border-[var(--hairline)] last:border-b-0"
                 key={skill.code}
               >
-                <div className="flex min-w-0 flex-col">
-                  <span className="truncate text-sm font-medium">{skill.name}</span>
-                  <span className={analyticsMetaClass}>
-                    {sectionName(skill.module)} · {copy.skillsToReinforce.attemptsAndPace(skill.attempted, skill.avgTime)}
-                  </span>
-                </div>
+                <span className="min-w-0 truncate text-sm font-medium">{skill.name}</span>
                 <div className="flex items-center gap-3">
                   <span className="text-sm font-medium tabular-nums">{skill.accuracyPct}%</span>
                   <Button onClick={() => onDrill(skill.code)} size="sm" variant="outline">

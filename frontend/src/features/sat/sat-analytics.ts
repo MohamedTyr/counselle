@@ -1,4 +1,4 @@
-/** Mastery thresholds, chart constants, and pure chart-summary helpers for
+/** Chart constants, and pure chart-summary helpers for
  * SAT analytics (plan §5.2; ui-spec §5, §7; parity S13–S16). No components,
  * no Recharts import — this module only computes numbers and sentences.
  *
@@ -31,29 +31,6 @@ export function formatDuration(totalSeconds: number): string {
   }
   const minutes = Math.floor((seconds % SECONDS_PER_HOUR) / SECONDS_PER_MINUTE);
   return `${Math.floor(seconds / SECONDS_PER_HOUR)}h ${minutes}m`;
-}
-
-// ---- mastery (S16) --------------------------------------------------------
-
-export type MasteryLevel = "mastered" | "developing" | "needsFocus" | "untested";
-
-const MASTERED_THRESHOLD = 80;
-const DEVELOPING_THRESHOLD = 50;
-
-/** Mastery chip thresholds on first-try accuracy (S16): >= 80 Mastered,
- * >= 50 Developing, else Needs focus — Untested when the skill has no
- * unique questions attempted at all, regardless of the accuracy figure. */
-export function masteryLevel(firstTryAccuracyPct: number, uniqueQuestions: number): MasteryLevel {
-  if (uniqueQuestions <= 0) {
-    return "untested";
-  }
-  if (firstTryAccuracyPct >= MASTERED_THRESHOLD) {
-    return "mastered";
-  }
-  if (firstTryAccuracyPct >= DEVELOPING_THRESHOLD) {
-    return "developing";
-  }
-  return "needsFocus";
 }
 
 // ---- pace matrix (S13) ----------------------------------------------------

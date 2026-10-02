@@ -17,17 +17,8 @@ export const SAT_ANALYTICS_COPY = {
   },
   overview: {
     headline: "First-try accuracy",
-    headlineLine: (pct: number, questions: number) =>
-      `Your first attempt was right ${pct}% of the time across ${plural(questions, "question")}.`,
-    smallSampleNote: (questions: number) =>
-      `Only ${plural(questions, "question")} so far, so this will move a lot as you practice.`,
     sectionsHeading: "By section",
-    sectionMeta: (questions: number, avgSeconds: number) =>
-      `${plural(questions, "question")} · ${formatDuration(avgSeconds)} per attempt`,
-    sectionNotStarted: "Not started",
     standingHeading: "Where your questions stand",
-    standingNote:
-      "Judged by your latest attempt at each question. First-try accuracy above only counts your first.",
     standing: {
       neverMissed: "Right every time",
       upsolved: "Missed, then got right",
@@ -41,9 +32,6 @@ export const SAT_ANALYTICS_COPY = {
     },
     skillsToReinforce: {
       heading: "Skills to reinforce",
-      subtitle: "Your four lowest first-try accuracies",
-      attemptsAndPace: (attempts: number, avgSeconds: number) =>
-        `${plural(attempts, "attempt")} · ${formatDuration(avgSeconds)} each`,
       practiceDrill: "Practice",
     },
   },
@@ -53,15 +41,12 @@ export const SAT_ANALYTICS_COPY = {
     noData: "No data yet",
     legendFirstTry: "First attempt",
     legendOverall: "All attempts",
-    questionsAndPace: (count: number, avgSeconds: number) =>
-      `${plural(count, "question")} · ${formatDuration(avgSeconds)} per attempt`,
     tooltip: {
       firstTry: (value: string) => `First attempt: ${value}`,
       overall: (value: string) => `All attempts: ${value}`,
     },
   },
   pace: {
-    subtitle: "Your four weakest and four strongest skills, by first-try accuracy",
     quadrants: {
       fastAccurate: "Fast and accurate",
       accurateSlow: "Accurate but slow",
@@ -102,16 +87,6 @@ export const SAT_ANALYTICS_COPY = {
       questions: "Questions",
       pace: "Pace",
     },
-    domainSummaryLine: (attempted: number, firstTryPct: number, avgSeconds: number) =>
-      attempted === 0
-        ? "Not started"
-        : `${plural(attempted, "question")} · ${firstTryPct}% first try · ${formatDuration(avgSeconds)} per attempt`,
-    mastery: {
-      mastered: "Mastered",
-      developing: "Developing",
-      needsFocus: "Needs focus",
-      untested: "Not started",
-    },
     questionsCell: (unique: number, attempts: number) =>
       attempts === unique ? `${unique}` : `${unique} (${plural(attempts, "attempt")})`,
     practice: "Practice",
@@ -134,8 +109,6 @@ export const SAT_ANALYTICS_COPY = {
     action: "Start practicing",
   },
   footer: {
-    summary: (attempts: number, avgSeconds: number) =>
-      `${plural(attempts, "attempt")} · ${formatDuration(avgSeconds)} average`,
     dataAndProgress: "Data and progress",
     exportProgress: "Export progress",
     exportingToast: (fileName: string) => `Exporting ${fileName}…`,

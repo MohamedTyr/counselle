@@ -14,7 +14,7 @@ import { Tabs, TabsList, TabsTab } from "@/components/ui/tabs";
 import { ChartFigure } from "@/components/workspace/chart-figure";
 import { clampScoreBandPace, formatDuration, summarizeScoreBands } from "@/features/sat/sat-analytics";
 import { SAT_ANALYTICS_COPY } from "@/features/sat/sat-analytics-copy";
-import { analyticsGroupLabelClass, analyticsSheetClass } from "@/features/sat/sat-analytics-styles";
+import { analyticsSheetClass } from "@/features/sat/sat-analytics-styles";
 import { cn } from "@/lib/utils";
 
 type Section = "all" | "ebrw" | "math";
@@ -95,8 +95,7 @@ export function SatAnalyticsBands({ stats }: { stats: SatStatsResponse }): React
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h3 className={analyticsGroupLabelClass}>{SAT_ANALYTICS_COPY.tabs.bands}</h3>
+      <div className="flex flex-wrap items-center gap-3">
         <Tabs onValueChange={(value) => setSection(value as Section)} value={section}>
           <TabsList aria-label={copy.heading} variant="pill">
             <TabsTab value="all">{copy.sectionSegments.all}</TabsTab>

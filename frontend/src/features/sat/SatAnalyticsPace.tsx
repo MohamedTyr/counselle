@@ -25,7 +25,6 @@ import {
 } from "@/features/sat/sat-analytics";
 import { SAT_ANALYTICS_COPY } from "@/features/sat/sat-analytics-copy";
 import {
-  analyticsGroupLabelClass,
   analyticsMetaClass,
   analyticsSheetClass,
 } from "@/features/sat/sat-analytics-styles";
@@ -292,7 +291,6 @@ function buildPoints(stats: SatStatsResponse): PacePoint[] {
 }
 
 export function SatAnalyticsPace({ stats }: { stats: SatStatsResponse }): React.ReactElement {
-  const copy = SAT_ANALYTICS_COPY.pace;
   const [activeCode, setActiveCode] = useState<string | null>(null);
   const points = buildPoints(stats);
   const summary = summarizePaceMatrix(
@@ -308,11 +306,7 @@ export function SatAnalyticsPace({ stats }: { stats: SatStatsResponse }): React.
   return (
     <div className="flex flex-col gap-5">
       <div className="flex flex-col gap-2">
-        <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-          <div className="flex flex-wrap items-baseline gap-x-2">
-            <h3 className={cn(analyticsGroupLabelClass, "whitespace-nowrap")}>{SAT_ANALYTICS_COPY.tabs.pace}</h3>
-            <span className="text-xs text-[var(--ink-faint)]">{copy.subtitle}</span>
-          </div>
+        <div className="flex justify-end">
           <PaceLegend />
         </div>
         <div className={cn(analyticsSheetClass, "p-3 @[560px]/sat-analytics:p-4")}>
