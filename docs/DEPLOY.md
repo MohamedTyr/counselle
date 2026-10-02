@@ -246,6 +246,7 @@ exec uvicorn api.main:create_app --factory --host 0.0.0.0 --port "${PORT:-8000}"
 - [ ] Counselle application schema provisioned through its separate app DSN
 - [ ] Full env matrix set (§ environment matrix, including the `FACTS_*` block); `CORS_ORIGINS` emptied; `COOKIE_SECURE=true`; `COUNSELLE_CDS_WORKER_ENABLED=false`
 - [ ] Five-user staging only: signup, Google OAuth, and password reset are closed by env (`COUNSELLE_AUTH_SELF_SIGNUP_ENABLED=false`, `COUNSELLE_PASSWORD_RESET_ENABLED=false`, no Google OAuth client configured); tester accounts pre-created by hand or through `scripts/promote_admin.py` for admins — there is no dedicated tester-management or auth-closed-verification script in this repo (an earlier revision of this checklist named `scripts/manage_tester.py` and `scripts/check_staging_auth_closed.py`, neither of which exists; if that gate matters, write it, don't assume it)
+- [ ] Scholarships: production starts with no records (admins enter them by hand). Grant scholarship-admin access only with `scripts/promote_admin.py --email …`; never run `scripts/seed_scholarships.py` there (it refuses without `--dev` and against a non-local DSN)
 - [ ] Migrations ran on boot; `/v1/health` returns HTTP 200 with `"status": "ok"` (there is no separate `/v1/ready` route — `/v1/health` is the one liveness/readiness endpoint the app exposes, `api/routes/system.py`)
 - [ ] SSE un-buffered end-to-end (the TLS terminator must not buffer the stream)
 - [ ] Cookies set under TLS; **Google OAuth works on the prod domain** (the forwarded-proto proof)

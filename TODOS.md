@@ -1,5 +1,14 @@
 # TODOS
 
+## Scholarships: paginate the list past ~1,000 records
+
+`GET /v1/scholarships` returns every published record in one payload, with an ETag so a
+refetch is a cheap 304, and the frontend filters in memory. That is right for the few
+hundred hand-entered records expected at launch. Past roughly 1,000 published records,
+add server-side paging and filtering. The admin revisions route is likewise capped at the
+newest 100 full snapshots per record, a deliberate bound (`app/scholarships/service.py`,
+`REVISIONS_LIMIT`).
+
 ## Landing launch: what is left after the launch pass
 
 `plans/landing-launch-plan.md` and `plans/landing-finalize-plan.md` are built and deployed to `https://acceptra.ai`. Production equals `main`: deploy only with `npm run deploy:landing` (`docs/DEPLOY.md` § The public landing site). The PostHog overview is the project's primary dashboard ("Acceptra: launch overview"), emailed weekly on Mondays. What is still open, and why:

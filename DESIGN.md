@@ -1824,6 +1824,24 @@ Autosave would push a half-typed amount or deadline onto a published record a st
 reading. Publishing runs a checklist, and a published record that fails it can't be saved.
 The editor's preview is the student-facing `ScholarshipDetail` itself, not a copy.
 
+- **The checklist** mirrors the server's publish checks with the same ids. Required rows
+  use the met/unmet status dot; a passed fixed deadline adds one **warning** row (warning
+  surface and ink, a triangle glyph) that never blocks publishing. Rows a 422 names are
+  forced to unmet until the next edit — the server wins when the two disagree.
+- **Conflict.** When another admin saved first (409), the save bar's dot turns danger, its
+  text reads "Someone else changed this scholarship", and Save gives way to one action,
+  "Load their version", which confirms ("Your unsaved changes will be lost") before
+  replacing the draft. Save and `⌘S` stay disabled until then; Discard stays available, and
+  the draft stays on screen so the admin can copy from it.
+- **Status moves and "Mark checked today"** live in the header's ⋯ menu and are disabled,
+  with "Save or discard your changes first", while the draft is dirty, so a status change
+  never carries unsaved edits.
+- **History** is a right-hand sheet from the ⋯ menu: revisions newest first (action, actor
+  email or "Deleted user", relative time, changed fields); selecting one previews that
+  version in the read-only `ScholarshipDetail`. It is view-only — no restore.
+- **An archived record** opens as the read-only `ScholarshipDetail`, with "Restore as
+  draft" in the page header.
+
 ### 17.4 Destructive actions
 
 **Optimistic mutation plus a 5-second undo toast.** Used by schools (archive), essays

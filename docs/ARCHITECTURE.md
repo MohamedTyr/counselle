@@ -56,6 +56,7 @@
 41. [The Explore admit-rate estimate](#41-the-explore-admit-rate-estimate)
 42. [Goal mode: an independent-judge iteration loop](#42-goal-mode-an-independent-judge-iteration-loop)
 43. [SAT practice](#43-sat-practice)
+44. [Scholarships](#44-scholarships)
 
 ---
 
@@ -2189,3 +2190,72 @@ staying Proposed/Draft rather than Accepted.
 ---
 
 *Companions: `specs/mvp1/PRD.md` (agent service product spec), `specs/mvp2/PRD.md` (full-stack app product spec), `specs/user-onboarding/plan/` (onboarding plan and phase record), `specs/school-data-v3/` (the graduated facts-store plan and its divergence record), `specs/essay-ai-panel/` (the essay AI panel's graduated plan and divergence record), `docs/DATABASE_GUIDE.md` (the facts-store data contract — the six reader views, fact states, and honesty rules), `PARKED.md` (the parked CDS system's file list, import edges, and revival steps), `docs/DEPLOY.md` (the deploy runbook), `docs/adr/` (decisions — Part I added ADRs 0016–0019; Part II added ADRs 0020–0031; hardening added ADR 0025; workspace/service and run/message parity added ADRs 0026–0030; profile/document/memory added ADR 0031; db-rewire to the CDS Library added ADR 0032; onboarding's reserved-settings-namespace and locked merge added ADR 0033; counselor response modes added ADR 0034; the in-app CDS extraction pipeline and admin write path added ADR 0036; the per-turn agent surface and the essay suggestion layer added ADR 0037, amending ADRs 0013 and 0030; the CollegeData facts store, in-process DB tools, and CDS-parking decision added ADR 0038; the admissions-fit Explore estimate added ADR 0039, superseded by ADR 0040, which cut the estimate back to the admit rate alone; goal mode's independent-judge iteration loop added ADR 0041, still Proposed pending the plan's real-student dogfood gate; SAT practice — a ported liprep, College Board's own question bank, server-side grading — added ADR 0044, still Proposed/Draft pending the O5 question-bank-licence owner decision), `docs/research/` (stack survey). Keep this current as decisions change.*
+
+## 44. Scholarships
+
+`/app/scholarships` lets a student browse, filter, save and act on scholarships, with a read
+of which ones they fit; `/app/admin/scholarships` lets a superuser add, edit, publish,
+unpublish and archive them by hand. Launch data is admin-entered (no scraping, no import),
+and production starts empty. `plans/scholarships-plan.md` is the plan.
+
+### 44.1 Data and services
+
+Three `counselle.*` tables (`migrations/0022_scholarships.sql`, written through
+`COUNSELLE_DB_APP_DSN`): `scholarships` (one record, flat columns, rules and essays as
+`jsonb`), `scholarship_saves` (a student's saves) and `scholarship_revisions` (one row per
+admin write). `docs/DATABASE_GUIDE.md` §12 has the detail.
+
+- `domain/scholarships/` is the pure core: the value models with every validation limit
+  (links must be `http(s)` URLs, the guard against `javascript:`/`data:` links rendered for
+  every student) and `publish.py`, the seven publish checks (`basics`, `apply_url`, `award`,
+  `rules_complete`, `deadline`, `source_url`, `fresh`), `STALE_AFTER_DAYS = 180`,
+  `deadline_passed` and `is_stale`.
+- `app/scholarships/service.py` holds the SQL. Every admin write locks the row
+  (`FOR UPDATE`), checks the caller's `expected_version` (409 with `current_version` on a
+  mismatch), applies the status transition (`action_for`), runs the publish checks when the
+  result is published (422 with the failing `problems`), bumps `version` and `updated_at =
+  clock_timestamp()`, and appends exactly one revision. `rows.py` is the only row ↔ model
+  mapping: DB columns are flat, the API nests `award`, `deadline` and `requirements`.
+- A same-status `/status` call is a no-op; a PUT cannot archive or edit an archived record.
+- `EnvelopeError` carries `extra`, merged into the error envelope, which is how `problems`
+  and `current_version` reach the client.
+
+### 44.2 Routes
+
+Student routes (`api/routes/scholarships.py`, `current_active_user`): `GET /v1/scholarships`
+(every published record, sorted by deadline then name, with a weak ETag over the published
+set's count, newest `updated_at` and version sum), `GET /v1/scholarships/saved`, and an
+idempotent `PUT`/`DELETE /v1/scholarships/{id}/save`. A save of a record later unpublished
+is kept but hidden, and comes back on republish.
+
+Admin routes (`api/routes/scholarships_admin.py`, router-level `current_superuser`, so 401
+then 403 before any 404): list, get, create, full-replacement `PUT` with
+`expected_version`, `POST /{id}/status`, `POST /{id}/checked` ("Mark checked today") and
+`GET /{id}/revisions` (newest 100, each with the top-level keys that changed). Writes reuse
+`workspace_write_rate_limit`.
+
+### 44.3 The honesty boundary
+
+- **Fit is computed only in the browser** (`frontend/src/features/scholarships/eligibility.ts`),
+  from the student's profile. A rule the profile doesn't answer is "unknown", never a guess.
+- **Sensitive criteria are never matched.** Ethnicity, gender and religion restrictions are
+  free text in `other_eligibility` and always read "Check this yourself".
+- **The agent reports rules, never verdicts.** `search_scholarships`
+  (`app/scholarships/agent_tools.py`, mounted on signed-in chat turns only, gated `auth`)
+  returns published records with the stored rules verbatim, code-computed `closed` and
+  `stale`, and a code-built `how_to_say_it` that never says "eligible" or "qualify". There is
+  no second copy of the fit logic to drift from the page. Sponsor text passes through
+  verbatim.
+- A published record can never show a missing amount, a missing date, a non-web link or a
+  never-checked record: the publish checks run in the service and a null-safe CHECK
+  constraint backs them in SQL. A passed fixed deadline is a warning, not a publish failure,
+  because the student page files it under "Closed this cycle".
+
+### 44.4 Frontend
+
+`frontend/src/api/scholarships/` is the client (`client.ts`), the error readers
+(`errors.ts`: `publishProblems`, `conflictVersion`) and the query hooks (an optimistic save
+toggle that rolls back and toasts). The admin editor saves explicitly (DESIGN.md §17.3),
+mirrors the server's checklist with the same ids, keeps the draft on a 409 and offers "Load
+their version", and resyncs after a status change or mark-checked. `scripts/seed_scholarships.py
+--dev` seeds 24 placeholder records into a local database only.

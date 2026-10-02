@@ -714,3 +714,26 @@ because it has no reader on the agent side at all: `bank-sync` and every
 `counselle.*` table, the same way `counselle.tasks`, `counselle.essays`, and the rest of
 the workspace schema do. The isolation that matters here is not role-based; it is that
 no code path anywhere hands `counselle.sat_*` access to the agent's tool surface.
+
+## 12. Scholarships — `counselle.scholarship*`
+
+Three app tables owned by `counselle_app` through `COUNSELLE_DB_APP_DSN`, created by
+`migrations/0022_scholarships.sql`. Not `cds_library`; the agent reads them only through the
+in-process `search_scholarships` tool, on the app pool, published records only.
+
+| Table | Holds |
+|---|---|
+| `scholarships` | One record: `status` (`draft`/`published`/`archived`), an integer `version` for optimistic concurrency, the editable fields as flat columns (award, deadline, requirements), `eligibility` and `essays` as `jsonb` arrays, `last_checked_on` (null = never checked), `created_by`/`updated_by` (FK to users, `SET NULL`) |
+| `scholarship_saves` | `(user_id, scholarship_id)` primary key; cascades from both sides |
+| `scholarship_revisions` | One row per admin write: the version after it, the action, a `jsonb` snapshot of the editable fields plus status, the actor (`SET NULL`); `UNIQUE (scholarship_id, version)` |
+
+- `scholarships_published_is_complete` refuses a published row with a blank name or sponsor,
+  a non-`http(s)` apply or source link, a null `last_checked_on`, a missing fixed amount or
+  range bound, or a fixed deadline with no date. A CHECK passes on NULL, so each nullable
+  column it reads is tested with `IS NOT NULL` explicitly. The service runs the same rules
+  first (`domain/scholarships/publish.py`); the constraint only fires on a bug there.
+- Records are never hard-deleted: archiving keeps saves and history.
+- Deleting a user removes their saves and leaves scholarships and revisions, with the actor
+  columns set to null.
+- No extra indexes: the published list is a few hundred rows, the saves primary key covers
+  "my saves", and the revisions unique key covers history.
