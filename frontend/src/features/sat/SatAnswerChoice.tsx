@@ -65,8 +65,9 @@ function discStyle(result: ChoiceResult, selected: boolean): string {
   return selected ? DISC_STYLES.selected : DISC_STYLES.idle;
 }
 
-/** The trailing words that survive a reveal: what was right, and which row
- * was yours — with an icon, so colour never carries it alone. */
+/** The tag that survives a reveal: what was right, and which row was yours —
+ * with an icon, so colour never carries it alone. It rides the row's top
+ * border instead of taking a column, so revealing never re-wraps the text. */
 function ResultMark({
   result,
   selected,
@@ -86,13 +87,13 @@ function ResultMark({
   return (
     <span
       className={cn(
-        "col-start-2 flex shrink-0 items-center gap-1 text-[13px] font-medium sm:col-start-3 sm:row-start-1",
+        "absolute -top-[9px] right-3 flex h-[18px] items-center gap-1 rounded-full border px-2 text-xs font-medium whitespace-nowrap",
         result === "wrong"
-          ? "text-[var(--danger-fg)]"
-          : "text-[var(--success-fg)]",
+          ? "border-[var(--danger-border)] bg-[var(--danger-surface)] text-[var(--danger-fg)]"
+          : "border-[var(--success-border)] bg-[var(--success-surface)] text-[var(--success-fg)]",
       )}
     >
-      <Icon aria-hidden="true" className="size-4" strokeWidth={2} />
+      <Icon aria-hidden="true" className="size-3" strokeWidth={2.5} />
       {text}
     </span>
   );
@@ -131,9 +132,8 @@ export function SatAnswerChoice({
         aria-disabled={disabled || undefined}
         aria-pressed={selected}
         className={cn(
-          "grid min-h-12 w-full min-w-0 grid-cols-[2rem_minmax(0,1fr)] items-center gap-x-3 gap-y-1 rounded-xl border px-3.5 py-2.5 text-left",
+          "relative grid min-h-12 w-full min-w-0 grid-cols-[2rem_minmax(0,1fr)] items-center gap-x-3 rounded-xl border px-3.5 py-2.5 text-left",
           "transition-[background-color,border-color,box-shadow,transform] duration-150 ease-out motion-reduce:transition-none",
-          "sm:grid-cols-[2rem_minmax(0,1fr)_auto]",
           "focus-visible:ring-[3px] focus-visible:outline-none",
           eliminateMode && "pr-12",
           rowStyle(result, selected, revealed),
@@ -149,7 +149,6 @@ export function SatAnswerChoice({
         <span
           className={cn(
             "flex size-8 shrink-0 items-center justify-center rounded-full border text-sm font-semibold tabular-nums transition-colors duration-150 ease-out motion-reduce:transition-none sm:self-center",
-            result !== "none" && "row-span-2 self-start sm:row-span-1",
             discStyle(result, selected),
             eliminated && "border-dashed",
           )}

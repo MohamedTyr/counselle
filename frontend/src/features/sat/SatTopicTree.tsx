@@ -88,17 +88,15 @@ function SectionSkeleton(): React.ReactElement {
 /** Two placeholder sheets for the moments before the taxonomy has loaded. */
 export function SatTopicTreeSkeleton(): React.ReactElement {
   return (
-    <div aria-busy="true" className="@container/sat-topics">
-      <div className="grid grid-cols-1 items-start gap-8 @[640px]/sat-topics:grid-cols-2 @[640px]/sat-topics:gap-6">
-        {[0, 1].map((index) => (
-          <div key={index}>
-            <Skeleton className="mb-2 h-7 w-44" />
-            <div className="rounded-xl border border-[var(--hairline)] bg-[var(--surface-raised)] p-1 shadow-[var(--elevation-1)]">
-              <SectionSkeleton />
-            </div>
+    <div aria-busy="true" className="flex flex-col gap-8">
+      {[0, 1].map((index) => (
+        <div key={index}>
+          <Skeleton className="mb-2 h-7 w-44" />
+          <div className="rounded-xl border border-[var(--hairline)] bg-[var(--surface-raised)] p-1 shadow-[var(--elevation-1)]">
+            <SectionSkeleton />
           </div>
-        ))}
-      </div>
+        </div>
+      ))}
     </div>
   );
 }
@@ -141,10 +139,19 @@ function SatDomainBlock({
         >
           <Checkbox
             checked={selectedSkills.has(skill.code)}
-            className="rounded-full"
+            className={cn(
+              "rounded-full",
+              counts?.[skill.code] === 0 && "opacity-50",
+            )}
             onCheckedChange={() => onToggleSkill(skill.code)}
           />
-          <span className="min-w-0 flex-1 text-sm leading-5 text-[var(--ink-secondary)] group-has-[[data-state=checked]]/skill:text-[var(--ink)]">
+          <span
+            className={cn(
+              "min-w-0 flex-1 text-sm leading-5 text-[var(--ink-secondary)] group-has-[[data-state=checked]]/skill:text-[var(--ink)]",
+              counts?.[skill.code] === 0 &&
+                "text-[var(--ink-faint)]! group-has-[[data-state=checked]]/skill:text-[var(--ink-faint)]",
+            )}
+          >
             {skill.name}
           </span>
           <Count dimmed={isRefetching} value={counts?.[skill.code] ?? 0} />
@@ -217,16 +224,14 @@ export function SatTopicTree({
   ...rest
 }: SatTopicTreeProps): React.ReactElement {
   return (
-    <div className="@container/sat-topics" data-slot="sat-topic-tree">
-      <div className="grid grid-cols-1 items-start gap-8 @[640px]/sat-topics:grid-cols-2 @[640px]/sat-topics:gap-6">
-        {modules.map((moduleDef) => (
-          <SatModuleSection
-            key={moduleDef.code}
-            moduleDef={moduleDef}
-            {...rest}
-          />
-        ))}
-      </div>
+    <div className="flex flex-col gap-8" data-slot="sat-topic-tree">
+      {modules.map((moduleDef) => (
+        <SatModuleSection
+          key={moduleDef.code}
+          moduleDef={moduleDef}
+          {...rest}
+        />
+      ))}
     </div>
   );
 }

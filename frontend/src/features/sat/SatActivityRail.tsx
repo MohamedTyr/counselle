@@ -149,7 +149,14 @@ function HeatLegend(): React.ReactElement {
     >
       <span>{SAT_DASHBOARD_COPY.legendLess}</span>
       {HEAT_BG_CLASS.map((className, level) => (
-        <span className={cn("size-3.5 rounded-[4px]", className)} key={level} />
+        <span
+          className={cn(
+            "size-3.5 rounded-[4px]",
+            className,
+            level === 0 && "ring-1 ring-[var(--hairline)] ring-inset",
+          )}
+          key={level}
+        />
       ))}
       <span>{SAT_DASHBOARD_COPY.legendMore}</span>
     </div>
@@ -228,7 +235,7 @@ export function SatActivityRail({
           {hasAnyPractice ? (
             <div className="grid grid-cols-3 gap-3">
               <TodayFigure
-                label="EBRW today"
+                label="R&W today"
                 value={String(stats.today.ebrwSolved)}
               />
               <TodayFigure

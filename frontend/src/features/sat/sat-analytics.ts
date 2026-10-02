@@ -61,34 +61,23 @@ export function masteryLevel(firstTryAccuracyPct: number, uniqueQuestions: numbe
 export const PACE_MATRIX_MIN_SECONDS = 15;
 export const PACE_MATRIX_MAX_SECONDS = 130;
 export const PACE_MATRIX_ACCURACY_SPLIT_PCT = 50;
-/** The unlabelled-upstream midpoint of the [15, 130] clamp, now labelled on
- * the axis per ui-spec §7. */
-export const PACE_MATRIX_SECONDS_SPLIT =
-  (PACE_MATRIX_MIN_SECONDS + PACE_MATRIX_MAX_SECONDS) / 2;
-
-const PACE_DOT_MIN_RADIUS = 6;
-const PACE_DOT_MAX_RADIUS = 14;
-const PACE_DOT_BASE_RADIUS = 5;
-const PACE_DOT_PER_ATTEMPT_RADIUS = 1.5;
+/** Test-day pace: the digital SAT gives 134 minutes for 98 questions (two
+ * 32-minute, 27-question Reading and Writing modules, two 35-minute,
+ * 22-question Math modules) — about 82 seconds each. The matrix splits
+ * fast from slow here, and labels the line so it is never an unexplained
+ * midpoint. */
+export const PACE_TARGET_SECONDS = 82;
 
 export function clampPaceSeconds(seconds: number): number {
   return Math.min(PACE_MATRIX_MAX_SECONDS, Math.max(PACE_MATRIX_MIN_SECONDS, seconds));
 }
 
-/** Pace-matrix dot radius: `max(6, min(14, 5 + 1.5 × attempts))` (S13). */
-export function paceDotRadius(attempts: number): number {
-  return Math.max(
-    PACE_DOT_MIN_RADIUS,
-    Math.min(PACE_DOT_MAX_RADIUS, PACE_DOT_BASE_RADIUS + PACE_DOT_PER_ATTEMPT_RADIUS * attempts),
-  );
-}
-
 export type PaceQuadrant = "fastAccurate" | "fastInaccurate" | "slowAccurate" | "slowInaccurate";
 
 /** Which quadrant a skill's pace/accuracy point falls in, split at 50%
- * accuracy and the clamp's midpoint (S13). */
+ * accuracy and the test-day pace (S13). */
 export function paceQuadrant(avgSeconds: number, accuracyPct: number): PaceQuadrant {
-  const fast = clampPaceSeconds(avgSeconds) < PACE_MATRIX_SECONDS_SPLIT;
+  const fast = clampPaceSeconds(avgSeconds) < PACE_TARGET_SECONDS;
   const accurate = accuracyPct >= PACE_MATRIX_ACCURACY_SPLIT_PCT;
   if (fast) {
     return accurate ? "fastAccurate" : "fastInaccurate";

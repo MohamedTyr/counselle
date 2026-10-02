@@ -163,12 +163,18 @@ function SatBandPicker({
 }): React.ReactElement {
   const tierLabel = TIER_LABELS[tier.name] ?? tier.name;
   const tierAllSelected = tier.bands.every((band) => selectedBands.has(band));
+  const tierAnySelected = tier.bands.some((band) => selectedBands.has(band));
   const range = `${tier.bands[0]}–${tier.bands[tier.bands.length - 1]}`;
   return (
     <div className="flex items-center justify-between gap-3">
       <button
         aria-label={`${tierAllSelected ? "Deselect" : "Select"} all ${tierLabel} (${range})`}
-        className="-mx-2 flex h-8 cursor-pointer items-baseline gap-1.5 rounded-lg px-2 text-sm outline-none transition-[background-color,scale] duration-150 ease-out hover:bg-[var(--canvas-hover)] focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] active:scale-[0.97] motion-reduce:transition-none"
+        className={cn(
+          "-mx-2 flex h-8 cursor-pointer items-baseline gap-1.5 rounded-lg px-2 text-sm outline-none transition-[background-color,color,scale] duration-150 ease-out hover:bg-[var(--canvas-hover)] focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] active:scale-[0.97] motion-reduce:transition-none",
+          tierAnySelected
+            ? "font-medium text-[var(--ink)]"
+            : "text-[var(--ink-faint)]",
+        )}
         onClick={() => onToggleTier(tier.bands, !tierAllSelected)}
         type="button"
       >

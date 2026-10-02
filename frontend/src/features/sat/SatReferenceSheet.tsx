@@ -14,7 +14,7 @@ const MAX_VIEWPORT_FRACTION = { width: 0.95, height: 0.9 };
 const SPAWN_TOP = 72;
 const MIN_Y = 64;
 
-/** Centred under the top bar. */
+/** Centered under the top bar. */
 function spawnPosition(): { x: number; y: number } {
   return {
     x: Math.max(16, (window.innerWidth - DEFAULT_SIZE.width) / 2),

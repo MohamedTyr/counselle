@@ -54,7 +54,7 @@ export function SatVerdictStrip({
   return (
     <div
       className={cn(
-        "flex min-h-12 items-center gap-3 rounded-xl border px-3.5 py-2.5 motion-safe:animate-in motion-safe:fade-in motion-safe:duration-200",
+        "flex min-h-12 scroll-mb-[4.5rem] items-center gap-3 rounded-xl border px-3.5 py-2.5 motion-safe:animate-in motion-safe:fade-in motion-safe:duration-200",
         isCorrect
           ? "border-[var(--success-border)] bg-[var(--success-surface)] text-[var(--success-fg)]"
           : "border-[var(--danger-border)] bg-[var(--danger-surface)] text-[var(--danger-fg)]",
@@ -122,7 +122,7 @@ export function SatRevealPanel({
               className="size-4 shrink-0 text-[var(--ink-faint)] transition-transform duration-200 ease-out group-data-[state=open]:rotate-180 motion-reduce:transition-none"
             />
           </CollapsibleTrigger>
-          <CollapsibleContent className="overflow-hidden data-[state=closed]:animate-collapsible-up data-[state=open]:animate-collapsible-down">
+          <CollapsibleContent className="overflow-hidden motion-reduce:animate-none data-[state=closed]:animate-collapsible-up data-[state=open]:animate-collapsible-down">
             <div className="pt-1 pb-3">
               <SatContent
                 className="sat-content--explanation"

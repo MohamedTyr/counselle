@@ -1,6 +1,6 @@
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import type React from "react";
-import { useState } from "react";
+import { type Ref, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -67,6 +67,8 @@ interface TileProps {
   upsolved: boolean;
   bookmarked: boolean;
   onClick: () => void;
+  /** Set on the current question's tile, so opening lands there. */
+  tileRef?: Ref<HTMLButtonElement>;
 }
 
 function tileLabel(p: TileProps): string {
@@ -79,11 +81,12 @@ function tileLabel(p: TileProps): string {
  * correct is the success tint, incorrect the danger tint, the current
  * question an ink ring, a flagged question a corner fold. */
 function Tile(props: TileProps): React.ReactElement {
-  const { number, tier, current, correct, incorrect, upsolved, bookmarked, onClick } = props;
+  const { number, tier, current, correct, incorrect, upsolved, bookmarked, onClick, tileRef } = props;
   return (
     <button
       aria-current={current || undefined}
       aria-label={tileLabel(props)}
+      ref={tileRef}
       className={cn(
         "relative flex aspect-square min-h-9 flex-col items-center justify-center gap-[3px] overflow-hidden rounded-lg border text-[13px] tabular-nums outline-none",
         "transition-[background-color,border-color,box-shadow,scale] duration-150 ease-out active:scale-[0.96] motion-reduce:transition-none",
@@ -124,10 +127,15 @@ function NavigatorGrid({
   getHistory,
   onSelect,
   columns,
+  currentTileRef,
 }: Pick<
   SatNavigatorProps,
   "rows" | "currentIndex" | "getReveal" | "getHistory" | "onSelect"
-> & { page: number; columns: string }): React.ReactElement {
+> & {
+  page: number;
+  columns: string;
+  currentTileRef: Ref<HTMLButtonElement>;
+}): React.ReactElement {
   const start = page * PAGE_SIZE;
   return (
     <div className={cn("grid gap-1.5", columns)}>
@@ -144,6 +152,7 @@ function NavigatorGrid({
             key={row.id}
             number={index + 1}
             onClick={() => onSelect(index)}
+            tileRef={index === currentIndex ? currentTileRef : undefined}
             tier={difficultyTier(row.score_band)}
             upsolved={history.everCorrect && history.everIncorrect}
           />
@@ -297,6 +306,7 @@ type NavigatorBodyProps = Pick<
   "rows" | "currentIndex" | "getReveal" | "getHistory" | "onSelect"
 > & {
   columns: string;
+  currentTileRef: Ref<HTMLButtonElement>;
   /** The title row: the popover has its own, the sheet renders it in the
    * sheet header, so the body only renders the pager beside it. */
   title?: React.ReactNode;
@@ -344,13 +354,27 @@ export function SatNavigator({
     onSelect(index);
     onOpenChange(false);
   };
-  const body = { rows, currentIndex, getReveal, getHistory, onSelect: select };
+  // Opening lands on the current question's tile — not the pager's next
+  // button, which would otherwise be the first thing in focus order.
+  const currentTileRef = useRef<HTMLButtonElement>(null);
+  const body = {
+    rows,
+    currentIndex,
+    getReveal,
+    getHistory,
+    onSelect: select,
+    currentTileRef,
+  };
 
   if (isSheet) {
     return (
       <Sheet onOpenChange={onOpenChange} open={open}>
         <SheetTrigger render={anchor as React.ReactElement} />
-        <SheetContent className="max-h-[85dvh]" side="bottom">
+        <SheetContent
+          className="max-h-[85dvh]"
+          initialFocus={currentTileRef}
+          side="bottom"
+        >
           <SheetHeader>
             <SheetTitle>{SAT_PRACTICE_COPY.navigator.title}</SheetTitle>
           </SheetHeader>
@@ -368,6 +392,7 @@ export function SatNavigator({
       <PopoverContent
         align="start"
         className="max-h-[min(640px,calc(100dvh-7rem))] w-[460px] max-w-[calc(100vw-3rem)] [&_[data-slot=popover-viewport]]:p-0"
+        initialFocus={currentTileRef}
         side="top"
         sideOffset={12}
       >

@@ -18,11 +18,11 @@
   --sat-highlight: var(--warning-border);
 
   /* Five-step activity-heatmap intensity (F14), ordered — not a status
-   * hue. Step 0 is the recessed "no activity" well; 1-2 are light tints of
+   * hue. Step 0 is no fill at all (a hairline-ringed swatch in the legend); 1-2 are light tints of
    * the brand scale over it, 3-4 are solid brand steps that carry white
    * numerals. oklch because the mixed operand is saturated
    * (styles/README.md §3.2). */
-  --sat-heat-0: var(--surface-inset);
+  --sat-heat-0: transparent;
   --sat-heat-1: color-mix(in oklch, var(--brand-scale-1) 32%, var(--surface-inset));
   --sat-heat-2: color-mix(in oklch, var(--brand-scale-1) 70%, var(--surface-inset));
   --sat-heat-3: var(--brand-scale-2);

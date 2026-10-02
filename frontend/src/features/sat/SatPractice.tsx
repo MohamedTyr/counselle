@@ -44,6 +44,9 @@ function resolveDeepLinkId(
   return null;
 }
 
+/** The viewport width from which the calculator opens docked. */
+const CALCULATOR_DOCK_MIN_WIDTH = 1280;
+
 /** Each sheet scrolls its own pane beside a passage; stacked on a phone the
  * page scrolls instead, so a pane never nests a second scroller. The
  * gutter is always reserved so the column doesn't shift when a reveal makes
@@ -81,7 +84,11 @@ export function SatPractice(): React.ReactElement {
   const [eliminateMode, setEliminateMode] = useState(true);
   const [highlightActive, setHighlightActive] = useState(false);
   const [calculatorOpen, setCalculatorOpen] = useState(false);
-  const [calculatorDocked, setCalculatorDocked] = useState(false);
+  // On a wide screen the calculator opens beside the question, where it
+  // covers nothing; a narrower window floats it instead.
+  const [calculatorDocked, setCalculatorDocked] = useState(
+    () => window.innerWidth >= CALCULATOR_DOCK_MIN_WIDTH,
+  );
   const [referenceOpen, setReferenceOpen] = useState(false);
   const [infoOpen, setInfoOpen] = useState(false);
   // The Info toolbar button lives in SatPracticeBars, rendered as a plain

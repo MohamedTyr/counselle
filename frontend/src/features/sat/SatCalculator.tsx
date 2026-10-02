@@ -20,21 +20,21 @@ export interface SatCalculatorProps {
   onClose: () => void;
 }
 
-const DEFAULT_SIZE = { width: 500, height: 420 };
+const DEFAULT_SIZE = { width: 440, height: 380 };
 const MIN_SIZE = { width: 320, height: 280 };
 const MAX_VIEWPORT_FRACTION = { width: 0.9, height: 0.85 };
 const SPAWN_EDGE = 16;
-/** Clears the 56px top bar. */
-const SPAWN_TOP = 72;
+/** Clears the bottom bar (56px) with a gap. */
+const SPAWN_BOTTOM = 84;
 const MIN_Y = 64;
 
-/** Opens against the right edge: the stem and choices read from the left,
- * and the single-column question sits centred, so the right gutter is the
- * least-occupied part of the screen. */
+/** Opens in the bottom-right corner: the stem and the choices fill the top
+ * of the sheet and read from the left, so the lower right is the part of the
+ * screen the student is least likely to be reading. */
 function spawnPosition(): { x: number; y: number } {
   return {
     x: Math.max(SPAWN_EDGE, window.innerWidth - DEFAULT_SIZE.width - SPAWN_EDGE),
-    y: SPAWN_TOP,
+    y: Math.max(MIN_Y, window.innerHeight - DEFAULT_SIZE.height - SPAWN_BOTTOM),
   };
 }
 

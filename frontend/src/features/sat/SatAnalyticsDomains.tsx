@@ -194,7 +194,7 @@ export function SatAnalyticsDomains({
               <div className="flex min-w-0 flex-col">
                 <h4 className="flex items-center gap-2 text-sm font-semibold text-[var(--ink)]">
                   <span className="truncate">{domain.name}</span>
-                  <Badge variant="secondary">{mod.short_label}</Badge>
+                  <Badge variant="secondary">{mod.code === "math" ? SAT_ANALYTICS_COPY.sections.math : SAT_ANALYTICS_COPY.sections.ebrw}</Badge>
                 </h4>
                 <span className="tabular-nums">
                   {copy.domainSummaryLine(

@@ -20,7 +20,7 @@ export const SAT_ANALYTICS_COPY = {
     headlineLine: (pct: number, questions: number) =>
       `Your first attempt was right ${pct}% of the time across ${plural(questions, "question")}.`,
     smallSampleNote: (questions: number) =>
-      `Only ${plural(questions, "question")} so far, so this will move a lot as you practise.`,
+      `Only ${plural(questions, "question")} so far, so this will move a lot as you practice.`,
     sectionsHeading: "By section",
     sectionMeta: (questions: number, avgSeconds: number) =>
       `${plural(questions, "question")} · ${formatDuration(avgSeconds)} per attempt`,
@@ -34,12 +34,10 @@ export const SAT_ANALYTICS_COPY = {
       unsolved: "Wrong on latest attempt",
     },
     stats: {
-      rightNow: "Right on latest attempt",
-      rightNowValue: (right: number, total: number) => `${right} of ${total}`,
-      corrected: "Missed, then corrected",
-      overallAccuracy: "Accuracy, all attempts",
+      heading: "All attempts",
+      overallAccuracy: "Accuracy",
       averagePace: "Average per attempt",
-      timePractised: "Time practised",
+      timePracticed: "Time practiced",
     },
     skillsToReinforce: {
       heading: "Skills to reinforce",
@@ -71,6 +69,8 @@ export const SAT_ANALYTICS_COPY = {
       slowInaccurate: "Slow and inaccurate",
     },
     axisSeconds: "Seconds per attempt",
+    axisAccuracy: "First-try accuracy",
+    targetLine: (seconds: number) => `SAT pace · ${seconds}s`,
     legendReading: "Reading & Writing",
     legendMath: "Math",
     pointMeta: (accuracyPct: number, avgSeconds: number, attempts: number) =>
@@ -131,7 +131,7 @@ export const SAT_ANALYTICS_COPY = {
     title: "Your analytics start with question one",
     description:
       "Answer a few questions and this fills in with your accuracy, pace and the skills worth another look.",
-    action: "Start practising",
+    action: "Start practicing",
   },
   footer: {
     summary: (attempts: number, avgSeconds: number) =>

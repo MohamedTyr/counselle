@@ -112,7 +112,7 @@ use them anywhere.
 | neutral | everything else, **including every in-progress state** |
 
 **One documented exception: the SAT practice highlighter (`--sat-highlight`, aliased to
-`--warning-surface`).** A student's own passage/stem highlight is drawn in yellow because a
+`--warning-border`, the amber step dark enough to stay visible under body text).** A student's own passage/stem highlight is drawn in yellow because a
 highlighter is yellow by universal convention, not because anything under it is `warning` —
 no warning state is ever drawn there, the mark sits only under body text in one feature's
 reading surface, and the choice is recorded in `sat.css` beside its token. This is the one
@@ -154,11 +154,18 @@ Corollaries:
 - **An inset surface never draws a rim.** A recessed fill that also has a border reads
   as embossed. The fill step is the entire signal.
 - **Interaction states are one rule, not a value per component** (§11.1).
-- **`--chrome` is chrome by function, not only by location.** The SAT practice screen's
-  top and bottom bars sit on `--chrome`, the same token as the sidebar rail, because they
-  are a fixed control strip framing a focus surface — not an object carrying content — even
-  though they render at the top/bottom of a full-viewport route rather than down the side.
-  The role follows what the surface *does*.
+- **`--chrome` is chrome by function, not only by location.** The SAT practice screen is a
+  full-viewport focus route with no sidebar, so it carries its own frame
+  (`SatPracticeFrame`): the shell's quiet beams (`BeamsBackground quiet`, shared with
+  `WorkspaceShell`) behind it, the question and passage on raised sheets (`satSheetClass`,
+  the same `--surface-raised` + hairline + `--elevation-1` the Tasks and Profile sheets use),
+  and the top and bottom bars as light toolbars *on the beams* — a quiet pill track for the
+  tools, a raised outline pill for the timer — not a filled strip. Every practice state
+  (loading, error, empty, the question) renders inside that frame so none falls back to a
+  flat page. The calculator opens docked in the left sheet slot from 1280px wide (it covers nothing
+  there) and floats in the bottom-right corner below that; content scrolling under a sheet's
+  edge dissolves over the pane's padding (`satScrollFadeClass`) instead of being sliced by
+  the border.
 
 ### 2.3 Naming
 
@@ -176,20 +183,23 @@ Corollaries:
 - **New feature area with its own recurring colours?** Give it a family file, prefixed
   by the feature, resolving only through `semantic.css` / `workspace.css`. SAT practice's
   `sat.css` is the worked example: a `--sat-*` tier-3 family (highlight, a five-step heat
-  scale for the streak calendar, and the prose sizing/line-height/max-width/math-image
+  scale for the activity calendar, and the prose sizing/line-height/max-width/math-image
   tokens `.sat-content` renders College Board's sanitised HTML through), resolving only
-  through tier 2 — `--sat-highlight` aliases `--warning-surface`, the heat scale
-  `color-mix()`es `--brand-scale-3` against `--surface-inset`.
+  through tier 2 — `--sat-highlight` aliases `--warning-border`; the heat scale is no fill
+  at all for an empty day (a hairline-ringed swatch in the legend, so the calendar reads
+  as dates with activity filled in, never as a grid of grey blocks), two light tints
+  `color-mix()`ed from `--brand-scale-1` over `--surface-inset`, and two solid brand steps
+  (`--brand-scale-2`, `--brand-scale-3`) that carry white numerals.
 - **Extending an existing family?** Add to that family's file; keep its naming pattern.
 - Split a family file once it passes ~300 lines.
 - **Two tier-2 roles were added for SAT practice, both reusable beyond it:**
   `--image-outline` (`semantic.css`) — a faint hairline drawn around any inline image
   sitting directly on a surface with no card chrome of its own, first needed for the
   bank's own figures and base64 math images; and `--on-ink` (`semantic.css`, `--gray-0`,
-  16.6:1 on `--ink`) — ink meant to sit on a fill of `--ink` itself, first needed for the
-  practice screen's question-number badge (a filled `--ink` pill carrying the number).
-  Both are semantic roles, not SAT-specific tokens, so they live in tier 2 rather than
-  `sat.css`.
+  16.6:1 on `--ink`) — ink meant to sit on a fill of `--ink` itself. The practice screen's
+  question-number badge is now a quiet `--control-quiet-surface` chip, so `--on-ink` has no
+  SAT consumer today; it stays as a general role. Both are semantic roles, not SAT-specific
+  tokens, so they live in tier 2 rather than `sat.css`.
 
 ---
 
@@ -613,12 +623,13 @@ rule behind the split. *(Four literal widths still exist outside the vocabulary:
 `max-w-3xl` in the chat transcript, `max-w-md` in error panels. The chat and essay
 widths are justified by measure, not layout — see §6.5.)*
 
-**Three more literal widths, added for SAT practice**, a full-viewport route outside
-`PageContainer` (§9.4) where neither `full` nor `wide` applies: `max-w-[860px]` for the
-practice screen's centered reading column when a question has no passage (Math, or R&W
-with no stimulus) — an upstream constant, kept because it is also the breakpoint below
-which the layout drops to one column; `max-w-[480px]` for the question-info dialog; and
-`max-w-[400px]` for the question navigator popover. None of these are `PageContainer`
+**Four more literal widths, added for SAT practice**, a full-viewport route outside
+`PageContainer` (§9.4) where neither `full` nor `wide` applies: `max-w-[920px]` for the
+practice screen's single sheet when a question has no passage and no docked calculator
+(Math, or R&W with no stimulus), whose content column is `max-w-[760px]`, and
+`max-w-[1400px]` for the two-sheet layout; `max-w-[480px]` for the question-info dialog;
+and `w-[460px]` for the question navigator popover. The 860px breakpoint below which the
+two sheets stack into one column is an upstream constant. None of these are `PageContainer`
 surfaces, so they are not folded into `full`/`wide`/`panel` — they are the same kind of
 justified-by-content literal as the four above, not a fourth vocabulary tier.
 
@@ -805,7 +816,7 @@ under it, so the tools stay attached to the thing they edit.
 | `/app/profile` | profile | ” |
 | `/app/calendar` | stub | ” |
 | `/app/sat` | SAT practice dashboard (inside the shell) | ” |
-| `/app/sat/practice/:questionId?` | SAT practice screen — **full-viewport, outside the shell**: no sidebar, no `PageContainer`. The optional id segment supports a deep link into one question; the launched filter otherwise lives in the URL's query string, not the path | auth + onboarding (a sibling of `/app`, not a `WorkspaceShell` child) |
+| `/app/sat/practice/:questionId?` | SAT practice screen — **full-viewport, outside the shell**: no sidebar, no `PageContainer`, but framed by `SatPracticeFrame` (the shell's `BeamsBackground`, quiet, behind raised sheets). The optional id segment supports a deep link into one question; the launched filter otherwise lives in the URL's query string, not the path | auth + onboarding (a sibling of `/app`, not a `WorkspaceShell` child) |
 | `/onboarding` | wizard (outside the shell) | auth |
 | `/dev/*` | galleries | dev builds only |
 
@@ -1436,15 +1447,23 @@ reported GPA buckets and SAT/ACT ranges.
 - An unrecognised spec version renders "This visualization requires a newer client."
   inside the normal frame, so it reads as forward-compatibility rather than breakage.
 
-**SAT practice analytics is the app's second sanctioned Recharts surface**, under the
+**SAT practice analytics is the app's second sanctioned charting surface** (Recharts for the
+radar and the score-bands chart; the pace matrix is plain positioned elements over a measured
+box, so its axis is exactly 0-100%, its markers are fixed-size and nudged apart, and its
+labels sit where they are placed), under the
 same rules School Compare (§15.5.1) established as the deliberate exception to "no
 charting library": every plot is wrapped in the accessible `ChartFigure` shell
 (`aria-hidden` on the plot itself, an sr-only `figcaption` carrying a generated summary
 sentence built from the same data the chart renders), every value it shows is also
 present as text in an adjacent legend, list, or table, and no series or category is told
 apart by decorative colour alone — shape, stroke style, and position carry that instead.
-A radar, a pace scatter plot, a score-bands composed chart, and a donut all follow this
-contract; see `plans/sat-practice/ui-spec.md` §7 for the per-chart encoding.
+A radar, the pace matrix, a score-bands chart, and the standing bar all follow this
+contract; see `plans/sat-practice/ui-spec.md` §7 for the per-chart encoding. The pace
+matrix draws Reading and Writing as a circle in `--brand-scale-2` and Math as a rounded
+square in `--brand-scale-3` (one `PaceMarker` for the plot, the legend and the key), splits
+fast from slow at the labelled test-day pace line (82 s: 134 minutes for 98 questions)
+and accuracy at 50%, and moves coincident points apart in `sat-pace-layout.ts` — the
+tooltip and key always report the true values.
 
 ### 15.5.1 School Compare
 

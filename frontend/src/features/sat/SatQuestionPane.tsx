@@ -9,6 +9,7 @@ import {
   InputGroupInput,
 } from "@/components/ui/input-group";
 import { cn } from "@/lib/utils";
+import { satScrollFadeClass } from "@/features/sat/sat-chrome-styles";
 
 import type { SatAttemptOut, SatQuestionPublic } from "@/api/sat/types";
 import type { SatReveal } from "@/features/sat/sat-session-reducer";
@@ -69,7 +70,7 @@ export function SatQuestionPane({
   const revealed = reveal !== undefined;
 
   return (
-    <div className="h-full overflow-y-auto px-4 py-5 [scrollbar-gutter:stable] min-[861px]:px-10 min-[861px]:py-8 max-[860px]:h-auto max-[860px]:overflow-visible">
+    <div className={cn("h-full overflow-y-auto px-4 py-5 [scrollbar-gutter:stable] min-[861px]:px-10 min-[861px]:py-8 max-[860px]:h-auto max-[860px]:overflow-visible", satScrollFadeClass)}>
       <div className="mx-auto flex min-w-0 max-w-[760px] flex-col gap-5">
         <div className="flex items-center gap-2 border-b border-[var(--hairline)] pb-3">
           <span
@@ -127,7 +128,7 @@ export function SatQuestionPane({
         {question.item_type === "mcq" ? (
           <div
             aria-label={SAT_PRACTICE_COPY.answerChoices.groupLabel}
-            className="flex flex-col gap-2.5"
+            className="flex flex-col gap-3"
             role="group"
           >
             {question.answer_options.map((option) => (
@@ -161,8 +162,8 @@ export function SatQuestionPane({
                 "h-11 max-w-80 rounded-xl",
                 revealed &&
                   (reveal?.isCorrect
-                    ? "border-[var(--success-border)] bg-[var(--success-surface)] has-[[data-slot=input-group-control]:focus-visible]:border-[var(--success-border)] has-[[data-slot=input-group-control]:focus-visible]:ring-[var(--success-fg)]"
-                    : "border-[var(--danger-border)] bg-[var(--danger-surface)] has-[[data-slot=input-group-control]:focus-visible]:border-[var(--danger-border)] has-[[data-slot=input-group-control]:focus-visible]:ring-[var(--danger-fg)]"),
+                    ? "border-[var(--success-border)] bg-[var(--success-surface)] has-[[data-slot=input-group-control]:focus-visible]:border-[var(--success-border)] has-[[data-slot=input-group-control]:focus-visible]:ring-0"
+                    : "border-[var(--danger-border)] bg-[var(--danger-surface)] has-[[data-slot=input-group-control]:focus-visible]:border-[var(--danger-border)] has-[[data-slot=input-group-control]:focus-visible]:ring-0"),
               )}
             >
               <InputGroupInput

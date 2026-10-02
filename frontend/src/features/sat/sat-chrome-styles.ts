@@ -13,6 +13,12 @@ const PRESS =
 export const satSheetClass =
   "min-h-0 min-w-0 overflow-hidden rounded-2xl border border-[var(--hairline)] bg-[var(--surface-raised)] shadow-[var(--elevation-1)]";
 
+/** Content scrolling under a sheet's edge dissolves over the pane's own
+ * padding instead of being sliced by the border. Only the alpha of the
+ * gradient matters; at rest the ramps sit on empty padding. */
+export const satScrollFadeClass =
+  "[mask-image:linear-gradient(to_bottom,transparent,var(--surface-raised)_1.25rem,var(--surface-raised)_calc(100%-1.25rem),transparent)]";
+
 /** The tools sit in one quiet track; each item is a pill. */
 export const satToolTrackClass =
   "inline-flex items-center gap-0.5 rounded-full bg-[var(--control-quiet-surface)] p-0.5";

@@ -121,24 +121,25 @@ function Standing({ stats }: { stats: SatStatsResponse }): React.ReactElement {
 function StatList({ stats }: { stats: SatStatsResponse }): React.ReactElement {
   const copy = SAT_ANALYTICS_COPY.overview.stats;
   const rows: readonly [string, string][] = [
-    [copy.rightNow, copy.rightNowValue(stats.uniqueCorrect, stats.uniqueQuestionsAttempted)],
-    [copy.corrected, String(stats.totalUpsolvedCount)],
     [copy.overallAccuracy, `${stats.overallAccuracyPct}%`],
     [copy.averagePace, formatDuration(stats.avgTimeSeconds)],
-    [copy.timePractised, formatDuration(stats.ebrw.totalTimeSeconds + stats.math.totalTimeSeconds)],
+    [copy.timePracticed, formatDuration(stats.ebrw.totalTimeSeconds + stats.math.totalTimeSeconds)],
   ];
   return (
-    <dl className={cn(analyticsSheetClass, "flex flex-col self-end px-5")}>
-      {rows.map(([label, value]) => (
-        <div
-          className="flex items-baseline justify-between gap-3 border-b border-[var(--hairline)] py-3 last:border-b-0"
-          key={label}
-        >
-          <dt className="text-sm text-[var(--ink-secondary)]">{label}</dt>
-          <dd className="text-sm font-medium tabular-nums">{value}</dd>
-        </div>
-      ))}
-    </dl>
+    <div className="flex flex-col gap-2">
+      <h3 className={analyticsGroupLabelClass}>{copy.heading}</h3>
+      <dl className={cn(analyticsSheetClass, "flex flex-1 flex-col px-5")}>
+        {rows.map(([label, value]) => (
+          <div
+            className="flex flex-1 items-center justify-between gap-3 border-b border-[var(--hairline)] py-3 last:border-b-0"
+            key={label}
+          >
+            <dt className="text-sm text-[var(--ink-secondary)]">{label}</dt>
+            <dd className="text-sm font-medium tabular-nums">{value}</dd>
+          </div>
+        ))}
+      </dl>
+    </div>
   );
 }
 
