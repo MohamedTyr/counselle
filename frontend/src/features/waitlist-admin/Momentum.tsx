@@ -2,7 +2,7 @@ import type React from "react";
 import { Bar, BarChart, Tooltip, XAxis } from "recharts";
 
 import { ChartContainer, type ChartConfig } from "@/components/ui/chart";
-import { ChartFigure } from "@/features/schools/facts/charts/chart-shell";
+import { ChartFigure } from "@/features/schools/chances/ChartFigure";
 import { formatRelativeTime } from "@/lib/time";
 import { plural, type Bucket, type Summary } from "./derive";
 

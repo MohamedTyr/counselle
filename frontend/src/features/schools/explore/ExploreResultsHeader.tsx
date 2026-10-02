@@ -47,7 +47,7 @@ import type {
  */
 
 const CHIP_CLASSNAME =
-  "inline-flex h-7 shrink-0 items-center gap-1.5 rounded-lg bg-[var(--school-filter-chip-surface)] px-2 text-xs font-medium text-[var(--ink-secondary)] transition-colors outline-none hover:bg-[var(--school-filter-chip-hover)] focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] pointer-coarse:min-h-11";
+  "inline-flex h-7 shrink-0 items-center gap-1.5 rounded-full border border-[var(--school-filter-chip-border)] bg-[var(--school-filter-chip-surface)] text-[var(--ink-secondary)] shadow-[var(--school-filter-chip-shadow)] hover:border-[var(--school-filter-chip-border-hover)] px-2.5 text-xs font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] pointer-coarse:min-h-11";
 
 function ExploreAssumptionsChip({
   assumptions,
@@ -201,7 +201,7 @@ function ExclusionChip({
  *  chip shape, never `ExclusionChip`'s. */
 function NullTailChip({ tail }: { tail: NullTail }) {
   return (
-    <span className="inline-flex h-7 shrink-0 items-center gap-1.5 rounded-lg bg-[var(--school-filter-chip-surface)] px-2 text-xs text-[var(--ink-secondary)] tabular-nums">
+    <span className="inline-flex h-7 shrink-0 items-center gap-1.5 rounded-full border border-[var(--school-filter-chip-border)] bg-[var(--school-filter-chip-surface)] px-2.5 text-xs text-[var(--ink-secondary)] tabular-nums">
       {tail.count} with no {tail.metric_label} — sorted to the end
     </span>
   );

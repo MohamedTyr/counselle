@@ -74,16 +74,3 @@ export function formatDeadlineDate(value: string | null): string | null {
 export function formatCompactCount(value: number | null): string | null {
   return value === null ? null : abbreviated.format(value).toLowerCase();
 }
-
-/** "SAT Math 620–700". An en dash, not a hyphen: it is a range, not a
- *  minus. */
-export function formatBand(
-  band: { label: string; p25: number; p75: number } | null,
-): string | null {
-  return band === null ? null : `${band.label} ${band.p25}–${band.p75}`;
-}
-
-/** Which tuition row the amount came from. */
-export function costLabel(basis: "in-state" | "out-of-state" | null): string {
-  return basis === "in-state" ? "in-state cost" : "out-of-state cost";
-}

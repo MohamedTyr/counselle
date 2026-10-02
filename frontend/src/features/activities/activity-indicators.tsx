@@ -1,18 +1,29 @@
-import { getCharState } from "@/domain/activity";
+import { getCharState, type CharState } from "@/domain/activity";
 import { cn } from "@/lib/utils";
 import { charStateClass } from "@/features/activities/activities-config";
 import { AlertTriangle, Check } from "lucide-react";
+
+const meterFillClass: Record<CharState, string> = {
+  empty: "bg-transparent",
+  ok: "bg-[var(--progress-fill)]",
+  near: "bg-[var(--warning-solid)]",
+  over: "bg-[var(--danger-solid)]",
+};
 
 export function CharCounter({
   hideOverIcon = false,
   id,
   length,
   limit,
+  meter = false,
 }: {
   hideOverIcon?: boolean;
   id?: string;
   length: number;
   limit: number;
+  /** A short track beside the count, filled by how much of the budget is
+   * spent. The count stays the source of truth; the bar is the glance. */
+  meter?: boolean;
 }) {
   const state = getCharState(length, limit);
   const over = length - limit;
@@ -20,7 +31,7 @@ export function CharCounter({
   return (
     <span
       className={cn(
-        "inline-flex shrink-0 items-center gap-1 text-xs tabular-nums",
+        "inline-flex shrink-0 items-center gap-1.5 text-xs tabular-nums",
         charStateClass[state],
       )}
       id={id}
@@ -28,8 +39,19 @@ export function CharCounter({
       {state === "over" && !hideOverIcon ? (
         <AlertTriangle aria-hidden="true" className="size-3.5" />
       ) : null}
-      {state === "ok" ? (
+      {state === "ok" && !meter ? (
         <Check aria-hidden="true" className="size-3.5 opacity-70" />
+      ) : null}
+      {meter ? (
+        <span
+          aria-hidden="true"
+          className="h-1 w-10 overflow-hidden rounded-full bg-[var(--control-quiet-surface)]"
+        >
+          <span
+            className={cn("block h-full rounded-full", meterFillClass[state])}
+            style={{ width: `${Math.min(length / limit, 1) * 100}%` }}
+          />
+        </span>
       ) : null}
       <span>
         {length}/{limit}
@@ -63,26 +85,24 @@ export function CharLimitAnnouncer({
   );
 }
 
-export function RankBadge({
-  isReady,
-  order,
-}: {
-  isReady: boolean;
-  order: number;
-}) {
+const missingList = new Intl.ListFormat("en", {
+  style: "long",
+  type: "conjunction",
+});
+
+/** "Missing description, grades and timing" — what stands between a row and
+ * paste-ready, named rather than signalled with a bare warning icon. */
+export function MissingFields({ fields }: { fields: string[] }) {
+  if (fields.length === 0) {
+    return null;
+  }
+
   return (
-    <span
-      className={cn(
-        "inline-flex h-7 min-w-7 items-center justify-center gap-0.5 rounded-lg border px-1.5 text-sm font-semibold tabular-nums transition-colors",
-        isReady
-          ? "border-border bg-[var(--control-track)] text-foreground"
-          : "border-[var(--warning-border)] bg-[color:var(--activity-warning-bg)] text-[color:var(--activity-warning-fg)]",
-      )}
-    >
-      {isReady ? null : (
-        <AlertTriangle aria-hidden="true" className="size-3 shrink-0" />
-      )}
-      {order}
-    </span>
+    <p className="flex items-start gap-1.5 text-xs leading-4 text-[var(--activity-warning-fg)]">
+      <AlertTriangle aria-hidden="true" className="mt-px size-3.5 shrink-0" />
+      <span>
+        Missing {missingList.format(fields.map((field) => field.toLowerCase()))}
+      </span>
+    </p>
   );
 }

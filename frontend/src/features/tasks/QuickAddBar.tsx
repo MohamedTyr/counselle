@@ -238,7 +238,8 @@ export function QuickAddBar({
       when_on: whenOn,
       deadline_on: parsed.deadline_on,
       flagged: parsed.flagged,
-      application_id: parsed.application_id ?? defaults?.application_id ?? undefined,
+      application_id:
+        parsed.application_id ?? defaults?.application_id ?? undefined,
       essay_id: parsed.essay_id ?? defaults?.essay_id ?? undefined,
       requirement_kind: defaults?.requirement_kind ?? undefined,
     };
@@ -330,17 +331,17 @@ export function QuickAddBar({
   const showWaitingHint = isFocused && parsed.needsCheckIn;
 
   return (
-    // -mx-2 puts the bar in the same 8px-outdented box as a TaskRow, so its
-    // Plus glyph lands in the checkbox column and its input lands on the
-    // shared 36px spine — "the same shape as the thing it creates".
-    <div className="-mx-2 w-full" data-slot="quick-add-bar">
+    // The bar is drawn as the same raised sheet the rows sit on, with its
+    // Plus glyph in the checkbox column and its input on the title column —
+    // "the same shape as the thing it creates".
+    <div className="w-full" data-slot="quick-add-bar">
       <div
         className={cn(
-          "group relative flex h-10 items-center gap-3 rounded-md border border-transparent pr-2 pl-2",
-          "transition-colors duration-150 ease-out motion-reduce:transition-none",
+          "group relative flex h-11 items-center gap-3 rounded-xl border bg-[var(--task-sheet-surface)] px-3 shadow-[var(--elevation-1)]",
+          "transition-[border-color,box-shadow] duration-150 ease-out motion-reduce:transition-none",
           isFocused
-            ? "border-[var(--edge-control)] bg-[var(--field-surface)] ring-[3px] ring-[var(--focus-ring)]"
-            : "hover:bg-[var(--canvas-hover)]",
+            ? "border-[var(--edge-control)] ring-[3px] ring-[var(--focus-ring)]"
+            : "border-[var(--task-sheet-border)] hover:border-[var(--edge)]",
         )}
       >
         <Plus
@@ -380,9 +381,9 @@ export function QuickAddBar({
       </div>
 
       {showFirstFocusHint && (
-        <p className="mt-1.5 pl-[var(--task-row-spine)] text-xs text-[var(--ink-faint)]">
-          Try &quot;Berkeley CSS Profile fri&quot; — dates are picked up as
-          you type.
+        <p className="mt-2 pl-[var(--task-title-inset)] text-xs text-[var(--ink-faint)]">
+          Try &quot;Berkeley CSS Profile fri&quot; — dates are picked up as you
+          type.
         </p>
       )}
 
@@ -390,7 +391,7 @@ export function QuickAddBar({
         {showWaitingHint && (
           <motion.div
             animate={reduceMotion ? { opacity: 1 } : { opacity: 1, y: 0 }}
-            className="mt-1.5 flex flex-wrap items-center gap-2 pl-[var(--task-row-spine)]"
+            className="mt-2 flex flex-wrap items-center gap-2 pl-[var(--task-title-inset)]"
             data-slot="quick-add-waiting-hint"
             exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -4 }}
             initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -4 }}

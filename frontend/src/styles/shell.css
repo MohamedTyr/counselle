@@ -2,7 +2,7 @@
  * Shell — app chrome. --shell-* (public contract preserved).
  *
  * Sidebar decision: the whole app is light, sidebar included. The rail is
- * a FLAT warm fill — --chrome resolves to --gray-100 (#f9f5f3, see
+ * a FLAT green-grey fill — --chrome resolves to --gray-100 (#f4f6f5, see
  * semantic.css), with no grain or texture layer over it. It has carried a
  * tinted sage tone and, later, an SVG noise texture; neither survives.
  *
@@ -17,7 +17,7 @@
  * height and the shadow. The right-hand --shell-sidebar-border does the
  * separating instead, which is the same job 1a's perimeter border does.
  *
- * Worth knowing when tuning that border: the rail (#f9f5f3) sits 2.8 L
+ * Worth knowing when tuning that border: the rail (#f4f6f5) sits 2.8 L
  * points under a pure-white --canvas, so the fill does the separating and
  * --shell-sidebar-border only draws the seam. (This note used to say the
  * opposite — 0.7 points apart, border carrying everything — which was true

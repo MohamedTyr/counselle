@@ -151,7 +151,7 @@ Corollaries:
 
 `--{family}-{role}[-{state}]` — e.g. `--workspace-composer-control-hover-border`,
 `--school-filter-chip-active-ink`. Primitives are `--{ramp}-{position}`
-(`--gray-400`, `--lime-500`). Semantic roles are bare nouns (`--canvas`, `--ink-muted`,
+(`--gray-400`, `--green-500`). Semantic roles are bare nouns (`--canvas`, `--ink-muted`,
 `--danger-solid`).
 
 ### 2.4 Where a new token goes
@@ -169,77 +169,66 @@ Corollaries:
 
 ## 3. Colour
 
-### 3.1 The palette is five ramps. That is the whole palette.
+### 3.1 The palette is four ramps. That is the whole palette.
 
-All in **OKLCH**, all gamut- and contrast-checked by script (not eyeballed); the hex
-annotations in `primitives.css` comments are the contract. Re-run the conversion script
-if any step moves.
+The app wears the landing page's palette: the same green-white page, cool green-grey
+wells and hairlines, near-black ink, and the same greens. All in **OKLCH**, all gamut-
+and contrast-checked by script (not eyeballed); the hex annotations in `primitives.css`
+comments are the contract. Re-run the conversion script if any step moves.
 
 | Ramp | Hue | What it is |
 |---|---|---|
-| `--gray-*` | 50 | every surface, every border, every word of text |
-| `--lime-*` | 132 | the brand |
+| `--gray-*` | ~165 | every surface, every border, every word of text |
+| `--green-*` | 155 | the brand's colour, and success |
 | `--red-*` | 25 | danger |
 | `--amber-*` | 80 | warning |
-| `--leaf-*` | 143 | success |
 
-Deleted, deliberately: `--blue` (the `--info` role), `--plum`, `--mauve`, `--teal`,
-`--slate`. Merged into `--gray-*`: `--neutral-*`, `--sand-*`, `--stone-*`. Forty
-distinct neutral steps became thirteen.
-
-**Why adding a ramp is so expensive:** the four deleted wayfinding hues each existed to
-tint one pill on one page, and between them they cost every status colour its meaning.
-The three deleted neutral ramps cost something subtler and worse — they put six
-different hues inside a five-lightness-point band, so the app's greys read as slightly
-dirty rather than as levels. If you think you need a new hue, you need `--label-*`
-(categorical) or `--brand-scale-*` (ordered). If you think you need a new grey, you
-need one of the four surface roles.
+**Why adding a ramp is so expensive:** every extra hue costs the existing ones their
+meaning. If you think you need a new hue, you need `--label-*` (categorical) or
+`--brand-scale-*` (ordered). If you think you need a new grey, you need one of the four
+surface roles.
 
 **The neutral ramp** — note the roles, they are not interchangeable:
 
-| Token | OKLCH | Hex | Role |
-|---|---|---|---|
-| `--gray-25` | `100% 0 0` | `#ffffff` | **raised *and* canvas** — the page is pure white, so an object on it is identified by `--edge` + `--elevation-1`, never by a fill step. (`--gray-50`, the old `#fcf9f7` canvas, is deleted rather than aliased: a ramp with two identical steps invites someone to re-separate them.) |
-| `--gray-100` | `97.2% 0.005 50` | `#f9f5f3` | chrome — 2.8 L points under the page, and deliberately still warm beside it |
-| `--gray-150` | `95.5% 0.006 50` | `#f4efed` | inset |
-| `--gray-200` | `93.5% 0.007 50` | `#eee8e5` | pressed inset — *not a resting level* |
-| `--gray-300` | `90.5% 0.009 50` | `#e5deda` | hairline — a divider *within* one surface |
-| `--gray-400` | `86% 0.011 50` | `#d7cfcb` | edge — the *perimeter* of a surface |
-| `--gray-500` | `76% 0.014 50` | `#b9afa9` | edge-strong — hovered/pressed perimeter; **and edge-control, the resting boundary of a bare form control** |
-| `--gray-600` | `62% 0.016 50` | `#8f847e` | edge-control-strong — a form control's boundary *hovered* (3.61:1) |
-| `--gray-650` | `70% 0.013 50` | `#a69c97` | disabled ink (WCAG-exempt) |
-| `--gray-700` | `52% 0.014 50` | `#706762` | faint ink |
-| `--gray-800` | `42% 0.011 50` | `#524b48` | secondary ink |
-| `--gray-900` | `28% 0.01 50` | `#2d2825` | ink |
-| `--gray-950` | `25% 0.009 50` | `#25201e` | strong / wordmark |
-| `--gray-0` | `100% 0 0` | `#ffffff` | outside the ramp — only as ink ON a saturated fill |
-| `--gray-1000` | `11% 0 0` | — | outside the ramp — only as the base a scrim mixes from |
+| Token | Hex | Role |
+|---|---|---|
+| `--gray-25` | `#ffffff` | **raised *and* canvas** — the page is pure white, so an object on it is identified by `--edge` + `--elevation-1`, never by a fill step |
+| `--gray-100` | `#f7fbf9` | chrome — the sidebar rail (the landing's `--lp-bg`) |
+| `--gray-150` | `#eef1ef` | inset — wells, tracks, segmented controls, label chips (the landing's `--lp-panel`) |
+| `--gray-200` | `#e6eae8` | pressed inset — *not a resting level* |
+| `--gray-300` | `#e1e5e3` | hairline — a divider *within* one surface |
+| `--gray-400` | `#d6dcd8` | edge — the *perimeter* of a surface |
+| `--gray-500` | `#b7bfbb` | edge-strong — hovered/pressed perimeter; **and edge-control** |
+| `--gray-600` | `#848c88` | edge-control-strong — 3:1 on every surface (3.03 on inset) |
+| `--gray-650` | `#a8b0ac` | disabled ink (WCAG-exempt) |
+| `--gray-700` | `#5c6562` | faint ink — 6.01:1 on white, 5.29 on inset |
+| `--gray-800` | `#454c49` | secondary ink |
+| `--gray-900` | `#121214` | ink — and the primary button's fill |
+| `--gray-950` | `#0b0c0c` | strong / wordmark, pressed primary button |
+| `--gray-0` | `#ffffff` | outside the ramp — only as ink ON a saturated or ink fill |
+| `--gray-1000` | — | outside the ramp — only as the base a scrim or cast shadow mixes from |
 
-**The brand ramp.** Hue 132, bright yellow-green. One contractual value — `--lime-500`
-is `#7ccf00` exactly, i.e. `oklch(77.09% 0.2156 132.45)` — and every other step is
-derived from it along that hue.
+**The brand is ink plus green**, exactly as on the landing:
 
-Three things about this ramp are not like the brands before it, and each is load-bearing:
+- **The primary action is ink.** `--brand` is `--gray-900`; `--on-brand` is white
+  (18.71:1). Primary buttons are black pills, like "Join waitlist".
+- **Green marks state, never action:** the selected nav row (`--chrome-active`,
+  `--green-50`), checked controls (`--accent-solid`, `--green-700`, 6.60:1), progress
+  (`--progress-fill`, `--green-500`, a fill only at 2.58:1), citations and success.
+- **`--focus-ring` is `--green-700`** (6.60:1 on canvas).
+- **Success shares the green ramp.** "Done" is the brand's own green, as the landing's
+  "On track" chips are; there is no second green to keep apart from it.
 
-- **The brand is the `-500` step, not `-600`.** At L 0.77 nothing numbered below it can
-  be darker, and a ramp is monotonic — parking the accent at `-600` would leave the
-  focus ring and the ordered scale as pastels with no contrast to spend.
-- **`--on-brand` is `--gray-950`, not white.** White on `#7ccf00` is 1.95:1. Near-black
-  ink measures 8.27:1 at rest, 6.35 hovered, 4.85 pressed — and that last figure is why
-  `--brand-active` stops at `--lime-700` instead of going deeper.
-- **`--focus-ring` is `--lime-800` (5.74:1 on canvas), three steps past the brand rather
-  than one step off it.** The brand itself is 1.95:1 on the page, under the 3:1 non-text
-  floor, so the ring cannot be a near-copy of the fill here.
-
-`--lime-ink-on-50` and `--lime-ink-on-100` are reduced-chroma inks for drawing on the
-two brand tints, and `--lime-950` exists only to tint the CTA shadow; none of the three
-are ramp steps.
-
-**Known collision.** The brand (132) sits eleven degrees from `--leaf` (143, success).
-The pale ends are indistinguishable — `--lime-50`, the selected nav pill, against
-`--leaf-50`, the done chip, is 1.04:1. Placement is the only thing keeping them apart
-(nav pills in the rail, status chips in content). Never draw a brand tint and a success
-tint in one row; never let a success signal rest on colour alone.
+| Step | Hex | Role |
+|---|---|---|
+| `--green-50` | `#e9f8ef` | tint — selected nav row, success chip |
+| `--green-100` | `#d0f0dd` | avatar chip |
+| `--green-200` | `#a9e2c3` | tint border |
+| `--green-500` | `#21b86b` | signal — progress fills, the ordered scale's light end |
+| `--green-600` | `#139155` | 4.03:1 — icons |
+| `--green-700` | `#0a6b3d` | accent — checked controls, focus, success text and solid |
+| `--green-800` | `#0f4d32` | the composer's send button |
+| `--green-900` | `#073d24` | ink on the tints (11.24:1 on -50) |
 
 ### 3.2 Colour space rules
 
@@ -299,8 +288,8 @@ Depth is carried by **surface fill first**, border second, shadow last.
 | `--elevation-1` | `0 1px 2px @6%`, `0 1px 1px @4%` | a raised card sitting on canvas |
 | `--elevation-2` | `0 4px 12px @10%`, `0 2px 4px @6%` | menus, popovers, dropdowns |
 | `--elevation-3` | `0 16px 40px @16%`, `0 6px 16px @10%` | modals, sheets |
-| `--elevation-cta` | tinted from `--lime-950` | the primary button at rest |
-| `--elevation-cta-hover` | tinted from `--lime-950` | the primary button on hover |
+| `--elevation-cta` | mixed from `--gray-1000` | the primary button at rest |
+| `--elevation-cta-hover` | mixed from `--gray-1000` | the primary button on hover |
 
 All percentages are `color-mix` of `--gray-900` into `transparent`.
 
@@ -309,8 +298,9 @@ All percentages are `color-mix` of `--gray-900` into `transparent`.
 - **`--elevation-1` (blur ≤ 2px) is the only tier safe to pair with a border on the
   same element.** `--elevation-2`/`-3` (blur ≥ 12px) belong on borderless surfaces.
   A 1px border plus a 16px-blur shadow on one element is the banned "glassy" look.
-- The CTA shadow is tinted from `--lime-950` — the near-black end of the brand ramp —
-  **not** from `--brand`. A mid-brand low-alpha wash reads as a glow, not a shadow.
+- The CTA shadow is its own pair so the ink button sits a little more firmly than a
+  card; it is mixed from `--gray-1000`, never from a brand colour (a coloured wash reads
+  as a glow, not a shadow).
 - **Never escalate shadow on hover** for cards. Hover changes border colour (§11.2).
 
 ### 4.1 Z-index
@@ -355,10 +345,10 @@ truth for every corner in the app.
 | Radius | Count | Means |
 |---|---|---|
 | `rounded-xl` (14px) | 69 | **a card** — the canonical content object |
-| `rounded-lg` (10px) | 67 | **a control** — buttons, nav rows, menu popups |
+| `rounded-lg` (10px) | 67 | **a control** — nav rows, menu popups, fields |
 | `rounded-md` (8px) | 58 | **a control inside a control** — menu items, small chips |
-| `rounded-full` | 40 | circular avatars, dots, progress tracks, scrollbar thumbs |
-| `rounded-sm` (6px) | 19 | badges |
+| `rounded-full` | 40 | **every button** (`components/ui/button.tsx`, the landing's pill), circular avatars, dots, progress tracks, scrollbar thumbs |
+| `rounded-md` | — | badges — a filled chip, no outline |
 | `rounded-2xl` (18px) | 13 | the composer, and only things of that scale |
 
 When nesting, the inner radius is the outer minus the border width:
@@ -374,14 +364,20 @@ values exist and why they are not drift.
 ```
 --font-sans:     "Instrument Sans Variable", system-ui, sans-serif
 --font-heading:  var(--font-sans)      /* deliberately the same — one voice */
---font-document: Georgia, ui-serif, serif
+--font-document: "Newsreader Variable", Georgia, ui-serif, serif
 ```
 
 Loaded via `@fontsource-variable/instrument-sans` (npm, self-hosted — no Google Fonts
 request, no FOUT from a third-party origin). One family for the entire interface.
-**Georgia is reserved for essay documents** — the ProseMirror editor and the document
+**Newsreader is reserved for essay documents** — the ProseMirror editor and the document
 preview — because an essay is a piece of writing, not a piece of UI, and the serif
-signals that the surface belongs to the student.
+signals that the surface belongs to the student. The one other use is the Profile's
+questions ("Where are you in high school?"): each is a line addressed to the student
+rather than a label on a box, and the serif is what tells the two apart on a page full
+of labels. Nothing else on Profile — labels, values, chips, the section title — is serif. It is self-hosted
+(`@fontsource-variable/newsreader`, optical-size axis) rather than left to Georgia,
+which most Linux machines do not have and which fell back to Times there. Essay prose
+is 18px at a 1.75 line height.
 
 Do not add a third family. Do not use `--font-heading` as a hook to introduce one; it
 exists so that *if* a display face is ever justified, one token flips.
@@ -587,7 +583,7 @@ Two tiers, and only two, exposed by `PageContainer` (§9.3):
 
 Before this rule there were three widths across five pages (1064 / 896 / 768) with no
 rule behind the split. *(Four literal widths still exist outside the vocabulary:
-`max-w-[700px]` in the composer landing, `max-w-[820px]` in the essay editor,
+`max-w-[700px]` in the composer landing, `max-w-[720px]` in the essay editor,
 `max-w-3xl` in the chat transcript, `max-w-md` in error panels. The chat and essay
 widths are justified by measure, not layout — see §6.5.)*
 
@@ -636,7 +632,7 @@ it will not work.
   · account row (10px, `mt-auto`).
 - **Nav row:** `h-9`, `rounded-[10px]`, `px-3`, `gap-[11px]`, `text-sm`, 17px icons,
   stacked at `gap-px`.
-- **Active state** is a `--chrome-active` (`--lime-50`) fill plus `font-medium` plus
+- **Active state** is a `--chrome-active` (`--green-50`) fill plus `font-medium` plus
   `--on-chrome-active` ink. **There is no left bar** — it was removed once hover and
   active got distinct fills, because a bar on top of a fill and a weight change is the
   third redundant signal.
@@ -672,6 +668,54 @@ It renders a `<section>` (bounds, `overflow-hidden`) wrapping a scrolling column
 surfaces, `panel` (1160px) for rail-and-panel pages — Profile and a school's detail. The
 header tracks the same column as the body, so a page reads as one aligned column.
 
+**Profile** keeps one geometry on all three tabs: a 200px column, then a raised sheet
+(`PROFILE_LAYOUT_CLASS`, `profileSheetClass`). On the Profile tab the column is the
+section rail: plain titles, the selected one in the app sidebar's own active state
+(`bg-sidebar-active`, `text-sidebar-active-foreground`, medium weight) on a pill that
+slides to the new row when the section changes — one shared pill, measured from the
+row, not a background per row. On
+Documents and Memory it names the tab (`ProfileTabFrame`). Below `md` the rail becomes
+a scrolling strip of pills. The tabs use `TabsList variant="pill"`, the same quiet track
+and raised pill as the Tasks views. Empty or failed lists, the document upload box,
+and the "Add …" buttons are dashed, which is the tasks' "needs a place" signal.
+
+A section is a run of **questions** (`FieldGroupConfig.question`), not a settings form.
+Each question is its own band on the sheet: on the left, the question in Newsreader,
+an optional one-line `why` saying what the answer changes, and a mark that reads
+"Optional" until something under it is saved and "Answered" after (`ProfileQuestionMark`,
+a ring that cross-fades into a check). On the right, its fields, label above control. The
+section header carries a meter with one segment per question and the same count in
+words ("2 of 4 answered") — it counts questions, never fields, and never nags.
+
+Every choice is **on show**: selects and Yes/No are chips (`profileChipClass`), one click
+to answer and one more on the chosen chip to take it back; the chosen chip carries the
+brand tint, an `--accent-solid` rim and a heavier weight, and a multi-select's chosen
+chips add a check. Fields sit on a six-column answer grid (`PROFILE_ANSWER_GRID_CLASS`,
+two columns on a phone) at the width of what they hold — a score or date is a third, a
+name is a half, a set of choices or a paragraph is the row — and `layoutRows` keeps chips
+and boxes on separate rows and stretches a text field left alone on its row.
+
+Tests are **score tiles** (`layout: "tiles"`, `ProfileScoreTiles`): a test already sat is
+a tile with its headline score set large beside its ceiling ("1480 / 1600") and its
+other fields under it; a test not taken is a dashed "+ ACT / 36" button that opens its
+tile. A list of entries (AP scores) is one inline row per entry, and a short whole-number
+scale (an AP score, 1–5) is a row of buttons rather than a box. A blank required field
+in a new entry is named in one quiet line ("Add a subject to save this."), never red;
+only a value that is actually wrong turns its field red. A list of strings is a tag
+input: Enter or a comma adds a tag, and Backspace removes the last one.
+
+**Activities** and Honors are ranked lists on one raised sheet, the task lists' shape:
+rows inset by `--activity-sheet-inset`, ruled by a hairline inset to the rank column
+(`RankedRow`). The rank disc is filled `--success-surface` once the entry is
+paste-ready and dashed while it is not, and on hover it turns into the drag grip. A
+row that is not ready says what it is missing in words. The description's character
+budget is a count with a short meter beside it, in the rows and in the drawer. After
+the last entry, the open slots continue the column as a dashed disc with a plus. The
+header carries a slot strip: one segment per Common App slot, in list order, green
+when paste-ready, amber while there is work left, red when over a limit, and empty
+for an open slot. The text next to it states the same counts, so colour is never the
+only signal.
+
 `PageHeader` guarantees:
 - a **fixed `min-h-16` (64px)** — before it existed, header height varied 64/60/52px per
   page depending on which action buttons happened to be present, so the rule under the
@@ -702,10 +746,14 @@ third header shape entirely (`h-14`, `text-base`, `px-5`). The chat routes opt o
 legitimately — they have a different shape. See §20.
 
 The essay editor **does** render through `PageHeader` (it can't use `PageContainer` — its
-body is a centred sheet, not the standard scroll column). Its chrome is three flush bands
-separated by hairlines: title, formatting toolbar, then the canvas. It used to be a raised
-header card plus a toolbar pill floating over the page, which put three competing objects
-on screen when the document is meant to be the only one that floats.
+body is a centred sheet, not the standard scroll column). The page is transparent, so the
+shell's faint beams show through it as on every other route, and the paper is the one
+white object on screen. The header carries the essay's identity (school mark, title,
+status badge, one line of school · type · due date) and its page actions: the word-count
+meter, a quiet "Saved" line that only becomes a button when a save fails, Prompt, and
+an outline "Ask Counselle" pill that opens the panel. The formatting toolbar is the
+paper's own first row, pinned to the top of the scroll column while the essay scrolls
+under it, so the tools stay attached to the thing they edit.
 
 ### 9.4 Routes
 
@@ -816,7 +864,7 @@ selection-scoped verb chips, §15.7). It wraps shadcn's Radix `ScrollArea`, and
 `ui/scroll-area.tsx` is a Base UI rewrite with a different contract — the root is
 `size-full` and renders its own scrollbars, so `Suggestions` would have stretched to its
 parent's height and left a stray `ScrollBar` inside the content. Its `Suggestion` half was
-a `Button` wearing `rounded-full px-4`, a shape §5 reserves for avatars, dots and tracks.
+a `Button` wearing its own `rounded-full px-4` overrides.
 Both halves were being overridden more than used, so the chips are a `Button` row and the
 file is gone.
 
@@ -861,7 +909,7 @@ runs a real state machine: a rim-light inset shadow at rest
 **Every interactive element has a visible focus ring. No exceptions.**
 
 - Form controls: `focus-visible:border-ring focus-visible:ring-[3px]` at
-  `--focus-ring` (`--lime-800`).
+  `--focus-ring` (`--green-700`).
 - Buttons, badges, sidebar rows: `focus-visible:ring-2` with
   `ring-offset-1 ring-offset-background` on badges.
 - Composers: `focus-within:ring-2 ring-[var(--focus-ring)]/30` — deliberately softer,
@@ -1075,15 +1123,24 @@ drive any UI). **No `Badge` variant appears in the task list body at all** — z
 status badges, zero priority badges, zero category chips. Two deliberate refinements
 of the old mapping below, cross-checked in full against this section in
 `plans/tasks-redesign-design.md` §9.4:
-- **The flag is `--brand` (lime), not `--danger-fg` (error).** `flagged` is the
+- **The flag is `--brand` (ink), not `--danger-fg` (error).** `flagged` is the
   student's own mark on the task, the same claim `--brand` already makes for "the
   current selection" — and keeping it out of red is what lets red mean exactly one
   thing on the page: a date the world has already passed.
-- **The deadline is plain text, not a badge: amber (`--warning-fg`) at ≤2 days out,
-  red (`--danger-fg`) once overdue, nothing beyond 7 days or when absent.** Not the
-  old 14-day error-badge threshold — fourteen days of red in a forty-row list is why
-  the previous board read as an alarm; two days of amber and an ink-only overdue
-  state let red mean "already missed" and nothing softer.
+- **The deadline is not a badge: amber (`--warning-fg` on `--warning-surface`) at ≤2
+  days out, red (`--danger-fg` on `--danger-surface`) once overdue, plain faint text
+  otherwise, nothing beyond 7 days or when absent.** The two warning states are a
+  tinted pill so the date column can be scanned for colour before it is read; on a
+  phone the pill drops its "due"/"overdue" word to `sr-only`. Not the old 14-day
+  error-badge threshold — fourteen days of red in a forty-row list is why the
+  previous board read as an alarm; two days of amber let red mean "already missed"
+  and nothing softer.
+- **Rows sit on raised sheets over the beams** (`TaskSheet.tsx`). A view whose groups
+  are slices of one timeline (Upcoming's days, Anytime's labels, the Logbook) is one
+  sheet with a section per group; a group that still needs a place (Today's "Due
+  soon", Upcoming's "Deadlines without a plan") is its own dashed sheet with its name
+  above it. The view tabs are a pill segmented control, the quick-add is drawn as a
+  sheet, the checkbox is round, and the derived label is a quiet pill.
 
 The old mapping (status → `waiting: warning`/`done: success`/`todo`,`doing:
 secondary`; priority → `high: error`/`med`,`low: secondary`; category → one shared
@@ -1105,8 +1162,10 @@ that drove it.
   common row on the page.
 
 **Activities** (`features/activities/activities-config.ts`)
-- `Ready` (success, always shown) · `Not ready` (warning, only if >0) ·
-  `Over limit` (error, only if >0, **with an `AlertTriangle` icon**).
+- Not badges: the slot strip (`SectionStatus.tsx`), with `--progress-fill` for ready,
+  `--warning-solid` for to finish, `--danger-solid` for over a limit, and
+  `--control-quiet-surface` for an open slot. The text beside it reads
+  "N paste-ready · N to finish · N over limit", and a count of zero is left out.
 - Character budget: `empty` → `--ink-faint`, `ok` → muted, `near` (≥90%) → warning,
   `over` → danger + `font-medium`.
 
@@ -1361,6 +1420,33 @@ incompatible, stale, or partial values remain explicitly labeled rather than bei
 filled, normalized, or turned into an admission claim. Every graphic has a complete
 text-equivalent description and does not rely on hover or color.
 
+### 15.5.2 School About (the profile)
+
+The About tab reads a school's data like a magazine profile, one chapter at a time
+(`features/schools/facts/profile/`): a sticky chapter rail (Getting in, Paying for it,
+Applying, Academics, Campus life, Finishing; a Select below `md`), then the open
+chapter at 720px reading width — a serif sentence that says what its numbers add up
+to, then its blocks one after another under hairlines, never in cards. Each block is
+one designed unit (the odds, the price, deadlines) that names the fact keys it draws.
+
+Marks are ink at four strengths (`--school-viz-mark*`); the one accent
+(`--school-viz-accent`) marks the figure a block points at and takes the school's own
+colour, never Counselle's brand.
+
+What the profile may and may not write:
+
+- **It composes its own headings, sentences and captions, from published values
+  only.** Simple arithmetic on published figures ("1 in 9", a countdown, a sum of
+  buckets) is allowed; a figure the school didn't publish (a net price, a median) is
+  not, and an absent value is never drawn as zero.
+- **Every caution is the server's, verbatim.** The freshness line; each server
+  section's `line` and `foot` with the chapter that shows its facts (or above the page
+  when no chapter does); each group's `foot` under the block that draws it; the
+  deadline note under the deadlines; and the `reported_period` of a block's figures
+  beside its title.
+- **Nothing published is dropped.** A published fact no block draws is listed in a
+  "More figures" chapter; a block with nothing published doesn't render.
+
 ### 15.6 Tracked changes
 
 The agent's edits to a student's essay arrive as **proposals**, not writes. They are
@@ -1386,7 +1472,7 @@ essay until the student accepts it.
 
 | Token | Resolves to | Claim |
 |---|---|---|
-| `--essay-suggestion-insert-ink` | `--success-fg` (leaf-700, 7.87:1) | text being **added** — applied as **ink** |
+| `--essay-suggestion-insert-ink` | `--success-fg` (green-700, 6.60:1) | text being **added** — applied as **ink** |
 | `--essay-suggestion-insert-surface` | `--success-surface` | hover wash behind an insertion |
 | `--essay-suggestion-delete-ink` | `--danger-fg` (red-700, 9.84:1) | text being **removed** — applied as the **strike colour only** |
 | `--essay-suggestion-delete-surface` | `--danger-surface` | hover wash behind a deletion |
@@ -1558,8 +1644,8 @@ legal measure: `896 − 56` (the row's `lg:px-7`) `− 320` (the rail and its gu
 One rung down it is 46 characters and the rail costs more than it is worth (§6.6: on a
 document-focused page the task rail gives up width first). Keying it to the column also
 makes it *appear* below 1280 — from a ~944px viewport with the sidebar collapsed — which
-is kept, because with the rail the paper measures 61–74ch and without it the paper sits
-on its `max-w-[820px]` cap at 108–115ch.
+is kept. Without the rail the paper sits on its `max-w-[720px]` cap, which at 18px
+Newsreader is about 72 characters a line.
 
 Opening animates the panel's **width** over 200ms `ease-out` — the accordion carve-out of
 §12.1 rule 2, so the paper follows it frame for frame. The rail spends the same carve-out
@@ -1653,8 +1739,20 @@ These are the recurring shapes. Match them; do not invent a sixth.
 
 `rounded-xl` · `border` (`--edge` at rest, `--edge-strong` on hover) ·
 `--surface-raised` fill · `--elevation-1`. **Hover changes border colour only** — no
-shadow escalation, no transform. Applies to school cards, task cards, essay cards, and
-activity rows alike.
+shadow escalation, no transform. Applies to task cards, essay cards, and activity rows.
+
+**The one exception is the Explore school card**, which is washed in the school's own
+colour. The colour is data, not palette: `scripts/build_school_colours.py` derives a fill
+and a text shade (the same hue darkened to 5.2:1 on white) from each school's favicon
+into `school-colours.json`, and `SchoolResultCard` sets them inline as
+`--school-colour`/`--school-colour-ink`. `schools.css` turns them into a 10%-to-0% tint,
+a 22% border and the admit-rate ink. Hover follows the landing's testimonial cards and
+stays flat: the card rises 3px and its wash and border deepen a shade, with no shadow
+(pointer devices only, no rise under reduced motion). A school with
+no dominant colour falls back to neutral grey. The card carries two figures only, the
+admit rate with its band and the yearly cost, and a missing one still says "not
+available". School colour never marks state: the band is a word, and On list is the
+ink pill.
 
 ### 17.2 The two legal container shapes
 
@@ -1870,7 +1968,7 @@ rg -n '#[0-9a-fA-F]{3,8}\b|rgba?\(|hsla?\(|oklch\(' src --glob '!src/styles/prim
 rg -n '\b(bg|text|border|ring)-(slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)-[0-9]{2,3}\b' src
 
 # Tier violations — primitives reached from a family file (expect: 0)
-rg -n -- '--(gray|lime|red|amber|leaf)-[0-9]' \
+rg -n -- '--(gray|green|red|amber)-[0-9]' \
   src/styles/{shell,workspace,task,onboarding,activity,essay,profile,schools,shadcn}.css
 
 # Banned motion
@@ -1986,3 +2084,40 @@ finished state, so reduced motion and browsers without the Web Animations API
 show it as is. Status is a word and an icon before it is a colour.
 
 The production page is prerendered to HTML and hydrated (`scripts/prerender-landing.mjs`), so a component may not read `window`, `document`, `matchMedia` or the URL while rendering: read them in an effect, or through `useSyncExternalStore` with a server value, so the server render and the first client render agree. Adjacent inline text inside flex or `<br />` layouts carries a literal space, because crawlers read the raw HTML text, not the laid-out page.
+
+## 23. App shell (redesign in progress)
+
+The workspace shell is the Figma frame "BG B — Beams" (file `V66rN97MQiP3ezpNpLL7MD`,
+node `580:181`) reproduced one to one. It is the first surface of an app-wide redesign;
+the pages inside the shell still use the token tiers above until they are redesigned.
+
+- **Where it lives.** `src/styles/app-shell.css` holds the frame's values as `--as-*`
+  tokens and the `as-` classes that use them, like the landing page's `lp-` system (§22).
+  Icons and the wordmark are exported from the frame's nodes into
+  `src/assets/app-shell/`; the wordmark is outlined because Geom is not a web font here.
+- **Layout.** The page is `#fafbfa` with a 10px gutter. The sidebar is a fixed 256px
+  column: wordmark, a 40px search field that filters chats, nav rows with 26px coloured
+  icon tiles (`src/app/shell/navigation.tsx` owns each tile colour), collapsible recency
+  sections with a New chat `+`, and the account row pinned to the bottom. The main card is
+  white, radius 16, `#e1e5e3` hairline, and carries the beam background: a white-to-mint
+  base, four blurred 28° beams and a faint monotone grain.
+- **Type.** Geist is the app font (`--font-sans`).
+- **Composer.** Both composers (`AiComposer`, `ChatComposer`) share one shape: radius 16
+  card, a Goal mode toggle, the run-settings pill (mode, sources, speed segments from
+  `RunSettings.tsx`), attach and image buttons, and a `#0f4d32` send button. Attach and
+  image are disabled until uploads exist.
+- **Run settings.** One pill of three readings: the mode's short name with a three-bar
+  depth meter (Focused 1, Guided 2, Research 3), `Sources` with a count of the sources
+  that are on, and the speed with a bolt (Quick) or brain (Think). Clicking it opens one
+  panel (`RunSettings.tsx`, `RunSettingsPanel.tsx`) with three sections: Answer style
+  (a segmented control, the mode's description, and "More specialized skills…"), Look
+  in (source chips, with the `r/` community chips unfolding while Reddit is on), and
+  Speed (a segmented control and the model it runs on). When there are skills but no
+  modes, an `@` button sits beside the pill.
+- **Composer motion.** Goal mode is a `role="switch"` whose knob travels 12px (left =
+  on). The panel scales out of the pill (200ms in, 130ms out) and its sections cascade
+  in 40ms apart. Segmented thumbs slide, meter bars fill in sequence, and a changed
+  reading settles in with a short blur. Easing is `--as-ease-out`/`--as-ease-in-out`.
+  Hover is gated to fine pointers, and under reduced motion everything becomes a fade.
+- **Empty state.** "Good morning/afternoon/evening, <first name>", 30px/500, centred with
+  the composer 38px below it.

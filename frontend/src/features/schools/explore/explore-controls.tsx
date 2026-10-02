@@ -44,10 +44,10 @@ export function FilterChip({
   return (
     <PopoverTrigger
       className={cn(
-        "inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg px-2.5 text-sm font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:cursor-not-allowed disabled:opacity-60 pointer-coarse:min-h-11",
+        "inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full px-3 text-sm font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:cursor-not-allowed disabled:opacity-60 pointer-coarse:min-h-11",
         isActive
           ? "border border-[var(--school-filter-chip-active-border)] bg-[var(--school-filter-chip-active-surface)] text-[var(--school-filter-chip-active-ink)]"
-          : "border border-transparent bg-[var(--school-filter-chip-surface)] text-[var(--ink-secondary)] hover:bg-[var(--school-filter-chip-hover)]",
+          : "border border-[var(--school-filter-chip-border)] bg-[var(--school-filter-chip-surface)] text-[var(--ink-secondary)] shadow-[var(--school-filter-chip-shadow)] hover:border-[var(--school-filter-chip-border-hover)]",
       )}
       disabled={disabled}
       title={title}

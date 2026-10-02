@@ -30,17 +30,22 @@ import {
   PROFILE_SECTIONS,
 } from "@/features/profile/profile-sections-config";
 import { buildPatchAtPath, getAtPath } from "@/features/profile/profile-patch";
+import {
+  PROFILE_LAYOUT_CLASS,
+  profileSheetClass,
+} from "@/features/profile/profile-control-styles";
 
 /** The rail and the panel beside it — the one layout this tab has, so the
  * skeleton is shaped like it rather than like three grey bars. */
-const PROFILE_LAYOUT_CLASS =
-  "grid items-start gap-6 md:grid-cols-[200px_minmax(0,1fr)] lg:gap-8";
-
 function ProfileSkeleton() {
   return (
     <div className={PROFILE_LAYOUT_CLASS}>
-      <Skeleton className="hidden h-80 w-full md:block" />
-      <Skeleton className="h-96 w-full" />
+      <div className="hidden flex-col gap-1 md:flex">
+        {Array.from({ length: 6 }, (_, index) => (
+          <Skeleton className="h-9 w-full rounded-[10px]" key={index} />
+        ))}
+      </div>
+      <Skeleton className="h-96 w-full rounded-xl" />
     </div>
   );
 }
@@ -55,7 +60,9 @@ type FailedSave = {
  * the inside, where there is room to say why. */
 function TabCount({ value }: { value?: number }) {
   return value ? (
-    <span className="text-xs tabular-nums text-muted-foreground">{value}</span>
+    <span className="text-xs text-[var(--ink-faint)] tabular-nums">
+      {value}
+    </span>
   ) : null;
 }
 
@@ -220,16 +227,14 @@ export function ProfileRoute() {
       {/* Header, tabs, rail and panel centre as one block: the `panel` width
        * gives the two columns room without letting the form stretch across an
        * ultrawide display. */}
-      <Tabs className="gap-5" defaultValue="profile">
-        <TabsList className="w-full justify-start sm:w-fit">
-          <TabsTab className="sm:h-7 sm:px-2 sm:text-xs" value="profile">
-            Profile
-          </TabsTab>
-          <TabsTab className="sm:h-7 sm:px-2 sm:text-xs" value="documents">
+      <Tabs className="gap-6" defaultValue="profile">
+        <TabsList className="w-full sm:w-fit" variant="pill">
+          <TabsTab value="profile">Profile</TabsTab>
+          <TabsTab value="documents">
             Documents
             <TabCount value={documentsQuery.data?.length} />
           </TabsTab>
-          <TabsTab className="sm:h-7 sm:px-2 sm:text-xs" value="memory">
+          <TabsTab value="memory">
             Memory
             <TabCount value={memoriesQuery.data?.length} />
           </TabsTab>
@@ -239,7 +244,7 @@ export function ProfileRoute() {
           {profileQuery.isLoading ? (
             <ProfileSkeleton />
           ) : profileQuery.isError ? (
-            <Empty className="border border-[var(--profile-section-border)] bg-[var(--profile-section-surface)]">
+            <Empty className={profileSheetClass}>
               <EmptyHeader>
                 <EmptyTitle>We couldn’t load your profile</EmptyTitle>
                 <EmptyDescription>
@@ -260,7 +265,6 @@ export function ProfileRoute() {
               <div className="md:sticky md:top-6">
                 <ProfileSectionNav
                   onSelect={selectSection}
-                  profile={profileQuery.data}
                   selectedKey={section.key}
                 />
               </div>

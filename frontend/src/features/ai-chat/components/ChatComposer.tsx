@@ -1,4 +1,4 @@
-import { AtSign, Send, Square, Target, TextQuote, X } from "lucide-react";
+import { Square, TextQuote, X } from "lucide-react";
 import {
   useEffect,
   useRef,
@@ -21,13 +21,14 @@ import type {
   SkillCatalogEntry,
   SourceConfig,
 } from "@/api/chat/types";
+import attachIcon from "@/assets/app-shell/attach.svg";
+import imageIcon from "@/assets/app-shell/image.svg";
+import sendIcon from "@/assets/app-shell/send.svg";
 import {
-  composerControlIconButtonClass,
-  composerSendButtonClass,
-} from "@/features/ai-composer/composer-control";
-import { CounselingModeMenu } from "@/features/ai-composer/CounselingModeMenu";
-import { ResponseModeMenu } from "@/features/ai-composer/ResponseModeMenu";
-import { SourcesMenu } from "@/features/ai-composer/SourcesMenu";
+  GoalModeToggle,
+  RunSettings,
+  SkillTrigger,
+} from "@/features/ai-composer/RunSettings";
 import {
   hasInlineSkillMention,
   InlineSkillMentionLayer,
@@ -43,7 +44,7 @@ import { cn } from "@/lib/utils";
  * A selection-scoped ask, as a chip.
  *
  * `variant="outline"` and not the soft fill the chips *below* the textarea wear
- * (`composerControlButtonClass`): those open menus and set preferences, this
+ * (`RunSettings`): those open menus and set preferences, this
  * one sends a message the moment it is pressed. Same row of the composer, two
  * different consequences — so they must not look like one family. Everything
  * that makes it feel pressable is `buttonVariants`' own: the 150ms colour
@@ -57,7 +58,7 @@ import { cn } from "@/lib/utils";
  *
  * `sm:text-[13px]` is not redundant with `text-[13px]`: `buttonVariants` ships
  * `sm:text-sm` in a different variant bucket, which silently wins from 640px up
- * — the trap `composer-control.ts` documents for the chips below.
+ * — a trap for any `Button` given its own text size.
  */
 const SELECTION_ACTION_CLASS =
   "rounded-md text-[13px] before:rounded-[calc(var(--radius-md)-1px)] sm:text-[13px]";
@@ -176,7 +177,9 @@ export function ChatComposer({
     textareaRef,
     disabled: disabled || isSubmitting || awaitingClarify,
   });
-  const goalArmed = slash.armedCommandId === "goal";
+  // On when the toggle is on or `/goal` was picked from the slash menu.
+  const [goalToggled, setGoalToggled] = useState(false);
+  const goalArmed = goalToggled || slash.armedCommandId === "goal";
   const placeholder = awaitingClarify
     ? CLARIFY_PLACEHOLDER
     : DEFAULT_PLACEHOLDER;
@@ -200,6 +203,7 @@ export function ChatComposer({
     // when the composer text empties, but that's not guaranteed to happen
     // before the *next* send if a caller repopulates `value` first.
     slash.clearArmedCommand();
+    setGoalToggled(false);
     adjustHeight(true);
   }
 
@@ -237,7 +241,7 @@ export function ChatComposer({
       <div
         ref={composerRef}
         className={cn(
-          "group flex w-full flex-col overflow-hidden rounded-2xl border border-[var(--workspace-composer-border)] bg-[var(--workspace-composer-surface)] text-card-foreground transition-[border-color,box-shadow] focus-within:border-[var(--workspace-composer-border-active)] focus-within:ring-2 focus-within:ring-[var(--focus-ring)]/30 motion-reduce:transition-none",
+          "as-composer",
           awaitingClarify ? "min-h-0" : "min-h-28",
         )}
       >
@@ -307,30 +311,6 @@ export function ChatComposer({
           </div>
         )}
 
-        {goalArmed && (
-          /* Above the message, matching the selection chip's placement: the
-           * one thing a student must see before they hit send is that this
-           * message is about to start a long, autonomous, budget-spending
-           * run — not a chip buried among the settings controls below. */
-          <div className="flex px-[var(--workspace-composer-inset)] pt-3">
-            <Badge
-              className="min-w-0 max-w-full gap-1.5 py-0.5 pr-1 pl-2 font-normal"
-              variant="outline"
-            >
-              <Target aria-hidden="true" className="size-3.5 shrink-0" />
-              <span className="truncate">Goal mode</span>
-              <button
-                aria-label="Cancel goal mode"
-                className="-mr-0.5 relative flex size-4 shrink-0 cursor-pointer items-center justify-center rounded-sm text-muted-foreground transition-colors duration-150 ease-out hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background focus-visible:outline-none motion-reduce:transition-none pointer-coarse:after:absolute pointer-coarse:after:size-full pointer-coarse:after:min-h-11 pointer-coarse:after:min-w-11"
-                onClick={slash.clearArmedCommand}
-                type="button"
-              >
-                <X aria-hidden="true" className="size-3" />
-              </button>
-            </Badge>
-          </div>
-        )}
-
         <div className="relative">
           {hasSkillMention && (
             <InlineSkillMentionLayer
@@ -356,8 +336,8 @@ export function ChatComposer({
             role="combobox"
             unstyled
             className={cn(
-              "relative block w-full text-base leading-5 shadow-none outline-none [&_[data-slot=textarea]]:block [&_[data-slot=textarea]]:resize-none [&_[data-slot=textarea]]:overflow-y-auto [&_[data-slot=textarea]]:border-0 [&_[data-slot=textarea]]:bg-transparent [&_[data-slot=textarea]]:px-[var(--workspace-composer-inset)] [&_[data-slot=textarea]]:shadow-none [&_[data-slot=textarea]]:focus-visible:ring-0 [&_[data-slot=textarea]::placeholder]:text-[var(--workspace-composer-placeholder)]",
-              "[&_[data-slot=textarea]]:text-[var(--workspace-composer-input-foreground)]",
+              "relative block w-full text-base leading-5 shadow-none outline-none [&_[data-slot=textarea]]:block [&_[data-slot=textarea]]:resize-none [&_[data-slot=textarea]]:overflow-y-auto [&_[data-slot=textarea]]:border-0 [&_[data-slot=textarea]]:bg-transparent [&_[data-slot=textarea]]:px-[var(--workspace-composer-inset)] [&_[data-slot=textarea]]:shadow-none [&_[data-slot=textarea]]:focus-visible:ring-0 [&_[data-slot=textarea]::placeholder]:text-[var(--as-ink-quiet)]",
+              "[&_[data-slot=textarea]]:text-[var(--as-ink)]",
               awaitingClarify
                 ? "[&_[data-slot=textarea]]:min-h-13 [&_[data-slot=textarea]]:max-h-36 [&_[data-slot=textarea]]:pt-4 [&_[data-slot=textarea]]:pb-2"
                 : "[&_[data-slot=textarea]]:min-h-18.5 [&_[data-slot=textarea]]:max-h-55 [&_[data-slot=textarea]]:pt-[var(--workspace-composer-prompt-inset-block-start)] [&_[data-slot=textarea]]:pb-3",
@@ -393,90 +373,78 @@ export function ChatComposer({
           />
         </div>
 
-        <div
-          className={cn(
-            "mt-auto flex items-center justify-between bg-[var(--workspace-composer-surface)] px-[var(--workspace-composer-inset)]",
-            awaitingClarify
-              ? "gap-3 pb-3"
-              : "flex-wrap gap-3 pb-[var(--workspace-composer-toolbar-inset-block-end)]",
-          )}
-        >
-          {/* gap-2 matches AiComposer — see the note there on why 6px let the
-              chips read as one segmented control. */}
-          <div className="flex min-w-0 flex-wrap items-center gap-2">
-            {awaitingClarify && (
-              <p className="truncate text-[13px] leading-5 font-medium text-[var(--workspace-foreground-soft)]">
-                {CLARIFY_HELPER}
-              </p>
-            )}
-            {mode && modes.length > 0 && !awaitingClarify ? (
-              <CounselingModeMenu
-                canBrowseSkills={selectedSkills.length < maxTaskSkills}
-                disabled={disabled || isSubmitting}
-                mode={mode}
-                modes={modes}
-                onBrowseSkills={picker.insertTrigger}
-                onModeChange={onModeChange}
-              />
-            ) : maxSelectedSkills > 0 && !awaitingClarify ? (
-              <Button
-                aria-label="Add a skill (@)"
-                className={composerControlIconButtonClass}
-                disabled={disabled || isSubmitting}
-                onClick={picker.insertTrigger}
-                size="icon"
-                type="button"
-                variant="outline"
-              >
-                <AtSign className="!mx-0 size-4" data-icon="inline-start" />
-              </Button>
-            ) : null}
-            {!awaitingClarify && (
-              <>
-                <SourcesMenu
-                  disabled={disabled || isSubmitting}
-                  onSourceConfigChange={onSourceConfigChange}
-                  sourceConfig={sourceConfig}
-                />
-                {!hideResponseMode && (
-                  <ResponseModeMenu
-                    disabled={disabled || isSubmitting}
-                    mode={responseMode}
-                    modes={responseModes}
-                    onModeChange={onResponseModeChange}
-                  />
-                )}
-              </>
-            )}
-          </div>
-
-          {isSubmitting ? (
-            <Button
-              aria-label="Stop"
-              className={cn(
-                composerSendButtonClass,
-                awaitingClarify ? "size-8" : "size-9",
-              )}
-              onClick={onStop}
-              size="icon"
-              type="button"
-              variant="secondary"
-            >
-              <Square data-icon="inline-start" />
-            </Button>
+        <div className="as-toolbar">
+          {awaitingClarify ? (
+            <p className="min-w-0 truncate text-[13px] leading-5 font-medium text-[var(--as-ink-body)]">
+              {CLARIFY_HELPER}
+            </p>
           ) : (
-            <Button
-              aria-label="Send"
-              className={cn(
-                composerSendButtonClass,
-                awaitingClarify ? "size-8" : "size-9",
+            <>
+              <GoalModeToggle
+                disabled={disabled || isSubmitting}
+                on={goalArmed}
+                onToggle={() => {
+                  if (goalArmed) {
+                    setGoalToggled(false);
+                    slash.clearArmedCommand();
+                  } else {
+                    setGoalToggled(true);
+                  }
+                }}
+              />
+              <RunSettings
+                disabled={disabled || isSubmitting}
+                modeSettings={
+                  mode && modes.length > 0 ? { mode, modes, onModeChange } : null
+                }
+                skills={{
+                  canBrowse: selectedSkills.length < maxTaskSkills,
+                  onBrowse: picker.insertTrigger,
+                }}
+                sources={{ sourceConfig, onSourceConfigChange }}
+                speed={
+                  hideResponseMode
+                  ? null
+                  : { mode: responseMode, modes: responseModes, onModeChange: onResponseModeChange }
+                }
+              />
+              {(!mode || modes.length === 0) && maxSelectedSkills > 0 && (
+                <SkillTrigger
+                  disabled={disabled || isSubmitting}
+                  onClick={picker.insertTrigger}
+                />
               )}
+            </>
+          )}
+          <span aria-hidden="true" className="as-toolbar-spacer" />
+          {!awaitingClarify && (
+            <>
+              <button aria-label="Attach a file" className="as-tool" disabled type="button">
+                <img alt="" height={18} src={attachIcon} width={18} />
+              </button>
+              <button aria-label="Add an image" className="as-tool" disabled type="button">
+                <img alt="" height={18} src={imageIcon} width={18} />
+              </button>
+            </>
+          )}
+          {isSubmitting ? (
+            <button
+              aria-label="Stop"
+              className="as-send"
+              onClick={onStop}
+              type="button"
+            >
+              <Square aria-hidden="true" className="size-3 fill-current" />
+            </button>
+          ) : (
+            <button
+              aria-label="Send"
+              className="as-send"
               disabled={!canClickSend}
-              size="icon"
               type="submit"
             >
-              <Send className="!mx-0 size-4" data-icon="inline-start" />
-            </Button>
+              <img alt="" height={15} src={sendIcon} width={15} />
+            </button>
           )}
         </div>
         <SkillPicker

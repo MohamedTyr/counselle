@@ -55,10 +55,10 @@ describe("AiComposer", () => {
     renderComposer({ mode: modes[0], modes, onModeChange });
 
     await user.click(
-      screen.getByRole("button", { name: "Counseling mode: Focused Answer" }),
+      screen.getByRole("button", { name: /^Run settings: Focused Answer/ }),
     );
     await user.click(
-      await screen.findByRole("menuitemradio", { name: /Guided Counselor/ }),
+      await screen.findByRole("radio", { name: /Guided Counselor/ }),
     );
 
     expect(onModeChange).toHaveBeenCalledWith(modes[2]);
@@ -99,7 +99,7 @@ describe("AiComposer", () => {
     );
   }
 
-  test("selecting /goal from the menu arms the chip; sending reports goal_mode true and the chip clears", async () => {
+  test("selecting /goal from the menu presses the toggle; sending reports goal_mode true and the toggle clears", async () => {
     const user = userEvent.setup();
     const onSubmit = vi.fn();
     const onGoalModeSubmit = vi.fn();
@@ -114,14 +114,15 @@ describe("AiComposer", () => {
     await screen.findByRole("option", { name: /Goal mode/ });
 
     await user.keyboard("{Enter}");
-    expect(screen.getByText("Goal mode")).toBeInTheDocument();
+    const goalToggle = screen.getByRole("switch", { name: "Goal mode" });
+    expect(goalToggle).toHaveAttribute("aria-checked", "true");
 
     await user.type(textarea, "Help me get into MIT");
     await user.keyboard("{Enter}");
 
     expect(onGoalModeSubmit).toHaveBeenCalledWith(true);
     expect(onSubmit).toHaveBeenCalled();
-    expect(screen.queryByText("Goal mode")).not.toBeInTheDocument();
+    expect(goalToggle).toHaveAttribute("aria-checked", "false");
   });
 
   test("typing /goal without selecting it submits with goal_mode false", async () => {

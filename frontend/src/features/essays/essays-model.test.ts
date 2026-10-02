@@ -4,7 +4,6 @@ import {
   countWords,
   getEssayPrompt,
   getPreviewLines,
-  getSchoolFallback,
 } from "@/features/essays/essay-content";
 import {
   countEssaysByFilter,
@@ -291,11 +290,6 @@ describe("essay editor content derivations", () => {
     expect(countWords("")).toBe(0);
     expect(countWords("   ")).toBe(0);
     expect(countWords("one   two\nthree")).toBe(3);
-  });
-
-  it("builds school fallback initials", () => {
-    expect(getSchoolFallback("UC Berkeley")).toBe("UB");
-    expect(getSchoolFallback("NYU")).toBe("NY");
   });
 
   it("splits server preview into preview lines", () => {

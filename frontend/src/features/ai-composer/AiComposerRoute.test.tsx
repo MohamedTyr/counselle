@@ -159,6 +159,8 @@ function aiFetchHandlerWithModes(
   return aiFetchHandler(input, init);
 }
 
+const greetingPattern = /^Good (morning|afternoon|evening), Student$/;
+
 describe("AiComposerRoute", () => {
   beforeEach(() => {
     window.history.replaceState(null, "", "/");
@@ -170,52 +172,30 @@ describe("AiComposerRoute", () => {
 
     await waitFor(() => expect(window.location.pathname).toBe("/app/ai"));
     expect(
-      await screen.findByRole("heading", {
-        name: "What should we untangle first?",
-      }),
+      await screen.findByRole("heading", { name: greetingPattern }),
     ).toBeInTheDocument();
 
     const aiLink = screen.getByRole("link", { name: "AI" });
-    expect(aiLink.closest('[data-slot="sidebar-menu-button"]')).toHaveAttribute(
-      "data-active",
-      "true",
-    );
+    expect(aiLink).toHaveAttribute("aria-current", "page");
   });
 
-  it("does not flash fallback greeting while config is loading", async () => {
-    let resolveConfig!: (response: Response) => void;
-    const configPromise = new Promise<Response>((resolve) => {
-      resolveConfig = resolve;
-    });
+  it("greets the student by first name without waiting for config", async () => {
     renderApp("/app/ai", {
       fetchHandler: (input, init) => {
         const url = String(input);
         if (url.endsWith("/v1/config")) {
-          return configPromise;
+          return new Promise<Response>(() => undefined);
         }
         return createWorkspaceFetchPreset()(input, init);
       },
     });
 
     expect(
-      screen.queryByRole("heading", { name: "Where should we begin?" }),
-    ).not.toBeInTheDocument();
-
-    resolveConfig(
-      jsonResponse({
-        greeting: "Ready when you are.",
-        season_note: null,
-        conversation_starters: [],
-        default_source_config: null,
-      }),
-    );
-
-    expect(
-      await screen.findByRole("heading", { name: "Ready when you are." }),
+      await screen.findByRole("heading", { name: greetingPattern }),
     ).toBeInTheDocument();
   });
 
-  it("shows fallback greeting only after config failure", async () => {
+  it("still greets the student after config failure", async () => {
     renderApp("/app/ai", {
       fetchHandler: (input, init) => {
         const url = String(input);
@@ -230,7 +210,7 @@ describe("AiComposerRoute", () => {
     });
 
     expect(
-      await screen.findByRole("heading", { name: "Where should we begin?" }),
+      await screen.findByRole("heading", { name: greetingPattern }),
     ).toBeInTheDocument();
   });
 
@@ -348,9 +328,9 @@ describe("AiComposerRoute", () => {
     await waitFor(() => expect(textarea).toBeEnabled());
 
     fireEvent.click(
-      screen.getByRole("button", { name: "Response mode: Quick" }),
+      screen.getByRole("button", { name: /^Run settings: .*Quick$/ }),
     );
-    fireEvent.click(screen.getByRole("menuitemradio", { name: /Think/ }));
+    fireEvent.click(screen.getByRole("radio", { name: /Think/ }));
     await user.type(textarea, "Compare honors colleges{Enter}");
 
     await waitFor(() =>
@@ -367,30 +347,30 @@ describe("AiComposerRoute", () => {
 
   it("offers source choices from the composer menu", async () => {
     renderApp("/app/ai", { fetchHandler: aiFetchHandler });
-    await screen.findByRole("heading", {
-      name: "What should we untangle first?",
-    });
+    await screen.findByRole("heading", { name: greetingPattern });
 
     const form = await screen.findByRole("form", {
       name: "Start an AI conversation",
     });
 
-    fireEvent.click(within(form).getByRole("button", { name: /Sources:/ }));
+    fireEvent.click(within(form).getByRole("button", { name: /^Run settings/ }));
 
-    const menu = screen.getByRole("menu");
+    const menu = screen.getByRole("dialog");
     expect(
-      within(menu).getByRole("menuitemcheckbox", { name: "Web search" }),
+      within(menu).getByRole("checkbox", { name: "Web search" }),
     ).toHaveAttribute("aria-checked", "true");
     expect(
-      within(menu).getByRole("menuitemcheckbox", { name: ".edu sources" }),
+      within(menu).getByRole("checkbox", { name: ".edu sources" }),
     ).toHaveAttribute("aria-checked", "false");
     expect(
-      within(menu).getByRole("menuitemcheckbox", {
+      within(menu).getByRole("checkbox", {
         name: "Reddit communities",
       }),
     ).toHaveAttribute("aria-checked", "true");
     expect(
-      within(menu).getByRole("menuitemcheckbox", { name: "ApplyingToCollege" }),
+      within(menu).getByRole("checkbox", {
+        name: "ApplyingToCollege",
+      }),
     ).toBeInTheDocument();
   });
 
@@ -453,7 +433,7 @@ describe("AiComposerRoute", () => {
     });
     await waitFor(() => expect(textarea).toBeEnabled());
     expect(
-      screen.getByRole("button", { name: "Counseling mode: Focused Answer" }),
+      screen.getByRole("button", { name: /^Run settings: Focused Answer/ }),
     ).toBeInTheDocument();
 
     await user.type(textarea, "Compare aid{Enter}");

@@ -105,9 +105,9 @@ describe("ChatComposer", () => {
 
     const shell = container.querySelector("form > div");
     expect(shell).toHaveClass("min-h-28");
-    expect(shell).toHaveClass("rounded-2xl");
+    expect(shell).toHaveClass("as-composer");
     expect(shell).toContainElement(
-      screen.getByRole("button", { name: /Sources:/ }),
+      screen.getByRole("button", { name: /^Run settings/ }),
     );
     expect(shell).toContainElement(
       screen.getByRole("button", { name: "Send" }),
@@ -132,7 +132,10 @@ describe("ChatComposer", () => {
     const shell = container.querySelector("form > div");
     expect(shell).toHaveClass("min-h-0");
     expect(shell).not.toHaveClass("min-h-28");
-    expect(screen.getByRole("button", { name: "Send" })).toHaveClass("size-8");
+    expect(screen.getByRole("button", { name: "Send" })).toHaveClass("as-send");
+    expect(
+      screen.queryByRole("switch", { name: "Goal mode" }),
+    ).not.toBeInTheDocument();
   });
 
   test("submit button becomes a stop control while submitting", () => {
@@ -143,9 +146,9 @@ describe("ChatComposer", () => {
 
   test("choosing a source from the menu patches only that key", () => {
     const props = renderComposer();
-    fireEvent.click(screen.getByRole("button", { name: /Sources:/ }));
+    fireEvent.click(screen.getByRole("button", { name: /^Run settings/ }));
     fireEvent.click(
-      screen.getByRole("menuitemcheckbox", { name: "Web search" }),
+      screen.getByRole("checkbox", { name: "Web search" }),
     );
     expect(props.onSourceConfigChange).toHaveBeenCalledWith({
       ...BUILT_IN_SOURCE_CONFIG,
@@ -175,9 +178,9 @@ describe("ChatComposer", () => {
     });
 
     fireEvent.click(
-      screen.getByRole("button", { name: "Response mode: Quick" }),
+      screen.getByRole("button", { name: /^Run settings: .*Quick$/ }),
     );
-    fireEvent.click(screen.getByRole("menuitemradio", { name: /Think/ }));
+    fireEvent.click(screen.getByRole("radio", { name: /Think/ }));
 
     expect(onResponseModeChange).toHaveBeenCalledWith("think");
   });
@@ -186,29 +189,29 @@ describe("ChatComposer", () => {
     renderComposer({ awaitingClarify: true, responseMode: "think" });
 
     expect(
-      screen.queryByRole("button", { name: "Response mode: Think" }),
+      screen.queryByRole("button", { name: /^Run settings: .*Think$/ }),
     ).not.toBeInTheDocument();
     expect(
-      screen.queryByRole("button", { name: /Sources:/ }),
+      screen.queryByRole("button", { name: /^Run settings/ }),
     ).not.toBeInTheDocument();
   });
 
-  test("subreddit subset selection updates selectedSubreddits and preserves the legacy five-item order", () => {
+  test("subreddit subset selection updates selectedSubreddits and preserves the legacy five-item order", async () => {
     const props = renderComposer();
-    fireEvent.click(screen.getByRole("button", { name: /Sources:/ }));
+    fireEvent.click(screen.getByRole("button", { name: /^Run settings/ }));
 
-    const menu = screen.getByRole("menu");
-    const communities = within(menu).getAllByRole("menuitemcheckbox").slice(3);
+    const menu = screen.getByRole("dialog");
+    const communities = within(menu).getAllByRole("checkbox").slice(3);
     expect(communities.map((community) => community.textContent)).toEqual([
-      "ApplyingToCollege",
-      "chanceme",
-      "financialaid",
-      "premed",
-      "csMajors",
+      "r/ApplyingToCollege",
+      "r/chanceme",
+      "r/financialaid",
+      "r/premed",
+      "r/csMajors",
     ]);
 
     fireEvent.click(
-      within(menu).getByRole("menuitemcheckbox", { name: "chanceme" }),
+      within(menu).getByRole("checkbox", { name: "chanceme" }),
     );
     expect(props.onSourceConfigChange).toHaveBeenCalledWith({
       ...BUILT_IN_SOURCE_CONFIG,
@@ -231,11 +234,15 @@ describe("ChatComposer", () => {
     });
 
     await user.click(
-      screen.getByRole("button", { name: "Counseling mode: Focused Answer" }),
+      screen.getByRole("button", { name: /^Run settings: Focused Answer/ }),
     );
-    expect(await screen.findAllByRole("menuitemradio")).toHaveLength(3);
+    expect(
+      within(
+        await screen.findByRole("radiogroup", { name: "Counseling mode" }),
+      ).getAllByRole("radio"),
+    ).toHaveLength(3);
     await user.click(
-      await screen.findByRole("menuitemradio", { name: /Deep Research/ }),
+      await screen.findByRole("radio", { name: /Deep Research/ }),
     );
 
     expect(onModeChange).toHaveBeenCalledWith(modes[1]);
@@ -260,11 +267,11 @@ describe("ChatComposer", () => {
     textarea.setSelectionRange(12, 12);
 
     await user.click(
-      screen.getByRole("button", { name: "Counseling mode: Focused Answer" }),
+      screen.getByRole("button", { name: /^Run settings: Focused Answer/ }),
     );
     await user.click(
-      await screen.findByRole("menuitem", {
-        name: "More specialized skills...",
+      await screen.findByRole("button", {
+        name: "More specialized skills…",
       }),
     );
 
@@ -284,14 +291,14 @@ describe("ChatComposer", () => {
     });
 
     await user.click(
-      screen.getByRole("button", { name: "Counseling mode: Focused Answer" }),
+      screen.getByRole("button", { name: /^Run settings: Focused Answer/ }),
     );
 
     expect(
-      await screen.findByRole("menuitem", {
+      await screen.findByRole("button", {
         name: "Specialized skill limit reached",
       }),
-    ).toHaveAttribute("aria-disabled", "true");
+    ).toBeDisabled();
   });
 
   test("falls back to the visible @ button when mode config is unavailable", () => {
@@ -301,7 +308,7 @@ describe("ChatComposer", () => {
       screen.getByRole("button", { name: "Add a skill (@)" }),
     ).toBeInTheDocument();
     expect(
-      screen.queryByRole("button", { name: /Counseling mode:/ }),
+      screen.queryByRole("button", { name: /^Run settings: Focused Answer/ }),
     ).not.toBeInTheDocument();
   });
 
@@ -324,7 +331,7 @@ describe("ChatComposer", () => {
     );
   }
 
-  test("selecting /goal from the menu arms the chip; sending reports goal_mode true and the chip clears", async () => {
+  test("selecting /goal from the menu presses the toggle; sending reports goal_mode true and the toggle clears", async () => {
     const user = userEvent.setup();
     const onSubmit = vi.fn();
     const onGoalModeSubmit = vi.fn();
@@ -337,14 +344,15 @@ describe("ChatComposer", () => {
     await screen.findByRole("option", { name: /Goal mode/ });
 
     await user.keyboard("{Enter}");
-    expect(screen.getByText("Goal mode")).toBeInTheDocument();
+    const goalToggle = screen.getByRole("switch", { name: "Goal mode" });
+    expect(goalToggle).toHaveAttribute("aria-checked", "true");
 
     await user.type(textarea, "Help me get into MIT");
     await user.keyboard("{Enter}");
 
     expect(onGoalModeSubmit).toHaveBeenCalledWith(true);
     expect(onSubmit).toHaveBeenCalledWith("Help me get into MIT");
-    expect(screen.queryByText("Goal mode")).not.toBeInTheDocument();
+    expect(goalToggle).toHaveAttribute("aria-checked", "false");
   });
 
   test("typing /goal without selecting it sends an ordinary message with goal_mode false", async () => {
@@ -394,7 +402,7 @@ describe("ChatComposer", () => {
 
     expect(
       screen.queryByRole("button", {
-        name: "Counseling mode: Focused Answer",
+        name: /^Run settings: Focused Answer/,
       }),
     ).not.toBeInTheDocument();
   });

@@ -1,5 +1,5 @@
 import { Plus } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 
 import { PageHeader } from "@/components/workspace/PageHeader";
@@ -13,7 +13,6 @@ import { schoolFromApplication } from "@/domain/school";
 import { AddSchoolDialog } from "@/features/schools/AddSchoolDialog";
 import { ExplorePanel } from "@/features/schools/explore/ExplorePanel";
 import { MyListPanel } from "@/features/schools/MyListPanel";
-import { WorkspaceScrollIndicator } from "@/features/schools/WorkspaceScrollIndicator";
 
 /*
  * The Schools shell: two tabs over one data model.
@@ -44,7 +43,6 @@ function SchoolsSkeleton() {
 }
 
 export function SchoolsPage() {
-  const scrollAreaRef = useRef<HTMLDivElement>(null);
   const applications = useApplications();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -113,10 +111,7 @@ export function SchoolsPage() {
 
   return (
     <section className="relative flex min-h-0 min-w-0 flex-1 overflow-hidden">
-      <div
-        className="flex min-h-0 min-w-0 flex-1 flex-col gap-5 overflow-y-auto pr-8 pb-6 pl-6 md:pr-10"
-        ref={scrollAreaRef}
-      >
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-5 overflow-y-auto pr-6 pb-6 pl-6 md:pr-10">
         {/* The brand-fill CTA, not `outline`. semantic.css budgets --brand for
          * "the single next action" on a screen, and on the schools workspace
          * that is unambiguously "add a school" — an empty or thin list is the
@@ -200,7 +195,6 @@ export function SchoolsPage() {
           </Tabs>
         )}
       </div>
-      <WorkspaceScrollIndicator scrollAreaRef={scrollAreaRef} />
       <AddSchoolDialog
         onAdded={openSchool}
         onOpenChange={setAddSchoolOpen}

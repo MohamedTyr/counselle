@@ -108,7 +108,10 @@ function useDelayedUnmount(open: boolean): { mounted: boolean; entered: boolean 
     return () => window.cancelAnimationFrame(frame);
   }, [open]);
 
-  return { mounted, entered };
+  // An open panel is always mounted. Opening a task from a row used to leave
+  // the aside unmounted: the closed state's unmount timer could still land
+  // after the open, and nothing ever mounted it again.
+  return { mounted: mounted || open, entered };
 }
 
 /** "Jan 1" (+ year, only when it differs from `referenceDate`'s). Used for
@@ -158,7 +161,7 @@ function formatWhenValue(whenOn: string, referenceDate: Date): string {
  * button itself is the focused element).
  */
 const editableRegionClass = cn(
-  "-mx-2 -my-1 block w-full rounded-md px-2 py-1 text-left outline-none",
+  "-mx-2 -my-1 block w-full rounded-md px-2 py-1 text-left outline-none [&_[data-slot=textarea]]:resize-none",
   "transition-[background-color] duration-150 ease-out",
   "hover:bg-[var(--surface-hover)]",
   "focus-visible:bg-[var(--surface-inset)] focus-visible:ring-[3px] focus-visible:ring-[var(--focus-ring)]",
@@ -270,12 +273,18 @@ function LinkField({
         className={cn(editableRegionClass, "text-sm")}
       >
         {essay ? (
-          <>
-            <span className="text-[var(--ink)]">
-              {application?.school_name ?? "Unknown school"}
-            </span>
-            <span className="text-[var(--ink-secondary)]"> · {essay.title} essay</span>
-          </>
+          // A task linked only to an essay carries no application_id; the
+          // essay itself knows its school, same as the row label reads it.
+          (application?.school_name ?? essay.school_name) ? (
+            <>
+              <span className="text-[var(--ink)]">
+                {application?.school_name ?? essay.school_name}
+              </span>
+              <span className="text-[var(--ink-secondary)]"> · {essay.title} essay</span>
+            </>
+          ) : (
+            <span className="text-[var(--ink)]">{essay.title} essay</span>
+          )
         ) : application ? (
           <span className="text-[var(--ink)]">{application.school_name}</span>
         ) : (
@@ -398,7 +407,7 @@ function PanelBody({
             className={cn(
               "size-4",
               task.flagged
-                ? "fill-[var(--brand)] text-[var(--brand)]"
+                ? "fill-[var(--task-flag-ink)] text-[var(--task-flag-ink)]"
                 : "text-[var(--ink-faint)]",
             )}
           />
@@ -569,7 +578,7 @@ export function TaskDetailPanel({
     <aside
       aria-label={`Task details for "${task.title}"`}
       className={cn(
-        "fixed inset-y-0 end-0 z-[var(--z-sticky)] hidden w-[26rem] flex-col border-s border-[var(--edge)] bg-[var(--surface-raised)] p-6 lg:flex",
+        "fixed inset-y-2 end-2 z-[var(--z-sticky)] hidden w-[26rem] flex-col rounded-2xl border border-[var(--hairline)] bg-[var(--surface-raised)] p-6 shadow-[var(--elevation-2)] lg:flex",
         "transition-[opacity,translate] ease-out motion-reduce:transition-[opacity]",
         asideEntered
           ? "translate-x-0 opacity-100 duration-200"

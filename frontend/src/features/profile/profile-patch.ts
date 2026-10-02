@@ -33,17 +33,13 @@ export function buildPatchAtPath(
   return { [head]: buildPatchAtPath(rest, value) };
 }
 
-/** Parses the comma-separated editor text for a string-list field back into
- * `string[] | null` — empty input clears the field (`null`), matching the
- * merge-patch clear semantics rather than sending `[]`. */
+/** Splits typed or pasted text for a string-list field into its items —
+ * "a, b, c" is three tags. Empty input is `null`, matching the merge-patch
+ * clear semantics rather than `[]`. */
 export function parseStringList(text: string): string[] | null {
   const items = text
     .split(",")
     .map((item) => item.trim())
     .filter((item) => item.length > 0);
   return items.length > 0 ? items : null;
-}
-
-export function formatStringList(value: unknown): string {
-  return Array.isArray(value) ? value.join(", ") : "";
 }

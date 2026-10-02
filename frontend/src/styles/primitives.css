@@ -7,117 +7,62 @@
  * semantic.css. Ramps are named by scale position, never by usage — this
  * file has no idea what a "sidebar" or "danger banner" is.
  *
- * All ramps are OKLCH. FOUR ramps ship: one neutral (--gray) and three
- * status hues, plus the brand. That is the entire palette.
+ * All ramps are OKLCH. FOUR ramps ship: one neutral (--gray), the green
+ * brand, and two status hues (red, amber). That is the entire palette.
  */
 
 :root {
   /* ---- gray — the ONE neutral ramp. Surfaces, borders and ink, all of it.
    *
-   * THREE RAMPS WERE MERGED INTO THIS ONE. --neutral (chroma 0, true grey),
-   * --sand (hue 49 at the top, 77 below it) and --stone (hue 85) each owned
-   * a slice of the app: neutral did borders and the sunken well, sand did
-   * the page ground and the chips on it, stone did the sidebar and every
-   * word of text. Forty distinct steps were in use between them.
-   *
-   * They were tuned at three different times by eye, and the result is what
-   * this ramp exists to end: SEVEN near-white surfaces spanning five
-   * lightness points at SIX different hues, measured off the rendered page —
-   *
-   *   L 1.000  H 0      neutral-0    card / popover / document
-   *   L 0.989  H 49     sand-25      the page ground
-   *   L 0.982  H 85     stone-50     the sidebar rail
-   *   L 0.963  H 70     sand-90      the board's lane trough
-   *   L 0.955  H 0      neutral-100  the tab track, the "sunken" well
-   *   L 0.951  H 77     sand-100     the label chip
-   *   L 0.948  H 46.55  color-mix    a computed hover one-off
-   *
-   * Adjacent pairs sit under a lightness point apart, so none of them reads
-   * as a STEP — but the hue swings up to 85 degrees between them, so they do
-   * read as a temperature change. That is the specific defect: the greys
-   * were not too many levels, they were too many colours. A cold grey tab
-   * track inside a warm card on a warm page looks like a smudge, not a
-   * level. Worse, the ramp jumped hue mid-stack (trough at 70, the well
-   * directly under it at 0), so depth and temperature disagreed.
-   *
-   * HUE IS FLAT AT 50 END TO END. Not a compromise between the three old
-   * hues — a choice. Hue barely registers at the top of the ramp (every
-   * candidate from 25 to 85 renders within a hair of #fdfbf9 at L 0.984),
-   * so the hue is decided by where it is actually visible, the middle and
-   * the bottom: at L 0.70 hue 25 gives #a99a99 (pink-grey), hue 85 gives
-   * #a49e92 (khaki), hue 50 gives #a89c94 — a warm taupe, one degree off
-   * where --sand-25 already sat, so the page the product already looks like
-   * did not move.
-   *
-   * That value was chosen under the house rule "tint the neutral toward the
-   * BRAND's hue" while the brand was wine at hue 15, and taupe was the hue
-   * that belonged beside it. The brand is lime at 132 now and the rule no
-   * longer picks this number — followed literally it would ask for a green-
-   * grey. The taupe STAYS, as a deliberate counterweight rather than an
-   * echo: a warm near-neutral is what stops a very saturated yellow-green
-   * from tinting the whole page, and 132 is far enough from 50 that the
-   * neutral reads as a material rather than as a washed-out accent. The
-   * ramp is what it always was; only the reason for it has changed.
-   *
-   * CHROMA rises through the middle and tapers at both ends, which is what
-   * keeps the ramp reading as one material: 0.002 at the top where a tint
-   * would go pink, 0.016 at the border tier where the warmth has to survive
-   * next to saturated status chips, 0.009 at the ink end where more would
-   * make body text look brown.
+   * These are the landing page's neutrals (--lp-bg, --lp-panel, --lp-border,
+   * --lp-ink, --lp-muted), so the app and the public site read as one
+   * product: a green-white page, cool green-grey wells and hairlines, and
+   * a near-black ink with no tint of its own. Chroma stays under 0.013, so
+   * the green lives in the brand ramp, not in the greys.
    *
    * FOUR SURFACE STEPS, and only four. Their whole job is to make depth
-   * legible, so they are evenly spaced and they never swap order:
+   * legible, so they never swap order:
    *
    *   gray-25   raised   an object ON the page      (card, dialog, field)
-   *             canvas   the page itself — the SAME value, see below
+   *             canvas   the page itself — the SAME value
    *   gray-100  chrome   the sidebar rail
    *   gray-150  inset    a well cut INTO a surface  (track, trough, chip)
    *
-   * THE PAGE IS PURE WHITE, so raised and canvas are one value. The canvas
-   * was --gray-50 (#fcf9f7) with raised 1.1 points above it at #fffdfc;
-   * white is the ceiling, so a canvas at #ffffff leaves raised nowhere to go
-   * — anything else would put every card BELOW the page it sits on, which is
-   * the depth ladder upside down. A raised surface is identified by --edge
-   * plus --elevation-1 instead, which is what the note below already said
-   * carries most of the step, and is the shape Stripe / Figma / GitHub draw.
-   * --gray-50 is deleted rather than left aliased to white: a ramp with two
-   * identical steps invites someone to re-separate them later.
+   * The page is pure white, so raised and canvas are one value; a raised
+   * surface is identified by --edge plus --elevation-1 instead.
    *
    * Every step below was computed with an OKLCH -> linear-sRGB -> WCAG
    * script and checked for sRGB clipping, not eyeballed; the annotated
    * hexes are the contract. Re-run the script if any step moves. ---- */
   --gray-25: oklch(100% 0 0); /* #ffffff  raised + canvas */
-  --gray-100: oklch(97.2% 0.005 50); /* #f9f5f3  chrome */
-  --gray-150: oklch(95.5% 0.006 50); /* #f4efed  inset */
+  --gray-100: oklch(98.5% 0.005 165); /* #f7fbf9  chrome */
+  --gray-150: oklch(95.5% 0.0041 157); /* #eef1ef  inset */
   /* The one step between `inset` and the first border tier: the pressed
    * state of an inset control, and the only place a fourth near-white is
    * allowed. It is not a surface level — nothing at rest is painted with
    * it. */
-  --gray-200: oklch(93.5% 0.007 50); /* #eee8e5  inset, pressed */
+  --gray-200: oklch(93.3% 0.005 165); /* #e6eae8  inset, pressed */
   /* Three border steps, and each answers a different question:
    *   300  a divider WITHIN one surface (table rows, section rules)
    *   400  the perimeter OF a surface (card, panel, table, menu)
    *   500  that perimeter hovered/pressed, and the quiet button's edge
    * A fourth, 600, is the only border held to a contrast bar: WCAG 1.4.11
    * applies to the sole visible boundary of a bare form control, and 600
-   * clears it on every surface in the app (3.61 raised / 3.49 canvas /
-   * 3.37 chrome / 3.21 inset). Nothing else is allowed to borrow it —
+   * clears it on every surface in the app (3.45 raised and canvas /
+   * 3.31 chrome / 3.03 inset). Nothing else is allowed to borrow it —
    * see the note on --edge-control in semantic.css for why a 3:1 stroke
-   * around anything that ISN'T an empty rectangle reads as a wireframe.
-   * (600 measures 3.64:1 on the white page, up from 3.61 on the old canvas —
-   * every edge tier got a little more room when the page went to white.) */
-  --gray-300: oklch(90.5% 0.009 50); /* #e5deda  hairline */
-  --gray-400: oklch(86% 0.011 50); /* #d7cfcb  edge */
-  --gray-500: oklch(76% 0.014 50); /* #b9afa9  edge-strong */
-  --gray-600: oklch(62% 0.016 50); /* #8f847e  edge-control (3:1) */
+   * around anything that ISN'T an empty rectangle reads as a wireframe. */
+  --gray-300: oklch(91.8% 0.0051 165); /* #e1e5e3  hairline */
+  --gray-400: oklch(88.9% 0.0084 157); /* #d6dcd8  edge */
+  --gray-500: oklch(79.7% 0.0104 165); /* #b7bfbb  edge-strong */
+  --gray-600: oklch(63.2% 0.0111 165); /* #848c88  edge-control (3:1) */
   /* Ink. Four tiers, measured against the three surfaces (page+raised /
-   * chrome / inset) — every one of them a little easier to read than it was,
-   * because the page it usually sits on went from #fcf9f7 to white:
+   * chrome / inset):
    *
-   *   gray-900  ink            14.57  13.44  12.77
-   *   gray-800  ink-secondary   8.54   7.88   7.49
-   *   gray-700  ink-faint       5.52   5.09   4.84
-   *   gray-650  ink-disabled    2.68   2.48   2.35   (WCAG-exempt)
+   *   gray-900  ink            18.71  17.93  16.45
+   *   gray-800  ink-secondary   8.81   8.44   7.75
+   *   gray-700  ink-faint       6.01   5.76   5.29
+   *   gray-650  ink-disabled    2.22   2.12   1.95   (WCAG-exempt)
    *
    * Every non-exempt tier clears the 4.5:1 body floor on every surface,
    * ink-faint with the least margin by design — on the inset chip, which is
@@ -129,104 +74,58 @@
    * by two names that let components drift. There are four tiers now;
    * --ink-muted is kept as an alias of secondary in semantic.css so the
    * consumer contract survives, but there is only one value. */
-  --gray-650: oklch(70% 0.013 50); /* #a69c97  disabled (exempt) */
-  --gray-700: oklch(52% 0.014 50); /* #706762  faint */
-  --gray-800: oklch(42% 0.011 50); /* #524b48  secondary */
-  --gray-900: oklch(28% 0.01 50); /* #2d2825  ink */
-  --gray-950: oklch(25% 0.009 50); /* #25201e  strong / wordmark */
+  --gray-650: oklch(75% 0.0106 165); /* #a8b0ac  disabled (exempt) */
+  --gray-700: oklch(49.8% 0.0121 174); /* #5c6562  faint */
+  --gray-800: oklch(40.9% 0.0103 168); /* #454c49  secondary */
+  --gray-900: oklch(18.3% 0.004 286); /* #121214  ink */
+  --gray-950: oklch(15.3% 0.0017 197); /* #0b0c0c  strong / wordmark */
   /* Pure white and pure black, named for their ROLE rather than as ramp
-   * steps: --gray-0 is white as a FOREGROUND (it no longer draws the brand
-   * button, whose fill is too light for it — see --on-brand in semantic.css
-   * — but it is still the ink on a saturated status fill), --gray-1000 is
-   * the base a scrim is mixed from, and now also the base of the ⌘K badge's
-   * veil on that same light button. --gray-0 and
-   * --gray-25 now hold the same colour and still mean different things —
-   * one is a foreground, the other a surface — so neither is an alias of the
-   * other. The warmth the app used to keep in its page fill lives in the
-   * rail, the insets, the borders and the ink instead. */
+   * steps: --gray-0 is white as a FOREGROUND (the ink on the ink-black
+   * primary button and on saturated status fills), --gray-1000 is the base
+   * a scrim or a cast shadow is mixed from. --gray-0 and --gray-25 hold the
+   * same colour and still mean different things — one is a foreground, the
+   * other a surface — so neither is an alias of the other. */
   --gray-0: oklch(100% 0 0);
   --gray-1000: oklch(11% 0 0);
 
-  /* ---- lime — the one committed brand hue (bright yellow-green, 132). ----
+  /* ---- green — the landing page's green, and the app's only chromatic
+   * brand hue (155). The values are the landing's own (--lp-green,
+   * --lp-green-deep, --lp-green-dark, --lp-green-tint), so the app and the
+   * public site are one palette.
    *
-   * Replaces --wine (deep burgundy, hue 15), which replaced --indigo (282),
-   * which replaced --ivy (157). ONE value is given, and everything else on
-   * this ramp is derived from it: #7ccf00, which is exactly
-   * oklch(77.09% 0.2156 132.45) — the accent, requested by hex.
+   *   green-50   #e9f8ef  tint — selected nav row, citation chip, success chip
+   *   green-500  #21b86b  signal — progress, "on track" dots; never text
+   *   green-700  #0a6b3d  accent — links, checked controls, focus ring
+   *   green-800  #0f4d32  the composer's send button
+   *   green-900  #073d24  ink on the tints (11.24:1 on -50, 10.10 on -100)
    *
-   *   lime-500  #7ccf00  the solid accent — logo tile, "New chat" fill
-   *   lime-600  #6eb515  its hover step, and the rim under the resting fill
-   *   lime-700  #5f9d13  its pressed step
-   *   lime-50   #dbf5c9  the selected nav row's tint
-   *   lime-100  #d2f2bb  the account avatar's chip
+   * GREEN IS NOT THE PRIMARY BUTTON. The landing draws its calls to action
+   * in ink, and so does the app: --brand in semantic.css is --gray-900.
+   * Green marks state and meaning — selected, checked, done, on track.
    *
-   * THE BRAND MOVED FROM THE -600 SLOT TO -500, which every previous brand
-   * held. Not a naming whim: this hue is intrinsically light. #7ccf00 sits
-   * at L 0.77, and a ramp is monotonic, so anything numbered under it has to
-   * be LIGHTER than 0.77 — where nothing reaches 3:1 on a white page. Had
-   * the accent taken the -600 slot, the focus ring, the ordered scale's
-   * light steps and the decorative brand line below it would all have been
-   * pastels with no contrast left to spend. The accent takes -500 and the
-   * ramp keeps four usable steps beneath it.
+   * SUCCESS SHARES THIS RAMP. The old --leaf ramp (143) sat eleven degrees
+   * from the lime brand and the two had to be kept apart by placement. With
+   * one green there is nothing to keep apart: "done" is the brand's own
+   * green, which is what the landing's "On track" chips already do.
    *
-   * THE FILL'S INK FLIPPED FROM WHITE TO NEAR-BLACK. White on #7ccf00 is
-   * 1.95:1 — not a close call, and no step of any ramp here fixes it. The
-   * CTA draws --gray-950 instead: 8.27:1 at rest, 6.35 hovered, 4.85
-   * pressed. That floor is what fixes the pressed step at L 0.63 rather
-   * than deeper; darkening the fill further to get a stronger press state
-   * would take the ink under 4.5:1, so the fill and its ink now trade
-   * against each other in a way the old dark-oxblood brand never had to.
-   *
-   * TWO SOFT-INK STEPS, kept as a pattern from the wine ramp: ink drawn on
-   * the brand's own pale tints, at roughly a third of the ramp's chroma so
-   * it reads as ink rather than as a darker swatch of the tint. Measured on
-   * the tints they actually sit on: 10.77:1 and 7.93:1.
-   *
-   * KNOWN COLLISION — READ BEFORE ADDING A CONSUMER. --leaf (success, "done")
-   * sits at hue 143. This brand sits at 132. ELEVEN degrees apart, the same
-   * order of collision the wine brand had with --red at ten — but closer to
-   * home, because green already carries a meaning in this app and the brand
-   * did not. The pale ends are where it bites: lime-50 (#dbf5c9, the
-   * selected nav pill) against leaf-50 (#e3f7e1, the done chip) is 1.04:1
-   * surface-to-surface, i.e. the same colour to anyone not holding a
-   * swatch. What keeps them apart today is placement and nothing else — nav
-   * pills live only in the rail, status chips only in content — so the
-   * consequences to respect are: never draw a brand tint and a success tint
-   * in one row, never let a success signal be carried by colour without its
-   * icon or label, and if the two ever do have to meet, move --leaf toward
-   * emerald rather than bending this ramp.
-   *
-   * Every step was checked by an OKLCH -> sRGB roundtrip for clipping and by
-   * a WCAG contrast script; the annotated hexes are the contract. Re-run the
-   * script if any step moves. Chroma tapers at both ends — hard at the light
-   * end, where a yellow-green tint goes acid before it goes pale. */
-  --lime-50: oklch(94% 0.065 132.45); /* #dbf5c9  brand-subtle (nav tint) */
-  --lime-100: oklch(92.5% 0.08 132.45); /* #d2f2bb  avatar chip */
-  --lime-200: oklch(89.5% 0.115 132.45); /* #bfed9d  brand-subtle-border */
-  --lime-300: oklch(86% 0.15 132.45); /* #abe67b */
-  --lime-400: oklch(82% 0.185 132.45); /* #94dc51 */
-  --lime-500: oklch(77.09% 0.2156 132.45); /* #7ccf00  THE BRAND */
-  --lime-600: oklch(70% 0.19 132.45); /* #6eb515  hover; 6.35:1 ink-on */
-  --lime-700: oklch(63% 0.17 132.45); /* #5f9d13  pressed; 4.85:1 ink-on */
-  --lime-800: oklch(50% 0.135 132.45); /* #44720b  5.74:1 — focus ring */
-  --lime-900: oklch(38% 0.1 132.45); /* #2d4d08  9.65:1 */
-  /* The one step past the ramp's usable ink range, and it exists for a
-   * single consumer: the CTA's cast shadow (elevation.css), which tints
-   * from the near-black end of the brand rather than from --brand itself.
-   * The wine ramp got this for free because its -900 already sat at L 0.20;
-   * a yellow-green at L 0.20 is a different step, so it is named rather
-   * than borrowed. Nothing draws it as a surface or as ink. */
-  --lime-950: oklch(20% 0.05 132.45); /* #0d1a02  CTA shadow tint only */
-  /* The two reduced-chroma inks drawn on the brand's own tints — see the
-   * note above for why these are named steps rather than ramp positions. */
-  --lime-ink-on-50: oklch(31.5% 0.07 132.45); /* #233910  10.77:1 on -50 */
-  --lime-ink-on-100: oklch(38% 0.09 132.45); /* #2f4c13   7.93:1 on -100 */
+   * Values were checked by an OKLCH -> sRGB -> WCAG script; the annotated
+   * hexes are the contract. */
+  --green-50: oklch(96.6% 0.0198 160); /* #e9f8ef */
+  --green-100: oklch(92.7% 0.0421 159); /* #d0f0dd */
+  --green-200: oklch(86.5% 0.0725 161); /* #a9e2c3  border */
+  --green-300: oklch(79.9% 0.1098 158); /* #7dd3a2 */
+  --green-400: oklch(73.9% 0.1434 157); /* #4cc585 */
+  --green-500: oklch(69% 0.1644 154); /* #21b86b  signal, 2.58:1 — fills only */
+  --green-600: oklch(57.9% 0.1372 155); /* #139155  4.03:1 — icons, solid status */
+  --green-700: oklch(46.5% 0.1108 155); /* #0a6b3d  accent, 6.60:1 */
+  --green-800: oklch(37.4% 0.0771 160); /* #0f4d32  deep */
+  --green-900: oklch(31.9% 0.0702 157); /* #073d24  ink on tints */
 
   /* ---- status ramps ----
    *
-   * THREE, and only three. This is the whole chromatic vocabulary of the app
-   * besides --lime above and the two neutral ramps: red means overdue or
-   * destructive, amber means waiting on someone, leaf means done. Each means
+   * TWO, plus green. This is the whole chromatic vocabulary of the app
+   * besides --green above and the neutral ramp: red means overdue or
+   * destructive, amber means waiting on someone, green means done. Each means
    * exactly one thing on every screen.
    *
    * FIVE RAMPS WERE DELETED HERE, and the reasoning is worth keeping so they
@@ -252,34 +151,6 @@
    * (Reach/Target/Safety) can no longer borrow three categorical hues. That
    * is the correct pressure — ordered data takes one hue at three
    * intensities. See --school-balance-* in schools.css. */
-  /* leaf — done. Under the old ivy brand this ramp had to be separated from
-   * the brand along three axes just to keep "green = done" readable next to
-   * a green identity. Indigo and wine both took that pressure off, and the
-   * lime brand puts it straight back: at hue 132 against this ramp's 143,
-   * the app once again has a green identity AND a green success signal.
-   * Values are kept as they were — they are tuned and shipped, and moving
-   * them is a design decision about the STATUS vocabulary, not a knock-on
-   * of an accent change. Read the collision note in the lime block above
-   * before drawing the two anywhere near each other; the honest fix, if one
-   * is ever wanted, is to walk this ramp toward emerald (hue ~160), which
-   * separates it from the brand without touching the brand. Still named
-   * --leaf rather than --green-* so no future edit can absent-mindedly
-   * point a brand token at it — which matters more now, not less. Chroma is
-   * capped just inside the sRGB wall here — 0.14 at L 0.42 / hue 143 is
-   * the last in-gamut step, so 0.13 leaves headroom. */
-  --leaf-50: oklch(95.5% 0.036 143);
-  /* leaf-200 is the border step, added when the Schools verdict band gave
-   * --success-border its first real consumer (a Safety band needs the same
-   * tint+hairline treatment its Reach/Target siblings already get from
-   * --warning-border / --info-border). L 86% matches amber-200, red-200,
-   * and blue-200 exactly so the three verdict bands sit at one weight;
-   * chroma 0.075 lands it between amber's 0.09 and red's 0.07, which is
-   * where hue 143 needs to be to read as green rather than grey at this
-   * lightness. Comfortably in gamut — this ramp only hits the sRGB wall
-   * down at L 0.42. */
-  --leaf-200: oklch(86% 0.075 143);
-  --leaf-600: oklch(51% 0.155 143);
-  --leaf-700: oklch(42% 0.13 143);
 
   --amber-50: oklch(96% 0.035 80);
   --amber-200: oklch(86% 0.09 80);
@@ -302,8 +173,7 @@
    * points on its red-to-green wash. Not a fourth status ramp: the wash
    * needs two intermediate stops distinct enough from --red-600/--amber-600
    * to read as a smooth gradient rather than banding, so these are named,
-   * single-purpose primitives (same pattern as --lime-950/--lime-ink-on-50
-   * above) rather than steps of an existing ramp. The high stop is
+   * single-purpose primitives  rather than steps of an existing ramp. The high stop is
    * --success-solid itself, not a third literal here. */
   --chance-ramp-low: oklch(66% 0.2 48);
   --chance-ramp-mid: oklch(76% 0.16 82);

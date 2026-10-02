@@ -24,9 +24,3 @@ export type SortState = {
   columnId: ColumnId;
   direction: SortDirection;
 };
-
-export type ScrollThumbState = {
-  height: number;
-  top: number;
-  visible: boolean;
-};

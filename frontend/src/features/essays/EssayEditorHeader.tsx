@@ -11,27 +11,10 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Textarea } from "@/components/ui/textarea";
-import type { EssayStatus, Essay } from "@/domain/essay";
+import type { Essay } from "@/domain/essay";
 import { PROMPT_PLACEHOLDER } from "@/features/essays/EssayPromptComposer";
-import { formatEssayDeadline } from "@/lib/essay-display";
+import { formatEssayDeadlineOrNull } from "@/lib/essay-display";
 import { cn } from "@/lib/utils";
-
-/**
- * `Drafting` used to be `bg-info`, which has painted nothing since the `--info`
- * role was deleted from the palette — `bg-info` resolves to transparent, so the
- * dot was simply absent and the label carried the status alone. Drafting is the
- * ordinary state of an essay, and the palette's rule is that a hue is a claim
- * about state: the ordinary one lands on the neutral role (see the --info
- * deletion note in `primitives.css`), one step darker than `Not started` so the
- * two still read apart.
- */
-const statusDotClassName: Record<EssayStatus, string> = {
-  "Not started": "bg-[var(--ink-faint)]",
-  Drafting: "bg-[var(--neutral-fg)]",
-  "Needs review": "bg-warning",
-  Ready: "bg-success",
-  Submitted: "bg-success",
-};
 
 /**
  * The read-only half of the menu body: the prompt itself (or its absence,
@@ -362,107 +345,35 @@ export function PromptMenu({
   );
 }
 
-export function HeaderDivider() {
-  return (
-    <span
-      aria-hidden="true"
-      className="hidden h-4 w-px bg-(--essay-editor-header-border) sm:block"
-    />
-  );
-}
-
-export function EssayStatusIndicator({
-  className,
-  status,
-}: {
-  className?: string;
-  status: EssayStatus;
-}) {
-  return (
-    <span
-      className={cn(
-        "inline-flex shrink-0 items-center gap-1.5 text-xs font-medium whitespace-nowrap text-muted-foreground",
-        className,
-      )}
-    >
-      <span
-        aria-hidden="true"
-        className={cn("size-1.5 rounded-full", statusDotClassName[status])}
-      />
-      {status}
-    </span>
-  );
-}
-
+/* Who the essay is for, what kind it is, and when it is due, as one line. The
+ * school name is the only part that truncates. */
 export function EssayContextTrail({ essay }: { essay: Essay }) {
-  const deadlineLabel = formatEssayDeadline(essay.deadline);
-  const trail = [essay.schoolName, essay.type, deadlineLabel];
+  const deadline = formatEssayDeadlineOrNull(essay.deadline);
+  const schoolClassName = "min-w-0 truncate font-medium text-(--ink-secondary)";
 
   return (
-    <nav aria-label="Essay context" className="mt-1.5">
-      <ol className="hidden min-w-0 items-center gap-x-2 overflow-hidden text-sm leading-5 text-muted-foreground sm:flex sm:flex-nowrap">
-        {trail.map((item, index) => (
-          <li
-            className={cn(
-              "flex min-w-0 items-center gap-2",
-              index === trail.length - 1 && "shrink-0",
-            )}
-            key={`${index}-${item}`}
-          >
-            {index > 0 ? (
-              <span aria-hidden="true" className="text-border">
-                /
-              </span>
-            ) : null}
-            {index === 0 && essay.applicationId ? (
-              <Link
-                className="truncate rounded-sm font-medium text-[var(--ink-secondary)] outline-none hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-[var(--focus-ring)]"
-                to={`/app/schools/${essay.applicationId}`}
-              >
-                {item}
-                {index === 0
-                  ? essay.cycleYear
-                    ? ` · ${essay.cycleYear - 1}-${String(essay.cycleYear).slice(-2)}`
-                    : " · Cycle unconfirmed"
-                  : ""}
-              </Link>
-            ) : (
-              <span
-                className={cn(
-                  "truncate",
-                  index === 0 && "font-medium text-[var(--ink-secondary)]",
-                )}
-              >
-                {item}
-              </span>
-            )}
-          </li>
-        ))}
-      </ol>
-      <div className="flex flex-col gap-0.5 text-sm leading-5 text-muted-foreground sm:hidden">
-        <div className="flex min-w-0 items-center gap-2">
-          {essay.applicationId ? (
-            <Link
-              className="truncate rounded-sm font-medium text-[var(--ink-secondary)] outline-none focus-visible:ring-[3px] focus-visible:ring-[var(--focus-ring)]"
-              to={`/app/schools/${essay.applicationId}`}
-            >
-              {essay.schoolName}
-              {essay.cycleYear
-                ? ` · ${essay.cycleYear - 1}-${String(essay.cycleYear).slice(-2)}`
-                : " · Cycle unconfirmed"}
-            </Link>
-          ) : (
-            <span className="truncate font-medium text-[var(--ink-secondary)]">
-              {essay.schoolName}
-            </span>
+    <p className="mt-1 flex min-w-0 items-center gap-1.5 text-sm leading-5 whitespace-nowrap text-muted-foreground">
+      {essay.applicationId ? (
+        <Link
+          className={cn(
+            schoolClassName,
+            "rounded-sm outline-none hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-[var(--focus-ring)]",
           )}
-          <span aria-hidden="true" className="shrink-0 text-border">
-            /
-          </span>
-          <span className="truncate">{essay.type}</span>
-        </div>
-        <span className="whitespace-nowrap">{deadlineLabel}</span>
-      </div>
-    </nav>
+          to={`/app/schools/${essay.applicationId}`}
+        >
+          {essay.schoolName}
+        </Link>
+      ) : (
+        <span className={schoolClassName}>{essay.schoolName}</span>
+      )}
+      <span aria-hidden="true">·</span>
+      <span>{essay.type}</span>
+      {deadline ? (
+        <>
+          <span aria-hidden="true">·</span>
+          <span>Due {deadline}</span>
+        </>
+      ) : null}
+    </p>
   );
 }

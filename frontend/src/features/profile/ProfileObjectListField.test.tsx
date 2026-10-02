@@ -41,9 +41,7 @@ describe("ProfileObjectListField", () => {
 
     expect(onCommit).not.toHaveBeenCalled();
     expect(
-      screen.getByText(
-        "Complete or correct the highlighted fields to save this entry.",
-      ),
+      screen.getByText("Add a subject and a score to save this."),
     ).toBeInTheDocument();
 
     const subject = screen.getByLabelText("Subject");
@@ -52,11 +50,28 @@ describe("ProfileObjectListField", () => {
 
     expect(onCommit).not.toHaveBeenCalled();
 
-    const score = screen.getByLabelText("Score");
-    fireEvent.change(score, { target: { value: "4" } });
-    fireEvent.blur(score);
+    fireEvent.click(screen.getByRole("button", { name: "Score 4" }));
 
     expect(onCommit).toHaveBeenCalledWith([{ score: 4, subject: "Biology" }]);
+  });
+
+  test("still saves a removal while a new entry is half-filled", () => {
+    const onCommit = vi.fn();
+    render(
+      <ProfileObjectListField
+        config={AP_SCORES_CONFIG}
+        onCommit={onCommit}
+        value={[{ score: 5, subject: "Calculus" }]}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Add AP score" }));
+    fireEvent.click(screen.getByRole("button", { name: "Remove Calculus" }));
+
+    expect(onCommit).toHaveBeenCalledWith(null);
+    expect(
+      screen.getByText("Add a subject and a score to save this."),
+    ).toBeInTheDocument();
   });
 
   test("shows a range error instead of saving an invalid score", () => {

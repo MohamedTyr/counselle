@@ -40,7 +40,7 @@
   --school-chances-band: var(--ink-faint);
   --school-chances-divider: var(--hairline);
   --school-chances-profile-outline: var(--brand-subtle-ink);
-  --school-chances-scenario: var(--brand);
+  --school-chances-scenario: var(--accent-solid);
 
   /* ---- academic comparison v2 (school-chances-minimal-redesign §2.3) ----
    * Institutional class data is a wash, not a solid. --school-chances-mark
@@ -49,7 +49,7 @@
    * AcademicComparisonPlot.tsx, GpaComparison.tsx) in one pass rather than
    * the two-phase removal this comment originally expected. --*-you is
    * the student's own mark and the only full-contrast object on the plot;
-   * --*-scenario (lime-500) is the hypothetical, never the real score.
+   * --*-scenario is the hypothetical, never the real score.
    *
    * --school-chances-track, --school-chances-band and
    * --school-chances-profile-outline are ALSO now zero-consumer dead tokens
@@ -87,15 +87,29 @@
   --school-chances-you: var(--brand-scale-3);
   --school-chances-you-chip: var(--brand-subtle);
 
-  /* ---- result card ---- */
+  /* ---- result card ----
+   * Each card is washed in the school's own colour. The colour is data, not
+   * a token: SchoolResultCard sets --school-colour (the fill) and
+   * --school-colour-ink (the same hue darkened to 5.2:1 on white) inline,
+   * from school-colours.json. A school with no known colour falls back to
+   * these neutrals and tints to plain grey. The derived tint, ring and glow
+   * are computed per card below, where the inline values are in scope. */
+  --school-card-colour-fallback: var(--ink-faint);
+  --school-card-colour-ink-fallback: var(--ink);
   --school-card-surface: var(--surface-raised);
-  --school-card-border: var(--edge);
-  --school-card-border-hover: var(--edge-strong);
-  /* On-list cards carry a full brand perimeter, never a side-stripe. The
-   * badge in the header is the redundant, greyscale-surviving channel. */
-  --school-card-onlist-border: var(--brand-subtle-border);
-  --school-card-onlist-badge-surface: var(--brand-subtle);
-  --school-card-onlist-badge-ink: var(--brand-subtle-ink);
+  --school-card-logo-surface: var(--surface-raised);
+  --school-card-divider: var(--hairline);
+  /* The Reach/Target/Safety pill in the card's top row, beside Add. Neutral on every
+   * school's tint: the band is a verdict, and school colour never marks
+   * state. Its dot is the same --school-balance-* step the My list legend
+   * draws, so a band reads the same on both tabs. */
+  --school-card-band-surface: var(--surface-raised);
+  --school-card-band-ink: var(--ink);
+  /* On list is an ink pill with the progress green check, the same pair
+   * the primary button uses, so it holds on any school's tint. */
+  --school-card-onlist-surface: var(--brand);
+  --school-card-onlist-ink: var(--on-brand);
+  --school-card-onlist-icon: var(--progress-fill);
 
   /* ---- missing values ----
    * One tier weaker than muted, for the literal string "not published".
@@ -104,11 +118,16 @@
   --school-value-absent: var(--ink-faint);
 
   /* ---- filter surfaces ----
-   * The bar's chips speak the composer's control-chip dialect
-   * (--control-quiet-*): fill-only at rest, so a row of six chips does not
-   * become a row of six nested outlines. Active swaps to the brand tint,
-   * which is the page's one licensed brand surface besides the CTA. */
-  --school-filter-chip-surface: var(--control-quiet-surface);
+   * The bar's chips are white pills with a hairline, the same object as
+   * the result cards' Add button: on the tinted, beam-lit page a grey fill
+   * read as mud. Hover darkens the edge, never the fill. Active swaps to the
+   * brand tint, the page's one licensed brand surface besides the CTA. */
+  --school-filter-chip-surface: var(--surface-raised);
+  --school-filter-chip-border: var(--hairline);
+  --school-filter-chip-border-hover: var(--edge-strong);
+  --school-filter-chip-shadow: var(--elevation-1);
+  /* My list's type tabs sit on the raised panel with no chip fill, so their
+   * hover stays the quiet control wash. */
   --school-filter-chip-hover: var(--control-quiet-hover);
   --school-filter-chip-active-surface: var(--brand-subtle);
   --school-filter-chip-active-border: var(--brand-subtle-border);
@@ -136,7 +155,7 @@
    * weight; a bar that is mostly dark IS the top-heavy list the nudge
    * underneath is about to warn you about, before you read a word of it.
    * The legend below the bar draws the same three values as swatch dots,
-   * which is why the lightest step is lime-500 and not a paler tint — see the
+   * which is why the lightest step is green-500 and not a paler tint — see the
    * note on --brand-scale-* in semantic.css. */
   --school-balance-reach: var(--brand-scale-3);
   --school-balance-target: var(--brand-scale-2);
@@ -279,7 +298,7 @@
  * 2.18:1, both under the 4.5:1 text floor — dark ink clears both (4.80:1,
  * 7.36:1) and stays legible in the same "bright fill, dark ink" shape as
  * --on-brand. --success-solid (high) is dark enough that white still clears
- * 4.5:1 (5.39:1), so it keeps the inverse ink. */
+ * 4.5:1 (6.60:1), so it keeps the inverse ink. */
 [data-level="low"] {
   --chance-level-solid: var(--school-chances-ramp-low);
   --chance-level-on-solid: var(--on-status-solid);
@@ -385,3 +404,93 @@
  * everything by the windowed axis instead of measured-width collision
  * layout, so there is nothing left for these selectors to match.
  */
+
+/*
+ * The Explore result card's school-colour wash. These are derived here
+ * rather than in :root because --school-colour is set inline on each card,
+ * and a custom property only sees values in scope where it is declared.
+ *
+ * The wash runs from a 10% tint at the top to the plain raised surface at
+ * the bottom, so the name sits on the school's colour and the two numbers
+ * sit on near-white, where --school-colour-ink was measured (5.2:1).
+ */
+[data-slot="school-card"] {
+  --school-card-colour: var(--school-colour, var(--school-card-colour-fallback));
+  --school-card-rate-ink: var(--school-colour-ink, var(--school-card-colour-ink-fallback));
+  --school-card-ring: color-mix(in oklab, var(--school-card-colour) 22%, transparent);
+  background: linear-gradient(
+    180deg,
+    color-mix(in oklab, var(--school-card-colour) 10%, var(--school-card-surface)) 0%,
+    color-mix(in oklab, var(--school-card-colour) 4%, var(--school-card-surface)) 55%,
+    var(--school-card-surface) 100%
+  );
+  border: 1px solid var(--school-card-ring);
+}
+
+/*
+ * Hover follows the landing's testimonial cards: the card rises a little
+ * and its paper and edge deepen a shade, with no shadow. The deeper wash is
+ * a second gradient on ::before faded in with opacity, because a gradient
+ * itself cannot transition. Pointer devices only: a tap would otherwise
+ * leave a card stuck lifted.
+ */
+[data-slot="school-card"] {
+  isolation: isolate;
+  transition:
+    translate 220ms cubic-bezier(0.23, 1, 0.32, 1),
+    border-color 220ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+[data-slot="school-card"]::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: linear-gradient(
+    180deg,
+    color-mix(in oklab, var(--school-card-colour) 16%, var(--school-card-surface)) 0%,
+    color-mix(in oklab, var(--school-card-colour) 7%, var(--school-card-surface)) 55%,
+    var(--school-card-surface) 100%
+  );
+  opacity: 0;
+  transition: opacity 220ms cubic-bezier(0.23, 1, 0.32, 1);
+  pointer-events: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-slot="school-card"][data-linked]:hover {
+    --school-card-ring: color-mix(in oklab, var(--school-card-colour) 38%, transparent);
+    translate: 0 -3px;
+  }
+
+  [data-slot="school-card"][data-linked]:hover::before {
+    opacity: 1;
+  }
+}
+
+/* Pressing the card settles it back onto the page before navigating. */
+[data-slot="school-card"][data-linked]:active {
+  translate: 0 0;
+  transition-duration: 100ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-slot="school-card"][data-linked]:hover {
+    translate: none;
+  }
+}
+
+/* ---- the school profile (the About tab) ----
+ * Institutional figures are drawn in ink at four steps of strength, so the
+ * one accent stays free for the figure a block points at. The profile swaps
+ * --school-viz-accent for the school's own colour inline: a school's own
+ * colour marks its own number, never Counselle's brand. */
+:root {
+  --school-viz-mark: color-mix(in oklch, var(--ink) 74%, transparent);
+  --school-viz-mark-2: color-mix(in oklch, var(--ink) 48%, transparent);
+  --school-viz-mark-3: color-mix(in oklch, var(--ink) 26%, transparent);
+  --school-viz-mark-4: color-mix(in oklch, var(--ink) 14%, transparent);
+  --school-viz-track: var(--control-track);
+  --school-viz-accent: var(--accent-solid);
+}

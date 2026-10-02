@@ -1,35 +1,45 @@
+import { CheckIcon } from "lucide-react";
+import type React from "react";
 import { useId, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectGroup,
-  SelectItem,
-  SelectPopup,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { ProfileFieldLabel } from "@/features/profile/ProfileFieldLabel";
 import {
-  profileSegmentedControlClass,
-  profileSegmentedOptionClass,
+  type FieldLayout,
+  ProfileFieldError,
+  ProfileFieldLabel,
+  ProfileFieldRow,
+} from "@/features/profile/ProfileFieldLabel";
+import { ProfileTagInput } from "@/features/profile/ProfileTagInput";
+import {
+  type FieldPlacement,
+  fieldWidth,
+} from "@/features/profile/profile-field-layout";
+import {
+  profileChipClass,
   profileTextareaControlClass,
 } from "@/features/profile/profile-control-styles";
 import type {
   MultiSelectFieldConfig,
   ScalarFieldConfig,
   SelectFieldConfig,
+  SelectOption,
   StringListFieldConfig,
 } from "@/features/profile/profile-field-types";
-import {
-  formatStringList,
-  parseStringList,
-} from "@/features/profile/profile-patch";
 import { useFieldDraft } from "@/features/profile/use-field-draft";
+import { cn } from "@/lib/utils";
 
-const BOOLEAN_UNSET = "__unset__";
+export type LeafConfig =
+  | ScalarFieldConfig
+  | SelectFieldConfig
+  | StringListFieldConfig
+  | MultiSelectFieldConfig;
+
+const YES_NO: readonly SelectOption[] = [
+  { label: "Yes", value: "true" },
+  { label: "No", value: "false" },
+];
 
 function textFromValue(value: unknown): string {
   if (value === null || value === undefined) {
@@ -38,267 +48,162 @@ function textFromValue(value: unknown): string {
   return String(value);
 }
 
-function helperText(
-  config: ScalarFieldConfig | SelectFieldConfig | StringListFieldConfig,
-) {
+function helperText(config: LeafConfig): string | undefined {
   if (config.kind === "string-list") {
-    return "Separate with commas. Counselle saves each item individually.";
+    return "Press Enter after each one.";
   }
   return "help" in config ? config.help : undefined;
 }
 
-/** Renders one profile leaf while preserving the minimal merge-patch contract. */
+function joinIds(...ids: (string | false | undefined)[]): string | undefined {
+  const present = ids.filter(Boolean);
+  return present.length > 0 ? present.join(" ") : undefined;
+}
+
+/** One profile leaf under its question, preserving the minimal merge-patch
+ * contract: every control commits only its own value. */
 export function ProfileScalarField({
   config,
+  hideLabel = false,
+  layout = "stack",
   onCommit,
   validate,
   value,
+  placement = { width: fieldWidth(config), startsRow: false },
 }: {
-  config:
-    | ScalarFieldConfig
-    | SelectFieldConfig
-    | StringListFieldConfig
-    | MultiSelectFieldConfig;
+  config: LeafConfig;
+  /** On when the question above already names this, its only field. */
+  hideLabel?: boolean;
+  layout?: FieldLayout;
+  /** Set by the question, which lays its fields into rows (`layoutRows`). */
+  placement?: FieldPlacement;
   onCommit: (value: unknown) => void;
   validate?: (value: unknown) => string | null;
   value: unknown;
 }) {
   const inputId = useId();
-
-  if (config.kind === "multi-select") {
-    const currentValues = Array.isArray(value) ? value : [];
-    return (
-      <div
-        aria-labelledby={inputId}
-        className="flex flex-col gap-2"
-        role="group"
-      >
-        <span
-          className="text-sm font-medium text-[var(--profile-field-label)]"
-          id={inputId}
-        >
-          {config.label}
-        </span>
-        <div className="flex flex-wrap gap-2">
-          {config.options.map((option) => {
-            const isSelected = currentValues.includes(option.value);
-            return (
-              <Button
-                aria-pressed={isSelected}
-                className={
-                  isSelected
-                    ? "border-[var(--profile-control-selected-border)] bg-[var(--profile-control-selected-surface)] text-foreground"
-                    : "text-[var(--profile-field-label)]"
-                }
-                key={option.value}
-                onClick={() => {
-                  const next = isSelected
-                    ? currentValues.filter((entry) => entry !== option.value)
-                    : [...currentValues, option.value];
-                  onCommit(next.length > 0 ? next : null);
-                }}
-                size="sm"
-                variant="outline"
-              >
-                {option.label}
-              </Button>
-            );
-          })}
-        </div>
-      </div>
-    );
-  }
-
-  if (config.kind === "select") {
-    const currentValue = typeof value === "string" ? value : BOOLEAN_UNSET;
-    const help = helperText(config);
-    const helperId = `${inputId}-helper`;
-    return (
-      <div className="flex flex-col gap-2">
-        <ProfileFieldLabel htmlFor={inputId} label={config.label} />
-        <Select
-          items={[
-            { label: "Not set", value: BOOLEAN_UNSET },
-            ...config.options,
-          ]}
-          onValueChange={(nextValue) =>
-            onCommit(nextValue === BOOLEAN_UNSET ? null : nextValue)
-          }
-          value={currentValue}
-        >
-          <SelectTrigger
-            aria-describedby={help ? helperId : undefined}
-            id={inputId}
-            size="lg"
-          >
-            <SelectValue />
-          </SelectTrigger>
-          <SelectPopup align="start">
-            <SelectGroup>
-              <SelectItem value={BOOLEAN_UNSET}>Not set</SelectItem>
-              {config.options.map((option) => (
-                <SelectItem key={option.value} value={option.value}>
-                  {option.label}
-                </SelectItem>
-              ))}
-            </SelectGroup>
-          </SelectPopup>
-        </Select>
-        <FieldHelper id={helperId} text={help} />
-      </div>
-    );
-  }
-
-  if (config.kind === "boolean") {
-    const currentValue =
-      value === true ? "true" : value === false ? "false" : BOOLEAN_UNSET;
-    return (
-      <div
-        aria-labelledby={inputId}
-        className="flex flex-col gap-2"
-        role="group"
-      >
-        <span
-          className="text-sm font-medium text-[var(--profile-field-label)]"
-          id={inputId}
-        >
-          {config.label}
-        </span>
-        <div className="flex min-h-10 items-center">
-          <div className={profileSegmentedControlClass}>
-            {[
-              { label: "Not set", value: BOOLEAN_UNSET },
-              { label: "Yes", value: "true" },
-              { label: "No", value: "false" },
-            ].map((option) => {
-              const isSelected = option.value === currentValue;
-              return (
-                <Button
-                  aria-pressed={isSelected}
-                  className={`h-8 px-3 text-sm sm:h-7 sm:px-2.5 sm:text-xs ${profileSegmentedOptionClass(isSelected)}`}
-                  key={option.value}
-                  onClick={() =>
-                    onCommit(
-                      option.value === BOOLEAN_UNSET
-                        ? null
-                        : option.value === "true",
-                    )
-                  }
-                  size="sm"
-                  variant="outline"
-                >
-                  {option.label}
-                </Button>
-              );
-            })}
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (config.kind === "textarea") {
-    return (
-      <TextDraftField
-        config={config}
-        inputId={inputId}
-        multiline
-        onCommit={onCommit}
-        toDraft={textFromValue}
-        toValue={(text) => (text.trim() === "" ? null : text)}
-        validate={validate}
-        value={value}
-      />
-    );
-  }
-
-  if (config.kind === "string-list") {
-    return (
-      <TextDraftField
-        config={config}
-        inputId={inputId}
-        onCommit={onCommit}
-        toDraft={formatStringList}
-        toValue={parseStringList}
-        validate={validate}
-        value={value}
-      />
-    );
-  }
-
-  if (config.kind === "int") {
-    return (
-      <TextDraftField
-        config={config}
-        inputId={inputId}
-        onCommit={onCommit}
-        toDraft={textFromValue}
-        toValue={(text) =>
-          text.trim() === "" ? null : Number.parseInt(text, 10)
-        }
-        type="number"
-        validate={validate}
-        value={value}
-      />
-    );
-  }
-
-  if (config.kind === "date") {
-    return (
-      <TextDraftField
-        config={config}
-        inputId={inputId}
-        onCommit={onCommit}
-        toDraft={textFromValue}
-        toValue={(text) => (text.trim() === "" ? null : text)}
-        type="date"
-        validate={validate}
-        value={value}
-      />
-    );
-  }
+  const help = layout === "compact" ? undefined : helperText(config);
+  const helpId = `${inputId}-help`;
+  const isChoice =
+    config.kind === "multi-select" ||
+    config.kind === "boolean" ||
+    config.kind === "select";
+  const labelId = `${inputId}-label`;
 
   return (
-    <TextDraftField
-      config={config}
-      inputId={inputId}
-      onCommit={onCommit}
-      toDraft={textFromValue}
-      toValue={(text) => (text.trim() === "" ? null : text.trim())}
-      validate={validate}
-      value={value}
-    />
+    <ProfileFieldRow
+      help={help}
+      helpId={helpId}
+      label={
+        <ProfileFieldLabel
+          htmlFor={isChoice ? undefined : inputId}
+          id={labelId}
+          label={config.label}
+          layout={layout}
+          visuallyHidden={hideLabel}
+        />
+      }
+      startsRow={placement.startsRow}
+      width={placement.width}
+    >
+      {isChoice ? (
+        <ChoiceControl
+          config={config}
+          labelId={labelId}
+          onCommit={onCommit}
+          value={value}
+        />
+      ) : config.kind === "string-list" ? (
+        <ProfileTagInput
+          describedBy={helpId}
+          inputId={inputId}
+          onCommit={onCommit}
+          placeholder={config.placeholder}
+          value={value}
+        />
+      ) : (
+        <TextDraftField
+          config={config}
+          describedBy={help ? helpId : undefined}
+          inputId={inputId}
+          onCommit={onCommit}
+          validate={validate}
+          value={value}
+        />
+      )}
+    </ProfileFieldRow>
   );
 }
 
-function FieldHelper({
-  error = false,
-  id,
-  text,
+/** Every option on show. A single choice — a select or Yes/No — clears
+ * when its chosen chip is pressed again, which is how a student takes an
+ * answer back; a multi-select toggles each option and marks the chosen
+ * ones with a check, because several can be on at once. */
+function ChoiceControl({
+  config,
+  labelId,
+  onCommit,
+  value,
 }: {
-  error?: boolean;
-  id: string;
-  text?: string;
+  config: SelectFieldConfig | MultiSelectFieldConfig | ScalarFieldConfig;
+  labelId: string;
+  onCommit: (value: unknown) => void;
+  value: unknown;
 }) {
-  return text ? (
-    <p
-      aria-live={error ? "polite" : undefined}
-      className={
-        error
-          ? "text-xs leading-5 text-destructive-foreground"
-          : "text-xs leading-5 text-[var(--profile-field-helper)]"
-      }
-      id={id}
+  const isMulti = config.kind === "multi-select";
+  const options = "options" in config ? config.options : YES_NO;
+  const selected: unknown[] = isMulti
+    ? Array.isArray(value)
+      ? value
+      : []
+    : config.kind === "boolean"
+      ? typeof value === "boolean"
+        ? [String(value)]
+        : []
+      : [value];
+
+  function toggle(option: string) {
+    if (isMulti) {
+      const next = selected.includes(option)
+        ? selected.filter((entry) => entry !== option)
+        : [...selected, option];
+      onCommit(next.length > 0 ? next : null);
+      return;
+    }
+    if (selected.includes(option)) {
+      onCommit(null);
+      return;
+    }
+    onCommit(config.kind === "boolean" ? option === "true" : option);
+  }
+
+  return (
+    <div
+      aria-labelledby={labelId}
+      className="flex flex-wrap gap-2"
+      role="group"
     >
-      {text}
-    </p>
-  ) : null;
+      {options.map((option) => {
+        const isSelected = selected.includes(option.value);
+        return (
+          <Button
+            aria-pressed={isSelected}
+            className={profileChipClass(isSelected)}
+            key={option.value}
+            onClick={() => toggle(option.value)}
+            type="button"
+            variant="outline"
+          >
+            {isMulti && isSelected ? <CheckIcon /> : null}
+            {option.label}
+          </Button>
+        );
+      })}
+    </div>
+  );
 }
 
-function numberError(
-  config: ScalarFieldConfig | StringListFieldConfig,
-  text: string,
-) {
+function numberError(config: ScalarFieldConfig, text: string) {
   if (
     text.trim() === "" ||
     (config.kind !== "int" && config.kind !== "decimal")
@@ -308,55 +213,69 @@ function numberError(
   if (config.kind === "int" && !/^-?\d+$/.test(text.trim())) {
     return "Use a whole number.";
   }
+  // `Number()` also reads "0x10" and "1e3", which the backend's Decimal
+  // rejects; only a plain decimal is a number here.
+  if (config.kind === "decimal" && !/^-?\d+(\.\d+)?$/.test(text.trim())) {
+    return "Enter a number, like 3.8.";
+  }
   const value = Number(text);
   if (!Number.isFinite(value)) {
     return "Enter a valid number.";
   }
-  if ("min" in config && config.min !== undefined && value < config.min) {
+  if (config.min !== undefined && value < config.min) {
     return `Enter ${config.min} or more.`;
   }
-  if ("max" in config && config.max !== undefined && value > config.max) {
+  if (config.max !== undefined && value > config.max) {
     return `Enter ${config.max} or less.`;
   }
   return null;
 }
 
-function TextDraftField({
+function toCommitValue(config: ScalarFieldConfig, text: string): unknown {
+  if (text.trim() === "") {
+    return null;
+  }
+  switch (config.kind) {
+    case "int":
+      return Number.parseInt(text, 10);
+    case "textarea":
+    case "date":
+      return text;
+    default:
+      return text.trim();
+  }
+}
+
+function inputType(config: ScalarFieldConfig): string {
+  if (config.kind === "int") {
+    return "number";
+  }
+  return config.kind === "date" ? "date" : "text";
+}
+
+/** Holds what is being typed and commits it on blur, once it parses and
+ * passes the field's range and any cross-field check. */
+function useDraftCommit({
   config,
-  inputId,
-  multiline = false,
   onCommit,
-  toDraft,
-  toValue,
-  type,
   validate,
   value,
 }: {
-  config: ScalarFieldConfig | StringListFieldConfig;
-  inputId: string;
-  multiline?: boolean;
+  config: ScalarFieldConfig;
   onCommit: (value: unknown) => void;
-  toDraft: (value: unknown) => string;
-  toValue: (text: string) => unknown;
-  type?: string;
   validate?: (value: unknown) => string | null;
   value: unknown;
 }) {
-  const [draft, setDraft] = useFieldDraft(toDraft(value));
+  const [draft, setDraft] = useFieldDraft(textFromValue(value));
   const [error, setError] = useState<string | null>(null);
-  const [isEditing, setIsEditing] = useState(false);
-  const helperId = `${inputId}-helper`;
-  const listItems =
-    config.kind === "string-list" ? (parseStringList(draft) ?? []) : [];
 
   function handleBlur() {
-    setIsEditing(false);
     const nextError = numberError(config, draft);
     setError(nextError);
     if (nextError) {
       return;
     }
-    const nextValue = toValue(draft);
+    const nextValue = toCommitValue(config, draft);
     const validationError = validate?.(nextValue) ?? null;
     setError(validationError);
     if (validationError) {
@@ -367,71 +286,136 @@ function TextDraftField({
     }
   }
 
-  const help = helperText(config);
-  const supportingText = error ?? help;
-  if (multiline) {
-    return (
-      <div className="flex flex-col gap-2">
-        <ProfileFieldLabel htmlFor={inputId} label={config.label} />
-        <Textarea
-          aria-invalid={error ? true : undefined}
-          aria-describedby={supportingText ? helperId : undefined}
-          className={profileTextareaControlClass}
-          id={inputId}
-          onBlur={handleBlur}
-          onChange={(event) => {
-            setDraft(event.target.value);
-            setError(null);
-          }}
-          onFocus={() => setIsEditing(true)}
-          placeholder={config.placeholder}
-          rows={4}
-          size="lg"
-          value={draft}
-        />
-        <FieldHelper
-          error={Boolean(error)}
-          id={helperId}
-          text={supportingText}
-        />
-      </div>
-    );
+  function setText(text: string) {
+    setDraft(text);
+    setError(null);
   }
 
+  function handleChange(
+    event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
+  ) {
+    setText(event.target.value);
+  }
+
+  return { draft, error, handleBlur, handleChange, setText };
+}
+
+function TextDraftField({
+  config,
+  describedBy,
+  inputId,
+  onCommit,
+  validate,
+  value,
+}: {
+  config: ScalarFieldConfig;
+  describedBy?: string;
+  inputId: string;
+  onCommit: (value: unknown) => void;
+  validate?: (value: unknown) => string | null;
+  value: unknown;
+}) {
+  const { draft, error, handleBlur, handleChange } = useDraftCommit({
+    config,
+    onCommit,
+    validate,
+    value,
+  });
+  const errorId = `${inputId}-error`;
+
+  const shared = {
+    "aria-describedby": joinIds(describedBy, Boolean(error) && errorId),
+    "aria-invalid": error ? true : undefined,
+    id: inputId,
+    onBlur: handleBlur,
+    onChange: handleChange,
+    placeholder: config.placeholder,
+    value: draft,
+  };
+
   return (
-    <div className="flex flex-col gap-2">
-      <ProfileFieldLabel htmlFor={inputId} label={config.label} />
-      <Input
-        aria-invalid={error ? true : undefined}
-        aria-describedby={supportingText ? helperId : undefined}
-        id={inputId}
-        onBlur={handleBlur}
-        onChange={(event) => {
-          setDraft(event.target.value);
-          setError(null);
-        }}
-        onFocus={() => setIsEditing(true)}
-        placeholder={config.placeholder}
-        size="lg"
-        type={type ?? "text"}
-        value={draft}
-      />
-      <FieldHelper error={Boolean(error)} id={helperId} text={supportingText} />
-      {listItems.length > 0 && !isEditing ? (
-        <div
-          aria-label={`${config.label} items`}
-          className="flex flex-wrap gap-1.5"
-        >
-          {listItems.map((item) => (
-            <span
-              className="rounded-md bg-[var(--profile-control-selected-surface)] px-2 py-1 text-xs text-[var(--profile-field-label)]"
-              key={item}
-            >
-              {item}
-            </span>
-          ))}
-        </div>
-      ) : null}
+    <>
+      {config.kind === "textarea" ? (
+        <Textarea
+          {...shared}
+          className={profileTextareaControlClass}
+          rows={3}
+          size="lg"
+        />
+      ) : (
+        <Input
+          {...shared}
+          className={
+            config.kind === "int" || config.kind === "decimal"
+              ? "tabular-nums"
+              : undefined
+          }
+          size="lg"
+          type={inputType(config)}
+        />
+      )}
+      <ProfileFieldError id={errorId} text={error} />
+    </>
+  );
+}
+
+/** A test's headline number, set large with its ceiling beside it ("1480
+ * / 1600"): the score is what the tile is about, so it reads first. Same
+ * draft-and-validate path as every other number. */
+export function ProfileScoreHero({
+  config,
+  label,
+  onCommit,
+  validate,
+  value,
+}: {
+  config: ScalarFieldConfig;
+  /** The accessible name — "SAT total", not just "Total". */
+  label: string;
+  onCommit: (value: unknown) => void;
+  validate?: (value: unknown) => string | null;
+  value: unknown;
+}) {
+  const inputId = useId();
+  const errorId = `${inputId}-error`;
+  const { draft, error, handleBlur, setText } = useDraftCommit({
+    config,
+    onCommit,
+    validate,
+    value,
+  });
+  // The box is sized to a score, so anything that is not part of one is
+  // dropped as it is typed rather than clipped out of sight.
+  const allowed = config.kind === "int" ? /[^\d]/g : /[^\d.]/g;
+
+  return (
+    <div className="flex flex-col gap-1">
+      <div className="flex items-baseline gap-2">
+        <input
+          aria-describedby={error ? errorId : undefined}
+          aria-invalid={error ? true : undefined}
+          aria-label={label}
+          className={cn(
+            "max-w-[6ch] min-w-[1.5ch] bg-transparent [field-sizing:content] p-0 text-[2.125rem] leading-10 font-medium tracking-[-0.02em] text-[var(--ink)] tabular-nums outline-none placeholder:text-[var(--edge)]",
+            "[appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none",
+          )}
+          data-hero-score=""
+          id={inputId}
+          inputMode={config.kind === "int" ? "numeric" : "decimal"}
+          maxLength={String(config.max).length + 3}
+          onBlur={handleBlur}
+          onChange={(event) => setText(event.target.value.replace(allowed, ""))}
+          placeholder="—"
+          type="text"
+          value={draft}
+        />
+        {config.max !== undefined ? (
+          <span className="text-[0.9375rem] text-[var(--ink-faint)] tabular-nums">
+            / {config.max}
+          </span>
+        ) : null}
+      </div>
+      <ProfileFieldError id={errorId} text={error} />
     </div>
   );
 }
