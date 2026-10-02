@@ -109,8 +109,6 @@ export const SAT_ANALYTICS_COPY = {
   },
   empty: {
     title: "Your analytics start with question one",
-    description:
-      "Answer a few questions and this fills in with your accuracy, pace and the skills worth another look.",
     action: "Start practicing",
   },
   footer: {

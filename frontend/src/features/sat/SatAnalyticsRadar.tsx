@@ -91,7 +91,7 @@ export function SatAnalyticsRadar({ stats }: { stats: SatStatsResponse }): React
   const drawFirstWeb = canDrawWeb(firstTryPlot, measured.filter((row) => row.hasFirst).length);
   const drawOverallWeb = canDrawWeb(overallPlot, measured.filter((row) => row.hasOverall).length);
 
-    const [chartRef, containerWidth] = useContainerWidth();
+  const [chartRef, containerWidth] = useContainerWidth();
   const summary = summarizeRadar(
     rows.map((row) => ({
       firstTryAccuracyPct: row.firstTryAccuracyPct,

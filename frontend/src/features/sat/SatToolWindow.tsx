@@ -95,6 +95,7 @@ export function SatToolWindow({
         className,
       )}
       data-docked={docked || undefined}
+      data-sat-window={title}
       data-hidden={hidden || undefined}
       role="dialog"
       style={style}

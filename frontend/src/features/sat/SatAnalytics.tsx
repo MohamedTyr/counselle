@@ -19,7 +19,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import {
   Empty,
   EmptyContent,
-  EmptyDescription,
   EmptyHeader,
   EmptyMedia,
   EmptyTitle,
@@ -273,7 +272,6 @@ export function SatAnalytics({
               </span>
             </EmptyMedia>
             <EmptyTitle>{SAT_ANALYTICS_COPY.empty.title}</EmptyTitle>
-            <EmptyDescription>{SAT_ANALYTICS_COPY.empty.description}</EmptyDescription>
           </EmptyHeader>
           <EmptyContent>
             <Button onClick={() => onOpenChange(false)}>{SAT_ANALYTICS_COPY.empty.action}</Button>

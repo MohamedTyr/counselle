@@ -297,7 +297,7 @@ function PaceChart({
                   onFocus={() => onActiveChange(point.code)}
                   onPointerEnter={() => onActiveChange(point.code)}
                   onPointerLeave={() => onActiveChange(null)}
-                  role="button"
+                  role="img"
                   style={{ left: spot.left, top: spot.top }}
                   tabIndex={0}
                 >

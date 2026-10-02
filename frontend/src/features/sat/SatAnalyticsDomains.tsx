@@ -29,7 +29,7 @@ type Section = "all" | "reading" | "math";
 /** One grid for the domain header and every skill row under it, so the
  * column labels in the header sit exactly over their values. */
 const ROW_GRID_CLASS =
-  "@[760px]/sat-analytics:grid @[760px]/sat-analytics:grid-cols-[minmax(0,1fr)_9.5rem_5.5rem_6rem_4rem_5.5rem] @[760px]/sat-analytics:items-center @[760px]/sat-analytics:gap-x-3";
+  "@[760px]/sat-analytics:grid @[760px]/sat-analytics:grid-cols-[minmax(0,1fr)_9.5rem_5.5rem_7.5rem_4rem_5.5rem] @[760px]/sat-analytics:items-center @[760px]/sat-analytics:gap-x-3";
 const WIDE_ONLY_CLASS = "hidden @[760px]/sat-analytics:block";
 /** Column labels sit inline on narrow layouts and become screen-reader
  * only on wide ones, where the pinned header carries them visually. */
@@ -83,7 +83,7 @@ function SkillStats({
         <span className={CELL_LABEL_CLASS}>{copy.columns.overall} </span>
         {stat?.overallAccuracyPct}%
       </span>
-      <span className="@[760px]/sat-analytics:text-sm">
+      <span className="whitespace-nowrap @[760px]/sat-analytics:text-sm">
         <span className={CELL_LABEL_CLASS}>{copy.columns.questions} </span>
         {copy.questionsCell(stat?.uniqueQuestions ?? 0, stat?.totalAttempts ?? 0)}
       </span>

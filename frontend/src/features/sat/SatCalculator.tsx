@@ -24,6 +24,7 @@ const DEFAULT_SIZE = { width: 440, height: 380 };
 const MIN_SIZE = { width: 320, height: 280 };
 const MAX_VIEWPORT_FRACTION = { width: 0.9, height: 0.85 };
 const MIN_Y = 64;
+const CALCULATOR_TITLE = "Calculator";
 
 const SPAWN_FALLBACK = { x: 16, y: MIN_Y };
 
@@ -69,7 +70,7 @@ export function SatCalculator({
     }
     if (!visible || placedRef.current) return;
     placedRef.current = true;
-    placeAt(computeSpawnPosition(DEFAULT_SIZE, MIN_Y));
+    placeAt(computeSpawnPosition(DEFAULT_SIZE, MIN_Y, CALCULATOR_TITLE));
   }, [visible, docked, placeAt]);
 
   // Layout effect: the first docked frame must already have the slot's
@@ -115,7 +116,7 @@ export function SatCalculator({
       onClose={onClose}
       onDock={onDock}
       onFloat={onFloat}
-      title="Calculator"
+      title={CALCULATOR_TITLE}
       window={toolWindow}
     >
       <iframe

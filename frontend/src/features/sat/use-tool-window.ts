@@ -90,10 +90,15 @@ function overlaps(a: SpawnRect, b: SpawnRect): boolean {
  * never lands on another open window: over the docked side when the
  * calculator is docked, otherwise in the empty margin right of the question
  * sheet when the window fits there, otherwise bottom-right. A floating
- * window already in that spot is stepped around (left of it, else cascaded). */
-export function computeSpawnPosition(size: ToolWindowSize, minY: number): ToolWindowPosition {
+ * window already in that spot is stepped around (left of it, else cascaded).
+ * A mounted window passes its own title so it never avoids itself. */
+export function computeSpawnPosition(
+  size: ToolWindowSize,
+  minY: number,
+  ownTitle?: string,
+): ToolWindowPosition {
   const windows = Array.from(document.querySelectorAll<HTMLElement>(".sat-window"))
-    .filter((el) => el.dataset.hidden === undefined)
+    .filter((el) => el.dataset.hidden === undefined && el.dataset.satWindow !== ownTitle)
     .map((el) => ({ docked: el.dataset.docked !== undefined, rect: el.getBoundingClientRect() }))
     .filter(({ rect }) => rect.width > 0 && rect.width < window.innerWidth);
   const dockedRect = windows.find((w) => w.docked)?.rect;
