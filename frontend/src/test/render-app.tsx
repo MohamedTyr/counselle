@@ -499,6 +499,7 @@ export function createWorkspaceFetchPreset(
       }
       return jsonResponse(tasks.find((task) => task.id === taskId) ?? tasks[0]);
     }
+    if (url.endsWith("/v1/supplements")) return jsonResponse([]);
     if (url.endsWith("/v1/essays")) {
       if (init?.method === "POST") {
         const body = JSON.parse(String(init.body ?? "{}"));
@@ -874,6 +875,7 @@ export function defaultAuthenticatedFetch(
     });
   }
   if (url.endsWith("/v1/tasks")) return jsonResponse([workspaceTaskFixture]);
+  if (url.endsWith("/v1/supplements")) return jsonResponse([]);
   if (url.endsWith("/v1/essays")) return jsonResponse([workspaceEssayFixture]);
   if (url.includes("/v1/essays/")) {
     if (init?.method === "DELETE") return emptyResponse();

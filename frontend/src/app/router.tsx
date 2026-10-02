@@ -62,6 +62,14 @@ export function createAppRouter() {
           },
         },
         {
+          path: "/dev/supplement-variants",
+          lazy: async () => {
+            const module =
+              await import("@/features/dev-supplement-variants/SupplementVariantsPage");
+            return { Component: module.SupplementVariantsPage };
+          },
+        },
+        {
           path: "/dev/school-chances",
           lazy: async () => {
             const module =

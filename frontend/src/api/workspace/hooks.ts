@@ -5,3 +5,4 @@ export * from "@/api/workspace/hooks/essays";
 export * from "@/api/workspace/hooks/memories";
 export * from "@/api/workspace/hooks/profile";
 export * from "@/api/workspace/hooks/tasks";
+export * from "@/api/workspace/hooks/supplements";

@@ -235,6 +235,9 @@ export function useArchiveEssay() {
         queryKey: workspaceKeys.essays.list(),
       });
       void context.client.invalidateQueries({
+        queryKey: workspaceKeys.supplements.all(),
+      });
+      void context.client.invalidateQueries({
         queryKey: workspaceKeys.essays.detail(id),
       });
       void context.client.invalidateQueries({
@@ -263,6 +266,9 @@ export function useRestoreEssay() {
     onSettled: (essay, _error, _id, _snapshot, context) => {
       void context.client.invalidateQueries({
         queryKey: workspaceKeys.essays.list(),
+      });
+      void context.client.invalidateQueries({
+        queryKey: workspaceKeys.supplements.all(),
       });
       void context.client.invalidateQueries({
         queryKey: workspaceKeys.applications.list(),
