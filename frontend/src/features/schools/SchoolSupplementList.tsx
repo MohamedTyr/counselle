@@ -1,7 +1,6 @@
 import type { ReactNode } from "react";
 import { Link } from "react-router";
 
-import { useStartSupplementEssay } from "@/api/workspace/hooks";
 import type {
   ApplicationSupplements,
   EssaySummary,
@@ -11,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { promptChangeFromSummary } from "@/domain/essay";
 import { PromptChangeNotice } from "@/features/essays/PromptChangeNotice";
+import { useSupplementActions } from "@/features/essays/supplement-actions";
 import {
   choiceSummary,
   planSupplements,
@@ -38,7 +38,8 @@ function PromptRow({
   note?: string | null;
   prompt: SupplementPrompt;
 }) {
-  const start = useStartSupplementEssay();
+  const actions = useSupplementActions();
+  const starting = actions.isStarting(prompt.key);
   const change = essay ? promptChangeFromSummary(essay) : null;
   return (
     <li className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-4 gap-y-1.5 py-3.5">
@@ -64,14 +65,12 @@ function PromptRow({
           </Button>
         ) : (
           <Button
-            disabled={start.isPending}
-            onClick={() =>
-              start.mutate({ applicationId, promptKey: prompt.key })
-            }
+            disabled={starting}
+            onClick={() => actions.start(applicationId, prompt.key)}
             size="sm"
             variant="outline"
           >
-            {start.isPending ? "Starting…" : "Write"}
+            {starting ? "Starting…" : "Write"}
           </Button>
         )}
       </div>

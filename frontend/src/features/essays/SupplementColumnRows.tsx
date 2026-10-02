@@ -1,7 +1,6 @@
 import { ChevronRight, Plus } from "lucide-react";
 import { type ReactNode, useState } from "react";
 
-import { useStartSupplementEssay } from "@/api/workspace/hooks";
 import type {
   ApplicationSupplements,
   SupplementPrompt,
@@ -11,6 +10,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import { useSupplementActions } from "@/features/essays/supplement-actions";
 import {
   choiceIsSettled,
   choiceSummary,
@@ -31,14 +31,14 @@ function StartPromptRow({
   note?: string | null;
   prompt: SupplementPrompt;
 }) {
-  const start = useStartSupplementEssay();
-  const pending = start.isPending && start.variables?.promptKey === prompt.key;
+  const actions = useSupplementActions();
+  const pending = actions.isStarting(prompt.key);
   return (
     <li>
       <button
         className="group/start grid w-full grid-cols-[minmax(0,1fr)_auto] items-start gap-x-3 px-3 py-2 text-start outline-none transition-colors duration-150 hover:bg-(--surface-hover) active:bg-(--surface-active) focus-visible:ring-2 focus-visible:ring-(--focus-ring) focus-visible:ring-inset disabled:cursor-progress"
-        disabled={start.isPending}
-        onClick={() => start.mutate({ applicationId, promptKey: prompt.key })}
+        disabled={pending}
+        onClick={() => actions.start(applicationId, prompt.key)}
         type="button"
       >
         <span className="min-w-0">

@@ -1,4 +1,3 @@
-import { useAcknowledgePromptChange } from "@/api/workspace/hooks";
 import { Button } from "@/components/ui/button";
 import {
   Popover,
@@ -8,6 +7,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import type { PromptChange } from "@/domain/essay";
+import { useSupplementActions } from "@/features/essays/supplement-actions";
 import { cn } from "@/lib/utils";
 
 /* When the school rewords or drops a prompt this essay answers. Warning tone
@@ -24,7 +24,7 @@ export function PromptChangeNotice({
   essayId: string;
   prompt: string | null;
 }) {
-  const acknowledge = useAcknowledgePromptChange();
+  const actions = useSupplementActions();
   if (change.kind === "removed") {
     return (
       <p className={cn("text-xs font-medium text-(--warning-fg)", className)}>
@@ -65,8 +65,8 @@ export function PromptChangeNotice({
         </dl>
         <div className="mt-4 flex justify-end">
           <Button
-            disabled={acknowledge.isPending}
-            onClick={() => acknowledge.mutate(essayId)}
+            disabled={actions.isAcknowledging}
+            onClick={() => actions.acknowledge(essayId)}
             size="sm"
             variant="outline"
           >
