@@ -578,7 +578,7 @@ export function TaskDetailPanel({
     <aside
       aria-label={`Task details for "${task.title}"`}
       className={cn(
-        "fixed inset-y-2 end-2 z-[var(--z-sticky)] hidden w-[26rem] flex-col rounded-2xl border border-[var(--hairline)] bg-[var(--surface-raised)] p-6 shadow-[var(--elevation-2)] lg:flex",
+        "fixed inset-y-2 end-2 z-[var(--z-sticky)] hidden w-[var(--task-panel-width)] flex-col rounded-2xl border border-[var(--hairline)] bg-[var(--surface-raised)] p-6 shadow-[var(--elevation-2)] lg:flex",
         "transition-[opacity,translate] ease-out motion-reduce:transition-[opacity]",
         asideEntered
           ? "translate-x-0 opacity-100 duration-200"
