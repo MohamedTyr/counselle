@@ -1,3 +1,4 @@
+import { TriangleAlert } from "lucide-react";
 import { useState } from "react";
 
 import type { ScholarshipView } from "@/api/scholarships/types";
@@ -20,7 +21,7 @@ const PROFILE_OPTIONS: { value: PreviewProfile; label: string }[] = [
 ];
 
 export function PublishChecklist({ checks }: { checks: Check[] }) {
-  const open = checks.filter((check) => !check.ok).length;
+  const open = checks.filter((check) => !check.ok && check.severity === "required").length;
   return (
     <section
       aria-label="Before publishing"
@@ -31,15 +32,27 @@ export function PublishChecklist({ checks }: { checks: Check[] }) {
         <span className="text-xs text-[var(--ink-muted)]">{open === 0 ? "Ready" : `${open} to fix`}</span>
       </div>
       <ul className="flex flex-col gap-2">
-        {checks.map((check) => (
-          <li className="flex items-center gap-2.5 text-sm" key={check.key}>
-            <StatusDot status={check.ok ? "met" : "unmet"} />
-            <span className={check.ok ? "text-[var(--ink-secondary)]" : "text-[var(--ink)]"}>
-              <span className="sr-only">{check.ok ? "Done: " : "To fix: "}</span>
-              {check.label}
-            </span>
-          </li>
-        ))}
+        {checks.map((check) =>
+          check.severity === "warning" ? (
+            <li className="flex items-center gap-2.5 text-sm text-[var(--warning-fg)]" data-check={check.key} key={check.key}>
+              <span aria-hidden="true" className="inline-flex size-5 shrink-0 items-center justify-center rounded-full bg-[var(--warning-surface)]">
+                <TriangleAlert className="size-3" strokeWidth={2.5} />
+              </span>
+              <span>
+                <span className="sr-only">Warning: </span>
+                {check.label}
+              </span>
+            </li>
+          ) : (
+            <li className="flex items-center gap-2.5 text-sm" data-check={check.key} data-ok={check.ok} key={check.key}>
+              <StatusDot status={check.ok ? "met" : "unmet"} />
+              <span className={check.ok ? "text-[var(--ink-secondary)]" : "text-[var(--ink)]"}>
+                <span className="sr-only">{check.ok ? "Done: " : "To fix: "}</span>
+                {check.label}
+              </span>
+            </li>
+          ),
+        )}
       </ul>
     </section>
   );

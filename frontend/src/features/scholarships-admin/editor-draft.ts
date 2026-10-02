@@ -3,11 +3,12 @@ import type {
   CitizenshipOption,
   EligibilityRule,
   GradeOption,
+  PublishCheck,
   ScholarshipDraft,
   ScholarshipView,
 } from "@/api/scholarships/types";
 import type { ProfileFacts } from "@/features/scholarships/eligibility";
-import { daysUntil, isStale, STALE_AFTER_DAYS } from "@/features/scholarships/scholarship-format";
+import { isClosed, isStale, STALE_AFTER_DAYS } from "@/features/scholarships/scholarship-format";
 import { US_STATE_CODES } from "@/features/scholarships/us-states";
 
 export function todayIso(): string {
@@ -32,7 +33,7 @@ export function emptyDraft(): ScholarshipDraft {
     other_eligibility: [],
     requirements: { essays: [], recommendations: 0, transcript: false, financial_documents: false, interview: false },
     status: "draft",
-    last_checked_on: todayIso(),
+    last_checked_on: null,
   };
 }
 
@@ -74,42 +75,63 @@ export function sameDraft(a: ScholarshipDraft, b: ScholarshipDraft): boolean {
   return JSON.stringify(a) === JSON.stringify(b);
 }
 
-export type Check = { key: string; label: string; ok: boolean };
+export type Check = {
+  key: PublishCheck | "deadline_passed";
+  label: string;
+  ok: boolean;
+  /** Only `required` rows block publishing; a `warning` row informs. */
+  severity: "required" | "warning";
+};
 
-const URL_PATTERN = /^https?:\/\/[^\s.]+\.[^\s]+$/i;
+/** Same pattern as `domain/scholarships/types.py::is_web_url`. */
+const WEB_URL = /^https?:\/\/[^\s/?#]+\S*$/i;
 
-function awardIsSet(draft: ScholarshipDraft): boolean {
-  const { award } = draft;
-  if (award.kind === "fixed") return (award.amount ?? 0) > 0;
-  if (award.kind === "range") return award.min !== null || award.max !== null;
+function isWebUrl(value: string): boolean {
+  return WEB_URL.test(value.trim());
+}
+
+function awardIsSet({ award }: ScholarshipDraft): boolean {
+  if (award.kind === "fixed") return award.amount !== null && award.amount >= 1;
+  if (award.kind === "range") {
+    return award.min !== null && award.max !== null && award.max >= 1 && award.min <= award.max;
+  }
   return true;
 }
 
-function deadlineIsLive(draft: ScholarshipDraft): boolean {
-  const { deadline } = draft;
-  if (deadline.kind === "rolling") return true;
-  return deadline.date !== null && daysUntil(deadline.date) >= 0;
+/**
+ * The publish checklist, mirroring `domain/scholarships/publish.py` with the
+ * same ids. The server decides; `serverProblems` (from a 422) forces those
+ * rows to failing until the next edit. A passed deadline only warns: the
+ * student page files it under "Closed this cycle".
+ */
+export function publishChecks(draft: ScholarshipDraft, serverProblems: readonly PublishCheck[] = []): Check[] {
+  const required = (key: PublishCheck, label: string, ok: boolean): Check => ({
+    key,
+    label,
+    ok: ok && !serverProblems.includes(key),
+    severity: "required",
+  });
+  const checks = [
+    required("basics", "Name and sponsor", draft.name.trim() !== "" && draft.sponsor.trim() !== ""),
+    required("apply_url", "Apply link is a web address", isWebUrl(draft.apply_url)),
+    required("award", "Award amount is set", awardIsSet(draft)),
+    required(
+      "rules_complete",
+      "Every eligibility rule has a choice",
+      draft.eligibility.every((rule) => !("any_of" in rule) || rule.any_of.length > 0),
+    ),
+    required("deadline", "Deadline set, or rolling", draft.deadline.kind === "rolling" || draft.deadline.date !== null),
+    required("source_url", "Source link is a web address", isWebUrl(draft.source_url)),
+    required("fresh", `Checked in the last ${STALE_AFTER_DAYS} days`, !isStale(draft)),
+  ];
+  if (isClosed(draft.deadline)) {
+    checks.push({ key: "deadline_passed", label: "Deadline has passed", ok: false, severity: "warning" });
+  }
+  return checks;
 }
 
-/** The publish checklist. A published record must pass all of it to save. */
-export function publishChecks(draft: ScholarshipDraft): Check[] {
-  return [
-    { key: "basics", label: "Name and sponsor", ok: draft.name.trim() !== "" && draft.sponsor.trim() !== "" },
-    { key: "apply_url", label: "Apply link is a web address", ok: URL_PATTERN.test(draft.apply_url.trim()) },
-    { key: "award", label: "Award amount is set", ok: awardIsSet(draft) },
-    {
-      key: "rules_complete",
-      label: "Every eligibility rule has a choice",
-      ok: draft.eligibility.every((rule) => !("any_of" in rule) || rule.any_of.length > 0),
-    },
-    { key: "deadline", label: "Deadline is today or later, or rolling", ok: deadlineIsLive(draft) },
-    { key: "source_url", label: "Source link is a web address", ok: URL_PATTERN.test(draft.source_url.trim()) },
-    {
-      key: "fresh",
-      label: `Checked in the last ${STALE_AFTER_DAYS} days`,
-      ok: !isStale(draft),
-    },
-  ];
+export function isReady(checks: readonly Check[]): boolean {
+  return checks.every((check) => check.ok || check.severity === "warning");
 }
 
 export type PreviewProfile = "fits" | "fails" | "empty";

@@ -6,16 +6,19 @@ const IS_MAC = typeof navigator !== "undefined" && /mac/i.test(navigator.platfor
 /**
  * The editor's explicit save — a deliberate exception to autosave-on-blur
  * (DESIGN.md §17.3): a half-typed edit must never reach a published record a
- * student is reading.
+ * student is reading. In conflict (another admin saved first) Save gives way
+ * to "Load their version"; the draft stays on screen until then.
  */
 export function SaveBar({
   isSaving,
   blockedReason,
+  conflict,
   onSave,
   onDiscard,
 }: {
   isSaving: boolean;
   blockedReason: string | null;
+  conflict?: { onReload: () => void };
   onSave: () => void;
   onDiscard: () => void;
 }) {
@@ -26,17 +29,30 @@ export function SaveBar({
         role="region"
         aria-label="Unsaved changes"
       >
-        <span aria-hidden="true" className="size-1.5 shrink-0 rounded-full bg-[var(--warning-solid)]" />
-        <span className="min-w-0 flex-1 truncate text-sm text-[var(--ink-secondary)]">
-          {blockedReason ?? "Unsaved changes"}
+        <span
+          aria-hidden="true"
+          className={
+            conflict
+              ? "size-1.5 shrink-0 rounded-full bg-[var(--danger-solid)]"
+              : "size-1.5 shrink-0 rounded-full bg-[var(--warning-solid)]"
+          }
+        />
+        <span className="min-w-0 flex-1 truncate text-sm text-[var(--ink-secondary)]" role={conflict ? "alert" : undefined}>
+          {conflict ? "Someone else changed this scholarship" : (blockedReason ?? "Unsaved changes")}
         </span>
         <Button disabled={isSaving} onClick={onDiscard} size="sm" variant="ghost">
           Discard
         </Button>
-        <Button disabled={blockedReason !== null} loading={isSaving} onClick={onSave} size="sm">
-          Save
-          <Kbd className="hidden bg-white/15 text-[var(--on-brand)] sm:inline-flex">{IS_MAC ? "⌘S" : "Ctrl S"}</Kbd>
-        </Button>
+        {conflict ? (
+          <Button onClick={conflict.onReload} size="sm">
+            Load their version
+          </Button>
+        ) : (
+          <Button disabled={blockedReason !== null} loading={isSaving} onClick={onSave} size="sm">
+            Save
+            <Kbd className="hidden bg-white/15 text-[var(--on-brand)] sm:inline-flex">{IS_MAC ? "⌘S" : "Ctrl S"}</Kbd>
+          </Button>
+        )}
       </div>
     </div>
   );

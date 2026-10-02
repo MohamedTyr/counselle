@@ -2,9 +2,11 @@ import { MoreHorizontal, Plus, SearchX, TriangleAlert } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { useReducedMotion } from "motion/react";
+import { toast } from "sonner";
 
 import {
   useAdminScholarships,
+  useMarkChecked,
   useSetScholarshipStatus,
 } from "@/api/scholarships/hooks";
 import type { AdminScholarship, ScholarshipStatus } from "@/api/scholarships/types";
@@ -102,10 +104,12 @@ function RowMenu({
   item,
   onArchive,
   onStatus,
+  onMarkChecked,
 }: {
   item: AdminScholarship;
   onArchive: () => void;
   onStatus: (status: ScholarshipStatus) => void;
+  onMarkChecked: () => void;
 }) {
   return (
     <DropdownMenu>
@@ -137,7 +141,12 @@ function RowMenu({
             Restore as draft
           </DropdownMenuItem>
         ) : (
-          <DropdownMenuItem onSelect={onArchive}>Archive</DropdownMenuItem>
+          <>
+            <DropdownMenuItem onSelect={onMarkChecked}>
+              Mark checked today
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={onArchive}>Archive</DropdownMenuItem>
+          </>
         )}
       </DropdownMenuContent>
     </DropdownMenu>
@@ -173,6 +182,7 @@ export function AdminScholarshipsPage() {
   const reduceMotion = useReducedMotion() ?? false;
   const query = useAdminScholarships();
   const setStatus = useSetScholarshipStatus();
+  const markChecked = useMarkChecked();
   const undoable = useArchiveWithUndo();
   const [q, setQ] = useState("");
   const [status, setStatusFilter] = useState<StatusFilter>("all");
@@ -372,8 +382,17 @@ export function AdminScholarshipsPage() {
                       <RowMenu
                         item={item}
                         onArchive={() => undoable.archive(item)}
+                        onMarkChecked={() =>
+                          markChecked.mutate(item.id, {
+                            onSuccess: () => toast.success("Marked checked today"),
+                          })
+                        }
                         onStatus={(next) =>
-                          setStatus.mutate({ id: item.id, status: next })
+                          setStatus.mutate({
+                            id: item.id,
+                            status: next,
+                            expected_version: item.version,
+                          })
                         }
                       />
                     </TableCell>
