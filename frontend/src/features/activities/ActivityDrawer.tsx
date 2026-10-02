@@ -99,7 +99,7 @@ export function ActivityDrawer({
         variant="inset"
       >
         <SheetHeader className="pr-14">
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <div className="flex items-center gap-2 text-xs text-[var(--ink-muted)]">
             <span>Edit activity</span>
             <span aria-hidden="true">·</span>
             <span className="tabular-nums">
@@ -145,6 +145,7 @@ export function ActivityDrawer({
               trailing={
                 <>
                   <CharCounter
+                    meter
                     length={commonAppCharacterCount(current.position)}
                     limit={ACTIVITY_LIMITS.position}
                   />
@@ -174,6 +175,7 @@ export function ActivityDrawer({
               trailing={
                 <>
                   <CharCounter
+                    meter
                     length={commonAppCharacterCount(current.organization)}
                     limit={ACTIVITY_LIMITS.organization}
                   />
@@ -205,6 +207,7 @@ export function ActivityDrawer({
               trailing={
                 <>
                   <CharCounter
+                    meter
                     id={descriptionCounterId}
                     length={commonAppCharacterCount(current.description)}
                     limit={ACTIVITY_LIMITS.description}
@@ -234,7 +237,10 @@ export function ActivityDrawer({
                 limit={ACTIVITY_LIMITS.description}
               />
             </DrawerField>
+          </section>
 
+          <section className="grid gap-4 border-t border-[var(--hairline)] pt-6">
+            <DrawerSectionLabel>Participation</DrawerSectionLabel>
             <DrawerField label="Grades">
               <CheckChipGroup<Grade>
                 ariaLabel="Participation grade levels"
@@ -274,15 +280,10 @@ export function ActivityDrawer({
               </DrawerField>
             </div>
 
-            <label
-              className={cn(
-                "flex cursor-pointer items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm transition-colors",
-                drawerControlClassName,
-              )}
-            >
+            <label className="flex cursor-pointer items-center gap-2.5 text-sm text-[var(--ink)]">
               <input
                 checked={current.continue_in_college ?? false}
-                className="size-4 accent-foreground"
+                className="size-4 accent-[var(--accent-solid)]"
                 onChange={(event) =>
                   update({ continue_in_college: event.target.checked })
                 }
@@ -292,15 +293,15 @@ export function ActivityDrawer({
             </label>
           </section>
 
-          <section className="grid gap-2">
+          <section className="grid gap-1.5 border-t border-[var(--hairline)] pt-6">
             <div className="flex items-center gap-2">
+              <DrawerSectionLabel>The full story</DrawerSectionLabel>
               <Lock
                 aria-hidden="true"
-                className="size-3.5 text-muted-foreground"
+                className="size-3.5 text-[var(--ink-faint)]"
               />
-              <DrawerSectionLabel>The full story</DrawerSectionLabel>
             </div>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-[var(--ink-muted)]">
               Notes for yourself. This does not get copied into applications.
             </p>
             <Textarea
@@ -317,7 +318,7 @@ export function ActivityDrawer({
             />
           </section>
 
-          <div className="flex items-center justify-between gap-3 pt-1">
+          <div className="flex items-center justify-between gap-3 border-t border-[var(--hairline)] pt-4">
             <div className="flex items-center gap-1">
               <Button
                 aria-label="Move up"

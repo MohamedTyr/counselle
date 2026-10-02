@@ -45,6 +45,7 @@ def _settings() -> SimpleNamespace:
         facts_snapshot_retention_per_page=3,
         facts_unmapped_alert_threshold=100,
         facts_admin_unmapped_limit=10,
+        current_admissions_cycle_year=2027,
     )
 
 

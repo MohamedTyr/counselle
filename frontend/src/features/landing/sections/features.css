@@ -1,0 +1,42 @@
+.lp-features {
+  width: calc(100% - 2 * var(--lp-inset));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--lp-heading-gap);
+}
+.lp-features-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  text-align: center;
+  white-space: nowrap;
+}
+.lp-features-copy {
+  font-size: 17px;
+  line-height: 1.5;
+  color: var(--lp-muted);
+}
+
+.lp-sheet {
+  position: relative;
+  background: var(--lp-sheet);
+  border-radius: 12px;
+  overflow: clip;
+  color: var(--lp-ink);
+}
+.lp-sheet-wide {
+  width: 812px;
+  flex: none;
+}
+
+.lp-sheet-third {
+  width: 100%;
+  height: 240px;
+}
+.lp-fade {
+  position: absolute;
+  left: 0;
+  pointer-events: none;
+}

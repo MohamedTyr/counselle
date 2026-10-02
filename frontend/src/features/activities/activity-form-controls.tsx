@@ -34,10 +34,10 @@ export function CheckChipGroup<T extends string>({
         return (
           <label
             className={cn(
-              "inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-lg border px-3 text-sm transition-colors select-none focus-within:ring-2 focus-within:ring-[var(--focus-ring)]",
+              "inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-full border px-3 text-sm transition-[color,background-color,border-color,scale] duration-150 ease-out select-none focus-within:ring-2 focus-within:ring-[var(--focus-ring)] active:scale-[0.96] motion-reduce:transition-none",
               checked
-                ? "border-[color:var(--activity-chip-selected-border)] bg-[color:var(--activity-chip-selected-surface)] font-medium text-foreground"
-                : "border-[color:var(--activity-chip-border)] bg-[color:var(--activity-chip-surface)] text-muted-foreground hover:border-[color:var(--activity-chip-selected-border)] hover:bg-[color:var(--activity-chip-hover)] hover:text-foreground",
+                ? "border-[var(--accent-solid)] bg-[var(--brand-subtle)] text-[var(--brand-subtle-ink)]"
+                : "border-[var(--activity-control-border)] text-[var(--ink-secondary)] hover:border-[var(--edge-control-strong)] hover:text-[var(--ink)]",
             )}
             key={option.value}
           >
@@ -90,7 +90,7 @@ export function CopyFieldButton({
   return (
     <Button
       aria-label={label}
-      className="h-6 gap-1 px-1.5 text-muted-foreground hover:text-foreground"
+      className="h-6 gap-1 px-2 text-[var(--ink-faint)] hover:text-[var(--ink)]"
       disabled={!value}
       onClick={handleCopy}
       size="xs"
@@ -144,9 +144,7 @@ export function NumberField({
 
 export function DrawerSectionLabel({ children }: { children: ReactNode }) {
   return (
-    <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-      {children}
-    </p>
+    <h3 className="text-sm font-semibold text-[var(--ink)]">{children}</h3>
   );
 }
 
@@ -165,7 +163,7 @@ export function DrawerField({
     <div className="grid gap-1.5">
       <div className="flex min-h-6 items-center justify-between gap-2">
         <label
-          className="text-xs font-medium text-muted-foreground"
+          className="text-xs font-medium text-[var(--ink-secondary)]"
           htmlFor={labelFor}
         >
           {label}

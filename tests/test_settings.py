@@ -3,6 +3,7 @@
 import os
 from collections.abc import Iterator
 from pathlib import Path
+from typing import Any, cast
 
 import pytest
 from pydantic_settings import SettingsConfigDict
@@ -84,14 +85,22 @@ class TestDefaults:
         settings = EnvFileFreeSettings(db_ro_dsn=RO_DSN, db_app_dsn=APP_DSN, jwt_secret=JWT_SECRET)
 
         # Models
-        assert settings.model_counselor == "google-vertex:gemini-3.5-flash"
-        assert settings.model_cheap == "google-vertex:gemini-2.5-flash"
-        assert settings.model_clarifier == "google-vertex:gemini-2.5-flash"
+        live = "fireworks:accounts/fireworks/models/deepseek-v4p1-flash"
+        assert settings.model_counselor == live
+        assert settings.model_counselor_think == live
+        assert settings.model_cheap == live
+        assert settings.model_title == live
+        assert settings.model_counselor_display_name == "DeepSeek V4.1 Flash"
+        assert settings.model_counselor_think_display_name == "DeepSeek V4.1 Flash · Thinking"
+        assert settings.model_counselor_think_preview is False
+        assert settings.reasoning_effort_quick == "low"
+        assert settings.reasoning_effort_think == "high"
+        assert settings.reasoning_effort_cheap == "none"
+        assert settings.fireworks_api_key is None
+        assert settings.agent_model_retry_attempts == 3
         assert settings.agent_max_model_requests == 80
         assert settings.agent_max_total_tokens == 2_000_000
-        assert settings.thinking_stream is True
-        assert settings.thinking_summaries is None
-        assert settings.effective_thinking_stream is True
+        assert settings.thinking_stream is False
         # Database
         assert settings.db_statement_timeout_ms == 8000
         assert settings.db_row_cap == 500
@@ -183,7 +192,7 @@ class TestDefaults:
         assert settings.sse_keepalive_s == 15
         assert settings.agent_stream_buffer_size == 100_000
         assert settings.agent_turn_timeout_s == 3600
-        assert settings.agent_tool_result_max_chars == 8_000
+        assert settings.agent_tool_result_max_chars == 20_000
         assert settings.protocol_version == 1
         assert settings.workspace_event_queue_size == 256
         assert settings.workspace_writes_per_minute == 240
@@ -200,30 +209,75 @@ class TestDefaults:
         assert settings.assets_dir.name == "assets"
         assert settings.assets_dir.is_dir()
 
-    def test_thinking_stream_reads_new_env(
-        self, clean_env: None, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        monkeypatch.setenv("COUNSELLE_THINKING_STREAM", "false")
-        settings = EnvFileFreeSettings(
-            db_ro_dsn=RO_DSN, db_app_dsn=APP_DSN, jwt_secret=JWT_SECRET
-        )
-
-        assert settings.thinking_stream is False
-        assert settings.thinking_summaries is None
-        assert settings.effective_thinking_stream is False
-
-    def test_deprecated_thinking_summaries_env_overrides_for_compatibility(
+    def test_thinking_stream_reads_env(
         self, clean_env: None, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         monkeypatch.setenv("COUNSELLE_THINKING_STREAM", "true")
-        monkeypatch.setenv("COUNSELLE_THINKING_SUMMARIES", "false")
         settings = EnvFileFreeSettings(
             db_ro_dsn=RO_DSN, db_app_dsn=APP_DSN, jwt_secret=JWT_SECRET
         )
 
         assert settings.thinking_stream is True
-        assert settings.thinking_summaries is False
-        assert settings.effective_thinking_stream is False
+
+    def test_zero_retry_attempts_fails_boot(self, clean_env: None) -> None:
+        with pytest.raises(ValueError):
+            EnvFileFreeSettings(
+                db_ro_dsn=RO_DSN,
+                db_app_dsn=APP_DSN,
+                jwt_secret=JWT_SECRET,
+                agent_model_retry_attempts=0,
+            )
+
+
+class TestLiveModelPrefix:
+    """ADR 0043: every live model is Fireworks; a misconfigured env fails at
+    boot, never mid-turn."""
+
+    @pytest.mark.parametrize(
+        "field",
+        [
+            "model_counselor",
+            "model_counselor_think",
+            "model_cheap",
+            "model_title",
+            "goal_model",
+            "model_goal_judge",
+            "model_goal_criteria",
+        ],
+    )
+    def test_non_fireworks_live_model_fails_boot(self, clean_env: None, field: str) -> None:
+        with pytest.raises(ValueError, match=field):
+            EnvFileFreeSettings(
+                db_ro_dsn=RO_DSN,
+                db_app_dsn=APP_DSN,
+                jwt_secret=JWT_SECRET,
+                **cast(dict[str, Any], {field: "google-vertex:gemini-2.5-flash"}),
+            )
+
+    def test_unpriced_live_model_fails_boot(self, clean_env: None) -> None:
+        with pytest.raises(ValueError, match="model_prices"):
+            EnvFileFreeSettings(
+                db_ro_dsn=RO_DSN,
+                db_app_dsn=APP_DSN,
+                jwt_secret=JWT_SECRET,
+                model_goal_judge="fireworks:accounts/fireworks/models/unpriced",
+            )
+
+    def test_empty_fallback_fields_and_parked_cds_models_are_not_checked(
+        self, clean_env: None
+    ) -> None:
+        settings = EnvFileFreeSettings(
+            db_ro_dsn=RO_DSN,
+            db_app_dsn=APP_DSN,
+            jwt_secret=JWT_SECRET,
+            goal_model="",
+            model_goal_judge="",
+            model_goal_criteria="",
+            model_cds_extract="google-vertex:gemini-3.1-flash-lite",
+            model_cds_detect="google-vertex:gemini-3.1-flash-lite",
+        )
+        assert settings.goal_model == ""
+        assert settings.model_cds_extract == "google-vertex:gemini-3.1-flash-lite"
 
 
 class TestFactsCrawlSettings:
@@ -314,10 +368,27 @@ class TestFactsCrawlSettings:
         monkeypatch.setenv(
             "COUNSELLE_SAT_FETCH_USER_AGENT", "CounselleBot/1.0 (+https://counselle.ai/bot)"
         )
+        monkeypatch.setenv("COUNSELLE_FIREWORKS_API_KEY", "fw-test-key")
 
         settings = EnvFileFreeSettings(db_ro_dsn=RO_DSN, db_app_dsn=APP_DSN, jwt_secret=JWT_SECRET)
 
         assert settings.facts_crawl_user_agent == "CounselleBot/1.0 (+https://counselle.ai/bot)"
+
+    def test_missing_fireworks_key_fails_boot_outside_development(
+        self, clean_env: None, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("COUNSELLE_ENVIRONMENT", "staging")
+        monkeypatch.setenv("COUNSELLE_COOKIE_SECURE", "true")
+        monkeypatch.setenv("COUNSELLE_PASSWORD_RESET_ENABLED", "false")
+        monkeypatch.setenv(
+            "COUNSELLE_FACTS_CRAWL_USER_AGENT", "CounselleBot/1.0 (+https://counselle.ai/bot)"
+        )
+        monkeypatch.setenv(
+            "COUNSELLE_SAT_FETCH_USER_AGENT", "CounselleBot/1.0 (+https://counselle.ai/bot)"
+        )
+
+        with pytest.raises(ValueError, match="fireworks_api_key"):
+            EnvFileFreeSettings(db_ro_dsn=RO_DSN, db_app_dsn=APP_DSN, jwt_secret=JWT_SECRET)
 
 
 class TestSatFetchSettings:
@@ -381,6 +452,7 @@ class TestSatFetchSettings:
         monkeypatch.setenv(
             "COUNSELLE_SAT_FETCH_USER_AGENT", "CounselleBot/1.0 (+https://counselle.ai/bot)"
         )
+        monkeypatch.setenv("COUNSELLE_FIREWORKS_API_KEY", "fw-test-key")
 
         settings = EnvFileFreeSettings(db_ro_dsn=RO_DSN, db_app_dsn=APP_DSN, jwt_secret=JWT_SECRET)
 
@@ -419,11 +491,13 @@ class TestSecretMasking:
             db_app_dsn=APP_DSN,
             jwt_secret=JWT_SECRET,
             tavily_api_key="tvly-super-secret-key",
+            fireworks_api_key="fw-super-secret-key",
         )
         for rendered in (repr(settings), str(settings)):
             assert "ro-s3cret-pw" not in rendered
             assert "app-s3cret-pw" not in rendered
             assert "tvly-super-secret-key" not in rendered
+            assert "fw-super-secret-key" not in rendered
             assert JWT_SECRET not in rendered  # jwt_secret is masked too
             # The masked DSN still shows scheme + host for debuggability.
             assert "postgresql://***@localhost" in rendered

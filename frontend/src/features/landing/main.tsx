@@ -1,16 +1,29 @@
 import { StrictMode } from "react";
-import { createRoot } from "react-dom/client";
+import { createRoot, hydrateRoot } from "react-dom/client";
+import { initAnalytics } from "./analytics";
 import { LandingPage } from "./LandingPage";
 
-createRoot(document.getElementById("root")!).render(
+initAnalytics();
+
+const root = document.getElementById("root")!;
+const page = (
   <StrictMode>
     <LandingPage />
-  </StrictMode>,
+  </StrictMode>
 );
+// The production page arrives prerendered, so it paints before hydration takes
+// the main thread; the dev server serves an empty root.
+if (root.hasChildNodes())
+  requestAnimationFrame(() => setTimeout(() => hydrateRoot(root, page)));
+else createRoot(root).render(page);
 
-// The explicit preview stays available to signed-in users. The public root
-// retains its existing redirect into the authenticated application.
-if (window.location.pathname !== "/landing.html") {
+// In the app build, a signed-in visitor at the root goes straight to the app.
+// The landing-only build has no API to ask, and /landing.html is the explicit
+// preview, so neither checks.
+if (
+  !import.meta.env.VITE_LANDING_ONLY &&
+  window.location.pathname !== "/landing.html"
+) {
   void fetch("/v1/me", { credentials: "same-origin" })
     .then((response) => {
       if (response.ok) window.location.replace("/app/ai");

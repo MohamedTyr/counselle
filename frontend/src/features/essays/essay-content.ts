@@ -1,4 +1,3 @@
-import { faviconUrlForDomain } from "@/features/ai-chat/citations";
 import type { Essay } from "@/domain/essay";
 
 export const emptyTiptapDocument = {
@@ -11,32 +10,6 @@ export function countWords(text: string) {
     .trim()
     .split(/\s+/)
     .filter((word) => word.length > 0).length;
-}
-
-export function getSchoolFallback(school: string) {
-  const words = school.trim().split(/\s+/).filter(Boolean);
-
-  if (words.length >= 2) {
-    return words
-      .slice(0, 2)
-      .map((word) => word[0])
-      .join("")
-      .toUpperCase();
-  }
-
-  return school.slice(0, 2).toUpperCase();
-}
-
-export function getSchoolFaviconUrl(websiteUrl: string | null): string | undefined {
-  if (!websiteUrl) {
-    return undefined;
-  }
-
-  try {
-    return faviconUrlForDomain(new URL(websiteUrl).hostname);
-  } catch {
-    return undefined;
-  }
 }
 
 /**

@@ -3,7 +3,7 @@
 This file records third-party code, assets, and embedded services this repository carries
 or depends on beyond its ordinary package-manager dependencies (`uv.lock`, `frontend/package-lock.json`
 are the source of record for those — this file is for anything that needed a human decision
-about attribution, licensing, or use). It exists because SAT practice (ADR 0043) introduced
+about attribution, licensing, or use). It exists because SAT practice (ADR 0044) introduced
 the first such case in this repo: a ported open-source project, a vendored asset set, and an
 embedded third-party service, none of which are captured by a lockfile alone.
 
@@ -12,7 +12,7 @@ embedded third-party service, none of which are captured by a lockfile alone.
 **Source:** `github.com/liprep/liprep` @ commit `c84d3dc`. **Licence:** MIT.
 
 SAT practice (`domain/sat/`, `app/sat/`, `frontend/src/features/sat/`) is a **port** of
-liprep's product behaviour, not a copy of its code — see ADR 0043 ("Port, not fork") and
+liprep's product behaviour, not a copy of its code — see ADR 0044 ("Port, not fork") and
 `plans/sat-practice/plan.md` §2 for the full rationale. Two things are carried from liprep
 directly, both under the MIT licence above:
 
@@ -58,7 +58,7 @@ SAT practice's calculator tool is an `<iframe>` embed of the official calculator
 Board itself serves inside Bluebook
 (`https://www.desmos.com/testing/collegeboard/graphing`, configured through the
 `sat_desmos_embed_url` Settings value), not a bundled Desmos library. This repository does
-not vendor, license, or ship any Desmos code — see ADR 0043 for why (liprep's own approach,
+not vendor, license, or ship any Desmos code — see ADR 0044 for why (liprep's own approach,
 shipping Desmos's proprietary `calculator.js` bundle and a public demo API key, is not
 something a production product is licensed to do; the official embed is not subject to that
 problem because it is never downloaded or redistributed, only framed). Desmos's own terms
@@ -69,7 +69,7 @@ govern use of that embedded page; nothing here makes a claim about them.
 `deploy/seed/sat/bank.jsonl.gz` (built by `python -m app.sat fetch | build`) is College
 Board's own SAT Suite Question Bank content, fetched from College Board's public,
 unauthenticated JSON endpoints. It is **data, not third-party code**, and its licensing
-question is a distinct, unresolved risk (ADR 0043's Risk R0, owner decision O5) — whether
+question is a distinct, unresolved risk (ADR 0044's Risk R0, owner decision O5) — whether
 this content may be stored and served inside a commercial product at all. That question is
-not a notice-and-attribution matter this file can close; it is recorded in ADR 0043 and is
+not a notice-and-attribution matter this file can close; it is recorded in ADR 0044 and is
 not repeated here.

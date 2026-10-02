@@ -118,14 +118,6 @@ def _bounded(text: str, *, max_graphemes: int) -> BoundedDisplayText:
     return bounded_display_text(text, max_graphemes=max_graphemes)
 
 
-def notice(kind: str, code: str, message: str) -> MutationNotice:
-    return MutationNotice(
-        kind=kind,  # type: ignore[arg-type]
-        code=code,
-        message=_bounded(message, max_graphemes=REASON_MAX_GRAPHEMES),
-    )
-
-
 def text_value(text: str, *, max_graphemes: int = TITLE_MAX_GRAPHEMES) -> MutationValue:
     return MutationValue(kind="text", text=_bounded(text, max_graphemes=max_graphemes))
 

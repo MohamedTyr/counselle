@@ -174,7 +174,7 @@ describe("ActivitiesPage", () => {
     expect(
       screen.getByRole("button", { name: "Add activity" }),
     ).toBeInTheDocument();
-    expect(screen.getByText(/paste-ready/)).toBeInTheDocument();
+    expect(await screen.findByText(/paste-ready/)).toBeInTheDocument();
   });
 
   it("switches to honors and shows the honor controls", async () => {
@@ -293,7 +293,7 @@ describe("ActivitiesPage", () => {
     expect(
       await screen.findByRole("heading", { name: "Activities" }),
     ).toBeInTheDocument();
-    expect(screen.getByText("0 paste-ready")).toBeInTheDocument();
+    expect(await screen.findByText("0 paste-ready")).toBeInTheDocument();
     expect(
       await screen.findByRole("button", { name: /Activity 1: Untitled/ }),
     ).toBeInTheDocument();

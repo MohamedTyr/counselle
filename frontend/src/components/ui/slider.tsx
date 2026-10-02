@@ -40,7 +40,7 @@ export function Slider({
           data-slot="slider-track"
         >
           <SliderPrimitive.Indicator
-            className={cn("absolute inset-y-0 left-0 rounded-full bg-primary")}
+            className={cn("absolute inset-y-0 left-0 rounded-full bg-selected")}
             data-slot="slider-indicator"
           />
         </SliderPrimitive.Track>
@@ -52,7 +52,7 @@ export function Slider({
            * filter that input resolves against the ancestor instead, and
            * focusing it on press scrolls the page away mid-drag. */
           className={cn(
-            "absolute z-10 size-4 rounded-full [contain:layout] border-2 border-primary bg-primary shadow-xs outline-none transition-[box-shadow,border-color] duration-150 ease-out focus-visible:ring-[3px] focus-visible:ring-ring/35 data-disabled:bg-[var(--control-quiet-surface)]",
+            "absolute z-10 size-4 rounded-full [contain:layout] border-2 border-selected bg-selected shadow-xs outline-none transition-[box-shadow,border-color] duration-150 ease-out focus-visible:ring-[3px] focus-visible:ring-ring/35 data-disabled:bg-[var(--control-quiet-surface)]",
           )}
           data-slot="slider-thumb"
           data-testid="slider-thumb"

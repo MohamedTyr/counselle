@@ -4,7 +4,7 @@ import { Tabs as TabsPrimitive } from "@base-ui/react/tabs";
 import type React from "react";
 import { cn } from "@/lib/utils";
 
-export type TabsVariant = "default" | "underline";
+export type TabsVariant = "default" | "pill" | "underline";
 
 export function Tabs({
   className,
@@ -35,9 +35,14 @@ export function TabsList({
       className={cn(
         "relative z-0 flex w-fit items-center justify-center gap-x-0.5 text-muted-foreground",
         "data-[orientation=vertical]:flex-col",
-        variant === "default"
-          ? "rounded-lg bg-[var(--control-track)] p-0.5 text-[var(--ink-muted)]"
-          : "data-[orientation=horizontal]:py-1 data-[orientation=vertical]:px-1 *:data-[slot=tabs-tab]:hover:bg-accent",
+        variant === "default" &&
+          "rounded-lg bg-[var(--control-track)] p-0.5 text-[var(--ink-muted)]",
+        // A page's own views (Tasks' Today/Upcoming, Profile's tabs): a
+        // quiet track with the current view lifted onto a raised pill.
+        variant === "pill" &&
+          "rounded-full bg-[var(--control-quiet-surface)] p-1 text-[var(--ink-secondary)] *:data-[slot=tabs-tab]:h-8 *:data-[slot=tabs-tab]:rounded-full *:data-[slot=tabs-tab]:px-3.5 *:data-[slot=tabs-tab]:text-sm *:data-[slot=tabs-tab]:transition-[color,scale] *:data-[slot=tabs-tab]:font-normal *:data-[slot=tabs-tab]:data-active:font-medium *:data-[slot=tabs-tab]:hover:text-[var(--ink)] *:data-[slot=tabs-tab]:active:scale-[0.97]",
+        variant === "underline" &&
+          "data-[orientation=horizontal]:py-1 data-[orientation=vertical]:px-1 *:data-[slot=tabs-tab]:hover:bg-accent",
         className,
       )}
       data-slot="tabs-list"
@@ -49,7 +54,10 @@ export function TabsList({
           "absolute bottom-0 left-0 h-(--active-tab-height) w-(--active-tab-width) translate-x-(--active-tab-left) -translate-y-(--active-tab-bottom) transition-[width,translate] duration-200 ease-in-out",
           variant === "underline"
             ? "z-10 bg-primary data-[orientation=horizontal]:h-0.5 data-[orientation=horizontal]:translate-y-px data-[orientation=vertical]:w-0.5 data-[orientation=vertical]:-translate-x-px"
-            : "-z-1 rounded-md bg-[var(--surface-raised)] shadow-[var(--elevation-1)]",
+            : cn(
+                "-z-1 bg-[var(--surface-raised)] shadow-[var(--elevation-1)]",
+                variant === "pill" ? "rounded-full" : "rounded-md",
+              ),
         )}
         data-slot="tab-indicator"
       />

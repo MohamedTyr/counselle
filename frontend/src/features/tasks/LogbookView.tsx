@@ -10,7 +10,7 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
-import { TaskGroupHeader } from "@/features/tasks/TasksLayout";
+import { TaskSheet, TaskSheetSection } from "@/features/tasks/TaskSheet";
 import { useTasksOutletContext } from "@/features/tasks/tasks-outlet-context";
 import { TaskRow } from "@/features/tasks/TaskRow";
 
@@ -46,28 +46,29 @@ export function LogbookView() {
   }
 
   return (
-    <div className="flex flex-col">
-      {logbookGroups.map((group, index) => (
-        <div key={group.id}>
-          <TaskGroupHeader count={group.tasks.length} isFirst={index === 0} label={group.label} />
-          <ul className="-mx-2 flex flex-col" role="list">
-            {group.tasks.map((task) => (
-              <TaskRow
-                applicationsById={applicationsById}
-                essaysById={essaysById}
-                isSelected={task.id === activeTaskId}
-                key={task.id}
-                onComplete={onComplete}
-                onDelete={onDelete}
-                onOpen={onOpenTask}
-                onSchedule={onSchedule}
-                onToggleFlag={onToggleFlag}
-                task={task}
-              />
-            ))}
-          </ul>
-        </div>
+    <TaskSheet>
+      {logbookGroups.map((group) => (
+        <TaskSheetSection
+          count={group.tasks.length}
+          key={group.id}
+          label={group.label}
+        >
+          {group.tasks.map((task) => (
+            <TaskRow
+              applicationsById={applicationsById}
+              essaysById={essaysById}
+              isSelected={task.id === activeTaskId}
+              key={task.id}
+              onComplete={onComplete}
+              onDelete={onDelete}
+              onOpen={onOpenTask}
+              onSchedule={onSchedule}
+              onToggleFlag={onToggleFlag}
+              task={task}
+            />
+          ))}
+        </TaskSheetSection>
       ))}
-    </div>
+    </TaskSheet>
   );
 }

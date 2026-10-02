@@ -35,7 +35,7 @@ export type YouMarkProps = {
   /**
    * `"you"` (default): the saved profile value, solid rule + pill.
    * `"scenario"`: a local hypothetical that differs from the saved value —
-   * same geometry, `--school-chances-scenario` (lime) instead.
+   * same geometry, `--school-chances-scenario` (the accent green) instead.
    * `"saved"`: the saved value once a scenario has replaced it as the
    * primary mark — a 1px dashed rule with no pill, so the plot still shows
    * where the student's real profile sits without competing with the

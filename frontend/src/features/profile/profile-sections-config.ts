@@ -51,13 +51,20 @@ export const PROFILE_SECTIONS: readonly SectionConfig[] = [
     title: "Basics",
     group: "advice",
     description: "Who you are and where you go to school.",
-    matters: "Sets the timeline every deadline answer is measured against.",
     groups: [
       {
         label: "You",
+        question: "What should we call you?",
         fields: [
           { kind: "text", key: "preferred_name", label: "Preferred name" },
           { kind: "text", key: "pronouns", label: "Pronouns" },
+        ],
+      },
+      {
+        label: "Year",
+        question: "Where are you in high school?",
+        why: "Sets the timeline every deadline is measured against.",
+        fields: [
           {
             kind: "select",
             key: "grade_level",
@@ -82,6 +89,8 @@ export const PROFILE_SECTIONS: readonly SectionConfig[] = [
       },
       {
         label: "High school",
+        question: "Which school do you go to?",
+        why: "Your record is read against what your school offers.",
         fields: [
           {
             kind: "object",
@@ -118,11 +127,11 @@ export const PROFILE_SECTIONS: readonly SectionConfig[] = [
     group: "advice",
     description:
       "Grades, rigor, and how your record reads. This is what Counselle uses to say where you would be competitive.",
-    matters:
-      "Counselle can't say where you'd be competitive without a GPA or a score.",
     groups: [
       {
         label: "Grades",
+        question: "What's your GPA?",
+        why: "Without a GPA or a score, there's no saying where you'd be competitive.",
         fields: [
           {
             kind: "decimal",
@@ -148,18 +157,22 @@ export const PROFILE_SECTIONS: readonly SectionConfig[] = [
       },
       {
         label: "Class rank",
+        question: "Does your school rank students?",
+        why: "Only matters if your school reports it.",
         fields: [
-          { kind: "int", key: "class_rank", label: "Rank", min: 1 },
-          { kind: "int", key: "class_size", label: "Class size", min: 1 },
           {
             kind: "boolean",
             key: "school_ranks",
             label: "School ranks students",
           },
+          { kind: "int", key: "class_rank", label: "Rank", min: 1 },
+          { kind: "int", key: "class_size", label: "Class size", min: 1 },
         ],
       },
       {
         label: "Trajectory",
+        question: "How have your grades moved?",
+        why: "A dip with a reason reads differently from a dip without one.",
         fields: [
           {
             kind: "object",
@@ -183,6 +196,8 @@ export const PROFILE_SECTIONS: readonly SectionConfig[] = [
       },
       {
         label: "Coursework",
+        question: "What are you taking this year?",
+        why: "Rigor is read against what your school offers.",
         fields: [
           {
             kind: "string-list",
@@ -204,10 +219,12 @@ export const PROFILE_SECTIONS: readonly SectionConfig[] = [
     title: "Testing",
     group: "advice",
     description: "Scores taken and planned.",
-    matters: "Score strategy depends on what you've already sat.",
     groups: [
       {
-        label: "SAT",
+        label: "Tests",
+        question: "Which tests have you taken?",
+        why: "Score strategy depends on what you've already sat.",
+        layout: "tiles",
         fields: [
           {
             kind: "object",
@@ -221,16 +238,17 @@ export const PROFILE_SECTIONS: readonly SectionConfig[] = [
                 min: 400,
                 max: 1600,
               },
-              { kind: "int", key: "ebrw", label: "EBRW", min: 200, max: 800 },
+              {
+                kind: "int",
+                key: "ebrw",
+                label: "Reading & writing",
+                min: 200,
+                max: 800,
+              },
               { kind: "int", key: "math", label: "Math", min: 200, max: 800 },
               { kind: "date", key: "date", label: "Date" },
             ],
           },
-        ],
-      },
-      {
-        label: "ACT",
-        fields: [
           {
             kind: "object",
             key: "act",
@@ -246,11 +264,6 @@ export const PROFILE_SECTIONS: readonly SectionConfig[] = [
               { kind: "date", key: "date", label: "Date" },
             ],
           },
-        ],
-      },
-      {
-        label: "PSAT",
-        fields: [
           {
             kind: "object",
             key: "psat",
@@ -266,11 +279,6 @@ export const PROFILE_SECTIONS: readonly SectionConfig[] = [
               { kind: "text", key: "nmsqt_status", label: "NMSQT status" },
             ],
           },
-        ],
-      },
-      {
-        label: "IB",
-        fields: [
           {
             kind: "object",
             key: "ib",
@@ -293,17 +301,17 @@ export const PROFILE_SECTIONS: readonly SectionConfig[] = [
               },
             ],
           },
-        ],
-      },
-      {
-        label: "English proficiency",
-        fields: [
           {
             kind: "object",
             key: "english_proficiency",
-            label: "English proficiency",
+            label: "English test",
             fields: [
-              { kind: "text", key: "test", label: "Test" },
+              {
+                kind: "text",
+                key: "test",
+                label: "Test",
+                placeholder: "TOEFL, IELTS, Duolingo",
+              },
               { kind: "text", key: "score", label: "Score" },
               { kind: "date", key: "date", label: "Date" },
             ],
@@ -312,6 +320,7 @@ export const PROFILE_SECTIONS: readonly SectionConfig[] = [
       },
       {
         label: "AP scores",
+        question: "How did your AP exams go?",
         fields: [
           {
             kind: "object-list",
@@ -340,6 +349,8 @@ export const PROFILE_SECTIONS: readonly SectionConfig[] = [
       },
       {
         label: "Planned tests",
+        question: "Any tests coming up?",
+        why: "So advice can plan around the dates.",
         fields: [
           {
             kind: "object-list",
@@ -361,10 +372,11 @@ export const PROFILE_SECTIONS: readonly SectionConfig[] = [
     title: "Interests",
     group: "advice",
     description: "Majors and career direction.",
-    matters: "Changes which programs are worth comparing at all.",
     groups: [
       {
         label: "Major",
+        question: "What do you want to study?",
+        why: "Changes which programs are worth comparing at all.",
         fields: [
           {
             kind: "string-list",
@@ -392,6 +404,8 @@ export const PROFILE_SECTIONS: readonly SectionConfig[] = [
       },
       {
         label: "Direction",
+        question: "Where do you see it going?",
+        why: "A pre-med or engineering track changes which schools fit.",
         fields: [
           {
             kind: "textarea",
@@ -423,10 +437,10 @@ export const PROFILE_SECTIONS: readonly SectionConfig[] = [
     title: "Preferences",
     group: "advice",
     description: "What you're looking for in a school.",
-    matters: "Without these, Counselle suggests schools on numbers alone.",
     groups: [
       {
         label: "Place",
+        question: "Where do you want to be?",
         fields: [
           {
             kind: "string-list",
@@ -444,6 +458,7 @@ export const PROFILE_SECTIONS: readonly SectionConfig[] = [
       },
       {
         label: "Campus",
+        question: "What kind of campus feels right?",
         fields: [
           {
             kind: "multi-select",
@@ -475,6 +490,8 @@ export const PROFILE_SECTIONS: readonly SectionConfig[] = [
       },
       {
         label: "Lines you'd draw",
+        question: "What's a must, and what's a dealbreaker?",
+        why: "Without these, schools get suggested on numbers alone.",
         fields: [
           {
             kind: "string-list",
@@ -497,10 +514,11 @@ export const PROFILE_SECTIONS: readonly SectionConfig[] = [
     title: "Background",
     group: "read",
     description: "Citizenship, residence, and context that shapes review.",
-    matters: "Changes how an admissions reader reads the same record.",
     groups: [
       {
         label: "Citizenship",
+        question: "What's your citizenship?",
+        why: "Decides which aid and which applicant pool you're in.",
         fields: [
           { kind: "text", key: "citizenship", label: "Citizenship" },
           { kind: "text", key: "visa_status", label: "Visa status" },
@@ -508,6 +526,8 @@ export const PROFILE_SECTIONS: readonly SectionConfig[] = [
       },
       {
         label: "Residence",
+        question: "Where do you live?",
+        why: "In-state tuition and regional review depend on it.",
         fields: [
           {
             kind: "object",
@@ -523,6 +543,8 @@ export const PROFILE_SECTIONS: readonly SectionConfig[] = [
       },
       {
         label: "Community",
+        question: "What's your community like?",
+        why: "Context for how a reader sees your opportunities.",
         fields: [
           {
             kind: "select",
@@ -545,6 +567,7 @@ export const PROFILE_SECTIONS: readonly SectionConfig[] = [
       },
       {
         label: "Family",
+        question: "Are you the first in your family to go to college?",
         fields: [
           {
             kind: "boolean",
@@ -560,6 +583,8 @@ export const PROFILE_SECTIONS: readonly SectionConfig[] = [
       },
       {
         label: "Hooks",
+        question: "Does anything give you a hook?",
+        why: "Legacy, recruited athlete, QuestBridge: anything a school weighs on its own.",
         fields: [
           {
             kind: "object-list",
@@ -595,10 +620,11 @@ export const PROFILE_SECTIONS: readonly SectionConfig[] = [
     title: "Circumstances",
     group: "read",
     description: "Anything that shaped your record and deserves context.",
-    matters: "Explains a dip or a gap that would otherwise read as a choice.",
     groups: [
       {
         label: "What shaped your record",
+        question: "Has anything shaped your record?",
+        why: "Explains a dip or a gap that would otherwise read as a choice.",
         fields: [
           { kind: "textarea", key: "disruptions", label: "Disruptions" },
           {
@@ -615,6 +641,8 @@ export const PROFILE_SECTIONS: readonly SectionConfig[] = [
       },
       {
         label: "Disciplinary",
+        question: "Any disciplinary history?",
+        why: "Only if an application asks you about it.",
         fields: [
           { kind: "textarea", key: "disciplinary", label: "Disciplinary" },
         ],
@@ -626,10 +654,11 @@ export const PROFILE_SECTIONS: readonly SectionConfig[] = [
     title: "Aid",
     group: "read",
     description: "Financial-aid posture and constraints.",
-    matters: "Without it, cost answers are list prices, not your price.",
     groups: [
       {
         label: "Need",
+        question: "Will you need financial aid?",
+        why: "Without it, cost answers are list prices, not your price.",
         fields: [
           { kind: "boolean", key: "need_aid", label: "Needs aid" },
           {
@@ -642,6 +671,7 @@ export const PROFILE_SECTIONS: readonly SectionConfig[] = [
       },
       {
         label: "Approach",
+        question: "How do you want to pay for it?",
         fields: [
           {
             kind: "select",
@@ -677,10 +707,11 @@ export const PROFILE_SECTIONS: readonly SectionConfig[] = [
     title: "Narrative",
     group: "writing",
     description: "The story your application is telling.",
-    matters: "Feeds essay work when you get to it.",
     groups: [
       {
         label: "Your through-line",
+        question: "What's your through-line?",
+        why: "The one thing your application keeps coming back to.",
         fields: [
           { kind: "textarea", key: "spike", label: "Spike" },
           {
@@ -692,6 +723,7 @@ export const PROFILE_SECTIONS: readonly SectionConfig[] = [
       },
       {
         label: "Voice",
+        question: "How would you describe yourself?",
         fields: [
           {
             kind: "textarea",
@@ -707,6 +739,7 @@ export const PROFILE_SECTIONS: readonly SectionConfig[] = [
       },
       {
         label: "Essays",
+        question: "Any essay ideas yet?",
         fields: [
           { kind: "textarea", key: "essay_angles", label: "Essay angles" },
         ],
@@ -718,10 +751,10 @@ export const PROFILE_SECTIONS: readonly SectionConfig[] = [
     title: "People",
     group: "writing",
     description: "Recommenders and support around your application.",
-    matters: "Who writes for you, and who is around you while you apply.",
     groups: [
       {
         label: "Recommenders",
+        question: "Who's writing your recommendations?",
         fields: [
           {
             kind: "object-list",
@@ -744,6 +777,7 @@ export const PROFILE_SECTIONS: readonly SectionConfig[] = [
       },
       {
         label: "Support",
+        question: "Who's helping you through this?",
         fields: [
           {
             kind: "textarea",

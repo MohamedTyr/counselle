@@ -55,7 +55,6 @@ from pydantic_ai.messages import (
 from app.clarification import latest_awaiting_v2_clarify_spec
 from app.graph import GraphDeps
 from app.model_selection import (
-    UnsupportedCounselorProvider,
     counselor_model_selection,
     goal_agent_model_setting,
 )
@@ -585,16 +584,7 @@ async def run_continuation_turn(
     """
     settings = getattr(deps, "settings", None) or get_settings()
     trace_id = str(uuid4())
-    try:
-        selection = counselor_model_selection(response_mode, settings)
-    except UnsupportedCounselorProvider:
-        logger.exception(
-            "counselor model selection failed for A2 (trace_id=%s, session_id=%s)",
-            trace_id,
-            session_id,
-        )
-        yield ev_error(_USER_SAFE_ERROR, trace_id)
-        return
+    selection = counselor_model_selection(response_mode, settings)
 
     message_id = prepared.continuation_message_id
     user_message_id = prepared.user_message_id or prepared.trigger_request_id
@@ -816,17 +806,7 @@ async def run_turn(
     # separately-threaded model string) is the single source that meta,
     # turn_ids, and the agent node's own re-resolution all agree with by
     # construction — never `settings.model_counselor` directly.
-    try:
-        selection = counselor_model_selection(response_mode, settings)
-    except UnsupportedCounselorProvider:
-        logger.exception(
-            "counselor model selection failed (trace_id=%s, session_id=%s, response_mode=%s)",
-            trace_id,
-            session_id,
-            response_mode.value,
-        )
-        yield ev_error(_USER_SAFE_ERROR, trace_id)
-        return
+    selection = counselor_model_selection(response_mode, settings)
     # G1 message identity: the turn's two UUIDs, minted at start so the live
     # stream is addressable for feedback/edit (ADR 0022). A clarify resume
     # reuses the parked record's message_id — detected BEFORE ev_meta so the

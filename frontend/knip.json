@@ -1,11 +1,23 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
-  "project": ["src/**/*.{ts,tsx}"],
+  "entry": [
+    "src/features/landing/main.tsx",
+    "src/features/landing/entry-server.tsx",
+    "functions/**/*.ts",
+    "scripts/*.mjs"
+  ],
+  "project": ["src/**/*.{ts,tsx}", "functions/**/*.ts"],
   "ignore": [
-    "src/features/cds-admin/**",
     "src/api/cds-admin/**",
     "src/pages/cds-*.tsx",
     "src/components/ui/**"
+  ],
+  "ignoreDependencies": [
+    // Imported from CSS (landing.css, the app's styles), which knip doesn't follow.
+    "@fontsource-variable/geist",
+    "@fontsource-variable/instrument-sans",
+    "@fontsource-variable/inter",
+    "@fontsource/instrument-serif"
   ],
   "ignoreExportsUsedInFile": true
 }

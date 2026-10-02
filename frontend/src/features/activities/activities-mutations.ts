@@ -8,7 +8,7 @@ import {
 } from "@/domain/activity";
 import { createClientId, createTimestamp } from "@/lib/time";
 import { renumber } from "@/features/activities/activities-reorder";
-import type { SectionStats } from "@/features/activities/activities-types";
+import type { SlotStatus } from "@/features/activities/activities-types";
 
 type Identified = { id: string; order: number };
 
@@ -88,36 +88,22 @@ export function createHonor(
   };
 }
 
-export function getActivityStats(activities: Activity[]): SectionStats {
-  let ready = 0;
-  let overLimit = 0;
+function slotStatus(ready: boolean, overLimit: boolean): SlotStatus {
+  if (ready) {
+    return "ready";
+  }
 
-  activities.forEach((activity) => {
-    if (isActivityReady(activity)) {
-      ready += 1;
-    }
-
-    if (isActivityOverLimit(activity)) {
-      overLimit += 1;
-    }
-  });
-
-  return { notReady: activities.length - ready, overLimit, ready };
+  return overLimit ? "over" : "todo";
 }
 
-export function getHonorStats(honors: Honor[]): SectionStats {
-  let ready = 0;
-  let overLimit = 0;
+export function getActivitySlots(activities: Activity[]): SlotStatus[] {
+  return activities.map((activity) =>
+    slotStatus(isActivityReady(activity), isActivityOverLimit(activity)),
+  );
+}
 
-  honors.forEach((honor) => {
-    if (isHonorReady(honor)) {
-      ready += 1;
-    }
-
-    if (isHonorOverLimit(honor)) {
-      overLimit += 1;
-    }
-  });
-
-  return { notReady: honors.length - ready, overLimit, ready };
+export function getHonorSlots(honors: Honor[]): SlotStatus[] {
+  return honors.map((honor) =>
+    slotStatus(isHonorReady(honor), isHonorOverLimit(honor)),
+  );
 }

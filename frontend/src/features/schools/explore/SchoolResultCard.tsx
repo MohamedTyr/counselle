@@ -1,54 +1,42 @@
-import { Check, Plus } from "lucide-react";
-import { Fragment } from "react";
+import { Check, Landmark, MapPin, Plus, Users } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
+import type { CSSProperties, ReactNode } from "react";
 import { Link } from "react-router";
 
 import type { ExploreSchoolCard } from "@/api/schools/explore";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import {
   ABSENT_LABEL,
-  costLabel,
   formatCompactCount,
   formatCurrency,
-  formatDeadlineDate,
   formatPercent,
 } from "@/features/schools/explore/explore-format";
+import { controlShortLabel } from "@/features/schools/explore/explore-config";
 import type { ExploreAssumptions } from "@/features/schools/explore/explore-types";
-import { VerdictBand } from "@/features/schools/explore/VerdictBand";
+import { schoolColour } from "@/features/schools/explore/school-colours";
 import { SchoolAvatar } from "@/features/schools/school-cells";
 import { cn } from "@/lib/utils";
 
 /*
  * One school, as a comparison unit. Explore uses cards and My list uses a
  * table because they answer different questions: "which of these do I
- * want?" is a comparison read where several numbers need to be visible at
- * once and the eye moves between whole units; "what do I owe and when?" is
- * a status read down aligned columns.
+ * want?" is a comparison read where the eye moves between whole units;
+ * "what do I owe and when?" is a status read down aligned columns.
  *
- * Nothing on this card is a sentence. Every mark is a datum, a label for a
- * datum, or the mark for a datum that does not exist -- because the card
- * is read twenty-four at a time and prose only survives the first one.
+ * The card carries two numbers, the two a student decides on first: can I
+ * get in (the admit rate and the band it implies) and can I pay for it (the
+ * yearly cost). Everything else is one click away on the school's page.
+ * A missing number still takes its slot and says "not available" -- a blank
+ * reads as zero, and zero is a lie (AGENTS.md principle 3).
  */
 
-function StatCell({ label, value }: { label: string; value: string | null }) {
-  return (
-    <div className="flex min-w-0 flex-col gap-0.5">
-      {value === null ? (
-        <span className="truncate text-xs leading-6 text-[var(--school-value-absent)]">
-          {ABSENT_LABEL}
-        </span>
-      ) : (
-        <span className="truncate text-[15px] leading-6 font-medium tabular-nums">
-          {value}
-        </span>
-      )}
-      <span className="truncate text-xs leading-4 text-[var(--ink-muted)]">
-        {label}
-      </span>
-    </div>
-  );
-}
+/** The same ordered green steps the My list balance legend uses. */
+const BAND_DOT: Record<"Reach" | "Target" | "Safety", string> = {
+  Reach: "var(--school-balance-reach)",
+  Target: "var(--school-balance-target)",
+  Safety: "var(--school-balance-safety)",
+};
 
 /** Picks the in-state or out-of-state cost row exactly the way the explore
  *  query itself does (`app/facts/service_explore.py`'s `cost` clause): the
@@ -66,46 +54,56 @@ function pickCost(school: ExploreSchoolCard, assumptions: ExploreAssumptions) {
   };
 }
 
-function RoundsFooter({ school }: { school: ExploreSchoolCard }) {
-  const {
-    offers_early_decision,
-    offers_early_action,
-    is_rolling,
-    deadline_regular,
-  } = school.fields;
-  const codes = [
-    offers_early_decision ? "ED" : null,
-    offers_early_action ? "EA" : null,
-    is_rolling ? "Rolling" : null,
-  ].filter((code): code is string => code !== null);
-  const deadline = formatDeadlineDate(deadline_regular);
-
+function Figure({
+  value,
+  label,
+  valueClassName,
+}: {
+  value: string | null;
+  label: string;
+  valueClassName?: string;
+}) {
   return (
-    <div className="-mx-4 mt-auto flex items-center justify-between gap-3 border-t px-4 pt-2.5">
-      <div className="flex min-w-0 flex-wrap items-center gap-x-1 text-xs">
-        {codes.length === 0 ? (
-          <span className="text-[var(--ink-faint)]">Regular Decision</span>
-        ) : (
-          codes.map((code, index) => (
-            <Fragment key={code}>
-              {index > 0 ? (
-                <span aria-hidden="true" className="text-[var(--ink-disabled)]">
-                  ·
-                </span>
-              ) : null}
-              <span className="font-medium text-[var(--ink)]">{code}</span>
-            </Fragment>
-          ))
-        )}
-      </div>
-      <span className="shrink-0 text-xs font-medium tabular-nums">
-        {deadline ?? (
-          <span className="font-normal text-[var(--school-value-absent)]">
-            {is_rolling ? "Rolling" : `deadline ${ABSENT_LABEL}`}
-          </span>
-        )}
+    <div className="min-w-0">
+      {value === null ? (
+        <span className="block pt-1.5 pb-0.5 text-[13px] leading-5 text-[var(--school-value-absent)]">
+          {ABSENT_LABEL}
+        </span>
+      ) : (
+        <span
+          className={cn(
+            "block truncate text-[26px] leading-7 font-semibold tracking-[-0.03em] tabular-nums",
+            valueClassName,
+          )}
+        >
+          {value}
+        </span>
+      )}
+      <span className="mt-1 block truncate text-xs text-[var(--ink-faint)]">
+        {label}
       </span>
     </div>
+  );
+}
+
+/** One fact on the meta line: an icon names the kind, so no separators. */
+function MetaItem({
+  icon: Icon,
+  children,
+  className,
+}: {
+  icon: LucideIcon;
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <span className={cn("flex min-w-0 items-center gap-1", className)}>
+      <Icon
+        aria-hidden="true"
+        className="size-3.5 shrink-0 text-[var(--ink-faint)]"
+      />
+      <span className="truncate">{children}</span>
+    </span>
   );
 }
 
@@ -122,13 +120,14 @@ function CardAction({
 }) {
   if (onList) {
     return (
-      <Badge
-        className="relative z-10 shrink-0 gap-1 border-[var(--school-card-onlist-border)] bg-[var(--school-card-onlist-badge-surface)] text-[var(--school-card-onlist-badge-ink)]"
-        variant="outline"
-      >
-        <Check aria-hidden="true" />
+      <span className="relative z-10 inline-flex h-7 shrink-0 items-center gap-1 rounded-full bg-[var(--school-card-onlist-surface)] pr-2.5 pl-2 text-xs font-medium text-[var(--school-card-onlist-ink)]">
+        <Check
+          aria-hidden="true"
+          className="size-3.5 text-[var(--school-card-onlist-icon)]"
+          strokeWidth={2.75}
+        />
         On list
-      </Badge>
+      </span>
     );
   }
 
@@ -170,27 +169,54 @@ export function SchoolResultCard({
 }) {
   const size = formatCompactCount(school.fields.undergraduates);
   const cost = pickCost(school, assumptions);
+  const rate = formatPercent(school.fit.admit_rate);
+  // An unclassifiable school has no rate to show and no band to claim.
+  const band = school.fit.category === "Unknown" ? null : school.fit.category;
+  const colour = schoolColour(school.unitid);
 
   return (
     <article
-      className={cn(
-        "relative flex h-full min-w-0 flex-col rounded-xl border bg-[var(--school-card-surface)] p-4 transition-[border-color,box-shadow] duration-150",
-        onList
-          ? "border-[var(--school-card-onlist-border)]"
-          : "border-[var(--school-card-border)]",
-        href
-          ? "hover:border-[var(--school-card-border-hover)] hover:shadow-[var(--elevation-1)]"
-          : null,
-      )}
+      className="relative flex h-full min-w-0 flex-col gap-4 rounded-[18px] p-4"
+      data-linked={href ? true : undefined}
+      data-slot="school-card"
+      style={
+        colour
+          ? ({
+              "--school-colour": colour.fill,
+              "--school-colour-ink": colour.ink,
+            } as CSSProperties)
+          : undefined
+      }
     >
-      <div className="grid grid-cols-[2.5rem_1fr_auto] items-start gap-x-3">
-        <div className="row-span-2 self-center">
+      <div className="flex items-center justify-between gap-3">
+        <span className="rounded-xl bg-[var(--school-card-logo-surface)] p-0.5 shadow-[var(--elevation-1)]">
           <SchoolAvatar name={school.name} websiteUrl={school.website_url} />
+        </span>
+        <div className="flex items-center gap-1.5">
+          {band ? (
+            <span className="inline-flex h-8 items-center gap-1.5 rounded-full bg-[var(--school-card-band-surface)] pr-2.5 pl-2 text-xs font-medium text-[var(--school-card-band-ink)] sm:h-7">
+              <span
+                aria-hidden="true"
+                className="size-1.5 rounded-full"
+                style={{ background: BAND_DOT[band] }}
+              />
+              {band}
+            </span>
+          ) : null}
+          <CardAction
+            isAdding={isAdding}
+            name={school.name}
+            onAdd={() => onAdd(school)}
+            onList={onList}
+          />
         </div>
-        <h3 className="min-w-0 self-center break-words text-base leading-tight font-medium text-balance">
+      </div>
+
+      <div className="min-w-0">
+        <h3 className="break-words text-base leading-tight font-semibold tracking-[-0.015em] text-balance">
           {href ? (
             <Link
-              className="rounded-sm outline-none after:absolute after:inset-0 after:rounded-xl focus-visible:after:ring-2 focus-visible:after:ring-[var(--focus-ring)]"
+              className="rounded-sm outline-none after:absolute after:inset-0 after:rounded-[18px] focus-visible:after:ring-2 focus-visible:after:ring-[var(--focus-ring)]"
               to={href}
             >
               {school.name}
@@ -199,45 +225,43 @@ export function SchoolResultCard({
             school.name
           )}
         </h3>
-        <CardAction
-          isAdding={isAdding}
-          name={school.name}
-          onAdd={() => onAdd(school)}
-          onList={onList}
-        />
-        <p className="col-span-2 col-start-2 mt-1 truncate text-xs text-[var(--ink-muted)]">
-          {school.city ?? "City unknown"}, {school.state ?? "?"} ·{" "}
-          <span className="capitalize">
-            {school.fields.control.replace("_", " ")}
-          </span>
-          {size ? ` · ${size} undergrads` : ""}
+        <p className="mt-1.5 flex min-w-0 items-center gap-3 text-xs text-[var(--ink-secondary)]">
+          <MetaItem icon={MapPin}>
+            {school.city ?? "City unknown"}, {school.state ?? "?"}
+          </MetaItem>
+          <MetaItem className="shrink-0" icon={Landmark}>
+            {controlShortLabel[school.fields.control]}
+          </MetaItem>
+          {size ? (
+            <MetaItem className="shrink-0" icon={Users}>
+              {size} undergrads
+            </MetaItem>
+          ) : null}
         </p>
       </div>
 
-      <div className="mt-4">
-        <VerdictBand
-          fields={school.fields}
-          assumptions={assumptions}
-          fit={school.fit}
-        />
+      <div className="mt-auto grid grid-cols-2">
+        <div
+          aria-label={`Admit rate: ${rate ?? ABSENT_LABEL}.${band ? ` ${band}.` : ""}`}
+          role="group"
+        >
+          <Figure
+            label="admit rate"
+            value={rate}
+            valueClassName="text-[var(--school-card-rate-ink)]"
+          />
+        </div>
+        <div className="border-l border-[var(--school-card-divider)] pl-3.5">
+          <Figure
+            label={
+              cost.basis === "in-state"
+                ? "per year, in state"
+                : "per year, out of state"
+            }
+            value={formatCurrency(cost.amount)}
+          />
+        </div>
       </div>
-
-      <div className="grid grid-cols-3 items-start gap-3 py-4">
-        <StatCell
-          label={costLabel(cost.basis)}
-          value={formatCurrency(cost.amount)}
-        />
-        <StatCell
-          label="share of need met"
-          value={formatPercent(school.fields.need_met_pct)}
-        />
-        <StatCell
-          label="grad in 4 yrs"
-          value={formatPercent(school.fields.grad_rate_4y)}
-        />
-      </div>
-
-      <RoundsFooter school={school} />
     </article>
   );
 }

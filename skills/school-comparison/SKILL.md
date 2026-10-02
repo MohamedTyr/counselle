@@ -20,11 +20,11 @@ table gets too large to read, say so and offer to narrow it.
 
 ## Step 1 — Resolve every school first
 
-Call `resolve_school` for each name before fetching. If a school isn't in the
-database, say so for that one and continue with the rest — never fabricate
-data. If a name matches multiple campuses, use the most likely one when
-responsible and state the assumption; if no responsible default exists,
-exclude it and explain why.
+Identify each school first (`get_facts` by name resolves it in the same call).
+If a school isn't in the database, say so for that one and continue with the
+rest — never fabricate data. If a name matches multiple campuses, use the most
+likely one when responsible and state the assumption; if no responsible
+default exists, exclude it and explain why.
 
 ## Step 2 — Check each school's facts status before fetching
 

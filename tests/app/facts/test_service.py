@@ -124,6 +124,32 @@ def test_deadline_row_reads_not_offered_never_not_reported_when_round_is_decline
     assert block.rows[0].reported_period is None
 
 
+def test_deadline_row_reads_not_offered_for_early_decision_2_when_ed_is_declined() -> None:
+    group = SectionGroup(
+        id="deadlines",
+        label="Deadlines",
+        foot=None,
+        foot_ref=None,
+        facts=(
+            SectionFact(
+                key="deadlines.early_decision_2",
+                label="Early decision II deadline",
+                tab="admission",
+            ),
+        ),
+    )
+    facts_by_key = {
+        "admissions.early_decision_offered": _row(
+            "admissions.early_decision_offered", value_bool=False, display="No", value_type="bool"
+        )
+    }
+    block = _build_deadlines(facts_by_key, {"admission": "ok"}, True, group)
+    assert len(block.rows) == 1
+    assert block.rows[0].display == "Not offered"
+    assert block.rows[0].state == "value"
+    assert block.rows[0].reported_period is None
+
+
 def test_deadline_row_reads_dates_when_a_school_offers_both_rounds() -> None:
     group = SectionGroup(
         id="deadlines",

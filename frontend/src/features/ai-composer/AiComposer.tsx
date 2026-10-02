@@ -1,4 +1,4 @@
-import { AtSign, Send, Square, Target, X } from "lucide-react";
+import { Square } from "lucide-react";
 import {
   useEffect,
   useRef,
@@ -7,11 +7,11 @@ import {
   type KeyboardEvent,
 } from "react";
 
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import attachIcon from "@/assets/app-shell/attach.svg";
+import imageIcon from "@/assets/app-shell/image.svg";
+import sendIcon from "@/assets/app-shell/send.svg";
 import { Textarea } from "@/components/ui/textarea";
 import { useAutoResizeTextarea } from "@/hooks/use-auto-resize-textarea";
-import { cn } from "@/lib/utils";
 import {
   BUILT_IN_DEFAULT_RESPONSE_MODE,
   BUILT_IN_RESPONSE_MODE_OPTIONS,
@@ -24,12 +24,10 @@ import type {
   SourceConfig,
 } from "@/api/chat/types";
 import {
-  composerControlIconButtonClass,
-  composerSendButtonClass,
-} from "@/features/ai-composer/composer-control";
-import { CounselingModeMenu } from "@/features/ai-composer/CounselingModeMenu";
-import { ResponseModeMenu } from "@/features/ai-composer/ResponseModeMenu";
-import { SourcesMenu } from "@/features/ai-composer/SourcesMenu";
+  GoalModeToggle,
+  RunSettings,
+  SkillTrigger,
+} from "@/features/ai-composer/RunSettings";
 import {
   hasInlineSkillMention,
   InlineSkillMentionLayer,
@@ -99,7 +97,7 @@ export function AiComposer({
     ? Math.max(0, maxSelectedSkills - 1)
     : maxSelectedSkills;
   const { textareaRef, adjustHeight } = useAutoResizeTextarea({
-    minHeight: 74,
+    minHeight: 87,
     maxHeight: 220,
   });
   const composerRef = useRef<HTMLDivElement>(null);
@@ -119,7 +117,10 @@ export function AiComposer({
     textareaRef,
     disabled: disabled || isSubmitting,
   });
-  const goalArmed = slash.armedCommandId === "goal";
+  // Goal mode is on when the toggle is on or `/goal` was picked from the
+  // slash menu; both are explicit choices, never inferred from typed text.
+  const [goalToggled, setGoalToggled] = useState(false);
+  const goalArmed = goalToggled || slash.armedCommandId === "goal";
   const canSubmit = value.trim().length > 0 && !isSubmitting && !disabled;
   const hasSkillMention = hasInlineSkillMention(value, selectedSkills);
 
@@ -137,6 +138,7 @@ export function AiComposer({
     // Every send clears the armed command, so a later, unrelated message can
     // never silently inherit goal mode (§5.5).
     slash.clearArmedCommand();
+    setGoalToggled(false);
     adjustHeight(true);
   }
 
@@ -164,31 +166,8 @@ export function AiComposer({
       className="w-full"
       onSubmit={handleSubmit}
     >
-      <div
-        ref={composerRef}
-        className="group flex min-h-28 w-full flex-col overflow-hidden rounded-2xl border border-[var(--workspace-composer-border)] bg-[var(--workspace-composer-surface)] text-card-foreground transition-[border-color,box-shadow] focus-within:border-[var(--workspace-composer-border-active)] focus-within:ring-2 focus-within:ring-[var(--focus-ring)]/30 motion-reduce:transition-none"
-      >
-        {goalArmed && (
-          <div className="flex px-[var(--workspace-composer-inset)] pt-3">
-            <Badge
-              className="min-w-0 max-w-full gap-1.5 py-0.5 pr-1 pl-2 font-normal"
-              variant="outline"
-            >
-              <Target aria-hidden="true" className="size-3.5 shrink-0" />
-              <span className="truncate">Goal mode</span>
-              <button
-                aria-label="Cancel goal mode"
-                className="-mr-0.5 relative flex size-4 shrink-0 cursor-pointer items-center justify-center rounded-sm text-muted-foreground transition-colors duration-150 ease-out hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background focus-visible:outline-none motion-reduce:transition-none pointer-coarse:after:absolute pointer-coarse:after:size-full pointer-coarse:after:min-h-11 pointer-coarse:after:min-w-11"
-                onClick={slash.clearArmedCommand}
-                type="button"
-              >
-                <X aria-hidden="true" className="size-3" />
-              </button>
-            </Badge>
-          </div>
-        )}
-
-        <div className="relative">
+      <div className="as-composer" ref={composerRef}>
+        <div className="as-composer-input relative">
           {hasSkillMention && (
             <InlineSkillMentionLayer
               scrollTop={textareaScrollTop}
@@ -212,11 +191,6 @@ export function AiComposer({
             aria-label="Message Counselle"
             role="combobox"
             unstyled
-            className={cn(
-              "relative block w-full text-base leading-5 shadow-none outline-none [&_[data-slot=textarea]]:block [&_[data-slot=textarea]]:min-h-18.5 [&_[data-slot=textarea]]:max-h-55 [&_[data-slot=textarea]]:resize-none [&_[data-slot=textarea]]:overflow-y-auto [&_[data-slot=textarea]]:border-0 [&_[data-slot=textarea]]:bg-transparent [&_[data-slot=textarea]]:px-[var(--workspace-composer-inset)] [&_[data-slot=textarea]]:pb-3 [&_[data-slot=textarea]]:shadow-none [&_[data-slot=textarea]]:focus-visible:ring-0 [&_[data-slot=textarea]::placeholder]:text-[var(--workspace-composer-placeholder)]",
-              "[&_[data-slot=textarea]]:text-[var(--workspace-composer-input-foreground)]",
-              "[&_[data-slot=textarea]]:pt-[var(--workspace-composer-prompt-inset-block-start)]",
-            )}
             disabled={disabled}
             onChange={(event) => {
               slash.handleTextChange(event);
@@ -241,74 +215,71 @@ export function AiComposer({
               slash.handleTextareaSelect(event);
               picker.handleTextareaSelect(event);
             }}
-            placeholder="Message Counselle"
+            placeholder="Ask anything about colleges or your application"
             ref={textareaRef}
             style={{ resize: "none" }}
             value={value}
           />
         </div>
 
-        <div className="mt-auto flex flex-wrap items-center justify-between gap-3 bg-[var(--workspace-composer-surface)] px-[var(--workspace-composer-inset)] pb-[var(--workspace-composer-toolbar-inset-block-end)]">
-          {/* gap-2 (8px), not gap-1.5: at 6px the chips sat closer to each
-              other than their own 8-10px side padding, so the three read as
-              one segmented control instead of three separate menus. */}
-          <div className="flex flex-wrap items-center gap-2">
-            {mode && modes.length > 0 ? (
-              <CounselingModeMenu
-                canBrowseSkills={selectedSkills.length < maxTaskSkills}
-                disabled={disabled || isSubmitting}
-                mode={mode}
-                modes={modes}
-                onBrowseSkills={picker.insertTrigger}
-                onModeChange={onModeChange}
-              />
-            ) : maxSelectedSkills > 0 ? (
-              <Button
-                aria-label="Add a skill (@)"
-                className={composerControlIconButtonClass}
-                disabled={disabled || isSubmitting}
-                onClick={picker.insertTrigger}
-                size="icon"
-                type="button"
-                variant="outline"
-              >
-                <AtSign className="!mx-0 size-4" data-icon="inline-start" />
-              </Button>
-            ) : null}
-            <SourcesMenu
+        <div className="as-toolbar">
+          <GoalModeToggle
+            disabled={disabled || isSubmitting}
+            on={goalArmed}
+            onToggle={() => {
+              if (goalArmed) {
+                setGoalToggled(false);
+                slash.clearArmedCommand();
+              } else {
+                setGoalToggled(true);
+              }
+            }}
+          />
+          <RunSettings
+            disabled={disabled || isSubmitting}
+            modeSettings={
+              mode && modes.length > 0 ? { mode, modes, onModeChange } : null
+            }
+            skills={{
+              canBrowse: selectedSkills.length < maxTaskSkills,
+              onBrowse: picker.insertTrigger,
+            }}
+            sources={{ sourceConfig, onSourceConfigChange }}
+            speed={
+              { mode: responseMode, modes: responseModes, onModeChange: onResponseModeChange }
+            }
+          />
+          {(!mode || modes.length === 0) && maxSelectedSkills > 0 && (
+            <SkillTrigger
               disabled={disabled || isSubmitting}
-              onSourceConfigChange={onSourceConfigChange}
-              sourceConfig={sourceConfig}
+              onClick={picker.insertTrigger}
             />
-            <ResponseModeMenu
-              disabled={disabled || isSubmitting}
-              mode={responseMode}
-              modes={responseModes}
-              onModeChange={onResponseModeChange}
-            />
-          </div>
-
+          )}
+          <span aria-hidden="true" className="as-toolbar-spacer" />
+          <button aria-label="Attach a file" className="as-tool" disabled type="button">
+            <img alt="" height={18} src={attachIcon} width={18} />
+          </button>
+          <button aria-label="Add an image" className="as-tool" disabled type="button">
+            <img alt="" height={18} src={imageIcon} width={18} />
+          </button>
           {canCancel ? (
-            <Button
+            <button
               aria-label="Stop response"
-              className={cn("size-9", composerSendButtonClass)}
+              className="as-send"
               onClick={onCancel}
-              size="icon"
               type="button"
-              variant="secondary"
             >
-              <Square data-icon="inline-start" />
-            </Button>
+              <Square aria-hidden="true" className="size-3 fill-current" />
+            </button>
           ) : (
-            <Button
+            <button
               aria-label="Send message"
-              className={cn("size-9", composerSendButtonClass)}
+              className="as-send"
               disabled={!canSubmit}
-              size="icon"
               type="submit"
             >
-              <Send className="!mx-0 size-4" data-icon="inline-start" />
-            </Button>
+              <img alt="" height={15} src={sendIcon} width={15} />
+            </button>
           )}
         </div>
         <SkillPicker

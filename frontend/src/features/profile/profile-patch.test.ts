@@ -1,6 +1,5 @@
 import {
   buildPatchAtPath,
-  formatStringList,
   getAtPath,
   parseStringList,
 } from "@/features/profile/profile-patch";
@@ -60,16 +59,5 @@ describe("string-list round trip", () => {
 
   it("parses blank input as null (a clear), not an empty array", () => {
     expect(parseStringList("   ")).toBeNull();
-  });
-
-  it("formats an array back into comma-separated text", () => {
-    expect(formatStringList(["AP Bio", "AP Calc BC"])).toBe(
-      "AP Bio, AP Calc BC",
-    );
-  });
-
-  it("formats a non-array value as empty text", () => {
-    expect(formatStringList(null)).toBe("");
-    expect(formatStringList(undefined)).toBe("");
   });
 });

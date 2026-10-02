@@ -38,9 +38,9 @@
    * plinth; the fill is the brand, because progress toward a word limit is
    * the card's one genuinely quantitative signal and the accent is reserved
    * for exactly that kind of state. Over-limit swaps to --danger-solid in
-   * EssayLibraryCard.tsx. */
+   * EssayWordProgress.tsx. */
   --essay-library-progress-track: var(--surface-sunken);
-  --essay-library-progress-fill: var(--brand);
+  --essay-library-progress-fill: var(--progress-fill);
   --essay-editor-chrome-surface: var(--shell-background);
   /* The editor's header and toolbar used to be two raised objects — a bordered,
    * shadowed header card and a floating toolbar pill — stacked over a third,
@@ -73,7 +73,7 @@
    * a decoration ever read as a status.
    *
    * The two inks are the badge-text roles, measured against the raised surface
-   * the paper actually uses: leaf-700 at 7.87:1 and red-700 at 9.84:1
+   * the paper actually uses: green-700 at 6.60:1 and red-700 at 9.84:1
    * (re-measured in the browser against the painted paper).
    *
    * THE TWO ARE NOT APPLIED THE SAME WAY, because the two spans do not have the
@@ -111,8 +111,69 @@
   --essay-suggestion-stale-ink: var(--ink-faint);
 
   /* ---- the paper ---- */
+  /* Selected text and the caret take the brand green, the same green the
+   * focus ring uses, instead of the browser's blue. The selection is a tint,
+   * so the student's words stay full-contrast ink under it. */
+  --essay-selection: color-mix(in oklch, var(--accent-solid) 16%, transparent);
+  --essay-caret: var(--accent-solid);
   --essay-document-surface: var(--document);
   --essay-document-foreground: var(--document-foreground);
   --essay-document-muted: var(--document-muted);
   --essay-document-border: var(--document-border);
+}
+
+/*
+ * The essays page, by school. Each school column is washed in the school's
+ * own colour the way the Explore card is (schools.css), and the personal
+ * statement lintel above them is washed in Common App's own blue by the same
+ * rule, so every surface on the page is tinted by the logo it carries.
+ * --school-colour / --school-colour-ink are set inline per surface; a school
+ * with no known colour falls back to neutral.
+ */
+:root {
+  --essay-column-surface: var(--surface-raised);
+}
+
+[data-slot="essay-lintel"],
+[data-slot="essay-school-column"] {
+  --essay-column-colour: var(--school-colour, var(--school-card-colour-fallback));
+  --essay-progress-fill: var(--school-colour-ink, var(--essay-library-progress-fill));
+  background: linear-gradient(
+    180deg,
+    color-mix(in oklab, var(--essay-column-colour) 10%, var(--essay-column-surface)) 0,
+    var(--essay-column-surface) 120px
+  );
+  border: 1px solid color-mix(in oklab, var(--essay-column-colour) 22%, transparent);
+}
+
+[data-slot="essay-school-column"] [data-slot="essay-row"] {
+  margin: 0 8px 6px;
+  border-radius: 12px;
+  background: color-mix(in oklab, var(--essay-column-surface) 86%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in oklab, var(--essay-column-colour) 12%, transparent);
+  transition:
+    translate 220ms cubic-bezier(0.23, 1, 0.32, 1),
+    box-shadow 220ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-slot="essay-school-column"] [data-slot="essay-row"]:hover {
+    translate: 0 -2px;
+    box-shadow: 0 0 0 1px color-mix(in oklab, var(--essay-column-colour) 30%, transparent);
+  }
+}
+
+[data-slot="essay-school-column"] [data-slot="essay-add-row"] {
+  margin: 0 8px 10px;
+  border-radius: 12px;
+  box-shadow: inset 0 0 0 1px var(--hairline);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-slot="essay-school-column"] [data-slot="essay-row"] {
+    transition: none;
+  }
+  [data-slot="essay-school-column"] [data-slot="essay-row"]:hover {
+    translate: none;
+  }
 }

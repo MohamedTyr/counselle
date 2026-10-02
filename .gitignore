@@ -1,4 +1,3 @@
-.env
 .env.rollback-*
 __pycache__/
 *.pyc
@@ -8,6 +7,7 @@ __pycache__/
 .venv/
 node_modules/
 dist/
+dist-landing/
 build/
 test-results/
 playwright-report/
@@ -64,8 +64,18 @@ coverage.xml
 coverage/
 
 # SAT question bank seed file (plan plans/sat-practice/plan.md §3.2, ADR
-# 0043, owner decision O5): gitignored until O5 says "yes, in the repo";
+# 0044, owner decision O5): gitignored until O5 says "yes, in the repo";
 # until then `app/sat/bank.py`'s bank-sync reads it from `sat_bank_path`
 # and the app boots without it, so nothing depends on it being committed.
 deploy/seed/sat/bank.jsonl.gz
 
+
+# Vite dependency cache from an ad-hoc fixture server
+frontend/.vite-school-chances-fixture/
+
+# Wrangler local state (D1 local database, dev cache)
+.wrangler/
+.env.deploy
+
+# Wrangler local secrets (frontend/.dev.vars): the admin dev bypass.
+.dev.vars

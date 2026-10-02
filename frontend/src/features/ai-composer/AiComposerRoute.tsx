@@ -8,6 +8,7 @@ import {
   normalizeResponseModeSelection,
 } from "@/api/chat/response-mode";
 import { useChatConfig } from "@/api/chat/config";
+import { useAuthUser } from "@/app/auth";
 import { AiComposer } from "@/features/ai-composer/AiComposer";
 import {
   findCounselingMode,
@@ -16,7 +17,20 @@ import {
 import { parseDraftPromptState } from "@/features/ai-composer/draft-prompt";
 import { useComposerStartTurn } from "@/features/ai-composer/useComposerStartTurn";
 
+function timeOfDayGreeting(hour: number) {
+  if (hour < 12) return "Good morning";
+  if (hour < 18) return "Good afternoon";
+  return "Good evening";
+}
+
+function greetingFor(name: string | null | undefined, now: Date) {
+  const greeting = timeOfDayGreeting(now.getHours());
+  const firstName = name?.trim().split(/\s+/)[0];
+  return firstName ? `${greeting}, ${firstName}` : greeting;
+}
+
 export function AiComposerRoute() {
+  const user = useAuthUser();
   const navigate = useNavigate();
   const location = useLocation();
   const configQuery = useChatConfig();
@@ -126,18 +140,9 @@ export function AiComposerRoute() {
   }
 
   return (
-    <main className="flex min-h-0 flex-1 items-center justify-center px-4 py-8 md:px-8">
-      <div className="flex w-full max-w-[700px] -translate-y-[4vh] flex-col items-center gap-10 md:gap-11">
-        {resolved ? (
-          <h1 className="max-w-[18ch] text-center text-[1.55rem] leading-[1.08] font-medium tracking-[-0.02em] text-balance text-foreground md:text-[2.2rem]">
-            {resolved.greeting}
-          </h1>
-        ) : (
-          <div
-            aria-hidden="true"
-            className="h-[4.25rem] w-full max-w-[26rem] rounded-lg bg-[var(--workspace-surface-raised)] md:h-[6.4rem]"
-          />
-        )}
+    <main className="as-empty">
+      <div className="as-empty-stack">
+        <h1 className="as-greeting">{greetingFor(user?.name, new Date())}</h1>
 
         <AiComposer
           canCancel={startTurn.canCancel}
@@ -167,12 +172,10 @@ export function AiComposerRoute() {
           responseModes={resolved?.responseModes ?? []}
           value={value}
         />
-        {startTurn.error ? (
-          <p className="min-h-5 text-center text-sm text-destructive-foreground">
+        {startTurn.error && (
+          <p className="absolute top-full mt-3 text-center text-sm text-destructive-foreground">
             {startTurn.error}
           </p>
-        ) : (
-          <span aria-hidden="true" className="min-h-5" />
         )}
       </div>
     </main>

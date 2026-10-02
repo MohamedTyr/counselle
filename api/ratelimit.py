@@ -116,7 +116,7 @@ class SlidingWindowLimiter:
     def check_sat_read(self, user_id: str, *, per_minute: int) -> float | None:
         """Per-user ``GET /questions/{id}`` cap (plan §4.1) — the one read
         limit in this codebase, because that endpoint can walk the whole
-        licensed question bank one id at a time (ADR 0043 Risk R0)."""
+        licensed question bank one id at a time (ADR 0044 Risk R0)."""
         return self._check(f"sat:r:{user_id}", per_minute, 60.0, time.monotonic())
 
     def reset(self) -> None:
@@ -229,7 +229,7 @@ async def sat_write_rate_limit(
 async def sat_read_rate_limit(
     request: Request, user: UserDB = Depends(current_active_user)
 ) -> None:
-    """Per-user cap for ``GET /questions/{id}`` (plan §4.1, ADR 0043 Risk R0)."""
+    """Per-user cap for ``GET /questions/{id}`` (plan §4.1, ADR 0044 Risk R0)."""
     settings = request.app.state.settings
     retry = get_limiter(request).check_sat_read(
         str(user.id), per_minute=settings.sat_question_reads_per_minute

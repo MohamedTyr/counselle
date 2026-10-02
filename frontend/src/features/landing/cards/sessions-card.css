@@ -1,0 +1,134 @@
+/* A week of times beside the session that was booked from it. The booked
+   card and the time it came from share one dark. */
+.lp-book-sheet {
+  --book-ink: #10292d;
+  --book-deep: #0f4a52;
+  --book-tint: #e2f3f5;
+  --book-lit: #7fe0ea;
+  height: 300px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 270px;
+}
+.lp-book-week {
+  padding: 22px 22px 0 26px;
+}
+.lp-book-heading {
+  font-weight: 500;
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--lp-ink);
+}
+/* One column a day. The chosen day stands on a tinted band; a free time is
+   a soft tile, a taken one only its faded numerals. */
+.lp-book-days {
+  margin: 10px 0 0 -8px;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 4px;
+}
+.lp-book-day {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 6px 6px;
+  border-radius: 16px;
+}
+.lp-book-day[data-chosen] {
+  background: var(--book-tint);
+}
+.lp-book-day p {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-bottom: 6px;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--lp-muted);
+}
+.lp-book-day b {
+  font-weight: 500;
+  font-size: 20px;
+  line-height: 24px;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  color: var(--lp-ink);
+}
+.lp-book-day span {
+  height: 40px;
+  display: grid;
+  place-items: center;
+  background: rgba(15, 74, 82, 0.06);
+  border-radius: 11px;
+  font-weight: 500;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  color: var(--book-deep);
+}
+.lp-book-day[data-chosen] span {
+  background: #fff;
+}
+.lp-book-day span[data-taken] {
+  background: none;
+  font-weight: 400;
+  color: rgba(18, 18, 20, 0.6);
+}
+.lp-book-day span[data-picked] {
+  background: var(--book-ink);
+  color: #fff;
+}
+
+.lp-book-card {
+  margin: 22px 22px 46px 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 22px 24px 24px;
+  background: var(--book-ink);
+  border-radius: 16px;
+  color: #fff;
+}
+.lp-book-status,
+.lp-book-count {
+  display: flex;
+  align-items: center;
+  font-size: 13px;
+  line-height: 20px;
+  color: rgba(255, 255, 255, 0.72);
+}
+.lp-book-status {
+  gap: 8px;
+  transform-origin: left center;
+}
+.lp-book-status span {
+  width: 20px;
+  height: 20px;
+  display: grid;
+  place-items: center;
+  background: var(--book-lit);
+  border-radius: 999px;
+  color: var(--book-ink);
+}
+.lp-book-when {
+  font-weight: 500;
+  font-size: 30px;
+  line-height: 1.1;
+  letter-spacing: -0.025em;
+}
+.lp-book-when span {
+  display: block;
+  margin-top: 4px;
+  color: var(--book-lit);
+}
+.lp-book-count {
+  gap: 4px;
+  font-variant-numeric: tabular-nums;
+}
+.lp-book-count i {
+  width: 14px;
+  height: 5px;
+  border-radius: 3px;
+  background: var(--book-lit);
+}
+.lp-book-count i + i {
+  margin-right: 6px;
+}

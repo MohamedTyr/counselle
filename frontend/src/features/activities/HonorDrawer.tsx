@@ -31,7 +31,6 @@ import {
   CheckChipGroup,
   CopyFieldButton,
   DrawerField,
-  DrawerSectionLabel,
 } from "@/features/activities/activity-form-controls";
 import { ArrowDown, ArrowUp, Trash2 } from "lucide-react";
 
@@ -82,7 +81,7 @@ export function HonorDrawer({
         variant="inset"
       >
         <SheetHeader className="pr-14">
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <div className="flex items-center gap-2 text-xs text-[var(--ink-muted)]">
             <span>Edit honor</span>
             <span aria-hidden="true">·</span>
             <span className="tabular-nums">
@@ -96,14 +95,13 @@ export function HonorDrawer({
 
         <SheetPanel className="flex flex-col gap-6">
           <section className="grid gap-4">
-            <DrawerSectionLabel>Academic honor</DrawerSectionLabel>
-
             <DrawerField
               label="Title"
               labelFor={titleId}
               trailing={
                 <>
                   <CharCounter
+                    meter
                     length={commonAppCharacterCount(current.title)}
                     limit={HONOR_TITLE_LIMIT}
                   />
@@ -146,7 +144,7 @@ export function HonorDrawer({
             </DrawerField>
           </section>
 
-          <div className="flex items-center justify-between gap-3 border-t border-[var(--edge)] pt-4">
+          <div className="flex items-center justify-between gap-3 border-t border-[var(--hairline)] pt-4">
             <div className="flex items-center gap-1">
               <Button
                 aria-label="Move up"

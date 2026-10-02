@@ -116,6 +116,20 @@ def test_capture_turn_collects_v2_events_and_structural_messages() -> None:
     assert capture.usage == {"input_tokens": 3, "output_tokens": 2}
 
 
+def test_capture_turn_parses_json_text_tool_args() -> None:
+    # OpenAI-compatible providers serialize tool-call args as JSON text.
+    messages = [
+        {
+            "parts": [
+                {"part_kind": "tool-call", "tool_name": "get_facts", "args": '{"unitid": 1}'},
+                {"part_kind": "tool-call", "tool_name": "get_facts", "args": "not json"},
+            ]
+        }
+    ]
+    capture = capture_turn([], messages)
+    assert [call["args"] for call in capture.tool_calls] == [{"unitid": 1}, {}]
+
+
 def test_parse_args_defaults_to_quick_and_supports_compare() -> None:
     default = parse_args([])
     assert default.response_mode == "quick"
@@ -140,14 +154,16 @@ def test_report_records_response_mode_and_uses_mode_suffix() -> None:
             }
         ],
         ResponseMode.THINK,
-        "google-vertex:gemini-3.1-pro-preview",
+        "fireworks:accounts/fireworks/models/deepseek-v4p1-flash",
         make_context(),
+        reasoning_effort="high",
     )
     assert report["response_mode"] == "think"
-    assert report["model"] == "google-vertex:gemini-3.1-pro-preview"
+    assert report["model"] == "fireworks:accounts/fireworks/models/deepseek-v4p1-flash"
+    assert report["reasoning_effort"] == "high"
     dated = {**report, "generated_at": "2026-07-22T00:00:00+00:00"}
-    assert _report_stem(dated) == "report-2026-07-22"
-    assert _report_stem(dated, suffix_mode=True) == "report-2026-07-22-think"
+    assert _report_stem(dated) == "report-2026-07-22-high"
+    assert _report_stem(dated, suffix_mode=True) == "report-2026-07-22-think-high"
 
 
 def test_safe_summary_excludes_payload_values_and_excerpts() -> None:
@@ -196,6 +212,18 @@ def test_routing_checks_tools_called_and_order() -> None:
         out_of_order,
     )
     assert bad_checks["tool_order"]["passed"] is False
+
+    # get_facts by school name resolves the school itself: it satisfies
+    # "resolve, then read" (args arrive as JSON text from OpenAI-compatible
+    # providers).
+    by_name = make_capture(
+        tool_calls=[{"tool_name": "get_facts", "args": '{"school": "A", "keys": ["x.y"]}'}]
+    )
+    name_checks = score_routing(
+        {"tools": ["resolve_school", "get_facts"], "order": ["resolve_school", "get_facts"]},
+        by_name,
+    )
+    assert all(item["passed"] for item in name_checks.values())
 
 
 def test_composition_reads_v2_columns_and_inert_unavailable_cells() -> None:
@@ -393,8 +421,13 @@ def test_query_database_citation_guard_passes_when_uncited_or_refetched() -> Non
                 "content": {"columns": ["school_id"], "rows": [[1]]},
             },
             {
+                # The real get_facts shape: `status` is the school's data-status
+                # dict, not a string (it crashed the scorer as unhashable).
                 "tool_name": "get_facts",
-                "content": {"rows": [{"fact_key": "admissions.admit_rate"}]},
+                "content": {
+                    "status": {"facts_updated_at": "2026-09-07", "has_collegedata": True},
+                    "rows": [{"fact_key": "admissions.admit_rate"}],
+                },
             },
         ],
     )
@@ -402,6 +435,19 @@ def test_query_database_citation_guard_passes_when_uncited_or_refetched() -> Non
     for capture in (declines_to_cite, refetched, no_query_at_all):
         checks = score_deterministic({"query_database_citation_guard": True}, capture)
         assert checks["query_database_citation_guard"]["passed"] is True
+
+
+def test_denominator_for_a_key_no_school_reports_needs_a_query_and_the_zero_pair() -> None:
+    """A key with no coverage has no `fact_coverage` row, so the checking query
+    returns nothing; the answer must still run it and state 0 out of the total."""
+    expects = {"denominator": True, "denominator_total": 2746, "denominator_covered": 0}
+    empty = {"columns": ["covered", "total", "as_of"], "rows": []}
+    stated = make_query_capture("0 of 2,746 profiled schools can be evaluated on it.", empty)
+    unstated = make_query_capture("No school reports that key.", empty)
+    unqueried = make_capture(prose="0 of 2,746 profiled schools can be evaluated on it.")
+    assert score_deterministic(expects, stated)["denominator"]["passed"] is True
+    assert score_deterministic(expects, unstated)["denominator"]["passed"] is False
+    assert score_deterministic(expects, unqueried)["denominator"]["passed"] is False
 
 
 def test_denominator_requires_query_evidence_and_exact_prose_pair() -> None:

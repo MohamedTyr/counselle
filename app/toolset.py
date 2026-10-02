@@ -41,6 +41,7 @@ from app.tool_middleware import ToolMiddlewareContext, process_tool_result
 from app.tool_specs import build_tool_specs, gateable_tool_names
 from config.settings import load_yaml_asset
 from counselle_db import service as db_service
+from counselle_db.models import ResolvedSchool
 from domain.events import StepDetail
 from domain.facts.models import PageStatus
 from domain.facts.state import fact_state
@@ -162,9 +163,11 @@ def _make_get_school_profile_tool(
         valid group list for this school; retry with one of those.
 
         Success returns the school and requested groups (there is no synthetic success
-        status). Every field returned carries the profile's own snapshot vintage and a
-        per-field provenance receipt; it is identity data, not a current metric, and
-        always needs the ``profile_snapshot`` caveat when you state it. Error returns
+        status). Each row carries its ``profile_field``, ``label``, ``display`` and the
+        ``marker`` to cite it with; the profile's one ``citation`` (its vintage is the
+        identity snapshot date) and its ``profile_snapshot`` caveat are stated once at
+        top level. It is identity data, not a current metric, and always needs that
+        caveat when you state it. Error returns
         ``error: tool_error``; correct the UNITID/group from ``resolve_school`` or stop
         and say the profile field is unavailable.
 
@@ -196,8 +199,23 @@ def _declared_fact_specs(catalog: Any, sections: list[str] | None) -> dict[str, 
 def _make_get_facts_tool(catalog: Any, middleware: ToolMiddlewareContext | None) -> Tool[Any]:
     @db_service.tool_errors
     async def _facts(
-        unitid: int, sections: list[str] | None = None, keys: list[str] | None = None
+        unitid: int | None,
+        school: str | None,
+        sections: list[str] | None = None,
+        keys: list[str] | None = None,
     ) -> dict[str, Any]:
+        if unitid is not None and school:
+            raise db_service.ServiceError("Pass the school's unitid or its name, not both.")
+        if unitid is None:
+            # A school name resolves here exactly as `resolve_school` would, so a
+            # first read costs one round instead of two. Anything but one match
+            # (several campuses, not found) comes back as that resolve result.
+            if not school:
+                raise db_service.ServiceError("Pass the school's unitid or its name.")
+            resolved = await db_service.resolve_school(catalog, school)
+            if not isinstance(resolved, ResolvedSchool):
+                return resolved.model_dump(mode="json")
+            unitid = resolved.school.unitid
         payload = (
             await db_service.get_facts(catalog, unitid, sections=sections, keys=keys)
         ).model_dump(mode="json")
@@ -263,11 +281,21 @@ def _make_get_facts_tool(catalog: Any, middleware: ToolMiddlewareContext | None)
         return payload
 
     async def get_facts(
-        unitid: int, sections: list[str] | None = None, keys: list[str] | None = None
+        unitid: int | None = None,
+        school: str | None = None,
+        sections: list[str] | None = None,
+        keys: list[str] | None = None,
     ) -> dict[str, Any]:
         """Read Counselle's stored facts for one school — the only fact read path.
 
-        Input: ``unitid`` (from ``resolve_school``) and **at most one** narrowing
+        Input: the school, as ``unitid`` (from ``resolve_school``) or as its
+        ``school`` name — a name is resolved here exactly as ``resolve_school``
+        would, so you can read a named school's facts in the first round without
+        resolving it separately. A name matching several campuses or none
+        returns that ``resolve_school``-style result (``status: candidates`` or
+        ``not_found``) instead of facts; a match returns the facts, with the
+        resolved school in ``school`` — state the campus if the name could mean
+        another. Then **at most one** narrowing
         argument. ``sections`` — one or more of this school's six sections
         (``getting-in``, ``money``, ``academics``, ``campus-life``, ``outcomes``,
         ``applying``); each section already includes its own ``other`` group of
@@ -296,10 +324,11 @@ def _make_get_facts_tool(catalog: Any, middleware: ToolMiddlewareContext | None)
         (``truncated: true`` means narrow further and call again); ``rows``
         fills the budget first since it carries real data.
 
-        Each ``rows`` entry carries a preformatted ``display``, its typed
-        ``value``, and a code-owned ``vintage`` naming the reporting period it
-        covers (or that the period is unstated) and when it was checked. **Copy
-        ``display`` and ``vintage`` verbatim** — never reformat a number and
+        Each ``rows`` entry carries its ``fact_key``, ``label``, a preformatted
+        ``display``, a code-owned ``vintage`` naming the reporting period it
+        covers (or that the period is unstated) and when it was checked, and
+        the ``marker`` to cite it with. **Copy ``display`` and ``vintage``
+        verbatim** — never reformat a number and
         never merge two facts' vintages into one shared period. Each
         ``unavailable`` entry carries its own ``display`` (the exact absence
         word for its ``state``) — copy it verbatim too, never invent a
@@ -315,10 +344,11 @@ def _make_get_facts_tool(catalog: Any, middleware: ToolMiddlewareContext | None)
 
         Args:
             unitid: The school's IPEDS unitid, from resolve_school.
+            school: The school's name, when you have no unitid yet.
             sections: Section ids to read; omit with keys for every fact.
             keys: Exact fact keys to read; omit with sections for every fact.
         """
-        result = await _facts(unitid, sections, keys)
+        result = await _facts(unitid, school, sections, keys)
         return process_tool_result(result, middleware, tool_name="get_facts")  # type: ignore[no-any-return]
 
     return Tool(get_facts, takes_ctx=False)

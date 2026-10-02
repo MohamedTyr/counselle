@@ -88,20 +88,15 @@ async def _read_transcript(runtime: Any, session_id: str) -> list[dict[str, Any]
 
 
 def _title_model(runtime: Any, settings: Any) -> Any:
-    """The cheap title model: the injected ``model_factory`` (tests) or a real
-    GoogleModel built from ``settings.model_title`` (production)."""
+    """The cheap title model: the injected ``model_factory`` (tests) or the
+    real model built from ``settings.model_title`` (production)."""
     factory = getattr(runtime.deps, "model_factory", None)
     if factory is not None:
         return factory()
-    from pydantic_ai.models.google import GoogleModel
-    from pydantic_ai.providers.google_cloud import GoogleCloudProvider
+    from app.llm import build_model
 
-    from app.model_selection import model_name_from_setting
-    from app.vertex import build_vertex_client
-
-    return GoogleModel(
-        model_name_from_setting(settings.model_title),
-        provider=GoogleCloudProvider(client=build_vertex_client(settings)),
+    return build_model(
+        settings, settings.model_title, reasoning_effort=settings.reasoning_effort_cheap
     )
 
 

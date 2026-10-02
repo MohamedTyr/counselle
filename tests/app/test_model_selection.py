@@ -2,106 +2,64 @@
 
 from __future__ import annotations
 
+from typing import Any, cast
+
 import pytest
 
-from app.model_selection import (
-    CounselorModelSelection,
-    UnsupportedCounselorProvider,
-    counselor_model_selection,
-    google_thinking_config,
-)
+from app.model_selection import CounselorModelSelection, counselor_model_selection
 from config.settings import Settings
 from domain.response_mode import ResponseMode
 
+_QUICK = "fireworks:accounts/fireworks/models/quick-model"
+_THINK = "fireworks:accounts/fireworks/models/think-model"
+
 
 def _settings(**overrides: object) -> Settings:
-    base = dict(
+    base: dict[str, object] = dict(
         db_ro_dsn="postgresql://x/y",
         db_app_dsn="postgresql://x/y",
-        model_counselor="google-vertex:gemini-3.5-flash",
-        model_counselor_think="google-vertex:gemini-3.1-pro-preview",
-        thinking_stream=True,
-        thinking_summaries=None,
+        model_counselor=_QUICK,
+        model_counselor_think=_THINK,
+        reasoning_effort_quick="low",
+        reasoning_effort_think="high",
+        model_prices={
+            name.removeprefix("fireworks:"): {"input_per_1m": 1.0, "output_per_1m": 1.0}
+            for name in (_QUICK, _THINK)
+        }
+        | {
+            "accounts/fireworks/models/deepseek-v4p1-flash": {
+                "input_per_1m": 1.0,
+                "output_per_1m": 1.0,
+            }
+        },
     )
     base.update(overrides)
-    return Settings(**base)
+    return Settings(**cast(dict[str, Any], base))
 
 
 class TestCounselorModelSelection:
-    def test_quick_maps_to_model_counselor_minimal_no_thoughts(self) -> None:
+    def test_quick_maps_to_model_counselor_at_quick_effort(self) -> None:
         selection = counselor_model_selection(ResponseMode.QUICK, _settings())
         assert selection == CounselorModelSelection(
             response_mode=ResponseMode.QUICK,
-            model_setting="google-vertex:gemini-3.5-flash",
-            thinking_level="MINIMAL",
-            include_thoughts=False,
+            model_setting=_QUICK,
+            reasoning_effort="low",
         )
 
-    def test_think_maps_to_model_counselor_think_high(self) -> None:
+    def test_think_maps_to_model_counselor_think_at_think_effort(self) -> None:
         selection = counselor_model_selection(ResponseMode.THINK, _settings())
-        assert selection.response_mode is ResponseMode.THINK
-        assert selection.model_setting == "google-vertex:gemini-3.1-pro-preview"
-        assert selection.thinking_level == "HIGH"
-
-    def test_think_include_thoughts_follows_effective_thinking_stream_true(self) -> None:
-        selection = counselor_model_selection(
-            ResponseMode.THINK, _settings(thinking_stream=True)
-        )
-        assert selection.include_thoughts is True
-
-    def test_think_include_thoughts_follows_effective_thinking_stream_false(self) -> None:
-        selection = counselor_model_selection(
-            ResponseMode.THINK, _settings(thinking_stream=False)
-        )
-        assert selection.include_thoughts is False
-
-    def test_quick_never_requests_thoughts_even_when_stream_enabled(self) -> None:
-        selection = counselor_model_selection(
-            ResponseMode.QUICK, _settings(thinking_stream=True)
-        )
-        assert selection.include_thoughts is False
-
-    def test_gemini_2_5_quick_uses_a_zero_thinking_budget(self) -> None:
-        selection = counselor_model_selection(
-            ResponseMode.QUICK,
-            _settings(model_counselor="google-vertex:gemini-2.5-flash"),
+        assert selection == CounselorModelSelection(
+            response_mode=ResponseMode.THINK,
+            model_setting=_THINK,
+            reasoning_effort="high",
         )
 
-        assert google_thinking_config(selection) == {
-            "thinking_budget": 0,
-            "include_thoughts": False,
-        }
-
-    def test_gemini_2_5_think_uses_automatic_thinking_budget(self) -> None:
-        selection = counselor_model_selection(
-            ResponseMode.THINK,
-            _settings(model_counselor_think="google-vertex:gemini-2.5-pro"),
-        )
-
-        assert google_thinking_config(selection) == {
-            "thinking_budget": -1,
-            "include_thoughts": True,
-        }
-
-    def test_gemini_3_uses_thinking_levels(self) -> None:
-        selection = counselor_model_selection(ResponseMode.QUICK, _settings())
-
-        assert google_thinking_config(selection) == {
-            "thinking_level": "MINIMAL",
-            "include_thoughts": False,
-        }
+    def test_efforts_follow_settings(self) -> None:
+        settings = _settings(reasoning_effort_quick="none", reasoning_effort_think="medium")
+        assert counselor_model_selection(ResponseMode.QUICK, settings).reasoning_effort == "none"
+        assert counselor_model_selection(ResponseMode.THINK, settings).reasoning_effort == "medium"
 
     def test_selection_is_frozen(self) -> None:
         selection = counselor_model_selection(ResponseMode.QUICK, _settings())
         with pytest.raises(AttributeError):
             selection.model_setting = "other"  # type: ignore[misc]
-
-    def test_non_vertex_quick_model_fails_fast(self) -> None:
-        settings = _settings(model_counselor="anthropic:claude-sonnet-4-6")
-        with pytest.raises(UnsupportedCounselorProvider):
-            counselor_model_selection(ResponseMode.QUICK, settings)
-
-    def test_non_vertex_think_model_fails_fast(self) -> None:
-        settings = _settings(model_counselor_think="anthropic:claude-sonnet-4-6")
-        with pytest.raises(UnsupportedCounselorProvider):
-            counselor_model_selection(ResponseMode.THINK, settings)

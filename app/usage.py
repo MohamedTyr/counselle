@@ -27,9 +27,8 @@ def _bare_model_name(model_name: str) -> str:
 
     Examples::
 
-        "google-vertex:gemini-2.5-pro"  ->  "gemini-2.5-pro"
-        "gemini-2.5-flash"              ->  "gemini-2.5-flash"
-        "anthropic:claude-sonnet-4-6"   ->  "claude-sonnet-4-6"
+        "fireworks:accounts/fireworks/models/x"  ->  "accounts/fireworks/models/x"
+        "accounts/fireworks/models/x"            ->  "accounts/fireworks/models/x"
     """
     if ":" in model_name:
         return model_name.split(":", 1)[1]
@@ -45,13 +44,14 @@ def estimate_cost(
     """Return the estimated USD cost for one turn, or ``None`` for an unknown model.
 
     Matching strategy (first hit wins):
-    1. Exact key lookup (``"gemini-2.5-pro"``).
-    2. Bare-name suffix match — strips the provider prefix
-       (``"google-vertex:gemini-2.5-pro"`` → tries ``"gemini-2.5-pro"``).
+    1. Exact key lookup (``"accounts/fireworks/models/x"``).
+    2. Bare-name match — strips the provider prefix up to the first ``:``
+       (``"fireworks:accounts/fireworks/models/x"`` → tries
+       ``"accounts/fireworks/models/x"``).
 
     When the matched tier has a long-context threshold and *input_tokens*
-    exceeds it, Google's long-context rates apply to ALL tokens in the turn
-    (not just the overage) — this mirrors that billing behavior exactly.
+    exceeds it, the long-context rates apply to ALL tokens in the turn (not
+    just the overage), the way tiered providers bill it.
 
     Args:
         model_name:    The model identifier used for the turn.
@@ -109,41 +109,6 @@ def enrich_usage_event(event: Event, model: str, settings: Any) -> Event:
         est_cost_usd=est,
     )
     return Event(v=event.v, type=event.type, data=enriched_usage.model_dump())
-
-
-def aggregate_continuation_usage(
-    a1_usage: dict[str, Any] | None, a2_usage: dict[str, Any] | None
-) -> dict[str, Any] | None:
-    """Presentation-only sum of A1 + A2 usage for a "one logical turn" UI.
-
-    Phase 4 (plan "Define usage explicitly": "preserve per-physical-run
-    accounting ... if the UI presents logical-turn usage, aggregate ONLY at
-    the presentation/read layer, exactly once, without changing billing
-    logs"). This is that single presentation-layer aggregator — it has no
-    caller in the billing path: ``TurnRegistry._log_complete`` already calls
-    :func:`log_turn_complete` once per PHYSICAL run (once for A1, once for
-    A2), and this function never touches that log. A frontend/read layer that
-    wants one combined number for a clarify+continuation pair calls this
-    exactly once per pair; it must never be called more than once for the
-    same pair (double-aggregation would double-count cost).
-
-    ``est_cost_usd`` sums only when BOTH sides know their cost — a partially
-    unknown cost must render as unknown, never as a silently-too-low partial
-    sum.
-    """
-    if a1_usage is None and a2_usage is None:
-        return None
-    a1 = a1_usage or {}
-    a2 = a2_usage or {}
-    a1_cost = a1.get("est_cost_usd")
-    a2_cost = a2.get("est_cost_usd")
-    combined_cost = a1_cost + a2_cost if a1_cost is not None and a2_cost is not None else None
-    return {
-        "input_tokens": int(a1.get("input_tokens", 0)) + int(a2.get("input_tokens", 0)),
-        "output_tokens": int(a1.get("output_tokens", 0)) + int(a2.get("output_tokens", 0)),
-        "tool_calls": int(a1.get("tool_calls", 0)) + int(a2.get("tool_calls", 0)),
-        "est_cost_usd": combined_cost,
-    }
 
 
 def log_turn_complete(

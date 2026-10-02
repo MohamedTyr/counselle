@@ -13,7 +13,7 @@ It is two pieces, both in this repo:
 
 | Path | What lives here |
 |------|-----------------|
-| `domain/` | The pure honesty core — value/caveat types, events, and render specs. No I/O. Also `domain/cds/`: the parked extraction pipeline's pure types (ADR 0036, PARKED.md); `domain/sat/`: SAT practice's ported pure logic — grading, question normalization, statistics, the SPR rationale-key extractor, the progress-file codec (ADR 0043). |
+| `domain/` | The pure honesty core — value/caveat types, events, and render specs. No I/O. Also `domain/cds/`: the parked extraction pipeline's pure types (ADR 0036, PARKED.md); `domain/sat/`: SAT practice's ported pure logic — grading, question normalization, statistics, the SPR rationale-key extractor, the progress-file codec (ADR 0044). |
 | `app/` | Agent orchestration — the turn lifecycle, step/thinking emission, turn registry, transcript builder, runtime wiring. Also `app/facts/`: the CollegeData crawl, crosswalk, and Explore/admin services (ADR 0038); `app/cds/`: the parked extraction/review/approval flow; `app/sat/`: the SAT question-bank fetch/build/audit/sync pipeline and its services — read by no agent tool. |
 | `adapters/` | External integrations — Tavily search, email, model-provider seams. `adapters/collegedata/`: the CollegeData fetcher/parser. `adapters/facts_store.py` + `adapters/*facts_queries.py`: the `cds_library` facts write/read layer. Also `adapters/cds_*`: the parked extraction pipeline's PDF parsing and LLM call; `adapters/collegeboard/`: the SAT question-bank fetch client. |
 | `counselle_db/` | In-process service layer only (no MCP server) — four read-only tools over the facts store's six `cds_library` reader views. |
@@ -78,9 +78,9 @@ cp .env.example .env
 # Required to start the server:
 #   COUNSELLE_DB_RO_DSN     — LOGIN member of cds_library_reader (six views only)
 #   COUNSELLE_DB_APP_DSN    — read-write DSN for Counselle's own counselle.* schema
-#   ADC (recommended): run `gcloud auth application-default login`, then set
-#   COUNSELLE_GOOGLE_CLOUD_PROJECT. COUNSELLE_VERTEX_API_KEY remains supported
-#   for Express Mode; GOOGLE_APPLICATION_CREDENTIALS is optional service-account ADC.
+#   COUNSELLE_FIREWORKS_API_KEY — every live model call goes to Fireworks
+#                             (required outside development; in development
+#                             the first model call fails without it)
 #   COUNSELLE_JWT_SECRET    — JWT cookie signing secret, ≥32 bytes
 #                             generate: python -c "import secrets; print(secrets.token_urlsafe(48))"
 # Required only when an external source is enabled:
@@ -145,7 +145,7 @@ uv run pytest -m "not live_llm and not live_search and not live_db"
 # Coverage visibility for the routine suite (not a merge gate):
 uv run pytest -m "not live_llm and not live_search and not live_db" --cov --cov-report=term-missing
 
-# Full suite including live Gemini and Tavily (~$0.50):
+# Full suite including the live model and Tavily (~$0.50):
 uv run pytest
 
 # Lint + type-check:
@@ -160,7 +160,7 @@ cd frontend && npm run typecheck && npm test
 
 ## Run the eval set
 
-An eval over the live DB + Gemini (the question set in `evals/questions.yaml`). Produces `evals/report-<date>.json` and a Markdown summary. Expect ~$2–3 in Gemini/Tavily spend.
+An eval over the live DB + the live model (the question set in `evals/questions.yaml`). Produces `evals/report-<date>[-<mode>]-<reasoning effort>.json` and a Markdown summary. It costs a few dollars in model and Tavily spend.
 
 ```bash
 uv run python -m evals.runner

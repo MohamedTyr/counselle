@@ -285,7 +285,7 @@ def test_question_etag_304_on_matching_if_none_match() -> None:
     assert second.status_code == 304
 
 
-# --- the read rate limit (ADR 0043 Risk R0) ---------------------------------
+# --- the read rate limit (ADR 0044 Risk R0) ---------------------------------
 
 
 def test_question_read_limit_returns_429_when_exhausted() -> None:

@@ -1,4 +1,4 @@
-import { fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { vi } from "vitest";
 
@@ -114,36 +114,6 @@ function statefulAddSchoolFetch({
   };
 
   return { fetchHandler, posts };
-}
-
-type DeadlineFactRow = {
-  round: string;
-  date: string | null;
-  display: string;
-  reported_period: string | null;
-  state: string;
-  observed_at: string | null;
-};
-
-/** Wraps a fetch handler so `GET /v1/schools/{unitid}/facts` returns a fixed
- * `deadlines` block — the §5.2 shape the AddSchoolDialog prefill reads. */
-function withDeadlineFacts(
-  fetchHandler: (
-    input: RequestInfo | URL,
-    init?: RequestInit,
-  ) => Response | Promise<Response>,
-  deadlines: DeadlineFactRow[],
-  unitid = princetonSearchResult.unitid,
-) {
-  return (input: RequestInfo | URL, init?: RequestInit) => {
-    const url = String(input);
-    if (url.endsWith(`/v1/schools/${unitid}/facts`)) {
-      return jsonResponse({
-        deadlines: { rows: deadlines, foot: "Confirm on the school's site before you apply." },
-      });
-    }
-    return fetchHandler(input, init);
-  };
 }
 
 async function openAddSchoolDialog() {
@@ -363,6 +333,11 @@ describe("AddSchoolDialog", () => {
       }),
     );
     await waitFor(() => expect(addFetch.posts).toHaveLength(1));
+    // The new school opens at its application id and then settles on its
+    // unitid URL; leaving before that lands would be undone by it.
+    await waitFor(() =>
+      expect(window.location.pathname).toBe("/app/schools/186131"),
+    );
     const schoolLinks = await screen.findAllByRole("link", { name: "Schools" });
     await user.click(schoolLinks[0]);
     await user.click(await screen.findByRole("button", { name: "Add school" }));
@@ -439,121 +414,4 @@ describe("AddSchoolDialog", () => {
 
     expect(await screen.findByText("No schools yet")).toBeInTheDocument();
   });
-
-  it("offers a deadline suggestion chip when the round and cycle match", async () => {
-    const user = userEvent.setup();
-    const addFetch = statefulAddSchoolFetch();
-    renderApp("/app/schools", {
-      fetchHandler: withDeadlineFacts(addFetch.fetchHandler, [
-        {
-          round: "regular",
-          date: "2027-01-02",
-          display: "January 2",
-          reported_period: "2026-27",
-          state: "value",
-          observed_at: "2026-08-01",
-        },
-      ]),
-    });
-
-    await user.click(await screen.findByRole("button", { name: "Add school" }));
-    await user.type(
-      screen.getByPlaceholderText("Search for a school..."),
-      "princeton",
-    );
-    await user.click(await screen.findByText("Princeton University"));
-
-    // Default round is RD -> the "regular" deadline fact_key; default cycle
-    // year is 2027 -> the "2026-27" cycle the fixture's row is dated for.
-    expect(
-      await screen.findByText(
-        /2026-27 cycle, checked August 2026\. Confirm on the school/,
-      ),
-    ).toBeInTheDocument();
-    const useButton = screen.getByRole("button", {
-      name: /Use January 2, 2027/,
-    });
-
-    await user.click(useButton);
-
-    expect(screen.getByLabelText("Deadline")).toHaveValue("2027-01-02");
-  });
-
-  it("offers no deadline chip when the fact's cycle differs from the application cycle", async () => {
-    const user = userEvent.setup();
-    const addFetch = statefulAddSchoolFetch();
-    renderApp("/app/schools", {
-      fetchHandler: withDeadlineFacts(addFetch.fetchHandler, [
-        {
-          round: "regular",
-          date: "2026-01-02",
-          display: "January 2",
-          reported_period: "2025-26",
-          state: "value",
-          observed_at: "2025-08-01",
-        },
-      ]),
-    });
-
-    await user.click(await screen.findByRole("button", { name: "Add school" }));
-    await user.type(
-      screen.getByPlaceholderText("Search for a school..."),
-      "princeton",
-    );
-    await user.click(await screen.findByText("Princeton University"));
-
-    expect(await screen.findByLabelText("Deadline")).toBeInTheDocument();
-    expect(screen.queryByText(/From Counselle/)).not.toBeInTheDocument();
-    expect(screen.getByLabelText("Deadline")).toHaveValue("");
-  });
-
-  it.each(["ED2", "REA"])(
-    "offers no deadline chip for the %s round even with a matching fact",
-    async (roundOption) => {
-      const user = userEvent.setup();
-      const addFetch = statefulAddSchoolFetch();
-      renderApp("/app/schools", {
-        fetchHandler: withDeadlineFacts(addFetch.fetchHandler, [
-          {
-            round: "regular",
-            date: "2027-01-02",
-            display: "January 2",
-            reported_period: "2026-27",
-            state: "value",
-            observed_at: "2026-08-01",
-          },
-        ]),
-      });
-
-      await user.click(
-        await screen.findByRole("button", { name: "Add school" }),
-      );
-      await user.type(
-        screen.getByPlaceholderText("Search for a school..."),
-        "princeton",
-      );
-      await user.click(await screen.findByText("Princeton University"));
-
-      // Confirms the fixture actually offers a chip for the default RD
-      // round (the round this dialog maps to "regular") before proving
-      // ED2/REA never do, even against the exact same fetched data.
-      expect(await screen.findByText(/From Counselle/)).toBeInTheDocument();
-
-      const dialog = screen.getByRole("dialog");
-      await user.click(
-        within(dialog).getByRole("combobox", { name: /Round/ }),
-      );
-      // The Select popup is a second portal stacked over the CommandDialog's
-      // own; jsdom (unlike a real browser) leaves it under the dialog's
-      // pointer-events lock, so `user.click`'s hit-testing (correctly)
-      // refuses it. base-ui's SelectItem only commits a plain `click` when
-      // it was preceded by its own `pointerdown` (`allowMouseSelectionRef`),
-      // so both are fired directly via `fireEvent`.
-      const option = await screen.findByRole("option", { name: roundOption });
-      fireEvent.pointerDown(option);
-      fireEvent.click(option);
-
-      expect(screen.queryByText(/From Counselle/)).not.toBeInTheDocument();
-    },
-  );
 });

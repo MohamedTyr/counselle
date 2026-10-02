@@ -122,30 +122,20 @@ function renderCard(
 }
 
 describe("SchoolResultCard", () => {
-  it("names every absent metric rather than leaving a hole", () => {
+  it("names every absent figure rather than leaving a hole", () => {
     renderCard(
       school(
         {
-          act_composite_p25: null,
-          act_composite_p75: null,
           admit_rate: null,
           cost_attendance_in_state: null,
           cost_attendance_out_of_state: null,
-          grad_rate_4y: null,
-          need_met_pct: null,
-          sat_ebrw_p25: null,
-          sat_ebrw_p75: null,
-          sat_math_p25: null,
-          sat_math_p75: null,
         },
         { admit_rate: null, category: "Unknown" },
       ),
     );
 
-    // Cost, share of need met, and the graduation rate -- three absent stats.
-    expect(screen.getAllByText("not available")).toHaveLength(3);
-    expect(screen.getByText(/admit rate not available/i)).toBeInTheDocument();
-    expect(screen.getByText(/test range not available/)).toBeInTheDocument();
+    // The admit rate and the cost -- both figures the card carries.
+    expect(screen.getAllByText("not available")).toHaveLength(2);
     expect(
       screen.getByRole("group", { name: /admit rate: not available/i }),
     ).toBeInTheDocument();
@@ -154,7 +144,7 @@ describe("SchoolResultCard", () => {
     expect(screen.queryByText("$0")).not.toBeInTheDocument();
   });
 
-  it("picks the in-state cost row when the student's home state matches", () => {
+  it("picks the in-state cost when the student's home state matches", () => {
     renderCard(
       school({
         cost_attendance_in_state: 20_000,
@@ -163,10 +153,10 @@ describe("SchoolResultCard", () => {
     );
 
     expect(screen.getByText("$20,000")).toBeInTheDocument();
-    expect(screen.getByText("in-state cost")).toBeInTheDocument();
+    expect(screen.getByText("per year, in state")).toBeInTheDocument();
   });
 
-  it("falls back to the out-of-state row with no home state set", () => {
+  it("falls back to the out-of-state cost with no home state set", () => {
     renderCard(
       school({
         cost_attendance_in_state: 20_000,
@@ -176,23 +166,7 @@ describe("SchoolResultCard", () => {
     );
 
     expect(screen.getByText("$45,000")).toBeInTheDocument();
-    expect(screen.getByText("out-of-state cost")).toBeInTheDocument();
-  });
-
-  it("shows the school's own score band and never the student's score", () => {
-    renderCard(school());
-
-    expect(screen.getByText("SAT Math 700–780")).toBeInTheDocument();
-    expect(screen.queryByText("you 740")).not.toBeInTheDocument();
-  });
-
-  it("prefers the ACT band for a student who only entered an ACT score", () => {
-    renderCard(school({ act_composite_p25: 30, act_composite_p75: 34 }), {
-      assumptions: { act: 32, homeState: "MA", satEbrw: null, satMath: null },
-    });
-
-    expect(screen.getByText("ACT 30–34")).toBeInTheDocument();
-    expect(screen.queryByText(/^SAT/)).not.toBeInTheDocument();
+    expect(screen.getByText("per year, out of state")).toBeInTheDocument();
   });
 
   it("shows the category the admit rate beside it implies, and nothing arguing for it", () => {
@@ -212,7 +186,6 @@ describe("SchoolResultCard", () => {
       school({ admit_rate: null }, { admit_rate: null, category: "Unknown" }),
     );
 
-    expect(screen.getByText("Admit rate not available")).toBeInTheDocument();
     for (const label of [
       "Unknown",
       "Not classified",
@@ -222,20 +195,6 @@ describe("SchoolResultCard", () => {
     ]) {
       expect(screen.queryByText(label)).not.toBeInTheDocument();
     }
-  });
-
-  it("renders the offered rounds and the regular deadline", () => {
-    renderCard(
-      school({
-        deadline_regular: "2027-01-15",
-        offers_early_action: true,
-        offers_early_decision: true,
-      }),
-    );
-
-    expect(screen.getByText("ED")).toBeInTheDocument();
-    expect(screen.getByText("EA")).toBeInTheDocument();
-    expect(screen.getByText("Jan 15")).toBeInTheDocument();
   });
 
   it("does not clamp a legitimate long school name and keeps its Add action", () => {

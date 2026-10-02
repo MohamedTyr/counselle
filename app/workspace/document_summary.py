@@ -103,31 +103,13 @@ def make_document_summary_generator(
     return generate
 
 
-#: Only this provider prefix needs explicit Vertex construction so the app can
-#: consistently select its Express-key or ADC credentials. Every other
-#: provider-prefixed string resolves through PydanticAI's own ``infer_model``.
-_GOOGLE_VERTEX_PREFIX = "google-vertex:"
-
-
 def _summary_model(settings: Any, model_factory: ModelFactory | None) -> Any:
     if model_factory is not None:
         return model_factory()
-    model_setting: str = settings.model_cheap
-    if not model_setting.startswith(_GOOGLE_VERTEX_PREFIX):
-        # PydanticAI resolves this provider-prefixed string to the configured
-        # provider/model pair, so summaries follow the same cheap-model Settings seam.
-        return model_setting
-    # Build the cheap model through the same explicit Vertex client as the
-    # counselor model so API-key and ADC configuration stay consistent.
-    from pydantic_ai.models.google import GoogleModel
-    from pydantic_ai.providers.google_cloud import GoogleCloudProvider
+    from app.llm import build_model
 
-    from app.model_selection import model_name_from_setting
-    from app.vertex import build_vertex_client
-
-    return GoogleModel(
-        model_name_from_setting(model_setting),
-        provider=GoogleCloudProvider(client=build_vertex_client(settings)),
+    return build_model(
+        settings, settings.model_cheap, reasoning_effort=settings.reasoning_effort_cheap
     )
 
 

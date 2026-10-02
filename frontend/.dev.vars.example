@@ -1,0 +1,3 @@
+# Local only. Copy to .dev.vars for `wrangler pages dev`; never commit it.
+# Honoured only on localhost, where no Access sits in front of /admin.
+ADMIN_DEV_EMAIL=you@example.com

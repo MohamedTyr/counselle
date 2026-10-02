@@ -11,6 +11,8 @@ export default defineConfig({
       input: {
         app: path.resolve(__dirname, "index.html"),
         landing: path.resolve(__dirname, "landing.html"),
+        privacy: path.resolve(__dirname, "privacy.html"),
+        terms: path.resolve(__dirname, "terms.html"),
       },
     },
   },

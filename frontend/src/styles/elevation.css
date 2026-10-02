@@ -26,16 +26,9 @@
     0 6px 16px color-mix(in oklch, var(--gray-900) 10%, transparent);
 
   /* ---- CTA elevation — the solid primary button's cast shadow. Its own
-   * pair rather than --elevation-1/-2 for one reason: a saturated object
-   * casts a shadow that carries its own hue, and a neutral grey shadow
-   * under a deep burgundy button reads as dirt rather than depth.
-   *
-   * Tinted from --lime-950 (L 0.20), NOT from --brand itself. A low-
-   * alpha wash of the mid-brand under a mid-brand button is a glow, and a
-   * glow is the tell this whole theme is tuned against — the brand "is
-   * never a gradient or a wash" (see the --lime note in primitives.css).
-   * The near-black end of the same ramp is a shadow that happens to be
-   * red, which is what a red object actually casts.
+   * pair rather than --elevation-1/-2 so the ink button can be grounded a
+   * little more firmly than a card; mixed from --gray-1000, the same base a
+   * scrim uses.
    *
    * Two layers each: a tight contact shadow that grounds the button, plus
    * a wider ambient one that gives it height. Blur stays at 5px / 10px —
@@ -48,11 +41,11 @@
    * reads as the button sinking into the page rather than changing colour
    * only. */
   --elevation-cta:
-    0 1px 2px color-mix(in oklch, var(--lime-950) 22%, transparent),
-    0 2px 5px color-mix(in oklch, var(--lime-950) 13%, transparent);
+    0 1px 2px color-mix(in oklch, var(--gray-1000) 22%, transparent),
+    0 2px 5px color-mix(in oklch, var(--gray-1000) 13%, transparent);
   --elevation-cta-hover:
-    0 1px 2px color-mix(in oklch, var(--lime-950) 24%, transparent),
-    0 4px 10px color-mix(in oklch, var(--lime-950) 18%, transparent);
+    0 1px 2px color-mix(in oklch, var(--gray-1000) 24%, transparent),
+    0 4px 10px color-mix(in oklch, var(--gray-1000) 18%, transparent);
 
   /* Ad hoc `z-50`/`z-40` Tailwind utilities already order correctly
    * (dropdowns/modals/toasts above drag previews); this semantic scale is

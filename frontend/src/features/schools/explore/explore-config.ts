@@ -151,6 +151,13 @@ export const controlOptions: Option<Control | "any">[] = [
   { value: "private_for_profit", label: "Private (for-profit)" },
 ];
 
+/** The one-word form a result card's meta line uses. */
+export const controlShortLabel: Record<Control, string> = {
+  public: "Public",
+  private: "Private",
+  private_for_profit: "For-profit",
+};
+
 export const testPolicyOptions: Option<TestPolicy | "any">[] = [
   { value: "any", label: "Any" },
   { value: "required", label: "Required" },

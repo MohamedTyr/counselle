@@ -1,0 +1,198 @@
+/* The intro runs the height of the list, so the heading starts on the first
+   question and the contact line ends on the last. */
+.lp-faq {
+  width: calc(100% - 2 * var(--lp-inset));
+  display: flex;
+  align-items: stretch;
+  justify-content: space-between;
+  gap: 90px;
+}
+.lp-faq-intro {
+  width: 460px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+.lp-faq-heading {
+  width: 460px;
+  white-space: normal;
+}
+.lp-faq-support {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 22px;
+}
+.lp-faq-support p {
+  width: 400px;
+  font-size: 16px;
+  line-height: 1.4;
+  color: #6b7270;
+}
+.lp-faq-contact {
+  display: inline-flex;
+  padding: 13px 18px;
+  background: var(--lp-ink);
+  border-radius: 999px;
+  font-weight: 500;
+  font-size: 15px;
+  color: #fff;
+  white-space: nowrap;
+}
+.lp-faq-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  flex: 1 1 0;
+  min-width: 660px;
+  max-width: 720px;
+}
+.lp-faq-item {
+  --faq-pad-y: 24px;
+  --faq-pad-x: 24px;
+  --faq-pad-end: 68px;
+  position: relative;
+  width: 100%;
+  padding: var(--faq-pad-y) var(--faq-pad-end) var(--faq-pad-y) var(--faq-pad-x);
+  background: var(--lp-panel);
+  border-radius: 16px;
+}
+/* The whole header row is the button; the answer sits below it. */
+.lp-faq-toggle {
+  display: block;
+  width: calc(100% + var(--faq-pad-x) + var(--faq-pad-end));
+  margin: calc(-1 * var(--faq-pad-y)) calc(-1 * var(--faq-pad-end))
+    calc(-1 * var(--faq-pad-y)) calc(-1 * var(--faq-pad-x));
+  padding: var(--faq-pad-y) var(--faq-pad-end) var(--faq-pad-y) var(--faq-pad-x);
+  border-radius: inherit;
+  text-align: left;
+}
+.lp-faq-toggle img {
+  position: absolute;
+  right: 24px;
+  top: var(--faq-pad-y);
+}
+.lp-faq-question {
+  display: block;
+  font-weight: 500;
+  font-size: 18px;
+  line-height: 1.35;
+  letter-spacing: -0.18px;
+  color: var(--lp-ink);
+}
+.lp-faq-answer-wrap {
+  display: grid;
+  grid-template-rows: 0fr;
+}
+.lp-faq-answer-wrap[data-open="true"] {
+  grid-template-rows: 1fr;
+}
+.lp-faq-answer {
+  min-height: 0;
+  overflow: hidden;
+  max-width: 580px;
+  font-size: 15.5px;
+  line-height: 1.5;
+  color: var(--lp-muted);
+}
+/* The space above the answer folds away with it. */
+.lp-faq-answer::before {
+  content: "";
+  display: block;
+  height: 10px;
+}
+.lp-faq-answer-wrap[data-open="false"] .lp-faq-answer {
+  opacity: 0;
+  visibility: hidden;
+}
+
+/* The plus turns into the minus: its vertical bar rotates away. */
+.lp-faq-plus {
+  opacity: 1;
+}
+.lp-faq-minus {
+  opacity: 0;
+  transform: rotate(-90deg);
+}
+.lp-faq-toggle[aria-expanded="true"] .lp-faq-plus {
+  opacity: 0;
+  transform: rotate(90deg);
+}
+.lp-faq-toggle[aria-expanded="true"] .lp-faq-minus {
+  opacity: 1;
+  transform: none;
+}
+.lp-faq-list[data-pointer-motion="true"] .lp-faq-toggle img {
+  transition:
+    opacity var(--lp-duration-state, 200ms) var(--lp-ease-feedback, ease-out),
+    transform 320ms var(--lp-ease-entrance);
+}
+.lp-faq-list[data-pointer-motion="true"] .lp-faq-answer-wrap {
+  transition: grid-template-rows 280ms var(--lp-ease-entrance);
+}
+.lp-faq-list[data-pointer-motion="true"] .lp-faq-answer {
+  transition:
+    opacity var(--lp-duration-state, 200ms) var(--lp-ease-feedback, ease-out)
+      80ms,
+    visibility 0s;
+}
+.lp-faq-list[data-pointer-motion="true"]
+  .lp-faq-answer-wrap[data-open="false"]
+  .lp-faq-answer {
+  transition:
+    opacity var(--lp-duration-feedback, 150ms) var(--lp-ease-feedback, ease-out),
+    visibility 0s 280ms;
+}
+@media (prefers-reduced-motion: reduce) {
+  .lp-faq-list[data-pointer-motion="true"] .lp-faq-answer-wrap,
+  .lp-faq-list[data-pointer-motion="true"] .lp-faq-toggle img {
+    transition: none;
+  }
+  .lp-faq-list[data-pointer-motion="true"] .lp-faq-answer {
+    transition-duration: var(--lp-duration-feedback, 150ms);
+    transition-delay: 0s;
+  }
+}
+
+/* The audience switch: the same pill track as the compare picker. */
+.lp-faq-filter {
+  align-self: flex-start;
+  display: flex;
+  padding: 4px;
+  background: rgba(18, 18, 20, 0.05);
+  border-radius: 999px;
+}
+.lp-faq-filter button {
+  min-height: 44px;
+  padding: 0 18px;
+  border-radius: 999px;
+  font-weight: 500;
+  font-size: 15px;
+  line-height: 20px;
+  color: var(--lp-muted);
+  white-space: nowrap;
+  transition:
+    background-color var(--lp-duration-feedback) var(--lp-ease-feedback),
+    color var(--lp-duration-feedback) var(--lp-ease-feedback),
+    box-shadow var(--lp-duration-feedback) var(--lp-ease-feedback),
+    scale var(--lp-duration-feedback) var(--lp-ease-feedback);
+}
+.lp-faq-filter button[aria-pressed="true"] {
+  background: #fff;
+  box-shadow:
+    0 1px 2px rgba(18, 18, 20, 0.08),
+    0 0 0 1px rgba(18, 18, 20, 0.04);
+  color: var(--lp-ink);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .lp-faq-filter button:active {
+    scale: 0.96;
+  }
+}
+.lp-faq-filter button:focus-visible {
+  outline: 2px solid var(--lp-green);
+  outline-offset: 2px;
+}
+.lp-faq-item[hidden] {
+  display: none;
+}

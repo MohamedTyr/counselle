@@ -441,7 +441,7 @@ describe("EssaysPage", () => {
     await user.click(screen.getByRole("menuitem", { name: "Ready" }));
 
     const cards = await screen.findAllByText("Stanford Roommate Note");
-    const originalCard = cards[0]!.closest("article");
+    const originalCard = cards[0]!.closest("li");
 
     expect(originalCard).not.toBeNull();
     await waitFor(() =>
@@ -579,11 +579,7 @@ describe("EssayEditorPage", () => {
     expect(
       await screen.findByRole("heading", { name: "Stanford Roommate Note" }),
     ).toBeInTheDocument();
-    expect(
-      screen.getByText(
-        (_, element) => element?.textContent === "216 / 250 words",
-      ),
-    ).toBeInTheDocument();
+    expect(screen.getByText("216 / 250")).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: /Prompt/ }));
 
@@ -2038,7 +2034,7 @@ describe("essay routes", () => {
 
     await user.click(
       await screen.findByRole("button", {
-        name: "Open Common App Personal Statement",
+        name: "Keep writing",
       }),
     );
 

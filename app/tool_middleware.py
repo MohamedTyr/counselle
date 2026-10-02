@@ -14,7 +14,7 @@ from counselle_db.models import ProfileProvenanceReceipt
 from domain.envelope import CaveatKind, Citation, CitationEnvelope
 from domain.events import tool_ui_from_payload
 
-_SEARCH_TOOLS = frozenset({"search_web", "search_school_site", "search_reddit"})
+SEARCH_TOOLS = frozenset({"search_web", "search_school_site", "search_reddit"})
 _OVERFLOW_EXEMPT_TOOLS = frozenset({"render_viz"})
 
 # school-data-v3 §5.4/§6a -- the one name for this source on every chat
@@ -195,6 +195,74 @@ def get_facts_db_citation(result: dict[str, Any]) -> Any:
     }
 
 
+#: The fields of an annotated fact or profile row the model reads. Everything
+#: else on the envelope (the shared citation, the raw value, unit, section,
+#: `observed_at`, profile provenance, ...) repeats once per row and roughly
+#: quadruples the payload; the school's citation is kept once at top level
+#: instead, and `render_viz` does its own read, so nothing downstream needs the
+#: full rows.
+_MODEL_ROW_FIELDS = ("label", "display", "vintage", "marker")
+
+
+def _compact_row(row: dict[str, Any], key_name: str, *, keep_caveats: bool) -> dict[str, Any]:
+    compact = {key_name: row.get("field")}
+    compact.update({field: row[field] for field in _MODEL_ROW_FIELDS if field in row})
+    if keep_caveats and row.get("caveats"):
+        compact["caveats"] = row["caveats"]
+    return compact
+
+
+def _shared(rows: list[dict[str, Any]], key: str) -> Any:
+    """The value every row carries under ``key``, or None when they differ."""
+    if not rows or not rows[0].get(key):
+        return None
+    first = rows[0][key]
+    return first if all(row.get(key) == first for row in rows) else None
+
+
+def _compact_profile(result: dict[str, Any]) -> dict[str, Any]:
+    """Profile rows share one citation (its vintage is the identity snapshot
+    date) and one snapshot caveat: each is stated once, not per row."""
+    rows = [row for group in result["groups"] for row in group.get("rows") or []]
+    # An unavailable row carries no citation, so only available rows decide it.
+    citation = _shared([row for row in rows if row.get("available")], "citation")
+    caveats = _shared(rows, "caveats")
+    shared = caveats is not None
+    groups = [
+        {
+            **group,
+            "rows": [
+                # `available` stays: the step receipt counts the profile's values by it.
+                {
+                    **_compact_row(row, "profile_field", keep_caveats=not shared),
+                    "available": row.get("available"),
+                }
+                for row in group.get("rows") or []
+            ],
+        }
+        for group in result["groups"]
+    ]
+    compact = {**result, "groups": groups}
+    if citation is not None:
+        compact["citation"] = citation
+    if shared:
+        compact["caveats"] = caveats
+    return compact
+
+
+def compact_for_model(result: Any, tool_name: str | None) -> Any:
+    """Slim an annotated `get_facts`/`get_school_profile` result to what the
+    model cites from."""
+    if not isinstance(result, dict):
+        return result
+    if tool_name == "get_facts" and isinstance(result.get("rows"), list):
+        rows = [_compact_row(row, "fact_key", keep_caveats=True) for row in result["rows"]]
+        return {**result, "rows": rows}
+    if tool_name == "get_school_profile" and isinstance(result.get("groups"), list):
+        return _compact_profile(result)
+    return result
+
+
 _DB_CITATION_MINTERS = {
     "resolve_school": _resolve_school_db_citation,
     "get_school_profile": _get_school_profile_db_citation,
@@ -228,7 +296,7 @@ def annotate_citations(
     """Attach source markers to cited tool results without mutating payloads."""
     if context is None or context.registry is None:
         return result
-    if tool_name in _SEARCH_TOOLS:
+    if tool_name in SEARCH_TOOLS:
         return context.registry.annotate_search_results(result)
     return context.registry.annotate_envelopes(result)
 
@@ -285,6 +353,7 @@ def process_tool_result(
     """Apply the ordered tool-result middleware pipeline."""
     result = _normalize_db_payload(result, tool_name)
     result = annotate_citations(result, context, tool_name=tool_name)
+    result = compact_for_model(result, tool_name)
     result = error_envelope(result)
     result = with_workspace_public_receipt(tool_name, result)
     result = demote_tool_ui(result)

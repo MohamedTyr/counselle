@@ -54,6 +54,7 @@ from app.run_handle import RunHandleStore
 from app.run_turn import run_continuation_turn, run_turn
 from app.state import TemporalContext
 from app.steps import EmissionRouter
+from app.tool_budget import BUDGET_SPENT_INSTRUCTION
 from app.toolset import ToolDeps
 from app.transcript import extract_transcript
 from app.viz_signature import render_spec_signature, viz_payload_signature
@@ -72,8 +73,12 @@ from domain.surface import Surface
 class FakeSettings:
     """The slice of Settings the runner + node + registry read."""
 
-    model_counselor = "google-vertex:gemini-2.5-pro"
-    model_counselor_think = "google-vertex:gemini-3.1-pro-preview"
+    model_counselor = "fireworks:accounts/fireworks/models/quick-model"
+    model_counselor_think = "fireworks:accounts/fireworks/models/think-model"
+    reasoning_effort_quick = "low"
+    reasoning_effort_think = "high"
+    reasoning_effort_cheap = "none"
+    fireworks_api_key: str | None = None
     response_mode_think_enabled = True
     agent_max_model_requests = 80
     agent_max_total_tokens = 2_000_000
@@ -83,18 +88,12 @@ class FakeSettings:
     compaction_clear_tool_results_after_messages: int = 40
     compaction_clear_tool_keep_pairs: int = 3
     compaction_min_clear_tokens: int = 20_000
-    vertex_api_key = None
     source_web_default = True
     source_reddit_default = True
     source_edu_default = True
     search_max_results = 5
     thinking_stream = True
-    thinking_summaries: bool | None = None
     thinking_threshold_chars = 240  # CFG-07: agent_node reads this at router build
-
-    @property
-    def effective_thinking_stream(self) -> bool:
-        return self.thinking_stream if self.thinking_summaries is None else self.thinking_summaries
     # Turn-registry knobs (CFG-02: the registry reads these directly, no getattr
     # fallback). The existing per-test overrides (settings.agent_stream_buffer_size = 2,
     # etc.) now override a real default instead of a non-existent attribute.
@@ -104,6 +103,9 @@ class FakeSettings:
     # float-typed so tests can drop it to 0.1 to fire the watchdog fast.
     agent_turn_timeout_s: float = 3600
     agent_tool_result_max_chars: int = 8_000
+    focused_answer_max_tool_rounds: int = 4
+    focused_answer_max_searches: int = 2
+    model_read_timeout_s: float = 45.0
     essay_context_max_chars: int = 8_000
     # Phase-1 fields (BC-01 / BC-08) — also read directly after CFG-02 removes
     # their getattr fallbacks; the stub MUST carry them or __init__ /
@@ -583,13 +585,29 @@ def _node_state(prompt: str = "hi", response_mode: str | None = None) -> dict[st
     }
 
 
-async def _run_node_capturing_model_settings(
+async def _run_node_capturing_model_factory(
     monkeypatch: pytest.MonkeyPatch,
     settings: FakeSettings,
     response_mode: str | None = None,
-) -> Any:
+) -> tuple[str, str]:
+    """Run the node with no injected model factory and return the
+    ``(model_setting, reasoning_effort)`` it asked the real factory for."""
+    factory_calls: list[tuple[str, str]] = []
+    read_timeouts: list[float | None] = []
+
+    def capture_factory(
+        _settings: Any,
+        model_setting: str,
+        reasoning_effort: str,
+        read_timeout_s: float | None = None,
+    ) -> Any:
+        factory_calls.append((model_setting, reasoning_effort))
+        read_timeouts.append(read_timeout_s)
+        return object()
+
     _CapturingAgent.captured_model_settings = []
     monkeypatch.setattr(app.agent_node, "Agent", _CapturingAgent)
+    monkeypatch.setattr(app.agent_node, "default_model_factory", capture_factory)
     monkeypatch.setattr(app.agent_node, "get_stream_writer", lambda: lambda chunk: None)
     monkeypatch.setattr(app.agent_node, "build_tools", lambda *args, **kwargs: [])
 
@@ -604,23 +622,18 @@ async def _run_node_capturing_model_settings(
             subreddit_menu=[],
             tavily_client_factory=lambda: StubTavilyClient(),
         ),
-        model_factory=lambda: cast(Any, object()),
+        model_factory=None,
     )
 
     await app.agent_node.run_agent_node(_node_state(response_mode=response_mode), deps)
 
-    assert len(_CapturingAgent.captured_model_settings) == 1
-    return _CapturingAgent.captured_model_settings[0]
-
-
-def _google_thinking_config(model_settings: Any) -> dict[str, Any] | None:
-    if model_settings is None:
-        return None
-    if isinstance(model_settings, dict):
-        value = model_settings.get("google_thinking_config")
-        return dict(value) if value is not None else None
-    value = getattr(model_settings, "google_thinking_config", None)
-    return dict(value) if value is not None else None
+    assert len(factory_calls) == 1
+    # The effort rides on the model; no per-run settings may override it
+    # (the goal-only summarizing compaction tier would never see them).
+    assert _CapturingAgent.captured_model_settings == [None]
+    # A chat turn streams every request, so it gets the stall timeout.
+    assert read_timeouts == [settings.model_read_timeout_s]
+    return factory_calls[0]
 
 
 # ---------------------------------------------------------------------------
@@ -628,37 +641,41 @@ def _google_thinking_config(model_settings: Any) -> dict[str, Any] | None:
 # ---------------------------------------------------------------------------
 
 
-async def test_agent_node_thinking_config_follows_response_mode(
+async def test_agent_node_reasoning_effort_follows_response_mode(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """The selected model family owns the wire shape; mode owns its intent."""
-    quick_settings = FakeSettings()
-    quick_model_settings = await _run_node_capturing_model_settings(
-        monkeypatch, quick_settings, response_mode="quick"
-    )
-    assert _google_thinking_config(quick_model_settings) == {
-        "thinking_budget": 0,
-        "include_thoughts": False,
-    }
+    """Quick builds the Quick model at the Quick effort, Think the Think model
+    at the Think effort — the effort reaches the model, never a run setting."""
+    settings = FakeSettings()
 
-    think_settings = FakeSettings()
-    think_model_settings = await _run_node_capturing_model_settings(
-        monkeypatch, think_settings, response_mode="think"
-    )
-    assert _google_thinking_config(think_model_settings) == {
-        "thinking_level": "HIGH",
-        "include_thoughts": True,
-    }
+    assert await _run_node_capturing_model_factory(
+        monkeypatch, settings, response_mode="quick"
+    ) == (settings.model_counselor, "low")
+    assert await _run_node_capturing_model_factory(
+        monkeypatch, settings, response_mode="think"
+    ) == (settings.model_counselor_think, "high")
 
-    think_no_stream = FakeSettings()
-    think_no_stream.thinking_stream = False
-    think_no_stream_model_settings = await _run_node_capturing_model_settings(
-        monkeypatch, think_no_stream, response_mode="think"
-    )
-    assert _google_thinking_config(think_no_stream_model_settings) == {
-        "thinking_level": "HIGH",
-        "include_thoughts": False,
-    }
+
+@pytest.mark.parametrize("thinking_stream", [False, True])
+async def test_agent_node_router_emits_thinking_only_when_thinking_stream_is_on(
+    monkeypatch: pytest.MonkeyPatch, thinking_stream: bool
+) -> None:
+    """ADR 0043: raw chain of thought reaches the student only when
+    `thinking_stream` is on — the node wires the setting into the router."""
+    routers: list[EmissionRouter] = []
+
+    def recording_router(**kwargs: Any) -> EmissionRouter:
+        router = EmissionRouter(**kwargs)
+        routers.append(router)
+        return router
+
+    monkeypatch.setattr(app.agent_node, "EmissionRouter", recording_router)
+    settings = FakeSettings()
+    settings.thinking_stream = thinking_stream
+
+    await _run_node_capturing_model_factory(monkeypatch, settings, response_mode="think")
+
+    assert [router.emit_thinking for router in routers] == [thinking_stream]
 
 
 def _plain_text_model(text: str) -> FunctionModel:
@@ -1515,7 +1532,7 @@ async def test_iter_loop_matches_run_stream_events_golden_order(
     events = await rig.turn(str(uuid4()), "Make a plan", _ALL_OFF)
 
     assert _event_order_signature(events) == [
-        {"type": "meta", "data": {"model": "google-vertex:gemini-2.5-pro"}},
+        {"type": "meta", "data": {"model": "fireworks:accounts/fireworks/models/quick-model"}},
         {"type": "narration", "data": {"text": "I'll check the plan first."}},
         {
             "type": "step",
@@ -2329,6 +2346,73 @@ async def test_budget_cutoff_closes_steps_and_streams_the_budget_delta() -> None
     _assert_every_step_start_has_a_terminal(events)
 
 
+async def test_focused_answer_withdraws_tools_after_its_rounds_and_still_answers() -> None:
+    """A chat turn defaults to Focused Answer, whose tool rounds are capped:
+    the request after the cap carries no tools (not even ``ask_student``) and
+    the budget instruction, so the turn ends in an answer rather than the
+    budget apology or a question."""
+    tool_counts: list[int] = []
+    output_tools: list[list[str]] = []
+    instructions: list[str] = []
+
+    def searcher(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+        tool_counts.append(len(info.function_tools))
+        output_tools.append([tool.name for tool in info.output_tools])
+        instructions.append(info.instructions or "")
+        if info.function_tools:
+            return ModelResponse(parts=[ToolCallPart(tool_name="search_web", args={"query": "x"})])
+        return ModelResponse(parts=[TextPart("Here is the answer from what I found.")])
+
+    settings = FakeSettings()
+    settings.focused_answer_max_tool_rounds = 2
+    rig = Rig(_fn_model(searcher), settings=settings)
+
+    events = await rig.turn(str(uuid4()), "hi", _WEB_ONLY)
+
+    assert _done_status(events) == "complete"
+    assert "Here is the answer from what I found." in _text(events)
+    assert "tool budget" not in _text(events)
+    assert rig.tavily.calls == 2
+    assert [count > 0 for count in tool_counts] == [True, True, False]
+    # A clarifying question cannot stand in for the answer once it is spent.
+    assert "ask_student" in output_tools[0]
+    assert output_tools[2] == []
+    assert BUDGET_SPENT_INSTRUCTION not in instructions[1]
+    assert BUDGET_SPENT_INSTRUCTION in instructions[2]
+
+
+async def test_focused_answer_runs_at_most_its_search_budget() -> None:
+    """Searches past the cap never run, even when fired in one parallel
+    round, and the search tools are hidden from the next request."""
+    offered: list[set[str]] = []
+
+    def triple_searcher(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+        offered.append({tool.name for tool in info.function_tools})
+        if len(offered) == 1:
+            return ModelResponse(
+                parts=[
+                    ToolCallPart(tool_name="search_web", args={"query": q})
+                    for q in ("a", "b", "c")
+                ]
+            )
+        return ModelResponse(parts=[TextPart("Answer from two searches.")])
+
+    settings = FakeSettings()
+    settings.focused_answer_max_searches = 2
+    rig = Rig(_fn_model(triple_searcher), settings=settings)
+
+    events = await rig.turn(str(uuid4()), "hi", _WEB_ONLY)
+
+    assert _done_status(events) == "complete"
+    assert rig.tavily.calls == 2
+    assert "search_web" in offered[0]
+    assert "search_web" not in offered[1]
+    _assert_every_step_start_has_a_terminal(events)
+    # The skipped search is shown to the student as a failed step, not a result.
+    terminal = [step["status"] for step in _steps(events) if step["status"] != "start"]
+    assert sorted(terminal) == ["end", "end", "error"]
+
+
 # ---------------------------------------------------------------------------
 # (i) B1b: the turn record + the prose invariant
 # ---------------------------------------------------------------------------
@@ -2448,7 +2532,7 @@ async def test_selected_response_mode_is_injected_once_with_precedence() -> None
     prompt = "\n".join(seen_prompts)
     assert prompt.count("Selection group: response-mode") == 1
     assert prompt.count("### Selected skill: focused-answer") == 1
-    assert prompt.count("Use the smallest evidence set that changes the decision.") == 1
+    assert prompt.count("Thorough multi-source research") == 1
 
 
 async def test_malformed_restored_selection_fails_before_meta_or_record_write() -> None:
@@ -3697,7 +3781,7 @@ async def test_record_state_carries_no_secrets() -> None:
     import json
 
     settings = FakeSettings()
-    settings.vertex_api_key = "sk-super-secret-test-key"  # type: ignore[assignment]
+    settings.fireworks_api_key = "sk-super-secret-test-key"
     rig = Rig(_fn_model(_search_then_answer), settings=settings)
     session_id = str(uuid4())
 

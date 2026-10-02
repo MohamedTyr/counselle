@@ -76,14 +76,6 @@ async function waitForSidebar() {
   return sidebarElement();
 }
 
-function sidebarMenuButtonFor(link: HTMLElement) {
-  const button = link.closest('[data-slot="sidebar-menu-button"]');
-  if (!(button instanceof HTMLElement)) {
-    throw new Error("Sidebar menu button was not rendered");
-  }
-  return button;
-}
-
 describe("chat session sidebar list", () => {
   beforeEach(() => {
     localStorage.clear();
@@ -103,10 +95,7 @@ describe("chat session sidebar list", () => {
     const brownLink = await screen.findByRole("link", {
       name: "Financial aid for Brown",
     });
-    expect(sidebarMenuButtonFor(brownLink)).toHaveAttribute(
-      "data-active",
-      "true",
-    );
+    expect(brownLink).toHaveAttribute("aria-current", "page");
     expect(
       screen.getByRole("status", { name: "MIT essay plan is generating" }),
     ).toBeInTheDocument();
@@ -115,7 +104,7 @@ describe("chat session sidebar list", () => {
     const searchInput = screen.getByRole("searchbox", {
       name: "Search chats",
     });
-    expect(searchInput).toHaveAttribute("placeholder", "Filter conversations");
+    expect(searchInput).toHaveAttribute("placeholder", "Search");
 
     await user.type(searchInput, "brown");
 

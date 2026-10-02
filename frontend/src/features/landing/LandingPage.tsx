@@ -1,59 +1,64 @@
-import { ArrowUpRight, Play } from "lucide-react";
-import { CounselleLogo } from "@/features/shell/CounselleLogo";
-import { PlanDemo } from "./PlanDemo";
 import "./landing.css";
+import { Hero, HeroNav } from "./sections/Hero";
+import { Features } from "./sections/Features";
+import { Compare } from "./sections/Compare";
+import { Pricing } from "./sections/Pricing";
+import { Schools } from "./sections/Schools";
+import { Faq } from "./sections/Faq";
+import { Footer } from "./sections/Footer";
+import { Testimonials } from "./sections/Testimonials";
+import { StructuredData } from "./StructuredData";
+import { useLandingMotion } from "./useLandingMotion";
+import {
+  useWaitlistDialog,
+  useWarmWaitlist,
+} from "./waitlist/useWaitlistDialog";
+
+/** The dialog is its own chunk, loaded on intent or idle, never up front. */
+const loadDialog = () => import("./waitlist/WaitlistDialog");
+import "./responsive.css";
 
 export function LandingPage() {
-  function showExample() {
-    const example = document.getElementById("example");
-    example?.scrollIntoView({ behavior: "instant", block: "nearest" });
-    example?.focus({ preventScroll: true });
-  }
-
+  const landingRef = useLandingMotion();
+  const waitlist = useWaitlistDialog();
+  const dialog = useWarmWaitlist(loadDialog, waitlist.request !== null);
+  // The dialog portals beside the canvas, so making the page inert leaves
+  // only the dialog reachable. Until its chunk has loaded there is no dialog,
+  // so the page stays live rather than locking behind nothing. React drops it
+  // in the same commit that closes the dialog, before focus goes back to the
+  // trigger.
+  const behindDialog = waitlist.open && dialog !== null;
   return (
-    <div className="landing-page">
-      <a className="landing-skip" href="#hero-content">
+    <div className="lp" ref={landingRef}>
+      <StructuredData />
+      <a className="lp-skip" href="#top" inert={behindDialog}>
         Skip to content
       </a>
-      <header className="landing-nav">
-        <a className="landing-wordmark" href="/" aria-label="Counselle home">
-          <CounselleLogo />
-          <span>counselle</span>
-        </a>
-        <nav aria-label="Main navigation">
-          <button className="landing-nav-example" onClick={showExample}>
-            How it works
-          </button>
-          <a className="landing-signin" href="/login">
-            Sign in <ArrowUpRight size={16} aria-hidden="true" />
-          </a>
-        </nav>
-      </header>
-      <main className="landing-hero" id="hero-content">
-        <div className="hero-title">
-          <h1>
-            Your college ambitions.
-            <br />
-            <span>A plan that fits you.</span>
-          </h1>
-        </div>
-        <div className="hero-copy">
-          <p>
-            Your AI college counselor for choosing schools, strengthening
-            essays, and knowing what to do next.
-          </p>
-          <div className="hero-actions">
-            <a className="landing-primary" href="/register">
-              Build my plan <ArrowUpRight size={19} aria-hidden="true" />
-            </a>
-            <button className="landing-secondary" onClick={showExample}>
-              <Play size={13} fill="currentColor" aria-hidden="true" />
-              See an example
-            </button>
+      <div className="lp-canvas" inert={behindDialog}>
+        <HeroNav />
+        <main className="lp-page">
+          <Hero />
+          <div className="lp-main">
+            <Features />
+            <Testimonials />
+            <Compare />
+            <Pricing />
+            <Schools />
+            <Faq />
           </div>
-        </div>
-        <PlanDemo />
-      </main>
+        </main>
+        <Footer />
+      </div>
+      {waitlist.request && dialog && (
+        <dialog.WaitlistDialog
+          open={waitlist.open}
+          request={waitlist.request}
+          trigger={waitlist.trigger}
+          container={landingRef}
+          onClose={waitlist.close}
+          onSide={waitlist.showSide}
+        />
+      )}
     </div>
   );
 }

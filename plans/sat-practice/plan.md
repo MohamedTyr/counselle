@@ -1005,7 +1005,7 @@ conventional commits, staged file by file.
 
 | Phase | Work | Gate |
 |---|---|---|
-| **P0** | branch; ADR 0043 drafted; O1–O9 put to the owner. **Nothing waits on O5 except publishing the bank** | — |
+| **P0** | branch; ADR 0044 drafted; O1–O9 put to the owner. **Nothing waits on O5 except publishing the bank** | — |
 | **P1 Domain + harness** | `domain/sat/*`, taxonomy yaml, the upstream harness (§8.2) | every vector suite green; `ruff`, `mypy` clean |
 | **P2 Bank** | `adapters/collegeboard`, CLI `fetch / build / audit`, SPR review; bank built **locally** (gitignored); raw archive copied off the workstation | G1–G10 pass, G5 included; bank < 25 MB; archive sha in the manifest and a second copy confirmed |
 | **P3 Schema + API** | migration 0021 (applied *and* rolled back locally), `bank-sync` in `entrypoint.sh` and `dev.py run_stack`, `app/sat`, `api/routes/sat.py`, rate buckets, Settings, `.env.example` | route tests: auth scoping (A never sees B); the four statuses vs liprep semantics; empty lists = all; grading incl. O7; retry-safe submit; import replace + clamps; date window; read limit; a missing limiter still admits. security-reviewer + database-reviewer pass |
@@ -1013,7 +1013,7 @@ conventional commits, staged file by file.
 | **P5 Dashboard** | dashboard, filters ⇄ URL ⇄ storage, nav entry | counts on screen == SQL for every status × band fixture |
 | **P6 Analytics** | dialog, five tabs, charts, export / import / reset | numbers on screen == `/stats` == upstream vectors for the seeded fixture user |
 | **P7 Browser parity pass** | §8.4 | every inventory row ticked with evidence |
-| **P8 Docs + ship** | `docs/ARCHITECTURE.md` § SAT practice; `DATABASE_GUIDE.md` (`counselle.sat_*`); the DESIGN.md amendments of §7; `docs/DEPLOY.md` (bank file, CSP entries); CLAUDE.md status entry; `THIRD_PARTY_NOTICES.md`; ADR 0043; PR. **Committing `bank.jsonl.gz` is its own commit, made only after O5** | workflow Phase 9 checklist |
+| **P8 Docs + ship** | `docs/ARCHITECTURE.md` § SAT practice; `DATABASE_GUIDE.md` (`counselle.sat_*`); the DESIGN.md amendments of §7; `docs/DEPLOY.md` (bank file, CSP entries); CLAUDE.md status entry; `THIRD_PARTY_NOTICES.md`; ADR 0044; PR. **Committing `bank.jsonl.gz` is its own commit, made only after O5** | workflow Phase 9 checklist |
 
 ### 8.1 Testing stance
 
@@ -1108,7 +1108,7 @@ findings block.
 
 **Create — backend:** `domain/sat/{__init__,types,taxonomy,normalize,grading,spr_answers,stats,progress_file}.py` · `adapters/collegeboard/{__init__,client}.py` · `adapters/_ratelimit.py` (E-1) · `app/sat/{__init__,__main__,bank,errors,models,service_questions,service_attempts,service_progress}.py` · `api/routes/sat.py` · `migrations/0021_sat_practice.sql` + `.rollback.sql` · `config/assets/sat/{taxonomy.yaml,spr_keys.yaml}` · `deploy/seed/sat/{MANIFEST.json,AUDIT.md}` (+ `bank.jsonl.gz` after O5) · `tests/domain/sat/*`, `tests/domain/sat/upstream/*`, `tests/app/sat/*`, `tests/api/test_sat_routes.py`
 **Create — frontend:** everything in §5.2, tests included · `src/pages/{sat-dashboard-page,sat-practice-page}.tsx` · `src/styles/sat.css` · `src/components/workspace/chart-figure.tsx` (E-2) · `src/components/ui/toggle-band.tsx` (E-6) · `public/sat/reference/*`
-**Create — docs:** `docs/adr/0043-sat-practice.md` · `THIRD_PARTY_NOTICES.md`
+**Create — docs:** `docs/adr/0044-sat-practice.md` · `THIRD_PARTY_NOTICES.md`
 **Modify:** `api/main.py` (mount) · `api/deps.py` + `api/routes/documents.py` (E-8) · `api/ratelimit.py` (two checks, on both limiter classes) · `config/settings.py` (`sat_fetch_requests_per_second`, `sat_fetch_user_agent` + the shared contact-URL helper + the placeholder clause, `sat_bank_path`, `sat_attempt_max_seconds`, `sat_import_max_bytes`, `sat_writes_per_minute`, `sat_question_reads_per_minute`, `sat_desmos_embed_url`, `support_email`) · `.env.example` · `api/routes/config.py` + the frontend's typed config client (Desmos URL, support email) · `scripts/entrypoint.sh`, `scripts/dev.py` (`bank-sync`) · `.gitignore` (the bank file, until O5) · `adapters/collegedata/fetch.py` + `tests/adapters/test_collegedata_fetch.py` (E-1) · `frontend/src/app/router.tsx` · `frontend/src/app/shell/navigation.tsx` · `frontend/src/features/shell/sidebar-icons.tsx` · `frontend/src/components/ui/{segmented-control,checkbox,meter,sheet}.tsx` + `lib/segmented-control.ts` (E-3…5, E-7) · `frontend/src/features/schools/facts/charts/chart-shell.tsx` + its four importers + comment-path touches in `chances/summary-parity.test.tsx`, `chances/SchoolChancesPanel.test.tsx` and `frontend/src/styles/schools.css` (E-2) · `frontend/src/styles/semantic.css` (`--image-outline`, `--on-ink`) · `frontend/src/index.css` (import `sat.css`) · `frontend/src/config.ts` (`SAT_IMPORT_TIMEOUT_MS`, `SAT_SESSION_TIMEOUT_MS`) · `frontend/package.json` (+ `dompurify`, `sat:audit-html`) · `docs/ARCHITECTURE.md`, `docs/DATABASE_GUIDE.md`, `docs/DEPLOY.md`, `docs/adr/README.md`, `DESIGN.md`, `CLAUDE.md`, `README.md`
 **Delete:** nothing.
 

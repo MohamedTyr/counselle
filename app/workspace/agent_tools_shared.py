@@ -9,7 +9,7 @@ re-export.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import UTC, date, datetime, time
+from datetime import UTC, date, datetime
 from typing import Any, Literal
 from uuid import UUID
 
@@ -400,21 +400,8 @@ def render_task_row(
     return row
 
 
-def validate_date_field(value: str, field: str) -> tuple[datetime | None, str | None]:
-    """Parse a ``YYYY-MM-DD`` string; returns ``(parsed, None)`` or ``(None, error)``."""
-    try:
-        parsed = date.fromisoformat(value)
-    except ValueError:
-        return None, f'{field} "{value}" is not a valid date.'
-    return datetime.combine(parsed, time.min, tzinfo=UTC), None
-
-
 def validate_date_only(value: str, field: str) -> tuple[date | None, str | None]:
-    """Parse a ``YYYY-MM-DD`` string to a ``date`` (application deadlines are date-typed).
-
-    Companion to ``validate_date_field`` (which returns a midnight-UTC ``datetime``
-    for task timestamps); returns ``(parsed, None)`` or ``(None, error)``.
-    """
+    """Parse a ``YYYY-MM-DD`` string to a ``date``; ``(parsed, None)`` or ``(None, error)``."""
     try:
         return date.fromisoformat(value), None
     except ValueError:

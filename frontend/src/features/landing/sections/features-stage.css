@@ -1,0 +1,243 @@
+/* The stage is a wide sheet (812) plus a 24px frame each side. Sheets dock
+   to the bottom edge and run past it, like a window rising into the card.
+   The two columns keep their 404:860 proportion as the page narrows, until
+   the list reaches the width its longest title needs; the sheet scales with
+   the panel it stands in, and the list and the panel start and end on the
+   same lines. */
+/* The stage measures itself against its section. */
+.lp-features-stage {
+  container-type: inline-size;
+}
+.lp-stage {
+  --stage-sheet-width: 812px;
+  /* Every sheet is one height, so each stands the same distance from the top. */
+  --stage-sheet-height: 356px;
+  --stage-frame: 24px;
+  --stage-bleed: 24px;
+  --stage-gap: 48px;
+  --stage-list-width: max(380px, (100cqw - var(--stage-gap)) * 404 / 1264);
+  --stage-panel-width: calc(
+    100cqw - var(--stage-gap) - var(--stage-list-width)
+  );
+  --stage-scale: min(
+    1,
+    tan(
+      atan2(
+        var(--stage-panel-width) - 2 * var(--stage-frame),
+        var(--stage-sheet-width)
+      )
+    )
+  );
+  width: 100%;
+  display: grid;
+  grid-template-columns: var(--stage-list-width) minmax(0, 1fr);
+  gap: var(--stage-gap);
+  align-items: stretch;
+}
+.lp-stage-list {
+  display: flex;
+  flex-direction: column;
+}
+.lp-stage-tab {
+  position: relative;
+  flex: 1 0 auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 3px;
+  padding: 12px 0 13px;
+  border-top: 1px solid var(--lp-hairline);
+  text-align: left;
+}
+.lp-stage-tab:last-child {
+  border-bottom: 1px solid var(--lp-hairline);
+}
+.lp-stage-tab .lp-stage-title {
+  display: block;
+  font-weight: 500;
+  font-size: 17px;
+  line-height: 1.2;
+  letter-spacing: -0.3px;
+  color: var(--lp-muted-2);
+  text-wrap: balance;
+  transition: color 200ms ease-out;
+}
+.lp-stage-tab-active .lp-stage-title {
+  color: var(--lp-ink);
+}
+.lp-stage-tab .lp-stage-blurb {
+  display: grid;
+  grid-template-rows: 0fr;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--lp-muted);
+  max-width: 42ch;
+  opacity: 0;
+  transition:
+    grid-template-rows 360ms var(--lp-ease-entrance),
+    opacity var(--lp-duration-state, 200ms) ease-out;
+}
+.lp-stage-tab .lp-stage-blurb > span {
+  min-height: 0;
+  overflow: hidden;
+}
+.lp-stage-tab-active .lp-stage-blurb {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+.lp-stage-blurbs {
+  display: grid;
+}
+.lp-stage-blurbs > span {
+  grid-area: 1 / 1;
+}
+.lp-stage-blurbs > [aria-hidden] {
+  visibility: hidden;
+}
+/* The top rule of the active item doubles as its timer, in the feature's
+   colour. The stage's clock draws it, so it holds still whenever the
+   showcase waits and carries on from the same place. */
+.lp-stage-progress {
+  position: absolute;
+  left: 0;
+  top: -1px;
+  height: 2px;
+  width: 100%;
+  transform: scaleX(0);
+  transform-origin: left;
+}
+.lp-stage-tab:focus-visible {
+  outline: 2px solid var(--lp-green);
+  outline-offset: 4px;
+  border-radius: 4px;
+}
+
+/* The same wash as the plan cards: a pale base in the feature's own hue,
+   bright glows of that hue at the top middle and bottom right, and the
+   plan cards' violet-pink in the top right corner. */
+.lp-stage-panel,
+.lp-stage-backdrop {
+  background:
+    radial-gradient(60% 45% at 100% 0%, #e8a3f7 0%, transparent 100%),
+    radial-gradient(70% 40% at 45% 0%, var(--stage-glow) 0%, transparent 100%),
+    radial-gradient(
+      55% 40% at 100% 100%,
+      var(--stage-glow) 0%,
+      transparent 100%
+    ),
+    var(--stage-tint);
+}
+.lp-stage-panel {
+  position: relative;
+  min-height: calc(332px * var(--stage-scale));
+  border-radius: 20px;
+  overflow: clip;
+}
+.lp-stage-figure {
+  position: absolute;
+  left: var(--stage-frame);
+  right: var(--stage-frame);
+  bottom: calc(-1 * var(--stage-bleed));
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+}
+/* The sheet being replaced stays where it stood while it sinks away. */
+.lp-stage-figure-leaving {
+  pointer-events: none;
+}
+.lp-stage-art {
+  flex: none;
+  width: var(--stage-sheet-width);
+  zoom: var(--stage-scale);
+}
+.lp-stage-art .lp-sheet {
+  width: 100%;
+}
+.lp-stage-art .lp-sheet {
+  height: var(--stage-sheet-height);
+  box-shadow: 0 16px 40px rgba(18, 18, 20, 0.12);
+}
+/* On the stage the essay and SAT sheets are whole documents: every line
+   and choice shows, the rules run to the floor, and the fades sit on the
+   visible bottom edge, just grazing the last line, so the page reads as
+   continuing without hiding anything. */
+.lp-stage-art .lp-essay-fade,
+.lp-stage-art .lp-sat-fade {
+  top: auto;
+  bottom: var(--stage-bleed);
+  height: 44px;
+}
+.lp-stage-art .lp-essay-margin,
+.lp-stage-art .lp-sat-divider {
+  height: auto;
+  bottom: 0;
+}
+.lp-stage-art .lp-ask {
+  height: auto;
+  bottom: 36px;
+}
+/* The narrow sheets' rows anchor to both edges, so they render wider than
+   the card they were drawn for and scale up to fill the stage. */
+.lp-stage-art-third {
+  zoom: calc(1.2 * var(--stage-scale));
+  width: 620px;
+}
+.lp-stage-art-third :is(.lp-sheet, .lp-sheet-third) {
+  height: calc(var(--stage-sheet-height) / 1.2);
+}
+/* The lists' lower veils follow the sheet's floor, whatever its height. */
+.lp-stage-art-third :is(.lp-activities-fade, .lp-stream-fade-bottom) {
+  top: auto;
+  bottom: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lp-stage-tab .lp-stage-blurb,
+  .lp-stage-panel {
+    transition: none;
+  }
+  .lp-stage-tab-active .lp-stage-progress {
+    transform: scaleX(1);
+  }
+}
+
+.lp-stage-description {
+  display: none;
+}
+.lp-stage-playback {
+  grid-column: 2;
+  justify-self: end;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 8px 12px;
+  margin-top: -32px;
+  font-size: 13px;
+  color: var(--lp-ink-soft);
+}
+.lp-stage-playback:focus-visible {
+  outline: 2px solid var(--lp-green);
+  outline-offset: 3px;
+}
+.lp-stage[data-keyboard-motion="true"] .lp-stage-tab .lp-stage-title,
+.lp-stage[data-keyboard-motion="true"] .lp-stage-tab .lp-stage-blurb {
+  transition: none;
+}
+@media (hover: hover) and (pointer: fine) {
+  .lp-stage-tab:hover .lp-stage-title {
+    color: var(--lp-ink);
+  }
+  .lp-stage-playback:hover {
+    text-decoration: underline;
+    text-underline-offset: 4px;
+  }
+}
+
+.lp-stage-backdrop {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  pointer-events: none;
+}

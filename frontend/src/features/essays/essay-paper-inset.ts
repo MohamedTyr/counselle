@@ -14,3 +14,7 @@
  */
 export const essayPaperInsetClass =
   "px-7 @xl/essay-canvas:px-10 @2xl/essay-canvas:px-12 @4xl/essay-canvas:px-16";
+
+/* The paper's width, and the bar's, for the same reason. 720 less the widest
+ * inset leaves 592px of 18px Newsreader, about 72 characters a line. */
+export const essayPaperWidthClass = "max-w-[720px]";

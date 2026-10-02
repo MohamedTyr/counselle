@@ -160,7 +160,7 @@ async def get_question_route(
     user: UserDB = Depends(current_active_user),
 ) -> Response:
     """One question without `correct_answers`/`rationale` (plan §4.2) —
-    weak ETag + 304 keyed on `content_sha256`, and read-limited (ADR 0043
+    weak ETag + 304 keyed on `content_sha256`, and read-limited (ADR 0044
     Risk R0: the one enumerable, licensed corpus this codebase serves)."""
     question = await map_sat_errors(
         lambda: service_questions.get_question(_pool(request), question_id)

@@ -42,7 +42,9 @@ _DEADLINES_GROUP_ID = "deadlines"
 _ROLLING_KEY = "admissions.regular_deadline_is_rolling"
 _OFFERED_KEY_FOR_DEADLINE = {
     "deadlines.early_decision": "admissions.early_decision_offered",
+    "deadlines.early_decision_2": "admissions.early_decision_offered",
     "deadlines.early_action": "admissions.early_action_offered",
+    "deadlines.early_action_2": "admissions.early_action_offered",
 }
 
 # Known test-score band families: fact_key stem -> (scale_min, scale_max).

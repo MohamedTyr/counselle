@@ -278,7 +278,10 @@ def _dispatch_leaf(
         if text is None:
             return []
         return H.text_fallback_date(
-            text, base_key=_require_base_key(base_key), cycle_year=cycle_year
+            text,
+            base_key=_require_base_key(base_key),
+            cycle_year=cycle_year,
+            second_key=rule.get("second_key"),
         )
     if handler_name == "leading_percent":
         return H.leading_percent(_require_single(raw), base_key=_require_base_key(base_key))

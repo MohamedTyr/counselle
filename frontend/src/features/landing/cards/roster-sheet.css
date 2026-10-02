@@ -1,0 +1,235 @@
+/* The counselor's roster: a class header, one dot a student, then the rows.
+   The sheet runs past the panel's bottom edge, so the list reads as longer
+   than what is shown. */
+.lp-roster {
+  --roster-row: 56px;
+  --roster-pad: 22px;
+  --roster-behind: #d8392f;
+  --roster-nudge: #e9a53a;
+  --roster-track: #8fd3ab;
+  --roster-documents: 300px;
+  position: relative;
+  min-width: 0;
+  font-family: var(--lp-font-hero);
+}
+.lp-roster-sheet {
+  isolation: isolate;
+  height: 100%;
+  border-radius: 14px 14px 0 0;
+}
+.lp-roster-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 22px var(--roster-pad) 0;
+  white-space: nowrap;
+}
+.lp-roster-title {
+  font-weight: 600;
+  font-size: 16px;
+  line-height: 22px;
+  letter-spacing: -0.01em;
+  color: var(--lp-ink);
+}
+.lp-roster-title span {
+  margin-left: 6px;
+  font-weight: 400;
+  font-size: 13.5px;
+  letter-spacing: 0;
+  color: var(--lp-muted-2);
+}
+.lp-roster-legend {
+  display: flex;
+  gap: 16px;
+  font-size: 12.5px;
+  line-height: 18px;
+  color: var(--lp-muted);
+}
+.lp-roster-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.lp-roster-legend span::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--roster-tone);
+}
+.lp-roster-legend b {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--lp-ink);
+}
+.lp-roster [data-status="behind"] {
+  --roster-tone: var(--roster-behind);
+}
+.lp-roster [data-status="nudge"] {
+  --roster-tone: var(--roster-nudge);
+}
+.lp-roster [data-status="track"] {
+  --roster-tone: var(--roster-track);
+}
+
+.lp-roster-class {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 16px var(--roster-pad) 20px;
+}
+.lp-roster-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--lp-border);
+}
+.lp-roster-dot i {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--roster-tone);
+}
+
+.lp-roster-columns,
+.lp-roster-row {
+  display: grid;
+  grid-template-columns:
+    minmax(0, 1.5fr) minmax(0, 0.8fr) minmax(0, 1fr)
+    var(--roster-documents) minmax(0, 1fr) 132px;
+  align-items: center;
+  gap: 20px;
+  padding: 0 var(--roster-pad);
+  white-space: nowrap;
+}
+/* The headings sit on one rounded band set in from the sheet's edges. The
+   band is painted behind them, so they keep the rows' own columns. */
+.lp-roster-columns {
+  position: relative;
+  z-index: 0;
+  height: 36px;
+  margin-bottom: 4px;
+  font-weight: 500;
+  font-size: 12.5px;
+  color: var(--lp-muted);
+}
+.lp-roster-columns::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: 0 10px;
+  background: var(--lp-panel);
+  border-radius: 10px;
+}
+.lp-roster-columns .lp-roster-due {
+  color: inherit;
+}
+.lp-roster-row {
+  position: relative;
+  height: var(--roster-row);
+  background: var(--lp-sheet);
+  border-bottom: 1px solid var(--lp-hairline);
+  font-size: 13.5px;
+  color: var(--lp-ink-soft);
+}
+.lp-roster-row > * {
+  min-width: 0;
+}
+.lp-roster-student {
+  overflow: hidden;
+  font-weight: 500;
+  color: var(--lp-ink);
+  text-overflow: ellipsis;
+}
+.lp-roster-applications {
+  font-variant-numeric: tabular-nums;
+}
+.lp-roster-essays {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-variant-numeric: tabular-nums;
+}
+.lp-roster-pips {
+  display: flex;
+  gap: 2px;
+}
+.lp-roster-pips i {
+  width: 5px;
+  height: 12px;
+  border-radius: 2px;
+  background: var(--lp-border);
+}
+.lp-roster-pips i[data-done] {
+  background: var(--lp-green);
+}
+/* One pill a document. Filled is sent; an empty outline is one the school
+   still owes. */
+.lp-roster-documents {
+  display: flex;
+  gap: 5px;
+}
+.lp-roster-documents span {
+  padding: 3px 10px;
+  background: var(--lp-green-tint);
+  border-radius: 999px;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--lp-green-deep);
+}
+.lp-roster-documents span[data-owed] {
+  background: none;
+  box-shadow: inset 0 0 0 1px rgba(163, 22, 13, 0.34);
+  color: #a3160d;
+}
+.lp-roster-due {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-variant-numeric: tabular-nums;
+  color: var(--lp-ink);
+}
+/* The school's own mark, with no tile behind it. */
+.lp-roster-due img {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
+}
+
+/* Status is a word and a mark first; the colour only agrees with them. */
+.lp-roster-status {
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 9px 4px 7px;
+  border-radius: 999px;
+  font-weight: 500;
+  font-size: 12px;
+  line-height: 16px;
+}
+.lp-roster-status[data-status="behind"] {
+  background: #fdecea;
+  color: #a3160d;
+}
+.lp-roster-status[data-status="nudge"] {
+  background: #fdf1dc;
+  color: #7d4a00;
+}
+.lp-roster-status[data-status="track"] {
+  background: var(--lp-green-tint);
+  color: var(--lp-green-deep);
+}
+
+/* Above every row, including the ones lifted to pass over others. */
+.lp-roster-fade {
+  position: absolute;
+  z-index: 20;
+  inset: auto 0 0;
+  height: 96px;
+  background: linear-gradient(0deg, #fffffd 8%, rgba(255, 255, 253, 0) 100%);
+  pointer-events: none;
+}

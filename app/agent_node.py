@@ -38,7 +38,7 @@ import asyncio
 import logging
 import re
 from collections.abc import Callable, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date
 from typing import TYPE_CHECKING, Any, cast
 from uuid import UUID, uuid4
@@ -55,6 +55,7 @@ from pydantic_ai.messages import (
     ModelResponse,
     RetryPromptPart,
     TextPart,
+    ThinkingPart,
     UserPromptPart,
 )
 from pydantic_ai.models import Model
@@ -79,6 +80,7 @@ from app.goal_loop import (
     phase_label,
     status_reason,
 )
+from app.llm import build_model
 from app.model_selection import (
     counselor_model_selection,
     goal_agent_model_setting,
@@ -104,14 +106,18 @@ from app.records import (
     now_iso,
 )
 from app.skills import (
+    FOCUSED_ANSWER,
     SelectedSkillValidationError,
     make_load_skill_tool,
     render_selected_skills,
     validate_selected_skills,
+    with_default_response_mode,
+    without_response_mode,
 )
 from app.sources import SourceRegistry
 from app.steps import CloseReason, EmissionRouter, StepMapper
 from app.student_context import STUDENT_CONTEXT_UNAUTHENTICATED
+from app.tool_budget import ToolRoundBudget
 from app.tool_middleware import ToolMiddlewareContext, process_tool_result
 from app.tool_overflow import ToolResultStore
 from app.toolset import GATEABLE_TOOLS, build_db_tools, build_tools, make_tool_deps
@@ -133,6 +139,7 @@ from domain.surface import Surface
 if TYPE_CHECKING:
     from app.graph import GraphDeps  # circular at runtime: graph imports run_agent_node
     from app.run_handle import RunHandle, SteeringMessage
+    from config.settings import ReasoningEffort
 
 logger = logging.getLogger(__name__)
 
@@ -275,45 +282,53 @@ class TurnDeps:
     surface: Surface = Surface.CHAT
 
 
-def default_model_factory(settings: Any, model_setting: str) -> Model:
-    """The real Gemini on Vertex, authenticated with an Express key or ADC.
+def default_model_factory(
+    settings: Any,
+    model_setting: str,
+    reasoning_effort: ReasoningEffort,
+    read_timeout_s: float | None = None,
+) -> Model:
+    """The turn's live model, built through the one provider seam
+    (:func:`app.llm.build_model`, ADR 0011/0043).
 
-    ``model_setting`` is the already-resolved per-turn setting (Quick's
-    ``settings.model_counselor`` or Think's ``settings.model_counselor_think`` —
-    plans/quick-think-response-mode.md §3.2/§5.2); this factory never re-reads a
-    global default itself.
-
-    This is the provider-construction seam (ADR 0011): retry/backoff is
-    inherently provider-shaped (an HTTP-transport option on the concrete
-    genai client), so it's configured here, at the one place a concrete
-    provider client gets built from ``Settings``, rather than in ``app/``
-    turn-lifecycle code. Swapping the provider via env (e.g. to Anthropic)
-    would take a different branch here with its own idiomatic retry config —
-    this branch never has to be touched for that.
-
-    Retries only transient failures — 408/429/5xx and connect/timeout errors
-    — via the google-genai SDK's own ``HttpRetryOptions``, the same
-    mechanism ``adapters/cds_gemini.py`` uses for the CDS extraction call
-    (recon-vertex.md §5.7: transport retries only, no hand-rolled loop on
-    top). The SDK's ``retry_args`` filters by exception/status so a genuine
-    400/401/403 still raises immediately.
+    ``model_setting`` and ``reasoning_effort`` are the already-resolved
+    per-turn values (Quick's or Think's, plans/quick-think-response-mode.md
+    §3.2/§5.2); this factory never re-reads a global default itself. The
+    effort rides on the model as its default settings, so every agent run on
+    it — including the goal-only summarizing compaction tier, which runs with
+    no settings of its own — reasons at the turn's effort.
     """
-    from pydantic_ai.models.google import GoogleModel
-    from pydantic_ai.providers.google_cloud import GoogleCloudProvider
-
-    from app.vertex import build_vertex_client
-
-    client = build_vertex_client(settings, retry_attempts=settings.agent_model_retry_attempts)
-    return GoogleModel(
-        model_name_from_setting(model_setting),
-        provider=GoogleCloudProvider(client=client),
+    return build_model(
+        settings, model_setting, reasoning_effort=reasoning_effort, read_timeout_s=read_timeout_s
     )
+
+
+def _strip_thinking(messages: Sequence[ModelMessage]) -> list[ModelMessage]:
+    """Drop earlier turns' ``ThinkingPart``s from the history sent to the model.
+
+    Checkpointed history can hold another provider's thoughts, which
+    PydanticAI would inline as ``<think>`` text in assistant messages, and
+    DeepSeek's multi-turn contract drops earlier reasoning anyway. A response
+    left with no parts is dropped. Returns a new list; the checkpoint is
+    never rewritten.
+    """
+    stripped: list[ModelMessage] = []
+    for message in messages:
+        if isinstance(message, ModelResponse):
+            parts = [part for part in message.parts if not isinstance(part, ThinkingPart)]
+            if not parts:
+                continue
+            if len(parts) != len(message.parts):
+                message = replace(message, parts=parts)
+        stripped.append(message)
+    return stripped
 
 
 def _split_user_message(raw_messages: list[dict[str, Any]]) -> tuple[list[ModelMessage], str]:
     """Split serialized state messages into (history, new user prompt text).
 
     The runner's convention puts the new user message last (module docstring).
+    The history comes back without earlier turns' thinking (:func:`_strip_thinking`).
     """
     messages = ModelMessagesTypeAdapter.validate_python(raw_messages)
     if not messages or not isinstance(messages[-1], ModelRequest):
@@ -324,7 +339,7 @@ def _split_user_message(raw_messages: list[dict[str, Any]]) -> tuple[list[ModelM
     prompt_parts = [part for part in messages[-1].parts if isinstance(part, UserPromptPart)]
     if not prompt_parts:
         raise ValueError("the tail ModelRequest carries no UserPromptPart")
-    return list(messages[:-1]), str(prompt_parts[-1].content)
+    return _strip_thinking(messages[:-1]), str(prompt_parts[-1].content)
 
 
 def _make_render_viz_tool(
@@ -973,8 +988,8 @@ def compaction_capabilities(
     model, which on a goal turn is already the cheap tier
     (:func:`goal_agent_model_setting`), so it needs no second model knob and —
     more importantly — never re-resolves a model-setting string through
-    PydanticAI's generic inference, which would bypass ``app/vertex.py``'s
-    auth entirely (ADR 0011: one seam). Its usage folds into the run's shared
+    PydanticAI's generic inference, which would bypass ``app/llm.py``'s key,
+    retries and reasoning effort (ADR 0011: one seam). Its usage folds into the run's shared
     ``RunUsage``, so the summary's tokens are priced in the agent's own slice
     at the agent's own rate, and its request counts against
     ``goal_max_model_requests`` like any other — it is a real request.
@@ -1324,7 +1339,7 @@ async def _run_goal_loop(
     goal_limits: Any,
     settings: Any,
     model_setting: str,
-    model_settings: Any,
+    reasoning_effort: ReasoningEffort,
     instructions: str,
     injected_model_factory: Callable[[], Model] | None,
     shared_usage: RunUsage,
@@ -1502,10 +1517,9 @@ async def _run_goal_loop(
             wrapup_agent: Agent[TurnDeps, str] = Agent(
                 injected_model_factory()
                 if injected_model_factory is not None
-                else default_model_factory(settings, model_setting),
+                else default_model_factory(settings, model_setting, reasoning_effort),
                 instructions=instructions,
                 deps_type=TurnDeps,
-                model_settings=model_settings,
                 output_type=[str],
                 end_strategy="early",
             )
@@ -1746,18 +1760,6 @@ async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
     # on an ordinary turn, so a minimal test double need not carry the knob.
     goal_model_setting = goal_agent_model_setting(settings) if goal_mode else ""
     injected_model_factory = getattr(deps, "model_factory", None)
-    # Native Gemini thought output → `thinking` events, requested only for
-    # Think (subject to thinking_stream). Gemini 2.5 accepts a numeric budget,
-    # while Gemini 3 accepts a named level; model_selection owns that protocol
-    # distinction so a valid selected model never receives the other family's
-    # rejected field.
-    from pydantic_ai.models.google import GoogleModelSettings
-
-    from app.model_selection import google_thinking_config
-
-    model_settings = GoogleModelSettings(
-        google_thinking_config=cast(Any, google_thinking_config(selection))
-    )
     student_context = state.get("student_context") or STUDENT_CONTEXT_UNAUTHENTICATED
     if surface is Surface.ESSAY:
         base_instructions = build_essay_system_prompt(
@@ -1784,7 +1786,24 @@ async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
             update={"edu": source_config.edu and "search_school_site" in mounted_names}
         )
     )
-    selected_instructions = render_selected_skills(ids["selected_skills"])
+    # A chat turn always runs in a response mode (Focused Answer unless one
+    # was chosen). A goal turn runs in goal mode instead, and the essay panel
+    # has no mode picker, so both keep the selection as sent.
+    selected_skills: list[str] = list(ids["selected_skills"])
+    if goal_mode:
+        selected_skills = without_response_mode(selected_skills)
+    elif surface is Surface.CHAT:
+        selected_skills = with_default_response_mode(selected_skills)
+    selected_instructions = render_selected_skills(selected_skills)
+    tool_budget = (
+        [
+            ToolRoundBudget(
+                settings.focused_answer_max_tool_rounds, settings.focused_answer_max_searches
+            )
+        ]
+        if surface is Surface.CHAT and FOCUSED_ANSWER in selected_skills
+        else []
+    )
     # D6: one shared RunUsage for the WHOLE turn — the agent's own iterations
     # AND (goal mode only) the criteria/judge calls — so every dollar spent
     # on this turn counts against one ledger (never invisible to it). Named
@@ -1896,12 +1915,17 @@ async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
         injected_model_factory()
         if injected_model_factory is not None
         else default_model_factory(
-            settings, goal_model_setting if goal_mode else selection.model_setting
+            settings,
+            goal_model_setting if goal_mode else selection.model_setting,
+            selection.reasoning_effort,
+            # A chat turn streams every request, so a long silence is a stall.
+            # A goal turn also runs a non-streamed summarizing step on this
+            # model, which sends nothing until done: it keeps the SDK default.
+            None if goal_mode else settings.model_read_timeout_s,
         ),
         instructions=instructions,
         deps_type=TurnDeps,
         tools=tools,
-        model_settings=model_settings,
         # A tool that fails once for a transient/schema reason gets one more chance
         # before the turn dies (pydantic_ai default is 1; see
         # plans/fix-search-fields-resilience.md Bug C).
@@ -1909,6 +1933,7 @@ async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
         capabilities=[
             PlanReminder(plan_state),
             *compaction_capabilities(settings, writer, goal_mode=goal_mode),
+            *tool_budget,
         ],
         # Normal-run output: prose or one validated ask_student draft
         # (app/clarification.py — factored out so an A2 continuation run can
@@ -1944,6 +1969,7 @@ async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
         threshold=settings.thinking_threshold_chars,  # CFG-07: Settings-sourced
         unmounted=GATEABLE_TOOLS - {tool.name for tool in tools},
         on_final_start=final_writer.start_final,
+        emit_thinking=settings.thinking_stream,
     )
 
     # --- the run. GraphInterrupt still flies for legacy/lower-level callers,
@@ -2005,7 +2031,7 @@ async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
                 goal_limits=goal_limits,
                 settings=settings,
                 model_setting=goal_model_setting,
-                model_settings=model_settings,
+                reasoning_effort=selection.reasoning_effort,
                 instructions=instructions,
                 injected_model_factory=injected_model_factory,
                 shared_usage=shared_usage,
@@ -2117,6 +2143,9 @@ async def run_agent_node(state: Any, deps: GraphDeps) -> dict[str, Any]:
         ts=now_iso(),
         messages_offset=offset,
         synthesized_answer=synthesized,
+        # The student's own selection, not the run's effective one (defaulted
+        # mode, or modes dropped on a goal turn): the UI rebuilds its picker
+        # from this and a parked turn resumes with it.
         selected_skills=ids["selected_skills"],
         continuation_of=continuation_of,
         source_config=record_source_config,
