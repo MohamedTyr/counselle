@@ -403,6 +403,27 @@ a normalized taxonomy:
 SELECT name FROM cds_library.school_explore WHERE majors @> ARRAY[$1]
 ```
 
+### All-schools deadline aggregates
+
+The calendar's all-schools layer queries every school's published round deadlines
+for the current admissions cycle, applying the `inherited_date` rule (honesty for
+recency and cycle-match) and the `OFFERED_KEY_FOR_DEADLINE` not-offered rule (§1):
+
+```sql
+SELECT school_id, fact_key, value_date, value_bool, reported_period, observed_at
+FROM cds_library.current_school_facts
+WHERE fact_key = ANY($1::text[])
+```
+
+where `$1` = the five round keys (`deadlines.early_decision`, `deadlines.early_decision_2`,
+`deadlines.early_action`, `deadlines.early_action_2`, `deadlines.regular`) plus the
+distinct values of `OFFERED_KEY_FOR_DEADLINE` (one per round). For each row: (1) drop if
+its round's not-offered flag is `False`, (2) pass `fact` and `cycle_year` to
+`inherited_date(...)` and drop on `None`, (3) resolve `name = catalog.school_name(id)`
+and drop on `None`. Items are sorted by (date, school name); the client groups them
+per (day, round). The response carries the coverage denominator (`schools_with_dates`,
+`schools_total = catalog.school_count`) and is cached `private, max-age=3600`.
+
 ### What never to select
 
 - Binary or internal-provenance columns blocked by the guard (§6 above) — use

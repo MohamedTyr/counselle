@@ -491,7 +491,7 @@ export function CalendarPage() {
         <SourceErrors errors={errors} />
         <EmptyLine kind={emptyKind} />
         <div
-          className="flex min-h-0 flex-1 gap-6 transition-[padding] duration-200 ease-out motion-reduce:transition-none"
+          className="flex min-h-0 flex-1 gap-6"
           data-calendar-body=""
           ref={bodyRef}
           style={

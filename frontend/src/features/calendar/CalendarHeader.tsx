@@ -95,7 +95,7 @@ export function CalendarHeading({
         <Hint keys="K" label={`Previous ${unit}`}>
           <Button
             aria-label={`Previous ${unit}`}
-            className="active:scale-[0.97]"
+            className="transition-[background-color,border-color,box-shadow,color,scale] active:scale-[0.97]"
             onClick={(event) => onGo(-1, sourceOf(event))}
             size="icon-sm"
             variant="ghost"
@@ -106,7 +106,7 @@ export function CalendarHeading({
         <Hint keys="J" label={`Next ${unit}`}>
           <Button
             aria-label={`Next ${unit}`}
-            className="active:scale-[0.97]"
+            className="transition-[background-color,border-color,box-shadow,color,scale] active:scale-[0.97]"
             onClick={(event) => onGo(1, sourceOf(event))}
             size="icon-sm"
             variant="ghost"
@@ -209,7 +209,7 @@ export function CalendarActions({
       )}
       <Hint keys="C" label="New task">
         <Button
-          className="active:scale-[0.97]"
+          className="transition-[background-color,border-color,box-shadow,color,scale] active:scale-[0.97]"
           data-calendar-add=""
           onClick={(event) => onAddTask(event.currentTarget)}
           size="sm"

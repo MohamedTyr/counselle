@@ -74,7 +74,7 @@ shortcut. Imported in this order by `frontend/src/index.css`:
 |---|---|---|---|
 | **1 — Primitives** | `styles/primitives.css` | Raw OKLCH literals. Named by scale position, never by usage. **The only file in the codebase allowed a colour literal.** | nothing |
 | **2 — Semantic** | `styles/semantic.css`, `styles/elevation.css` | Role tokens. Every value is a `var()` onto a primitive, or a `color-mix()` of two such vars. | tier 1 only |
-| **3 — Families** | `styles/shell.css`, `workspace.css`, `task.css`, `essay.css`, `activity.css`, `profile.css`, `schools.css`, `onboarding.css`, `shadcn.css`, `sat.css` | Per-feature alias blocks. | tier 2, or a sibling token in the same tier |
+| **3 — Families** | `styles/shell.css`, `workspace.css`, `task.css`, `essay.css`, `activity.css`, `profile.css`, `schools.css`, `onboarding.css`, `shadcn.css`, `sat.css`, `calendar.css` | Per-feature alias blocks. | tier 2, or a sibling token in the same tier |
 | **4 — Theme** | `styles/theme.css` | The Tailwind v4 `@theme inline` binding that turns tokens into utility classes (`bg-primary`, `border-border`). | tiers 2–3 |
 
 Custom-property resolution is lazy, so this order is for human readability, not
@@ -803,8 +803,8 @@ under it, so the tools stay attached to the thing they edit.
 | `/app/essays`, `/app/essays/:id` | library, editor | ” |
 | `/app/activities` | activities + honors | ” |
 | `/app/profile` | profile | ” |
-| `/app/calendar` | stub | ” |
-| `/app/sat` | SAT practice dashboard (inside the shell) | ” |
+| `/app/calendar` | calendar — month, week, schedule views with task, due, school, and all-schools deadline items | “ |
+| `/app/sat` | SAT practice dashboard (inside the shell) | “ |
 | `/app/sat/practice/:questionId?` | SAT practice screen — **full-viewport, outside the shell**: no sidebar, no `PageContainer`. The optional id segment supports a deep link into one question; the launched filter otherwise lives in the URL's query string, not the path | auth + onboarding (a sibling of `/app`, not a `WorkspaceShell` child) |
 | `/onboarding` | wizard (outside the shell) | auth |
 | `/dev/*` | galleries | dev builds only |
@@ -1837,6 +1837,11 @@ Native HTML5 DnD everywhere. No dnd-kit, no react-beautiful-dnd. Drags are **arm
 pointerdown on a grip handle only**, so clicking a row never starts one. Drag-over
 **live-reorders in real time** with a preview committed on drop or discarded on Escape.
 
+**Exception: Calendar task-reschedule chips.** See §17.7 for the whole-chip drag source
+on the calendar grid, with no grip required.
+
+
+
 **One named exception: the SAT practice tool windows (calculator, reference sheet).**
 Moving and resizing a floating tool window is **pointer-driven** — `setPointerCapture`
 on the window's header at `pointerdown`, geometry written as `transform`/size on every
@@ -1852,6 +1857,51 @@ targeted at the header regardless of what the pointer is currently over.
 
 Resizable columns via pointer drag or arrow keys (±16px, ±32px with Shift). Default
 widths live in the feature's `*-config.ts`. Below `md:`, tables become card stacks.
+
+### 17.7 Calendar
+
+`/app/calendar` (`features/calendar/`, tokens in `styles/calendar.css`). Every item
+is single-day and date-only, so there is no hours grid, no spans and no lane packing.
+Four kinds share one chip anatomy — `--calendar-chip-height` (20px; 32px on coarse
+pointers), `rounded-md`, a 14px glyph box, `text-xs`, one truncating line with a
+`title`, no shadow — and are told apart by **form, never hue**:
+
+| Kind | Rest | Weight | Glyph | Label |
+|---|---|---|---|---|
+| My school | `--calendar-school-fill` / `--calendar-school-ink` | medium | favicon (`SchoolFavicon`) | `Stanford · REA`; the round never truncates |
+| All schools, aggregate | no fill, 1px dashed `--calendar-aggregate-edge` | medium, tabular | `Building2` | `94 · RD`; opens the Day panel |
+| All schools, one school | as aggregate | medium | favicon | `Reed College · EA`; opens the deadline card |
+| Task | transparent; hover `--calendar-task-hover` | normal | 12px hollow circle (the done control) | title, trailing flag |
+| Due (task or essay) | per state | medium | `CalendarClock` / `CircleAlert` | title |
+
+Hue appears only as state, in the Tasks page's `DeadlineChip` forms via
+`getDeadlineState`: overdue `--danger-*`, due within two days `--warning-*`, done
+`--calendar-done-ink` struck through. A round-deadline chip whose application is
+Submitted or later reads `Submitted` with a trailing check; one past and not submitted
+reads `Passed` in faint ink. Every chip's accessible name leads with its state word.
+
+**Cell.** A 28px date band (`--calendar-date-row`); today is an ink pill
+(`--calendar-today-fill`), the selected day a quiet pill (`--calendar-selected-date`)
+on the number — the cell itself is never filled. Weekends take `--calendar-weekend`,
+gridlines are `--calendar-gridline` between cells only. Overflow is measured from
+rendered heights, not tokens; past it, `N more` opens a day popover, and the day's first
+aggregate is pinned to the last visible slot.
+
+**Width budget.** One `ResizeObserver` on the calendar body (`useCalendarLayout`)
+decides three things: the rail shows at ≥960px and no open panel (otherwise its content
+moves into the header's `Calendars` popover); an open panel reserves room beside the
+grid only while seven columns keep ≥88px; and below 7 × 88px the month becomes a
+compact grid of dates — one dot per day, a second, red one when something is overdue —
+with the selected day listed underneath, on phones and in a narrow window alike.
+
+**Motion.** Paging with a pointer slides cell contents 8px with opacity over 180ms
+`--calendar-ease-out`; paging from the keyboard is instant; reduced motion keeps a
+150ms fade. No page-load choreography.
+
+**Drag (exception to §17.5).** Chips are 20px tall with no room for a grip, so on
+`(pointer: fine)` the whole task or task-due chip is the native HTML5 drag source; the
+keyboard equivalent is `⌥←`/`⌥→` on a focused chip. School and essay chips never drag —
+a deadline is a fact. Every move goes through `useTaskRowActions` and its undo.
 
 ---
 
