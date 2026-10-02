@@ -82,17 +82,16 @@ export function useCalendarKeymap(handlers: CalendarKeymapHandlers) {
         return;
       }
 
-      if (
-        isInsidePopover(target) ||
-        isInsideDialog(target) ||
-        isInsideDockedPanel(target)
-      ) {
+      if (isInsidePopover(target) || isInsideDialog(target)) {
         return;
       }
       const key = event.key.toLowerCase();
       if (key === "z" && (event.metaKey || event.ctrlKey) && !event.shiftKey) {
         event.preventDefault();
         current.onUndo();
+        return;
+      }
+      if (isInsideDockedPanel(target)) {
         return;
       }
       if (event.metaKey || event.ctrlKey || event.altKey) {

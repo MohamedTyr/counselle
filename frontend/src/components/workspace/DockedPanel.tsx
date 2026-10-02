@@ -76,8 +76,9 @@ function useDelayedUnmount(open: boolean): {
 
 /**
  * The aside is not modal, so opening it leaves focus where it was. Closing it
- * hands focus back to whatever had it at open time when focus was inside the
- * panel (its Close button) or has fallen to `<body>` (the panel unmounted).
+ * with focus inside (its Close button, Delete) or lost to `<body>` hands focus
+ * back to the last thing focused outside the panel while it was open — the
+ * row or chip that opened it, or the one the user moved to since.
  */
 function useReturnFocus(
   open: boolean,
@@ -88,14 +89,25 @@ function useReturnFocus(
     if (!open) {
       return;
     }
-    openerRef.current =
-      document.activeElement instanceof HTMLElement
-        ? document.activeElement
-        : null;
     const panel = panelRef.current;
+    const remember = (target: EventTarget | null) => {
+      if (
+        target instanceof HTMLElement &&
+        target !== document.body &&
+        !panel?.contains(target)
+      ) {
+        openerRef.current = target;
+      }
+    };
+    remember(document.activeElement);
+    const onFocusIn = (event: FocusEvent) => remember(event.target);
+    document.addEventListener("focusin", onFocusIn);
     return () => {
+      document.removeEventListener("focusin", onFocusIn);
       const opener = openerRef.current;
       const active = document.activeElement;
+      // Inside the panel, or dropped to `<body>` because the panel's content
+      // unmounted with the focused control in it.
       const lost =
         !active || active === document.body || Boolean(panel?.contains(active));
       if (lost && opener?.isConnected) {
