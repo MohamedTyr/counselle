@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 
 import { getQuestion, getSession, getSessionByQuestion, putBookmark, deleteBookmark, submitAttempt } from "@/api/sat/client";
+import { isTransportError } from "@/api/http/errors";
 import { toastSatError } from "@/api/sat/errors";
 import { satKeys } from "@/api/sat/keys";
 import type { SatFilterQuery, SatSessionRow } from "@/api/sat/types";
@@ -120,12 +121,23 @@ export function useSatSession(source: SatSessionSource): UseSatSessionApi {
         if (cancelled) return;
         setSession(createInitialSatSessionState(rows));
         setStatus("ready");
-      } catch {
+      } catch (error) {
         if (cancelled) return;
         // Our own cleanup abort (StrictMode's first dev mount always
         // aborts) is not an error — only a genuine failure or the
         // timeout's own abort sets the error state.
         if (controller.signal.aborted) return;
+        // An id the bank does not hold is an answer, not a failure: an empty
+        // session is what the "Question not found" state renders.
+        if (
+          source.kind === "question" &&
+          isTransportError(error) &&
+          error.status === 404
+        ) {
+          setSession(createInitialSatSessionState([]));
+          setStatus("ready");
+          return;
+        }
         setStatus("error");
       }
     })();

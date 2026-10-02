@@ -15,17 +15,18 @@
    * convention, sits only under body text, and no warning is ever drawn in
    * a passage or stem. Body ink over this fill is measured and clears the
    * app's text-contrast floor. */
-  --sat-highlight: var(--warning-surface);
+  --sat-highlight: var(--warning-border);
 
   /* Five-step activity-heatmap intensity (F14), ordered — not a status
-   * hue. Step 0 is the recessed "no activity" well; 1-4 mix increasing
-   * amounts of the ordered brand scale into it. oklch because the mixed
-   * operand (--brand-scale-3) is saturated (styles/README.md §3.2). */
+   * hue. Step 0 is the recessed "no activity" well; 1-2 are light tints of
+   * the brand scale over it, 3-4 are solid brand steps that carry white
+   * numerals. oklch because the mixed operand is saturated
+   * (styles/README.md §3.2). */
   --sat-heat-0: var(--surface-inset);
-  --sat-heat-1: color-mix(in oklch, var(--brand-scale-3) 25%, var(--surface-inset));
-  --sat-heat-2: color-mix(in oklch, var(--brand-scale-3) 50%, var(--surface-inset));
-  --sat-heat-3: color-mix(in oklch, var(--brand-scale-3) 75%, var(--surface-inset));
-  --sat-heat-4: color-mix(in oklch, var(--brand-scale-3) 100%, var(--surface-inset));
+  --sat-heat-1: color-mix(in oklch, var(--brand-scale-1) 32%, var(--surface-inset));
+  --sat-heat-2: color-mix(in oklch, var(--brand-scale-1) 70%, var(--surface-inset));
+  --sat-heat-3: var(--brand-scale-2);
+  --sat-heat-4: var(--brand-scale-3);
 
   /* Question content's own prose scale (ui-spec §4: "the product, not
    * text-sm") — 16px / 1.72, the same line-height D§6.5 uses for assistant
@@ -33,6 +34,14 @@
    * repaint of one doesn't silently repaint the other. */
   --sat-prose-font-size: 1rem;
   --sat-prose-line-height: 1.72;
+  /* Passages, stems and answer options read in the document serif (Bluebook
+   * does the same); the explanation is Counselle's own voice and stays in
+   * the UI sans at a smaller size. */
+  --sat-reading-font-size: 1.0625rem;
+  --sat-reading-line-height: 1.7;
+  --sat-paragraph-gap: 0.9em;
+  --sat-explanation-font-size: 0.9375rem;
+  --sat-explanation-max-width: 65ch;
   --sat-passage-max-width: 65ch;
 
   /* Math-marked images (`.math-img`, `[role="math"]`, inside
@@ -58,6 +67,30 @@
   overflow-wrap: anywhere;
 }
 
+/* Paragraph rhythm: the sanitiser keeps <p> but Tailwind's reset zeroes
+ * their margins, so consecutive paragraphs would touch. */
+.sat-content p + p,
+.sat-content p + ul,
+.sat-content p + ol,
+.sat-content ul + p,
+.sat-content ol + p {
+  margin-top: var(--sat-paragraph-gap);
+}
+
+.sat-content--reading {
+  font-family: var(--font-document);
+  font-size: var(--sat-reading-font-size);
+  line-height: var(--sat-reading-line-height);
+}
+
+.sat-content--explanation {
+  max-width: var(--sat-explanation-max-width);
+  font-size: var(--sat-explanation-font-size);
+  line-height: 1.65;
+  color: var(--ink-secondary);
+  text-wrap: pretty;
+}
+
 .sat-content--passage {
   max-width: var(--sat-passage-max-width);
   text-wrap: pretty;
@@ -65,8 +98,15 @@
 
 /* Images: inline-block, vertically centred, never wider than their
  * container (Q43a). */
+.sat-content svg,
+.sat-content figure {
+  max-width: 100%;
+  height: auto;
+}
+
 .sat-content img {
   display: inline-block;
+  height: auto;
   vertical-align: middle;
   max-width: 100%;
   outline: 1px solid var(--image-outline);
@@ -163,4 +203,42 @@
  * The API styles background colour only — no underline, no outline. */
 ::highlight(sat) {
   background-color: var(--sat-highlight);
+}
+
+/* ---- practice chrome: tool windows ---- */
+
+/* A tool window fades and scales in from its top edge — under the toolbar
+ * button that opened it. The calculator stays mounted while closed, so the
+ * same rules run in both directions via `data-hidden`; the reference sheet
+ * mounts on open and takes `@starting-style`. `scale` is its own property
+ * so it never fights the inline `transform` that positions a floating
+ * window. */
+.sat-window {
+  transform-origin: top center;
+  transition:
+    opacity 180ms cubic-bezier(0.23, 1, 0.32, 1),
+    scale 180ms cubic-bezier(0.23, 1, 0.32, 1),
+    visibility 180ms;
+}
+
+.sat-window[data-hidden] {
+  opacity: 0;
+  scale: 0.97;
+  visibility: hidden;
+}
+
+@starting-style {
+  .sat-window {
+    opacity: 0;
+    scale: 0.97;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sat-window,
+  .sat-window[data-hidden] {
+    scale: none;
+    transition-duration: 120ms;
+    transition-property: opacity, visibility;
+  }
 }

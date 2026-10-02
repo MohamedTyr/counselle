@@ -6,7 +6,7 @@ import { ErrorCard } from "@/components/ui/error-card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Empty, EmptyContent, EmptyDescription, EmptyTitle } from "@/components/ui/empty";
-import { ChevronDown, ChevronUp } from "lucide-react";
+import { ChevronsUpDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 import { useSatAttempts, useSatQuestion, useSatTaxonomy } from "@/api/sat/hooks";
@@ -14,15 +14,18 @@ import type { SatFilterQuery } from "@/api/sat/types";
 import { useChatConfig } from "@/api/chat/config";
 import { SAT_PRACTICE_COPY } from "@/features/sat/sat-copy";
 import { filterStateFromSearchParams } from "@/features/sat/sat-filters";
+import { satSheetClass, satToolItemClass } from "@/features/sat/sat-chrome-styles";
 import { SatCalculator } from "@/features/sat/SatCalculator";
 import { SatNavigator } from "@/features/sat/SatNavigator";
 import { SatPassagePane } from "@/features/sat/SatPassagePane";
 import { SatPracticeBottomBar, SatPracticeTopBar } from "@/features/sat/SatPracticeBars";
+import { SatPracticeFrame } from "@/features/sat/SatPracticeFrame";
 import { SatPracticeSkeleton } from "@/features/sat/SatPracticeSkeleton";
 import { SatQuestionInfo } from "@/features/sat/SatQuestionInfo";
 import { SatQuestionPane } from "@/features/sat/SatQuestionPane";
 import { SatReferenceSheet } from "@/features/sat/SatReferenceSheet";
 import { TOOL_WINDOW_FULLSCREEN_BREAKPOINT } from "@/features/sat/use-tool-window";
+import { useIsViewportAtMost } from "@/features/sat/use-viewport-width";
 import { useQuestionTimer } from "@/features/sat/use-question-timer";
 import { useSatHighlighter } from "@/features/sat/use-sat-highlighter";
 import { useSatSession, type SatSessionSource } from "@/features/sat/use-sat-session";
@@ -41,19 +44,12 @@ function resolveDeepLinkId(
   return null;
 }
 
-function useIsToolFullscreenBreakpoint(): boolean {
-  const [isNarrow, setIsNarrow] = useState(
-    () => window.innerWidth <= TOOL_WINDOW_FULLSCREEN_BREAKPOINT,
-  );
-  useEffect(() => {
-    function onResize() {
-      setIsNarrow(window.innerWidth <= TOOL_WINDOW_FULLSCREEN_BREAKPOINT);
-    }
-    window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
-  }, []);
-  return isNarrow;
-}
+/** Each sheet scrolls its own pane beside a passage; stacked on a phone the
+ * page scrolls instead, so a pane never nests a second scroller. The
+ * gutter is always reserved so the column doesn't shift when a reveal makes
+ * the pane scrollable. */
+const sheetScrollClass =
+  "[&>*]:[scrollbar-gutter:stable] max-[860px]:[&>*]:h-auto! max-[860px]:[&>*]:overflow-visible!";
 
 /** `/app/sat/practice/:questionId?` — the full-viewport Bluebook frame
  * (plan §5.1, §5.2, §5.4; ui-spec §4). */
@@ -97,7 +93,7 @@ export function SatPractice(): React.ReactElement {
   const [navigatorOpen, setNavigatorOpen] = useState(false);
   const [lastModule, setLastModule] = useState<"reading" | "math">("reading");
 
-  const isToolFullscreenBreakpoint = useIsToolFullscreenBreakpoint();
+  const isToolFullscreenBreakpoint = useIsViewportAtMost(TOOL_WINDOW_FULLSCREEN_BREAKPOINT);
   const toolFullscreen =
     isToolFullscreenBreakpoint && (calculatorOpen || referenceOpen);
 
@@ -186,21 +182,26 @@ export function SatPractice(): React.ReactElement {
 
   if (session.status === "error") {
     return (
-      <div className="flex h-dvh items-center justify-center bg-[var(--canvas)] p-6">
+      <SatPracticeFrame className="items-center justify-center p-6">
         <ErrorCard
           message={SAT_PRACTICE_COPY.sessionLoadFailed.description}
           onRetry={session.reload}
           retryLabel={SAT_PRACTICE_COPY.sessionLoadFailed.retry}
+          secondaryAction={
+            <Button onClick={() => navigate("/app/sat")} variant="outline">
+              {SAT_PRACTICE_COPY.unknownQuestion.backToPractice}
+            </Button>
+          }
           title={SAT_PRACTICE_COPY.sessionLoadFailed.title}
         />
-      </div>
+      </SatPracticeFrame>
     );
   }
 
   if (session.rows.length === 0) {
     const isUnknownQuestion = source.kind === "question";
     return (
-      <div className="flex h-dvh items-center justify-center bg-[var(--canvas)]">
+      <SatPracticeFrame className="items-center justify-center p-6">
         <Empty>
           <EmptyTitle>
             {isUnknownQuestion
@@ -222,7 +223,7 @@ export function SatPractice(): React.ReactElement {
             </Button>
           </EmptyContent>
         </Empty>
-      </div>
+      </SatPracticeFrame>
     );
   }
 
@@ -235,21 +236,31 @@ export function SatPractice(): React.ReactElement {
     : SAT_PRACTICE_COPY.next;
   const currentAnswer = session.getAnswer(current.id);
   const inFlight = session.isInFlight(current.id);
-  // Two equal columns only when there's a passage to show — a Math (or
-  // stimulus-less R&W) question is one centred column, max 860px (Q12).
-  const hasLeftColumn =
-    (calculatorDocked && lastModule === "math") || Boolean(question?.stimulus);
+  // The docked calculator takes the left column only while it is open: a
+  // closed or full-screen one leaves nothing to dock into.
+  const dockVisible =
+    calculatorDocked && calculatorOpen && lastModule === "math" && !isToolFullscreenBreakpoint;
+  // Two equal columns only when there's a passage or a docked calculator to
+  // show — a Math (or stimulus-less R&W) question is one centred column (Q12).
+  const hasLeftColumn = dockVisible || Boolean(question?.stimulus);
 
+  const counter = SAT_PRACTICE_COPY.questionCounter(session.index + 1, session.rows.length);
   const navigatorTrigger = (
-    <Button variant="outline">
-      {SAT_PRACTICE_COPY.questionCounter(session.index + 1, session.rows.length)}
-      <ChevronUp aria-hidden="true" className="size-4" />
-      <ChevronDown aria-hidden="true" className="size-4" />
+    <Button
+      aria-label={counter}
+      className={cn(satToolItemClass(), "h-10 border-[var(--edge-button)] bg-[var(--surface-raised)] px-4 text-sm shadow-[var(--elevation-1)] hover:bg-[var(--surface-button-hover)] sm:h-9")}
+      variant="outline"
+    >
+      <span className="tabular-nums max-[520px]:hidden">{counter}</span>
+      <span aria-hidden="true" className="tabular-nums min-[521px]:hidden">
+        {(session.index + 1).toLocaleString("en-US")} / {session.rows.length.toLocaleString("en-US")}
+      </span>
+      <ChevronsUpDown aria-hidden="true" className="size-4" />
     </Button>
   );
 
   return (
-    <div className="flex h-dvh flex-col bg-[var(--canvas)]" ref={rootRef}>
+    <SatPracticeFrame ref={rootRef}>
       <SatPracticeTopBar
         calculatorActive={calculatorOpen}
         highlightActive={highlightActive}
@@ -269,59 +280,73 @@ export function SatPractice(): React.ReactElement {
         seconds={timer.seconds}
       />
 
-      <div
+      <main
         className={cn(
-          "grid min-h-0 flex-1 divide-x divide-[var(--hairline)] max-[860px]:flex max-[860px]:flex-col max-[860px]:overflow-y-auto",
-          hasLeftColumn ? "grid-cols-1 md:grid-cols-2" : "grid-cols-1",
+          "min-h-0 flex-1 px-4 pb-2 min-[861px]:px-6",
+          "max-[860px]:overflow-y-auto max-[860px]:[scrollbar-gutter:stable]",
         )}
       >
-        {calculatorDocked && lastModule === "math" ? (
-          <div className="h-full" ref={dockSlotRef} />
-        ) : question?.stimulus ? (
-          <SatPassagePane
-            contentSha={question.content_sha256}
-            key={`passage-${current.id}`}
-            ref={passageRef}
-            stimulus={question.stimulus}
-          />
-        ) : null}
+        <div
+          className={cn(
+            "mx-auto grid h-full w-full gap-3 min-[861px]:grid-rows-[minmax(0,1fr)]",
+            "max-[860px]:flex max-[860px]:h-auto max-[860px]:flex-col",
+            hasLeftColumn
+              ? "max-w-[1400px] min-[861px]:grid-cols-2"
+              : "max-w-[920px] grid-cols-1",
+          )}
+        >
+          {dockVisible ? (
+            <div className="min-h-0 max-[860px]:hidden" ref={dockSlotRef} />
+          ) : question?.stimulus ? (
+            <div className={cn(satSheetClass, sheetScrollClass)}>
+              <SatPassagePane
+                contentSha={question.content_sha256}
+                key={`passage-${current.id}`}
+                ref={passageRef}
+                stimulus={question.stimulus}
+              />
+            </div>
+          ) : null}
 
-        {body.isError ? (
-          <div className="flex h-full items-center justify-center p-6">
-            <ErrorCard
-              message={SAT_PRACTICE_COPY.bodyLoadFailed.description(session.index + 1)}
-              onRetry={() => void body.refetch()}
-              retryLabel={SAT_PRACTICE_COPY.bodyLoadFailed.retry}
-              title={SAT_PRACTICE_COPY.bodyLoadFailed.title}
-            />
+          <div className={cn(satSheetClass, sheetScrollClass)}>
+            {body.isError ? (
+              <div className="flex h-full items-center justify-center p-6">
+                <ErrorCard
+                  message={SAT_PRACTICE_COPY.bodyLoadFailed.description(session.index + 1)}
+                  onRetry={() => void body.refetch()}
+                  retryLabel={SAT_PRACTICE_COPY.bodyLoadFailed.retry}
+                  title={SAT_PRACTICE_COPY.bodyLoadFailed.title}
+                />
+              </div>
+            ) : !question ? (
+              <div aria-busy="true" className="flex h-full flex-col gap-3 p-4 min-[861px]:p-8">
+                <Skeleton className="h-5 w-3/4" />
+                <Skeleton className="h-12 w-full rounded-lg" />
+                <Skeleton className="h-12 w-full rounded-lg" />
+                <Skeleton className="h-12 w-full rounded-lg" />
+                <Skeleton className="h-12 w-full rounded-lg" />
+              </div>
+            ) : (
+              <SatQuestionPane
+                answer={currentAnswer}
+                attempts={attempts.data ?? []}
+                bookmarked={current.bookmarked}
+                eliminateMode={eliminateMode}
+                eliminations={session.getEliminations(current.id)}
+                key={`question-${current.id}`}
+                onAnswer={session.answer}
+                onToggleBookmark={() => void session.toggleBookmark()}
+                onToggleEliminate={session.toggleEliminate}
+                onToggleEliminateMode={() => setEliminateMode((mode) => !mode)}
+                question={question}
+                questionNumber={session.index + 1}
+                reveal={reveal}
+                stemRef={stemRef}
+              />
+            )}
           </div>
-        ) : !question ? (
-          <div aria-busy="true" className="flex h-full flex-col gap-3 p-10">
-            <Skeleton className="h-5 w-3/4" />
-            <Skeleton className="h-12 w-full rounded-lg" />
-            <Skeleton className="h-12 w-full rounded-lg" />
-            <Skeleton className="h-12 w-full rounded-lg" />
-            <Skeleton className="h-12 w-full rounded-lg" />
-          </div>
-        ) : (
-          <SatQuestionPane
-            answer={currentAnswer}
-            attempts={attempts.data ?? []}
-            bookmarked={current.bookmarked}
-            eliminateMode={eliminateMode}
-            eliminations={session.getEliminations(current.id)}
-            key={`question-${current.id}`}
-            onAnswer={session.answer}
-            onToggleBookmark={() => void session.toggleBookmark()}
-            onToggleEliminate={session.toggleEliminate}
-            onToggleEliminateMode={() => setEliminateMode((mode) => !mode)}
-            question={question}
-            questionNumber={session.index + 1}
-            reveal={reveal}
-            stemRef={stemRef}
-          />
-        )}
-      </div>
+        </div>
+      </main>
 
       <SatPracticeBottomBar
         index={session.index}
@@ -338,6 +363,7 @@ export function SatPractice(): React.ReactElement {
             rows={session.rows}
           />
         }
+        onPrevious={() => session.goTo(session.index - 1)}
         onPrimaryAction={() => {
           if (!reveal) {
             void session.submit(timer.readElapsed());
@@ -365,7 +391,7 @@ export function SatPractice(): React.ReactElement {
       )}
 
       <SatCalculator
-        docked={calculatorDocked}
+        docked={dockVisible}
         dockSlotRef={dockSlotRef}
         embedUrl={appConfig.data?.sat_desmos_embed_url}
         onClose={() => setCalculatorOpen(false)}
@@ -375,6 +401,6 @@ export function SatPractice(): React.ReactElement {
       />
 
       {referenceOpen && <SatReferenceSheet onClose={() => setReferenceOpen(false)} />}
-    </div>
+    </SatPracticeFrame>
   );
 }

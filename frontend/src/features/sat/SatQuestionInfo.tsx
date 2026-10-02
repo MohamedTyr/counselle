@@ -13,7 +13,10 @@ import {
 
 import type { SatQuestionPublic, SatTaxonomy } from "@/api/sat/types";
 import { formatShortDate, shouldShowUpdated } from "@/features/sat/sat-format";
-import { SAT_INFO_DIALOG_COPY, SAT_PRACTICE_COPY } from "@/features/sat/sat-copy";
+import {
+  SAT_INFO_DIALOG_COPY,
+  SAT_PRACTICE_COPY,
+} from "@/features/sat/sat-copy";
 
 export interface SatQuestionInfoProps {
   open: boolean;
@@ -67,7 +70,10 @@ export function SatQuestionInfo({
   );
   const copy = SAT_INFO_DIALOG_COPY;
   const created = formatShortDate(question.cb_created_at);
-  const showUpdated = shouldShowUpdated(question.cb_created_at, question.cb_updated_at);
+  const showUpdated = shouldShowUpdated(
+    question.cb_created_at,
+    question.cb_updated_at,
+  );
   const updated = formatShortDate(question.cb_updated_at);
 
   const mailto = supportEmail
@@ -91,11 +97,15 @@ export function SatQuestionInfo({
           <DialogTitle>{SAT_PRACTICE_COPY.tools.info}</DialogTitle>
         </DialogHeader>
         <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
-          <dt className="text-[var(--ink-secondary)]">{copy.fields.questionId}</dt>
-          <dd className="flex items-center gap-2 font-mono">
-            {question.question_id}
+          <dt className="text-[var(--ink-secondary)]">
+            {copy.fields.questionId}
+          </dt>
+          <dd className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <span className="font-mono tabular-nums">
+              {question.question_id}
+            </span>
             <a
-              className="inline-flex items-center gap-1 text-[var(--brand)] underline"
+              className="inline-flex items-center gap-1 whitespace-nowrap font-medium text-[var(--accent-solid)] underline-offset-2 hover:underline focus-visible:ring-[3px] focus-visible:ring-[var(--focus-ring)] focus-visible:outline-none rounded-sm"
               href={`https://www.google.com/search?q=%22${encodeURIComponent(
                 question.question_id,
               )}%22+sat+tutorial&tbm=vid`}
@@ -118,21 +128,35 @@ export function SatQuestionInfo({
           <dt className="text-[var(--ink-secondary)]">{copy.fields.skill}</dt>
           <dd>{skillName}</dd>
 
-          <dt className="text-[var(--ink-secondary)]">{copy.fields.scoreBand}</dt>
+          <dt className="text-[var(--ink-secondary)]">
+            {copy.fields.scoreBand}
+          </dt>
           <dd>{question.score_band} / 7</dd>
 
-          <dt className="text-[var(--ink-secondary)]">{copy.fields.difficulty}</dt>
-          <dd>{DIFFICULTY_WORDS[question.difficulty] ?? question.difficulty}</dd>
+          <dt className="text-[var(--ink-secondary)]">
+            {copy.fields.difficulty}
+          </dt>
+          <dd>
+            {DIFFICULTY_WORDS[question.difficulty] ?? question.difficulty}
+          </dd>
 
-          <dt className="text-[var(--ink-secondary)]">{copy.fields.itemType}</dt>
-          <dd>{question.item_type === "mcq" ? "Multiple choice" : "Student-produced response"}</dd>
+          <dt className="text-[var(--ink-secondary)]">
+            {copy.fields.itemType}
+          </dt>
+          <dd>
+            {question.item_type === "mcq"
+              ? "Multiple choice"
+              : "Student-produced response"}
+          </dd>
 
           <dt className="text-[var(--ink-secondary)]">{copy.fields.created}</dt>
           <dd>{created ?? SAT_PRACTICE_COPY.notAvailable}</dd>
 
           {showUpdated && (
             <>
-              <dt className="text-[var(--ink-secondary)]">{copy.fields.updated}</dt>
+              <dt className="text-[var(--ink-secondary)]">
+                {copy.fields.updated}
+              </dt>
               <dd>{updated ?? SAT_PRACTICE_COPY.notAvailable}</dd>
             </>
           )}

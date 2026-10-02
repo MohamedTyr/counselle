@@ -9,6 +9,30 @@
  * importing that (not yet built) file, per ADR 0017's pure/no-cross-feature
  * boundary for a leaf utility module. */
 
+// ---- display helpers -------------------------------------------------------
+
+/** "1 attempt", "2 attempts", "0 attempts" — regular plurals only. */
+export function plural(count: number, noun: string): string {
+  return `${count} ${noun}${count === 1 ? "" : "s"}`;
+}
+
+const SECONDS_PER_MINUTE = 60;
+const SECONDS_PER_HOUR = 3600;
+
+/** A length of time for analytics copy: "8s", "1m 8s", "2h 5m". Whole
+ * seconds only; never the "0m 8s" a minutes-first format produces. */
+export function formatDuration(totalSeconds: number): string {
+  const seconds = Math.max(0, Math.round(totalSeconds));
+  if (seconds < SECONDS_PER_MINUTE) {
+    return `${seconds}s`;
+  }
+  if (seconds < SECONDS_PER_HOUR) {
+    return `${Math.floor(seconds / SECONDS_PER_MINUTE)}m ${seconds % SECONDS_PER_MINUTE}s`;
+  }
+  const minutes = Math.floor((seconds % SECONDS_PER_HOUR) / SECONDS_PER_MINUTE);
+  return `${Math.floor(seconds / SECONDS_PER_HOUR)}h ${minutes}m`;
+}
+
 // ---- mastery (S16) --------------------------------------------------------
 
 export type MasteryLevel = "mastered" | "developing" | "needsFocus" | "untested";
@@ -109,7 +133,7 @@ export function summarizePaceMatrix(skills: readonly SkillPaceInput[]): string {
   }
   const sentences = skills.map(
     (skill) =>
-      `${skill.name}: ${skill.accuracyPct}% first-try accuracy, ${skill.avgTimeSeconds}s average pace, ${skill.attempted} attempts.`,
+      `${skill.name}: ${skill.accuracyPct}% first-try accuracy, ${formatDuration(skill.avgTimeSeconds)} average pace, ${plural(skill.attempted, "attempt")}.`,
   );
   return sentences.join(" ");
 }
@@ -144,7 +168,7 @@ export interface ScoreBandInput {
 export function summarizeScoreBands(bands: readonly ScoreBandInput[]): string {
   const sentences = bands.map((band) =>
     band.attempted > 0
-      ? `Band ${band.band}: ${band.accuracyPct}% accuracy, ${band.avgTimeSeconds}s average pace, ${band.attempted} attempts.`
+      ? `Band ${band.band}: ${band.accuracyPct}% accuracy, ${formatDuration(band.avgTimeSeconds)} average pace, ${plural(band.attempted, "attempt")}.`
       : `Band ${band.band}: no attempts.`,
   );
   return sentences.join(" ");
@@ -156,10 +180,12 @@ export interface DonutInput {
   readonly unsolved: number;
 }
 
-/** The mastery donut's `ChartFigure summary`. */
+/** The standing bar's `ChartFigure summary`. `unsolved` counts questions
+ * whose *latest* attempt was wrong (S4) — including ones answered right the
+ * first time and missed since, so it is never worded as "never solved". */
 export function summarizeDonut(donut: DonutInput): string {
   const attempted = donut.neverMissed + donut.upsolved + donut.unsolved;
-  return `${attempted} questions attempted: ${donut.neverMissed} correct and never missed, ${donut.upsolved} upsolved, ${donut.unsolved} still unsolved.`;
+  return `${plural(attempted, "question")} attempted. By latest attempt: ${donut.neverMissed} right every time, ${donut.upsolved} missed then got right, ${donut.unsolved} wrong on the latest attempt.`;
 }
 
 // ---- skill ranking (S9 read-through, for "Skills to reinforce") ----------

@@ -20,11 +20,23 @@ export interface SatCalculatorProps {
   onClose: () => void;
 }
 
-const DEFAULT_SIZE = { width: 580, height: 480 };
+const DEFAULT_SIZE = { width: 500, height: 420 };
 const MIN_SIZE = { width: 320, height: 280 };
 const MAX_VIEWPORT_FRACTION = { width: 0.9, height: 0.85 };
-const START_POSITION = { x: 30, y: 70 };
-const MIN_Y = 60;
+const SPAWN_EDGE = 16;
+/** Clears the 56px top bar. */
+const SPAWN_TOP = 72;
+const MIN_Y = 64;
+
+/** Opens against the right edge: the stem and choices read from the left,
+ * and the single-column question sits centred, so the right gutter is the
+ * least-occupied part of the screen. */
+function spawnPosition(): { x: number; y: number } {
+  return {
+    x: Math.max(SPAWN_EDGE, window.innerWidth - DEFAULT_SIZE.width - SPAWN_EDGE),
+    y: SPAWN_TOP,
+  };
+}
 
 interface Rect {
   top: string;
@@ -48,8 +60,9 @@ export function SatCalculator({
   onFloat,
   onClose,
 }: SatCalculatorProps): React.ReactElement | null {
+  const [spawn] = useState(spawnPosition);
   const toolWindow = useToolWindow({
-    defaultPosition: START_POSITION,
+    defaultPosition: spawn,
     defaultSize: DEFAULT_SIZE,
     sizeBounds: { min: MIN_SIZE, maxViewportFraction: MAX_VIEWPORT_FRACTION },
     minY: MIN_Y,

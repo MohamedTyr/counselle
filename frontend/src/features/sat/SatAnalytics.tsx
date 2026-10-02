@@ -7,17 +7,7 @@
  * render the same header/tabs/body/footer content so there is one place
  * that owns the analytics logic.
  */
-import {
-  ChartColumn,
-  ChartNoAxesColumn,
-  ChevronDown,
-  Download,
-  LayoutDashboard,
-  List,
-  Radar as RadarIcon,
-  Timer,
-  Upload,
-} from "lucide-react";
+import { ChartColumn, ChevronDown, Download, Upload } from "lucide-react";
 import type React from "react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -26,14 +16,22 @@ import { satProgressExportUrl } from "@/api/sat/client";
 import { useImportProgress, useResetProgress, useSatCounts, useSatStats } from "@/api/sat/hooks";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
 import { ErrorCard } from "@/components/ui/error-card";
 import { Sheet, SheetContent, SheetHeader, SheetPanel, SheetTitle } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTab } from "@/components/ui/tabs";
+import { profileEmptySheetClass } from "@/features/profile/profile-control-styles";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
-import { SAT_ANALYTICS_COPY } from "@/features/sat/sat-copy";
+import { SAT_ANALYTICS_COPY } from "@/features/sat/sat-analytics-copy";
 import { SatAnalyticsBands } from "@/features/sat/SatAnalyticsBands";
 import { SatAnalyticsDomains } from "@/features/sat/SatAnalyticsDomains";
 import { SatAnalyticsOverview } from "@/features/sat/SatAnalyticsOverview";
@@ -55,14 +53,6 @@ export const SAT_ANALYTICS_TABS: readonly SatAnalyticsTab[] = [
 export function isSatAnalyticsTab(value: string | null): value is SatAnalyticsTab {
   return value !== null && (SAT_ANALYTICS_TABS as readonly string[]).includes(value);
 }
-
-const TAB_ICON: Record<SatAnalyticsTab, React.ComponentType<{ className?: string }>> = {
-  bands: ChartNoAxesColumn,
-  domains: List,
-  overview: LayoutDashboard,
-  pace: Timer,
-  radar: RadarIcon,
-};
 
 export interface SatAnalyticsProps {
   open: boolean;
@@ -105,6 +95,7 @@ export function SatAnalytics({
   const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
   const [pendingImportFile, setPendingImportFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const tabStripRef = useRef<HTMLDivElement>(null);
 
   const importMutation = useImportProgress();
   const resetMutation = useResetProgress();
@@ -121,6 +112,13 @@ export function SatAnalytics({
       setPendingImportFile(null);
     }
   }, [open]);
+
+  // On a narrow screen the strip scrolls; keep the current tab in view.
+  useEffect(() => {
+    tabStripRef.current
+      ?.querySelector("[data-active]")
+      ?.scrollIntoView?.({ block: "nearest", inline: "center" });
+  }, [tab, open]);
 
   const busy = resetMutation.isPending || importMutation.isPending;
   // `ConfirmDialogContent`'s `DismissableLayer.Branch` makes Radix's own
@@ -205,30 +203,28 @@ export function SatAnalytics({
 
   const header = (
     <div className="flex flex-col gap-3">
-      <div className="flex items-center gap-2">
-        <ChartColumn className="size-5 text-[var(--ink-secondary)]" />
-        <span className="font-heading text-lg font-medium">{SAT_ANALYTICS_COPY.title}</span>
-      </div>
-      <div className="overflow-x-auto [mask-image:linear-gradient(to_right,transparent,black_24px,black_calc(100%-24px),transparent)]">
-        <Tabs onValueChange={(value) => onTabChange(value as SatAnalyticsTab)} value={tab}>
-          <TabsList>
-            {SAT_ANALYTICS_TABS.map((t) => {
-              const Icon = TAB_ICON[t];
-              return (
+      <span className="pr-10 text-base font-semibold tracking-tight">{SAT_ANALYTICS_COPY.title}</span>
+      {hasAnyAttempts && (
+        <div ref={tabStripRef} className="-mx-1 overflow-x-auto px-1 [scrollbar-width:none] max-sm:[mask-image:linear-gradient(to_right,black_calc(100%-24px),transparent)] [&::-webkit-scrollbar]:hidden">
+          <Tabs onValueChange={(value) => onTabChange(value as SatAnalyticsTab)} value={tab}>
+            <TabsList variant="pill">
+              {SAT_ANALYTICS_TABS.map((t) => (
                 <TabsTab key={t} value={t}>
-                  <Icon />
                   {SAT_ANALYTICS_COPY.tabs[t]}
                 </TabsTab>
-              );
-            })}
-          </TabsList>
-        </Tabs>
-      </div>
+              ))}
+            </TabsList>
+          </Tabs>
+        </div>
+      )}
     </div>
   );
 
   const body = (
-    <div className="flex min-h-0 flex-1 flex-col overflow-y-auto p-6" data-slot="sat-analytics-body">
+    <div
+      className="@container/sat-analytics flex min-h-0 flex-1 flex-col overflow-y-auto bg-[var(--canvas)] p-4 [scrollbar-gutter:stable] sm:p-6"
+      data-slot="sat-analytics-body"
+    >
       {statsQuery.isError ? (
         <ErrorCard
           message={SAT_ANALYTICS_COPY.loadFailed.description}
@@ -237,17 +233,19 @@ export function SatAnalytics({
           title={SAT_ANALYTICS_COPY.loadFailed.title}
         />
       ) : statsQuery.isLoading || !stats ? (
-        <div aria-busy="true" className="flex flex-col gap-4">
-          <div className="grid grid-cols-2 gap-4 @[768px]/sat-analytics:grid-cols-4">
-            {[0, 1, 2, 3].map((i) => (
-              <Skeleton className="h-28 w-full rounded-xl" key={i} />
-            ))}
+        <div aria-busy="true" className="flex flex-col gap-8">
+          <Skeleton className="h-52 w-full rounded-xl" />
+          <div className="grid grid-cols-1 gap-8 @[760px]/sat-analytics:grid-cols-2">
+            <Skeleton className="h-52 w-full rounded-xl" />
+            <Skeleton className="h-52 w-full rounded-xl" />
           </div>
-          <Skeleton className="h-64 w-full rounded-xl" />
         </div>
       ) : !hasAnyAttempts ? (
-        <Empty>
+        <Empty className={cn(profileEmptySheetClass, "my-auto flex-none")}>
           <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <ChartColumn />
+            </EmptyMedia>
             <EmptyTitle>{SAT_ANALYTICS_COPY.empty.title}</EmptyTitle>
             <EmptyDescription>{SAT_ANALYTICS_COPY.empty.description}</EmptyDescription>
           </EmptyHeader>
@@ -256,7 +254,7 @@ export function SatAnalytics({
           </EmptyContent>
         </Empty>
       ) : (
-        <div className="@container/sat-analytics" key={instanceKey}>
+        <div key={instanceKey}>
           {tab === "overview" && <SatAnalyticsOverview onDrill={onDrill} stats={stats} />}
           {tab === "radar" && <SatAnalyticsRadar stats={stats} />}
           {tab === "pace" && <SatAnalyticsPace stats={stats} />}
@@ -268,23 +266,29 @@ export function SatAnalytics({
   );
 
   const footer = stats ? (
-    <div className="border-t" data-slot="sat-analytics-footer">
-      <button
-        aria-expanded={drawerOpen}
-        className="flex w-full items-center justify-between gap-3 px-6 py-3 text-left hover:bg-accent"
-        onClick={() => setDrawerOpen((v) => !v)}
-        type="button"
-      >
-        <span className="text-sm text-[var(--ink-secondary)]">
-          {SAT_ANALYTICS_COPY.footer.summary(stats.totalAttemptsCount, stats.avgTimeSeconds)}
+    <div className="border-t border-[var(--hairline)] bg-[var(--surface-raised)]" data-slot="sat-analytics-footer">
+      <div className="flex items-center justify-between gap-3 px-4 py-2.5 sm:px-6">
+        <span className="min-w-0 truncate text-sm text-[var(--ink-secondary)] tabular-nums">
+          {hasAnyAttempts &&
+            SAT_ANALYTICS_COPY.footer.summary(stats.totalAttemptsCount, stats.avgTimeSeconds)}
         </span>
-        <span className="flex items-center gap-1.5 text-sm font-medium">
+        <Button
+          aria-expanded={drawerOpen}
+          onClick={() => setDrawerOpen((v) => !v)}
+          size="sm"
+          variant="ghost"
+        >
           {SAT_ANALYTICS_COPY.footer.dataAndProgress}
-          <ChevronDown className={cn("size-4 transition-transform", drawerOpen && "rotate-180")} />
-        </span>
-      </button>
+          <ChevronDown
+            className={cn(
+              "transition-transform duration-200 ease-out motion-reduce:transition-none",
+              drawerOpen && "rotate-180",
+            )}
+          />
+        </Button>
+      </div>
       {drawerOpen && (
-        <div className="flex flex-col gap-2 px-6 pb-4 sm:flex-row">
+        <div className="flex flex-col gap-2 border-t border-[var(--hairline)] px-4 py-3 sm:flex-row sm:items-center sm:px-6">
           <Button
             render={
               <a
@@ -309,7 +313,7 @@ export function SatAnalytics({
             <Upload />
             {SAT_ANALYTICS_COPY.footer.importProgress}
           </Button>
-          <Button onClick={handleResetPress} variant="destructive-outline">
+          <Button className="sm:ml-auto" onClick={handleResetPress} variant="destructive-outline">
             {SAT_ANALYTICS_COPY.reset.pressSequence[resetPresses]}
           </Button>
         </div>
@@ -319,7 +323,7 @@ export function SatAnalytics({
 
   const shell = isMobile ? (
     <Sheet onOpenChange={handleOpenChange} open={open}>
-      <SheetContent variant="full">
+      <SheetContent initialFocus={false} variant="full">
         <SheetHeader>
           <SheetTitle className="sr-only">{SAT_ANALYTICS_COPY.title}</SheetTitle>
           {header}
@@ -330,8 +334,16 @@ export function SatAnalytics({
     </Sheet>
   ) : (
     <Dialog onOpenChange={handleOpenChange} open={open}>
-      <DialogContent className="flex h-[min(900px,92dvh)] max-w-[1160px] flex-col gap-0 overflow-hidden p-0 sm:max-w-[1160px]">
-        <DialogHeader className="border-b p-6 pb-4">
+      <DialogContent
+        className="flex h-[min(860px,92dvh)] max-w-[1080px] flex-col gap-0 overflow-hidden rounded-2xl bg-[var(--surface-raised)] p-0 shadow-[var(--elevation-3)] sm:max-w-[1080px]"
+        onOpenAutoFocus={(event) => {
+          // Land on the panel, not on the close button: a focus ring on ✕
+          // the moment the dialog opens reads as a pending action.
+          event.preventDefault();
+          (event.target as HTMLElement).focus();
+        }}
+      >
+        <DialogHeader className="border-b border-[var(--hairline)] px-6 pt-5 pb-4">
           <DialogTitle className="sr-only">{SAT_ANALYTICS_COPY.title}</DialogTitle>
           {header}
         </DialogHeader>
