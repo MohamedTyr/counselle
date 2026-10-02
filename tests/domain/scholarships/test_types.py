@@ -67,6 +67,8 @@ def test_overlong_url_is_rejected() -> None:
         {"award": {"kind": "fixed", "years": 2}},
         {"award": {"kind": "fixed", "renewable": True, "years": 9}},
         {"unknown_field": 1},
+        {"name": "bad\x00name"},
+        {"award": {"kind": "fixed", "awards_count": 1_000_001}},
     ],
 )
 def test_invalid_drafts_are_rejected(fields: dict[str, Any]) -> None:
@@ -83,6 +85,10 @@ def test_strings_trimmed_and_lists_deduplicated() -> None:
     assert value.name == "Award"
     assert value.fields == ["Biology", "Chemistry"]
     assert value.eligibility[0].any_of == ["TX", "CA"]  # type: ignore[union-attr]
+
+
+def test_rolling_deadline_drops_its_date() -> None:
+    assert draft(deadline={"kind": "rolling", "date": "2026-03-01"}).deadline.date is None
 
 
 def test_gpa_at_four_is_accepted() -> None:

@@ -45,6 +45,7 @@ MAX_AWARD_DOLLARS = 10_000_000
 MAX_RENEWAL_YEARS = 8
 MAX_URL_CHARS = 2048
 MAX_RULES = 7
+MAX_AWARDS_COUNT = 1_000_000
 
 # An http(s) URL with a host and no whitespace. Links are rendered into
 # `href`/`src` for every student, so this is the guard against
@@ -78,7 +79,8 @@ def _known_state(code: str) -> str:
 
 
 def _trimmed(max_length: int) -> StringConstraints:
-    return StringConstraints(strip_whitespace=True, max_length=max_length)
+    # No NUL: Postgres text cannot store it.
+    return StringConstraints(strip_whitespace=True, max_length=max_length, pattern=r"^[^\x00]*$")
 
 
 Name = Annotated[str, _trimmed(200)]
@@ -116,7 +118,7 @@ class Award(_Value):
     #: Years the award renews for, including the first. Only when renewable.
     years: Annotated[int, Field(ge=1, le=MAX_RENEWAL_YEARS)] | None = None
     #: How many are given each cycle; null when the sponsor doesn't say.
-    awards_count: Annotated[int, Field(ge=1)] | None = None
+    awards_count: Annotated[int, Field(ge=1, le=MAX_AWARDS_COUNT)] | None = None
 
     @model_validator(mode="after")
     def _years_only_when_renewable(self) -> Award:
@@ -127,9 +129,17 @@ class Award(_Value):
 
 class Deadline(_Value):
     kind: DeadlineKind = "fixed"
+    #: Only a fixed deadline has a date; a rolling one drops any it is sent.
     date: dt.date | None = None
     opens_on: dt.date | None = None
     recurs_annually: bool = False
+
+    @model_validator(mode="before")
+    @classmethod
+    def _rolling_has_no_date(cls, data: object) -> object:
+        if isinstance(data, dict) and data.get("kind") == "rolling":
+            return {**data, "date": None}
+        return data
 
 
 class CitizenshipRule(_Value):

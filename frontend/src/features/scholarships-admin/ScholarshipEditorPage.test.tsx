@@ -181,6 +181,64 @@ describe("ScholarshipEditorPage", () => {
     expect(put?.body).toMatchObject({ expected_version: 2, last_checked_on: todayIso(), status: "published" });
   });
 
+  it("resyncs the draft after a status change, so the next save keeps the new status", async () => {
+    const user = userEvent.setup();
+    const server = adminServer(admin({ status: "published" }));
+    renderApp(PATH, { fetchHandler: server.handler });
+
+    await nameInput();
+    await user.click(screen.getByRole("button", { name: "More actions" }));
+    await user.click(screen.getByRole("menuitem", { name: "Unpublish" }));
+    await screen.findByRole("button", { name: "Publish" });
+
+    await user.type(screen.getByLabelText("Name"), "!");
+    await user.click(saveBar().getByRole("button", { name: /^Save/ }));
+    await waitFor(() => expect(server.calls.some((call) => call.method === "PUT")).toBe(true));
+    expect(server.calls.find((call) => call.method === "PUT")?.body).toMatchObject({ status: "draft", expected_version: 2 });
+  });
+
+  it("keeps edits typed while a save is in flight", async () => {
+    const user = userEvent.setup();
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const server = adminServer(admin());
+    const handler = async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (init?.method === "PUT") await gate;
+      return server.handler(input, init);
+    };
+    renderApp(PATH, { fetchHandler: handler });
+
+    const input = await nameInput();
+    await user.type(input, " A");
+    await user.click(saveBar().getByRole("button", { name: /^Save/ }));
+    await user.type(input, "B");
+    release();
+
+    await waitFor(() => expect(server.calls.some((call) => call.method === "PUT")).toBe(true));
+    await waitFor(() => expect(input).toHaveValue("Future Leaders Award AB"));
+    expect(screen.getByRole("region", { name: "Unsaved changes" })).toBeInTheDocument();
+  });
+
+  it("leaves the conflict state on Discard and shows their version", async () => {
+    const user = userEvent.setup();
+    const server = adminServer(admin(), () =>
+      jsonResponse({ error: { message: "Someone else changed this scholarship.", trace_id: "t", current_version: 2 } }, { status: 409 }),
+    );
+    renderApp(PATH, { fetchHandler: server.handler });
+
+    const input = await nameInput();
+    await user.type(input, "!");
+    server.setRecord(admin({ name: "Their edit", version: 2 }));
+    await user.click(saveBar().getByRole("button", { name: /^Save/ }));
+    await screen.findByText("Someone else changed this scholarship");
+    await user.click(saveBar().getByRole("button", { name: "Discard" }));
+
+    await waitFor(() => expect(screen.getByLabelText("Name")).toHaveValue("Their edit"));
+    expect(screen.getByRole("button", { name: "Publish" })).toBeEnabled();
+  });
+
   it("renders a never-checked record without crashing", async () => {
     const server = adminServer(admin({ last_checked_on: null }));
     renderApp(PATH, { fetchHandler: server.handler });

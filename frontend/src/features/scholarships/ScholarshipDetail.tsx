@@ -88,7 +88,7 @@ function fitHeadline(fit: Fit): string {
 
 function Criteria({ criteria, fit, linkProfile }: { criteria: CriterionResult[]; fit: Fit; linkProfile: boolean }) {
   if (criteria.length === 0) {
-    return <p className="text-sm text-[var(--ink-secondary)]">Open to any student. No eligibility rules listed.</p>;
+    return <p className="text-sm text-[var(--ink-secondary)]">No eligibility rules listed. Check the sponsor's site for who can apply.</p>;
   }
   return (
     <>

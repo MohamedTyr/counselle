@@ -73,8 +73,16 @@ function issuesFor(item: AdminScholarship): string[] {
   return issues;
 }
 
+/** Whole local calendar days since a timestamp. */
+function localDaysSince(iso: string): number {
+  const then = new Date(iso);
+  const now = new Date();
+  const startOf = (date: Date) => new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+  return Math.round((startOf(now) - startOf(then)) / 86_400_000);
+}
+
 function relativeUpdated(iso: string): string {
-  const days = daysSince(iso);
+  const days = localDaysSince(iso);
   if (days <= 0) return "Today";
   if (days === 1) return "Yesterday";
   if (days < 30) return `${days} days ago`;

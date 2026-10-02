@@ -37,7 +37,7 @@ export function SaveBar({
               : "size-1.5 shrink-0 rounded-full bg-[var(--warning-solid)]"
           }
         />
-        <span className="min-w-0 flex-1 truncate text-sm text-[var(--ink-secondary)]" role={conflict ? "alert" : undefined}>
+        <span aria-live="polite" className="min-w-0 flex-1 truncate text-sm text-[var(--ink-secondary)]" role="status">
           {conflict ? "Someone else changed this scholarship" : (blockedReason ?? "Unsaved changes")}
         </span>
         <Button disabled={isSaving} onClick={onDiscard} size="sm" variant="ghost">

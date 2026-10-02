@@ -177,18 +177,26 @@ function useEditorState(record: AdminScholarship | null) {
   const [conflict, setConflict] = useState(false);
   const dirty = !sameDraft(draft, baseline);
 
-  const reset = useCallback((saved: AdminScholarship) => {
+  /** Adopt `saved` as the baseline. When `submitted` is given (a save), the
+   * draft is replaced only if nothing was typed while the save was in flight. */
+  const reset = useCallback((saved: AdminScholarship, submitted?: ScholarshipDraft) => {
     const next = toDraft(saved);
     setBaseline(next);
-    setDraft(next);
+    setDraft((current) => (submitted && !sameDraft(current, submitted) ? current : next));
     setBaseVersion(saved.version);
     setServerProblems([]);
     setConflict(false);
   }, []);
 
+  // A conflict only matters while there is a draft to lose.
+  if (conflict && !dirty) setConflict(false);
+
   // A clean editor follows the stored record when it moves on (a status
-  // change, a mark-checked, a refetch); a dirty one never does on its own.
-  if (record && record.version !== baseVersion && !dirty && !conflict) reset(record);
+  // change, a mark-checked, a refetch); a dirty one never does on its own,
+  // and an older copy (a slow refetch) never replaces a newer one.
+  if (record && !dirty && !conflict && (baseVersion === null || record.version > baseVersion)) {
+    reset(record);
+  }
 
   const set = useCallback((patch: Partial<ScholarshipDraft>) => {
     setServerProblems([]);
@@ -227,6 +235,8 @@ function Editor({ record, others, onReload }: EditorProps) {
     (error: unknown) => {
       if (isTransportError(error) && error.kind === "conflict") {
         state.setConflict(true);
+        // Fetch their version now, so Discard lands on it rather than a stale baseline.
+        void onReload();
         return;
       }
       const problems = publishProblems(error);
@@ -241,7 +251,7 @@ function Editor({ record, others, onReload }: EditorProps) {
           : "Could not save. Your changes are still here.",
       );
     },
-    [state],
+    [onReload, state],
   );
 
   const commit = useCallback(
@@ -255,7 +265,7 @@ function Editor({ record, others, onReload }: EditorProps) {
         { id: record?.id ?? null, draft: next, expected_version: record ? state.baseVersion : null },
         {
           onSuccess: (saved) => {
-            reset(saved);
+            reset(saved, next);
             toast.success(message);
             if (!record) {
               bypass.current = true;
