@@ -43,15 +43,15 @@ const KIND_ORDER: EligibilityKind[] = ["citizenship", "state", "grade", "gpa_min
 function newRule(kind: EligibilityKind): EligibilityRule {
   switch (kind) {
     case "citizenship":
-      return { kind, anyOf: ["us_citizen", "permanent_resident"] };
+      return { kind, any_of: ["us_citizen", "permanent_resident"] };
     case "state":
-      return { kind, anyOf: [] };
+      return { kind, any_of: [] };
     case "grade":
-      return { kind, anyOf: ["12"] };
+      return { kind, any_of: ["12"] };
     case "gpa_min":
       return { kind, value: 3.0 };
     case "major":
-      return { kind, anyOf: [] };
+      return { kind, any_of: [] };
     case "first_gen":
     case "financial_need":
       return { kind };
@@ -114,20 +114,20 @@ function RuleControl({ rule, onChange }: { rule: EligibilityRule; onChange: (rul
       return (
         <ChoiceChips
           label="Citizenship"
-          onToggle={(value) => onChange({ ...rule, anyOf: toggleIn(rule.anyOf, value) })}
+          onToggle={(value) => onChange({ ...rule, any_of: toggleIn(rule.any_of, value) })}
           options={CITIZENSHIP_OPTIONS}
-          selected={rule.anyOf}
+          selected={rule.any_of}
         />
       );
     case "state":
-      return <StatePicker onChange={(anyOf) => onChange({ ...rule, anyOf })} value={rule.anyOf} />;
+      return <StatePicker onChange={(any_of) => onChange({ ...rule, any_of })} value={rule.any_of} />;
     case "grade":
       return (
         <ChoiceChips
           label="Grade"
-          onToggle={(value) => onChange({ ...rule, anyOf: toggleIn(rule.anyOf, value) })}
+          onToggle={(value) => onChange({ ...rule, any_of: toggleIn(rule.any_of, value) })}
           options={GRADE_OPTIONS}
-          selected={rule.anyOf}
+          selected={rule.any_of}
         />
       );
     case "gpa_min":
@@ -145,9 +145,9 @@ function RuleControl({ rule, onChange }: { rule: EligibilityRule; onChange: (rul
     case "major":
       return (
         <TagInput
-          onChange={(anyOf) => onChange({ ...rule, anyOf })}
+          onChange={(any_of) => onChange({ ...rule, any_of })}
           placeholder="Type a field and press Enter"
-          values={rule.anyOf}
+          values={rule.any_of}
         />
       );
     case "first_gen":
@@ -157,7 +157,7 @@ function RuleControl({ rule, onChange }: { rule: EligibilityRule; onChange: (rul
 }
 
 function ruleIsEmpty(rule: EligibilityRule): boolean {
-  return "anyOf" in rule && rule.anyOf.length === 0;
+  return "any_of" in rule && rule.any_of.length === 0;
 }
 
 export function EligibilityEditor({

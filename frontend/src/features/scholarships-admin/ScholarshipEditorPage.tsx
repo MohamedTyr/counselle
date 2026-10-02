@@ -4,7 +4,7 @@ import { Link, useBlocker, useNavigate, useParams } from "react-router";
 import { toast } from "sonner";
 
 import { useAdminScholarship, useAdminScholarships, useSaveScholarship } from "@/api/scholarships/hooks";
-import type { Scholarship, ScholarshipDraft, ScholarshipStatus } from "@/api/scholarships/types";
+import type { AdminScholarship, ScholarshipDraft, ScholarshipStatus } from "@/api/scholarships/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -59,7 +59,7 @@ function useLeaveGuard(dirty: boolean) {
   return { blocker, bypass };
 }
 
-function Editor({ record, others }: { record: Scholarship | null; others: Scholarship[] }) {
+function Editor({ record, others }: { record: AdminScholarship | null; others: AdminScholarship[] }) {
   const navigate = useNavigate();
   const save = useSaveScholarship();
   const [baseline, setBaseline] = useState<ScholarshipDraft>(() => (record ? toDraft(record) : emptyDraft()));

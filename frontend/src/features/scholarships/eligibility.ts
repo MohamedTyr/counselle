@@ -3,7 +3,7 @@ import type {
   EligibilityKind,
   EligibilityRule,
   GradeOption,
-  Scholarship,
+  ScholarshipView,
 } from "@/api/scholarships/types";
 import type { Profile } from "@/api/workspace/types";
 import { toStateCode, US_STATE_NAMES } from "@/features/scholarships/us-states";
@@ -119,11 +119,11 @@ function majorsLabel(fields: string[]): string {
 export function ruleLabel(rule: EligibilityRule): string {
   switch (rule.kind) {
     case "citizenship":
-      return capitalize(joinOr(rule.anyOf.map((option) => CITIZENSHIP_LABELS[option])));
+      return capitalize(joinOr(rule.any_of.map((option) => CITIZENSHIP_LABELS[option])));
     case "state":
-      return `Lives in ${joinOr(rule.anyOf.map(stateName))}`;
+      return `Lives in ${joinOr(rule.any_of.map(stateName))}`;
     case "grade":
-      return `In ${joinOr(rule.anyOf.map((grade) => GRADE_LABELS[grade]))}`;
+      return `In ${joinOr(rule.any_of.map((grade) => GRADE_LABELS[grade]))}`;
     case "gpa_min":
       return `Unweighted GPA of ${rule.value.toFixed(1)} or higher`;
     case "first_gen":
@@ -131,7 +131,7 @@ export function ruleLabel(rule: EligibilityRule): string {
     case "financial_need":
       return "Demonstrated financial need";
     case "major":
-      return `Plans to study ${majorsLabel(rule.anyOf)}`;
+      return `Plans to study ${majorsLabel(rule.any_of)}`;
   }
 }
 
@@ -139,11 +139,11 @@ export function ruleLabel(rule: EligibilityRule): string {
 function unmetReason(rule: EligibilityRule): string {
   switch (rule.kind) {
     case "citizenship":
-      return `For ${joinOr(rule.anyOf.map((option) => `${CITIZENSHIP_LABELS[option]}s`))} only`;
+      return `For ${joinOr(rule.any_of.map((option) => `${CITIZENSHIP_LABELS[option]}s`))} only`;
     case "state":
-      return `For ${joinOr(rule.anyOf.map(stateName))} residents`;
+      return `For ${joinOr(rule.any_of.map(stateName))} residents`;
     case "grade":
-      return `For students in ${joinOr(rule.anyOf.map((grade) => GRADE_LABELS[grade]))}`;
+      return `For students in ${joinOr(rule.any_of.map((grade) => GRADE_LABELS[grade]))}`;
     case "gpa_min":
       return `Needs a ${rule.value.toFixed(1)}+ GPA`;
     case "first_gen":
@@ -162,24 +162,24 @@ const ASK = (what: string, field: ProfileFactKey): Verdict => ({
   profileField: field,
 });
 
-function judgeCitizenship(anyOf: CitizenshipOption[], facts: ProfileFacts): Verdict {
+function judgeCitizenship(any_of: CitizenshipOption[], facts: ProfileFacts): Verdict {
   if (!facts.citizenship) return ASK("citizenship", "citizenship");
   const you = `You: ${CITIZENSHIP_LABELS[facts.citizenship]}`;
-  return { status: anyOf.includes(facts.citizenship) ? "met" : "unmet", detail: you };
+  return { status: any_of.includes(facts.citizenship) ? "met" : "unmet", detail: you };
 }
 
-function judgeState(anyOf: string[], facts: ProfileFacts): Verdict {
+function judgeState(any_of: string[], facts: ProfileFacts): Verdict {
   if (!facts.state) return ASK("state", "state");
   return {
-    status: anyOf.includes(facts.state) ? "met" : "unmet",
+    status: any_of.includes(facts.state) ? "met" : "unmet",
     detail: `You: ${stateName(facts.state)}`,
   };
 }
 
-function judgeGrade(anyOf: GradeOption[], facts: ProfileFacts): Verdict {
+function judgeGrade(any_of: GradeOption[], facts: ProfileFacts): Verdict {
   if (!facts.grade) return ASK("grade", "grade");
   return {
-    status: anyOf.includes(facts.grade) ? "met" : "unmet",
+    status: any_of.includes(facts.grade) ? "met" : "unmet",
     detail: `You: ${GRADE_LABELS[facts.grade]}`,
   };
 }
@@ -202,9 +202,9 @@ function judgeFirstGen(facts: ProfileFacts): Verdict {
     : { status: "unmet", detail: "You said you're not first-generation" };
 }
 
-function judgeMajor(anyOf: string[], facts: ProfileFacts): Verdict {
+function judgeMajor(any_of: string[], facts: ProfileFacts): Verdict {
   if (facts.majors.length === 0) return ASK("intended major", "majors");
-  const wanted = anyOf.map((field) => field.toLowerCase());
+  const wanted = any_of.map((field) => field.toLowerCase());
   const match = facts.majors.find((major) => {
     const value = major.toLowerCase();
     return wanted.some((field) => value.includes(field) || field.includes(value));
@@ -219,11 +219,11 @@ function judgeMajor(anyOf: string[], facts: ProfileFacts): Verdict {
 function judge(rule: EligibilityRule, facts: ProfileFacts): Verdict {
   switch (rule.kind) {
     case "citizenship":
-      return judgeCitizenship(rule.anyOf, facts);
+      return judgeCitizenship(rule.any_of, facts);
     case "state":
-      return judgeState(rule.anyOf, facts);
+      return judgeState(rule.any_of, facts);
     case "grade":
-      return judgeGrade(rule.anyOf, facts);
+      return judgeGrade(rule.any_of, facts);
     case "gpa_min":
       return judgeGpa(rule.value, facts);
     case "first_gen":
@@ -231,12 +231,12 @@ function judge(rule: EligibilityRule, facts: ProfileFacts): Verdict {
     case "financial_need":
       return { status: "unknown", detail: "The sponsor decides this from your financial documents" };
     case "major":
-      return judgeMajor(rule.anyOf, facts);
+      return judgeMajor(rule.any_of, facts);
   }
 }
 
 export function evaluateCriteria(
-  scholarship: Pick<Scholarship, "eligibility" | "otherEligibility">,
+  scholarship: Pick<ScholarshipView, "eligibility" | "other_eligibility">,
   facts: ProfileFacts,
 ): CriterionResult[] {
   const structured = scholarship.eligibility.map((rule, index) => ({
@@ -244,7 +244,7 @@ export function evaluateCriteria(
     label: ruleLabel(rule),
     ...judge(rule, facts),
   }));
-  const other = scholarship.otherEligibility
+  const other = scholarship.other_eligibility
     .filter((text) => text.trim().length > 0)
     .map((text, index) => ({
       key: `other-${index}`,
@@ -260,7 +260,7 @@ export function evaluateCriteria(
  * ("don't filter by my state"); an ignored rule never makes a row ineligible.
  */
 export function summarizeFit(
-  scholarship: Pick<Scholarship, "eligibility" | "otherEligibility">,
+  scholarship: Pick<ScholarshipView, "eligibility" | "other_eligibility">,
   facts: ProfileFacts,
   ignored: ReadonlySet<EligibilityKind> = new Set(),
 ): Fit {

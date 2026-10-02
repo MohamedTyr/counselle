@@ -1,5 +1,5 @@
 import { SCHOLARSHIP_FIXTURES } from "@/api/scholarships/fixtures";
-import type { Scholarship, ScholarshipDraft } from "@/api/scholarships/types";
+import type { AdminScholarship, ScholarshipDraft, ScholarshipPublic } from "@/api/scholarships/types";
 
 /*
  * Stand-in for `/v1/scholarships` until the backend exists. Every function
@@ -11,7 +11,7 @@ import type { Scholarship, ScholarshipDraft } from "@/api/scholarships/types";
 const LATENCY_MS = 280;
 const SAVED_KEY = "counselle:scholarships:saved";
 
-let records: Scholarship[] = SCHOLARSHIP_FIXTURES.map((item) => ({ ...item }));
+let records: AdminScholarship[] = SCHOLARSHIP_FIXTURES.map((item) => ({ ...item }));
 
 function delay<T>(value: T): Promise<T> {
   return new Promise((resolve) => {
@@ -19,15 +19,22 @@ function delay<T>(value: T): Promise<T> {
   });
 }
 
-export function listPublished(): Promise<Scholarship[]> {
-  return delay(records.filter((item) => item.status === "published"));
+export function listPublished(): Promise<ScholarshipPublic[]> {
+  return delay(
+    records
+      .filter((item) => item.status === "published")
+      .map((item) => ({
+        ...item,
+        last_checked_on: item.last_checked_on ?? "",
+      })),
+  );
 }
 
-export function listAll(): Promise<Scholarship[]> {
+export function listAll(): Promise<AdminScholarship[]> {
   return delay(records);
 }
 
-export function getScholarship(id: string): Promise<Scholarship> {
+export function getScholarship(id: string): Promise<AdminScholarship> {
   const found = records.find((item) => item.id === id);
   if (!found) {
     return Promise.reject(new Error("Scholarship not found"));
@@ -51,14 +58,15 @@ function slugify(name: string): string {
   return candidate;
 }
 
-export function createScholarship(draft: ScholarshipDraft): Promise<Scholarship> {
+export function createScholarship(draft: ScholarshipDraft): Promise<AdminScholarship> {
   const now = new Date().toISOString();
-  const created: Scholarship = {
+  const created: AdminScholarship = {
     ...draft,
     id: slugify(draft.name),
-    createdAt: now,
-    updatedAt: now,
-    updatedBy: "You",
+    created_at: now,
+    updated_at: now,
+    updated_by_email: null,
+    version: 1,
   };
   records = [created, ...records];
   return delay(created);
@@ -67,16 +75,17 @@ export function createScholarship(draft: ScholarshipDraft): Promise<Scholarship>
 export function updateScholarship(
   id: string,
   draft: ScholarshipDraft,
-): Promise<Scholarship> {
+): Promise<AdminScholarship> {
   const index = records.findIndex((item) => item.id === id);
   if (index === -1) {
     return Promise.reject(new Error("Scholarship not found"));
   }
-  const updated: Scholarship = {
+  const updated: AdminScholarship = {
     ...records[index],
     ...draft,
-    updatedAt: new Date().toISOString(),
-    updatedBy: "You",
+    updated_at: new Date().toISOString(),
+    updated_by_email: null,
+    version: records[index].version + 1,
   };
   records = records.map((item) => (item.id === id ? updated : item));
   return delay(updated);
@@ -105,13 +114,13 @@ export function writeSavedIds(ids: string[]): Promise<string[]> {
 
 export function setScholarshipStatus(
   id: string,
-  status: Scholarship["status"],
-): Promise<Scholarship> {
+  status: AdminScholarship["status"],
+): Promise<AdminScholarship> {
   const found = records.find((item) => item.id === id);
   if (!found) {
     return Promise.reject(new Error("Scholarship not found"));
   }
-  const updated: Scholarship = { ...found, status, updatedAt: new Date().toISOString(), updatedBy: "You" };
+  const updated: AdminScholarship = { ...found, status, updated_at: new Date().toISOString(), updated_by_email: null, version: found.version + 1 };
   records = records.map((item) => (item.id === id ? updated : item));
   return delay(updated);
 }

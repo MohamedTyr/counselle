@@ -10,7 +10,7 @@ import {
   updateScholarship,
   writeSavedIds,
 } from "@/api/scholarships/mock-db";
-import type { Scholarship, ScholarshipDraft, ScholarshipStatus } from "@/api/scholarships/types";
+import type { AdminScholarship, ScholarshipDraft, ScholarshipStatus } from "@/api/scholarships/types";
 
 export const scholarshipKeys = {
   all: ["scholarships"] as const,
@@ -64,7 +64,7 @@ export function useSaveScholarship() {
   return useMutation({
     mutationFn: ({ id, draft }: { id: string | null; draft: ScholarshipDraft }) =>
       id === null ? createScholarship(draft) : updateScholarship(id, draft),
-    onSuccess: (saved: Scholarship) => {
+    onSuccess: (saved: AdminScholarship) => {
       client.setQueryData(scholarshipKeys.detail(saved.id), saved);
       void client.invalidateQueries({ queryKey: scholarshipKeys.admin() });
       void client.invalidateQueries({ queryKey: scholarshipKeys.published() });
@@ -80,8 +80,8 @@ export function useSetScholarshipStatus() {
       setScholarshipStatus(id, status),
     onMutate: async ({ id, status }) => {
       await client.cancelQueries({ queryKey: scholarshipKeys.admin() });
-      const previous = client.getQueryData<Scholarship[]>(scholarshipKeys.admin());
-      client.setQueryData<Scholarship[]>(scholarshipKeys.admin(), (current) =>
+      const previous = client.getQueryData<AdminScholarship[]>(scholarshipKeys.admin());
+      client.setQueryData<AdminScholarship[]>(scholarshipKeys.admin(), (current) =>
         current?.map((item) => (item.id === id ? { ...item, status } : item)),
       );
       return { previous };

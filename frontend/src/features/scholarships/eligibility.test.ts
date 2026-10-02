@@ -12,8 +12,8 @@ const FULL_PROFILE: Profile = {
   interests: { intended_majors: ["Computer Science"] },
 };
 
-function scholarship(eligibility: EligibilityRule[], otherEligibility: string[] = []) {
-  return { eligibility, otherEligibility };
+function scholarship(eligibility: EligibilityRule[], other_eligibility: string[] = []) {
+  return { eligibility, other_eligibility };
 }
 
 describe("readProfileFacts", () => {
@@ -38,8 +38,8 @@ describe("evaluateCriteria", () => {
   it("never decides a rule the profile doesn't answer", () => {
     const results = evaluateCriteria(
       scholarship([
-        { kind: "citizenship", anyOf: ["us_citizen"] },
-        { kind: "state", anyOf: ["TX"] },
+        { kind: "citizenship", any_of: ["us_citizen"] },
+        { kind: "state", any_of: ["TX"] },
         { kind: "gpa_min", value: 3.0 },
         { kind: "first_gen" },
       ]),
@@ -52,9 +52,9 @@ describe("evaluateCriteria", () => {
   it("marks met and unmet only from stated facts", () => {
     const results = evaluateCriteria(
       scholarship([
-        { kind: "state", anyOf: ["TX"] },
+        { kind: "state", any_of: ["TX"] },
         { kind: "gpa_min", value: 3.5 },
-        { kind: "grade", anyOf: ["11"] },
+        { kind: "grade", any_of: ["11"] },
       ]),
       readProfileFacts(FULL_PROFILE),
     );
@@ -69,7 +69,7 @@ describe("evaluateCriteria", () => {
 
   it("does not rule a student out on a major that isn't listed", () => {
     const [result] = evaluateCriteria(
-      scholarship([{ kind: "major", anyOf: ["Engineering"] }]),
+      scholarship([{ kind: "major", any_of: ["Engineering"] }]),
       readProfileFacts(FULL_PROFILE),
     );
     expect(result.status).toBe("unknown");
@@ -77,7 +77,7 @@ describe("evaluateCriteria", () => {
 
   it("matches a major regardless of case", () => {
     const [result] = evaluateCriteria(
-      scholarship([{ kind: "major", anyOf: ["Computer science"] }]),
+      scholarship([{ kind: "major", any_of: ["Computer science"] }]),
       readProfileFacts(FULL_PROFILE),
     );
     expect(result.status).toBe("met");
@@ -99,21 +99,21 @@ describe("evaluateCriteria", () => {
 describe("summarizeFit", () => {
   it("fits only when every rule is met and nothing is free text", () => {
     const facts = readProfileFacts(FULL_PROFILE);
-    expect(summarizeFit(scholarship([{ kind: "state", anyOf: ["CA"] }]), facts).kind).toBe("fits");
-    expect(summarizeFit(scholarship([{ kind: "state", anyOf: ["CA"] }], ["Leadership"]), facts)).toEqual({
+    expect(summarizeFit(scholarship([{ kind: "state", any_of: ["CA"] }]), facts).kind).toBe("fits");
+    expect(summarizeFit(scholarship([{ kind: "state", any_of: ["CA"] }], ["Leadership"]), facts)).toEqual({
       kind: "check",
       count: 1,
     });
   });
 
   it("names the rule that rules the student out", () => {
-    const fit = summarizeFit(scholarship([{ kind: "state", anyOf: ["TX"] }]), readProfileFacts(FULL_PROFILE));
+    const fit = summarizeFit(scholarship([{ kind: "state", any_of: ["TX"] }]), readProfileFacts(FULL_PROFILE));
     expect(fit).toMatchObject({ kind: "ineligible", reason: "For Texas residents" });
   });
 
   it("stops ruling out on a fact the student chose to ignore", () => {
     const fit = summarizeFit(
-      scholarship([{ kind: "state", anyOf: ["TX"] }]),
+      scholarship([{ kind: "state", any_of: ["TX"] }]),
       readProfileFacts(FULL_PROFILE),
       new Set(["state"]),
     );

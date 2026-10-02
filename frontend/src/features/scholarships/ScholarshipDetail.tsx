@@ -9,7 +9,7 @@ import {
 import type { ReactNode } from "react";
 import { Link } from "react-router";
 
-import type { Scholarship } from "@/api/scholarships/types";
+import type { ScholarshipView } from "@/api/scholarships/types";
 import { Button } from "@/components/ui/button";
 import type { CriterionResult, Fit } from "@/features/scholarships/eligibility";
 import { StatusDot } from "@/features/scholarships/FitMark";
@@ -46,7 +46,7 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
-function DeadlineLine({ scholarship }: { scholarship: Scholarship }) {
+function DeadlineLine({ scholarship }: { scholarship: ScholarshipView }) {
   const { deadline } = scholarship;
   const tone = deadlineTone(deadline);
   let text: string;
@@ -55,11 +55,11 @@ function DeadlineLine({ scholarship }: { scholarship: Scholarship }) {
   } else if (tone === "rolling" || !deadline.date) {
     text = "Rolling deadline — apply anytime";
   } else if (tone === "closed") {
-    text = `Closed ${formatLongDate(deadline.date)}${deadline.recursAnnually ? " · usually reopens each year" : ""}`;
+    text = `Closed ${formatLongDate(deadline.date)}${deadline.recurs_annually ? " · usually reopens each year" : ""}`;
   } else {
     text = `Due ${formatLongDate(deadline.date)} · ${relativeDays(daysUntil(deadline.date))}`;
   }
-  const opens = isNotYetOpen(deadline) && deadline.opensOn;
+  const opens = isNotYetOpen(deadline) && deadline.opens_on;
   return (
     <div className="flex flex-col gap-1 text-sm">
       <div
@@ -124,13 +124,13 @@ function Criteria({ criteria, fit, linkProfile }: { criteria: CriterionResult[];
   );
 }
 
-function Submissions({ scholarship }: { scholarship: Scholarship }) {
+function Submissions({ scholarship }: { scholarship: ScholarshipView }) {
   const { requirements } = scholarship;
   const extras = [
     requirements.recommendations > 0 &&
       `${requirements.recommendations} recommendation letter${requirements.recommendations === 1 ? "" : "s"}`,
     requirements.transcript && "Transcript",
-    requirements.financialDocuments && "Financial documents",
+    requirements.financial_documents && "Financial documents",
     requirements.interview && "Interview if selected",
   ].filter(Boolean) as string[];
 
@@ -159,11 +159,11 @@ function Submissions({ scholarship }: { scholarship: Scholarship }) {
   );
 }
 
-function Facts({ scholarship }: { scholarship: Scholarship }) {
+function Facts({ scholarship }: { scholarship: ScholarshipView }) {
   const { award, basis, fields } = scholarship;
   const rows: [string, string][] = [
     ["Based on", basis.length === 0 ? "Not merit or need — a drawing or open contest" : basis.map((b) => (b === "merit" ? "Merit" : "Financial need")).join(" and ")],
-    ["Awards each cycle", award.awardsCount === null ? "Not published" : award.awardsCount.toLocaleString("en-US")],
+    ["Awards each cycle", award.awards_count === null ? "Not published" : award.awards_count.toLocaleString("en-US")],
     ["Field of study", fields.length === 0 ? "Any field" : fields.join(", ")],
   ];
   return (
@@ -178,28 +178,30 @@ function Facts({ scholarship }: { scholarship: Scholarship }) {
   );
 }
 
-function Freshness({ scholarship }: { scholarship: Scholarship }) {
+function Freshness({ scholarship }: { scholarship: ScholarshipView }) {
+  const days = daysSince(scholarship.last_checked_on);
   const stale = isStale(scholarship);
-  const checked = formatLongDate(scholarship.lastCheckedOn);
   return (
     <footer className="flex flex-col gap-2 border-t border-[var(--hairline)] px-5 py-4 text-xs text-[var(--ink-muted)]">
       {stale ? (
         <p className="flex gap-2 rounded-lg bg-[var(--warning-surface)] px-3 py-2 text-[var(--warning-fg)]">
           <TriangleAlert aria-hidden="true" className="mt-px size-3.5 shrink-0" />
           <span>
-            Last checked {daysSince(scholarship.lastCheckedOn)} days ago. Confirm the amount and deadline on the
-            sponsor's site before you apply.
+            {days === null ? "Never checked against the source." : `Last checked ${days} days ago.`} Confirm the
+            amount and deadline on the sponsor's site before you apply.
           </span>
         </p>
       ) : null}
       <p>
-        Checked against the sponsor's site on {checked}.
-        {scholarship.sourceUrl ? (
+        {scholarship.last_checked_on === null
+          ? "Never checked against the source."
+          : `Checked against the sponsor's site on ${formatLongDate(scholarship.last_checked_on)}.`}
+        {scholarship.source_url ? (
           <>
             {" "}
             <a
               className="inline-flex items-center gap-0.5 underline decoration-[var(--edge-strong)] underline-offset-2 hover:text-[var(--ink-secondary)]"
-              href={scholarship.sourceUrl}
+              href={scholarship.source_url}
               rel="noreferrer"
               target="_blank"
             >
@@ -213,15 +215,15 @@ function Freshness({ scholarship }: { scholarship: Scholarship }) {
   );
 }
 
-function ActionRow({ scholarship, actions }: { scholarship: Scholarship; actions: DetailActions }) {
+function ActionRow({ scholarship, actions }: { scholarship: ScholarshipView; actions: DetailActions }) {
   const closed = deadlineTone(scholarship.deadline) === "closed";
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-center gap-2">
         <Button
           className="min-w-0 flex-1 sm:flex-none"
-          disabled={!scholarship.applyUrl}
-          render={<a href={scholarship.applyUrl || undefined} rel="noreferrer" target="_blank" />}
+          disabled={!scholarship.apply_url}
+          render={<a href={scholarship.apply_url || undefined} rel="noreferrer" target="_blank" />}
           size="sm"
           variant={closed ? "outline" : "default"}
         >
@@ -273,7 +275,7 @@ export function ScholarshipDetail({
   linkProfile = true,
   className,
 }: {
-  scholarship: Scholarship;
+  scholarship: ScholarshipView;
   criteria: CriterionResult[];
   fit: Fit;
   /** Omitted in the admin preview, where the buttons would do nothing. */

@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-import type { Scholarship } from "@/api/scholarships/types";
+import type { ScholarshipView } from "@/api/scholarships/types";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { evaluateCriteria, summarizeFit } from "@/features/scholarships/eligibility";
 import { StatusDot } from "@/features/scholarships/FitMark";
@@ -45,7 +45,7 @@ export function PublishChecklist({ checks }: { checks: Check[] }) {
   );
 }
 
-export function EditorPreview({ record }: { record: Scholarship }) {
+export function EditorPreview({ record }: { record: ScholarshipView }) {
   const [profile, setProfile] = useState<PreviewProfile>("fits");
   const failing = factsThatFail(record.eligibility);
   const facts =

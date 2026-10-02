@@ -8,7 +8,7 @@ import {
   useScholarships,
   useToggleSavedScholarship,
 } from "@/api/scholarships/hooks";
-import type { EligibilityKind, Scholarship } from "@/api/scholarships/types";
+import type { EligibilityKind, ScholarshipPublic } from "@/api/scholarships/types";
 import { useCreateTask, useProfile } from "@/api/workspace/hooks";
 import {
   DropdownMenu,
@@ -36,7 +36,7 @@ import {
   writeFilters,
   type ScholarshipFilters,
   type ScholarshipSort,
-  type ScholarshipView,
+  type ScholarshipTab,
 } from "@/features/scholarships/scholarship-filters";
 import { ScholarshipList, ScholarshipListSkeleton } from "@/features/scholarships/ScholarshipList";
 import { ScholarshipFilterBar, ScholarshipSearchField } from "@/features/scholarships/ScholarshipsToolbar";
@@ -81,7 +81,7 @@ function SortMenu({ value, onChange }: { value: ScholarshipSort; onChange: (sort
   );
 }
 
-function useDetailActions(selected: Scholarship | null, savedIds: readonly string[]): DetailActions | undefined {
+function useDetailActions(selected: ScholarshipPublic | null, savedIds: readonly string[]): DetailActions | undefined {
   const navigate = useNavigate();
   const toggleSaved = useToggleSavedScholarship();
   const createTask = useCreateTask();
@@ -92,7 +92,7 @@ function useDetailActions(selected: Scholarship | null, savedIds: readonly strin
     isAddingToTasks: createTask.isPending,
     onAddToTasks: () =>
       createTask.mutate(
-        { title: `Apply for ${selected.name}`, deadline_on: selected.deadline.date, notes: selected.applyUrl || null },
+        { title: `Apply for ${selected.name}`, deadline_on: selected.deadline.date, notes: selected.apply_url || null },
         {
           onSuccess: () =>
             toast.success("Deadline added to Tasks", {
@@ -159,7 +159,7 @@ export function ScholarshipsRoute() {
 
   useScholarshipKeys({ ids: visibleIds, selectedId, onSelect: select, onToggleSave: (id) => toggleSaved.mutate(id) });
 
-  const setView = (view: ScholarshipView) => update({ ...filters, view });
+  const setView = (view: ScholarshipTab) => update({ ...filters, view });
   const toggleIgnored = (kind: EligibilityKind) =>
     update({
       ...filters,
@@ -223,7 +223,7 @@ export function ScholarshipsRoute() {
     <PageContainer title="Scholarships">
       <div className="flex flex-col gap-3">
         <div className="flex flex-wrap items-center gap-3">
-          <Tabs aria-label="Scholarship views" onValueChange={(value) => setView(value as ScholarshipView)} value={filters.view}>
+          <Tabs aria-label="Scholarship views" onValueChange={(value) => setView(value as ScholarshipTab)} value={filters.view}>
             <TabsList className="justify-start">
               <TabsTab className="grow-0 sm:h-7 sm:px-2.5 sm:text-xs" value="foryou">
                 For you

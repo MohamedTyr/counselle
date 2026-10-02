@@ -7,7 +7,7 @@ import type {
   Basis,
   Deadline,
   Requirements,
-  Scholarship,
+  AdminScholarship,
   ScholarshipDraft,
 } from "@/api/scholarships/types";
 import { Button } from "@/components/ui/button";
@@ -45,7 +45,7 @@ function CheckRow({ label, checked, onChange }: { label: string; checked: boolea
   );
 }
 
-function SimilarHint({ name, others }: { name: string; others: Scholarship[] }) {
+function SimilarHint({ name, others }: { name: string; others: AdminScholarship[] }) {
   const needle = name.trim().toLowerCase();
   if (needle.length < 4) return null;
   const match = others.find((item) => {
@@ -64,7 +64,7 @@ function SimilarHint({ name, others }: { name: string; others: Scholarship[] }) 
   );
 }
 
-function BasicsSection({ draft, set, others }: { draft: ScholarshipDraft; set: Patch; others: Scholarship[] }) {
+function BasicsSection({ draft, set, others }: { draft: ScholarshipDraft; set: Patch; others: AdminScholarship[] }) {
   return (
     <EditorSection id="ed-basics" title="Basics">
       <div className="grid gap-4 sm:grid-cols-2">
@@ -91,13 +91,13 @@ function BasicsSection({ draft, set, others }: { draft: ScholarshipDraft; set: P
           )}
         </Field>
         <Field className="sm:col-span-2" label="Apply link">
-          {(id) => <Input id={id} inputMode="url" onChange={(e) => set({ applyUrl: e.target.value })} placeholder="https://" value={draft.applyUrl} />}
+          {(id) => <Input id={id} inputMode="url" onChange={(e) => set({ apply_url: e.target.value })} placeholder="https://" value={draft.apply_url} />}
         </Field>
         <Field className="sm:col-span-2" hint="Leave empty to use the source site's icon. Initials show when there's neither." label="Logo">
           {(id) => (
             <div className="flex items-center gap-3">
               <SponsorLogo scholarship={draft} size="lg" />
-              <Input id={id} inputMode="url" onChange={(e) => set({ logoUrl: e.target.value })} placeholder="https:// — an image of the sponsor's logo" value={draft.logoUrl} />
+              <Input id={id} inputMode="url" onChange={(e) => set({ logo_url: e.target.value })} placeholder="https:// — an image of the sponsor's logo" value={draft.logo_url} />
             </div>
           )}
         </Field>
@@ -142,7 +142,7 @@ function AwardSection({ draft, set }: { draft: ScholarshipDraft; set: Patch }) {
           </>
         ) : null}
         <Field hint="Leave empty if not published" label="Awards each cycle">
-          {(id) => <NumberInput id={id} onChange={(awardsCount) => setAward({ awardsCount })} placeholder="Not published" value={award.awardsCount} />}
+          {(id) => <NumberInput id={id} onChange={(awards_count) => setAward({ awards_count })} placeholder="Not published" value={award.awards_count} />}
         </Field>
       </div>
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
@@ -203,10 +203,10 @@ function DatesSection({ draft, set }: { draft: ScholarshipDraft; set: Patch }) {
           </Field>
         ) : null}
         <Field hint="Optional" label="Opens">
-          {(id) => <Input id={id} onChange={(e) => setDeadline({ opensOn: e.target.value || null })} type="date" value={deadline.opensOn ?? ""} />}
+          {(id) => <Input id={id} onChange={(e) => setDeadline({ opens_on: e.target.value || null })} type="date" value={deadline.opens_on ?? ""} />}
         </Field>
       </div>
-      <CheckRow checked={deadline.recursAnnually} label="Comes back every year" onChange={(recursAnnually) => setDeadline({ recursAnnually })} />
+      <CheckRow checked={deadline.recurs_annually} label="Comes back every year" onChange={(recurs_annually) => setDeadline({ recurs_annually })} />
     </EditorSection>
   );
 }
@@ -258,7 +258,7 @@ function SubmitSection({ draft, set }: { draft: ScholarshipDraft; set: Patch }) 
           {(id) => <NumberInput id={id} onChange={(n) => setReq({ recommendations: Math.min(n ?? 0, 9) })} value={req.recommendations} />}
         </Field>
         <CheckRow checked={req.transcript} label="Transcript" onChange={(transcript) => setReq({ transcript })} />
-        <CheckRow checked={req.financialDocuments} label="Financial documents" onChange={(financialDocuments) => setReq({ financialDocuments })} />
+        <CheckRow checked={req.financial_documents} label="Financial documents" onChange={(financial_documents) => setReq({ financial_documents })} />
         <CheckRow checked={req.interview} label="Interview" onChange={(interview) => setReq({ interview })} />
       </div>
     </EditorSection>
@@ -266,18 +266,20 @@ function SubmitSection({ draft, set }: { draft: ScholarshipDraft; set: Patch }) 
 }
 
 function SourceSection({ draft, set }: { draft: ScholarshipDraft; set: Patch }) {
-  const age = daysSince(draft.lastCheckedOn);
+  const checked = draft.last_checked_on;
+  const age = daysSince(checked);
+  const hint = checked === null ? "Never checked" : age === 0 ? "Today" : `${formatLongDate(checked)} · ${age} days ago`;
   return (
     <EditorSection id="ed-source" title="Source">
       <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_auto]">
         <Field label="Source link">
-          {(id) => <Input id={id} inputMode="url" onChange={(e) => set({ sourceUrl: e.target.value })} placeholder="The page you checked these details on" value={draft.sourceUrl} />}
+          {(id) => <Input id={id} inputMode="url" onChange={(e) => set({ source_url: e.target.value })} placeholder="The page you checked these details on" value={draft.source_url} />}
         </Field>
-        <Field hint={age === 0 ? "Today" : `${formatLongDate(draft.lastCheckedOn)} · ${age} days ago`} label="Last checked">
+        <Field hint={hint} label="Last checked">
           {(id) => (
             <div className="flex items-center gap-2">
-              <Input className="w-40" id={id} onChange={(e) => e.target.value && set({ lastCheckedOn: e.target.value })} type="date" value={draft.lastCheckedOn} />
-              <Button disabled={age === 0} onClick={() => set({ lastCheckedOn: todayIso() })} size="sm" variant="outline">
+              <Input className="w-40" id={id} onChange={(e) => set({ last_checked_on: e.target.value || null })} type="date" value={checked ?? ""} />
+              <Button disabled={checked === todayIso()} onClick={() => set({ last_checked_on: todayIso() })} size="sm" variant="outline">
                 Checked today
               </Button>
             </div>
@@ -288,7 +290,7 @@ function SourceSection({ draft, set }: { draft: ScholarshipDraft; set: Patch }) 
   );
 }
 
-export function EditorForm({ draft, set, others }: { draft: ScholarshipDraft; set: Patch; others: Scholarship[] }) {
+export function EditorForm({ draft, set, others }: { draft: ScholarshipDraft; set: Patch; others: AdminScholarship[] }) {
   return (
     <div className="flex flex-col rounded-xl border border-[var(--edge)] bg-[var(--surface-raised)] shadow-[var(--elevation-1)]">
       <BasicsSection draft={draft} others={others} set={set} />
@@ -296,9 +298,9 @@ export function EditorForm({ draft, set, others }: { draft: ScholarshipDraft; se
       <DatesSection draft={draft} set={set} />
       <EditorSection id="ed-who" title="Who can apply">
         <EligibilityEditor
-          onOtherChange={(otherEligibility) => set({ otherEligibility })}
+          onOtherChange={(other_eligibility) => set({ other_eligibility })}
           onRulesChange={(eligibility) => set({ eligibility })}
-          other={draft.otherEligibility}
+          other={draft.other_eligibility}
           rules={draft.eligibility}
         />
         <Field label="Fields of study" hint="Leave empty for any field. Used for the Field filter.">

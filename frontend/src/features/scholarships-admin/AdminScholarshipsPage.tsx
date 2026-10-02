@@ -7,7 +7,7 @@ import {
   useAdminScholarships,
   useSetScholarshipStatus,
 } from "@/api/scholarships/hooks";
-import type { Scholarship, ScholarshipStatus } from "@/api/scholarships/types";
+import type { AdminScholarship, ScholarshipStatus } from "@/api/scholarships/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -53,19 +53,20 @@ type StatusFilter = "all" | ScholarshipStatus;
 const EDITOR_PATH = "/app/admin/scholarships";
 
 /** What an admin should act on, in words. Archived records need nothing. */
-function issuesFor(item: Scholarship): string[] {
+function issuesFor(item: AdminScholarship): string[] {
   if (item.status === "archived") return [];
   const issues: string[] = [];
   if (deadlineTone(item.deadline) === "closed") {
     issues.push(
-      item.deadline.recursAnnually
+      item.deadline.recurs_annually
         ? "Needs next cycle's deadline"
         : "Deadline passed",
     );
   }
-  if (isStale(item))
-    issues.push(`Not checked in ${daysSince(item.lastCheckedOn)} days`);
-  if (item.status === "draft" && (!item.applyUrl || !item.summary))
+  if (item.last_checked_on === null) issues.push("Never checked");
+  else if (isStale(item))
+    issues.push(`Not checked in ${daysSince(item.last_checked_on)} days`);
+  if (item.status === "draft" && (!item.apply_url || !item.summary))
     issues.push("Draft is incomplete");
   return issues;
 }
@@ -78,7 +79,7 @@ function relativeUpdated(iso: string): string {
   return formatShortDate(iso.slice(0, 10));
 }
 
-function DeadlineCell({ item }: { item: Scholarship }) {
+function DeadlineCell({ item }: { item: AdminScholarship }) {
   if (item.deadline.kind === "rolling")
     return <span className="text-[var(--ink-secondary)]">Rolling</span>;
   if (!item.deadline.date)
@@ -102,7 +103,7 @@ function RowMenu({
   onArchive,
   onStatus,
 }: {
-  item: Scholarship;
+  item: AdminScholarship;
   onArchive: () => void;
   onStatus: (status: ScholarshipStatus) => void;
 }) {
@@ -146,7 +147,7 @@ function RowMenu({
 function useArchiveWithUndo() {
   const setStatus = useSetScholarshipStatus();
   const previous = useRef(new Map<string, ScholarshipStatus>());
-  const undoable = useUndoableDelete<Scholarship>({
+  const undoable = useUndoableDelete<AdminScholarship>({
     getLabel: (item) => item.name,
     archiveMutation: {
       mutate: (id, options) =>
@@ -160,7 +161,7 @@ function useArchiveWithUndo() {
   });
   return {
     ...undoable,
-    archive: (item: Scholarship) => {
+    archive: (item: AdminScholarship) => {
       previous.current.set(item.id, item.status);
       undoable.archive(item);
     },
@@ -203,7 +204,7 @@ export function AdminScholarshipsPage() {
         item.sponsor.toLowerCase().includes(needle)
       );
     })
-    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+    .sort((a, b) => b.updated_at.localeCompare(a.updated_at));
 
   return (
     <PageContainer
@@ -357,14 +358,14 @@ export function AdminScholarshipsPage() {
                       </div>
                     </TableCell>
                     <TableCell className="hidden text-[var(--ink-secondary)] tabular-nums lg:table-cell">
-                      {formatShortDate(item.lastCheckedOn)}
+                      {item.last_checked_on === null ? "Never checked" : formatShortDate(item.last_checked_on)}
                     </TableCell>
                     <TableCell className="hidden lg:table-cell">
                       <span className="block text-[var(--ink-secondary)]">
-                        {relativeUpdated(item.updatedAt)}
+                        {relativeUpdated(item.updated_at)}
                       </span>
                       <span className="block text-xs text-[var(--ink-muted)]">
-                        {item.updatedBy}
+                        {item.updated_by_email}
                       </span>
                     </TableCell>
                     <TableCell className="pe-3 text-right">

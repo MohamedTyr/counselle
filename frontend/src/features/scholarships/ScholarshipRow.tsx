@@ -1,7 +1,7 @@
 import { Star } from "lucide-react";
 import type { CSSProperties } from "react";
 
-import type { Scholarship } from "@/api/scholarships/types";
+import type { ScholarshipPublic } from "@/api/scholarships/types";
 import type { Fit } from "@/features/scholarships/eligibility";
 import { FitMark } from "@/features/scholarships/FitMark";
 import {
@@ -17,7 +17,7 @@ import {
 import { SponsorLogo } from "@/features/scholarships/SponsorLogo";
 import { cn } from "@/lib/utils";
 
-function DeadlineCell({ scholarship }: { scholarship: Scholarship }) {
+function DeadlineCell({ scholarship }: { scholarship: ScholarshipPublic }) {
   const { deadline } = scholarship;
   const tone = deadlineTone(deadline);
   if (tone === "rolling" || !deadline.date) {
@@ -29,7 +29,7 @@ function DeadlineCell({ scholarship }: { scholarship: Scholarship }) {
     );
   }
   const days = daysUntil(deadline.date);
-  const opens = isNotYetOpen(deadline) && deadline.opensOn;
+  const opens = isNotYetOpen(deadline) && deadline.opens_on;
   return (
     <div className="text-right">
       <div className="text-sm tabular-nums text-[var(--ink)]">
@@ -61,7 +61,7 @@ export function ScholarshipRow({
   onSelect,
   enterDelayMs,
 }: {
-  scholarship: Scholarship;
+  scholarship: ScholarshipPublic;
   fit: Fit;
   isSelected: boolean;
   isSaved: boolean;

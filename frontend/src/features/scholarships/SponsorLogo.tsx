@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-import type { Scholarship } from "@/api/scholarships/types";
+import type { ScholarshipView } from "@/api/scholarships/types";
 import { cn } from "@/lib/utils";
 
 /*
@@ -37,9 +37,9 @@ function initials(name: string): string {
   return words.length ? words.slice(0, 2).map((word) => word[0]).join("").toUpperCase() : "?";
 }
 
-function logoSource(scholarship: Pick<Scholarship, "logoUrl" | "sourceUrl" | "applyUrl">): string | null {
-  if (scholarship.logoUrl.trim()) return scholarship.logoUrl.trim();
-  return faviconFor(scholarship.sourceUrl) ?? faviconFor(scholarship.applyUrl);
+function logoSource(scholarship: Pick<ScholarshipView, "logo_url" | "source_url" | "apply_url">): string | null {
+  if (scholarship.logo_url.trim()) return scholarship.logo_url.trim();
+  return faviconFor(scholarship.source_url) ?? faviconFor(scholarship.apply_url);
 }
 
 export function SponsorLogo({
@@ -47,7 +47,7 @@ export function SponsorLogo({
   size = "md",
   className,
 }: {
-  scholarship: Pick<Scholarship, "logoUrl" | "sourceUrl" | "applyUrl" | "sponsor" | "name">;
+  scholarship: Pick<ScholarshipView, "logo_url" | "source_url" | "apply_url" | "sponsor" | "name">;
   size?: keyof typeof SIZE_CLASS;
   className?: string;
 }) {

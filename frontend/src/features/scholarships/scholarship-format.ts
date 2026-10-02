@@ -1,4 +1,4 @@
-import type { Award, Deadline, Requirements, Scholarship } from "@/api/scholarships/types";
+import type { Award, Deadline, Requirements, ScholarshipView } from "@/api/scholarships/types";
 
 const MS_PER_DAY = 86_400_000;
 /** A deadline this close reads as due soon. */
@@ -103,7 +103,7 @@ export function isClosed(deadline: Deadline): boolean {
 }
 
 export function isNotYetOpen(deadline: Deadline): boolean {
-  return deadline.opensOn !== null && daysUntil(deadline.opensOn) > 0;
+  return deadline.opens_on !== null && daysUntil(deadline.opens_on) > 0;
 }
 
 const shortDate = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" });
@@ -145,12 +145,17 @@ export function deadlineSortValue(deadline: Deadline): number {
   return parseIsoDate(deadline.date).getTime();
 }
 
-export function daysSince(iso: string): number {
-  return -daysUntil(iso.slice(0, 10));
+/** Whole days since `iso`; null for a record never checked. */
+export function daysSince(iso: string): number;
+export function daysSince(iso: string | null): number | null;
+export function daysSince(iso: string | null): number | null {
+  return iso === null ? null : -daysUntil(iso.slice(0, 10));
 }
 
-export function isStale(scholarship: Pick<Scholarship, "lastCheckedOn">): boolean {
-  return daysSince(scholarship.lastCheckedOn) > STALE_AFTER_DAYS;
+/** Never checked, or checked more than `STALE_AFTER_DAYS` ago. */
+export function isStale(scholarship: Pick<ScholarshipView, "last_checked_on">): boolean {
+  const days = daysSince(scholarship.last_checked_on);
+  return days === null || days > STALE_AFTER_DAYS;
 }
 
 export function hasEssay(requirements: Requirements): boolean {
@@ -165,7 +170,7 @@ export function requirementsSummary(requirements: Requirements): string[] {
   const recs = requirements.recommendations;
   if (recs > 0) parts.push(recs === 1 ? "1 recommendation" : `${recs} recommendations`);
   if (requirements.transcript) parts.push("Transcript");
-  if (requirements.financialDocuments) parts.push("Financial documents");
+  if (requirements.financial_documents) parts.push("Financial documents");
   if (requirements.interview) parts.push("Interview");
   return parts;
 }

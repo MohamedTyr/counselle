@@ -1,4 +1,4 @@
-import type { EligibilityKind, Scholarship } from "@/api/scholarships/types";
+import type { EligibilityKind, ScholarshipPublic } from "@/api/scholarships/types";
 import { summarizeFit, type Fit, type ProfileFacts } from "@/features/scholarships/eligibility";
 import {
   awardSortValue,
@@ -8,13 +8,13 @@ import {
   isClosed,
 } from "@/features/scholarships/scholarship-format";
 
-export type ScholarshipView = "foryou" | "all" | "saved";
+export type ScholarshipTab = "foryou" | "all" | "saved";
 export type ScholarshipSort = "deadline" | "amount" | "newest";
 export type DeadlineWindow = "any" | "30" | "90" | "rolling";
 export type BasisFilter = "any" | "merit" | "need";
 
 export type ScholarshipFilters = {
-  view: ScholarshipView;
+  view: ScholarshipTab;
   q: string;
   sort: ScholarshipSort;
   minAmount: number | null;
@@ -120,7 +120,7 @@ export function clearAllFilters(filters: ScholarshipFilters): ScholarshipFilters
   return { ...DEFAULTS, view: filters.view, sort: filters.sort, ignored: filters.ignored };
 }
 
-function matchesFilter(item: Scholarship, filters: ScholarshipFilters, key: FilterKey): boolean {
+function matchesFilter(item: ScholarshipPublic, filters: ScholarshipFilters, key: FilterKey): boolean {
   switch (key) {
     case "minAmount": {
       const award = item.award;
@@ -144,7 +144,7 @@ function matchesFilter(item: Scholarship, filters: ScholarshipFilters, key: Filt
   }
 }
 
-function matchesQuery(item: Scholarship, q: string): boolean {
+function matchesQuery(item: ScholarshipPublic, q: string): boolean {
   const needle = q.trim().toLowerCase();
   if (!needle) return true;
   return [item.name, item.sponsor, item.summary, ...item.fields].some((text) =>
@@ -152,7 +152,7 @@ function matchesQuery(item: Scholarship, q: string): boolean {
   );
 }
 
-export type Listed = { item: Scholarship; fit: Fit };
+export type Listed = { item: ScholarshipPublic; fit: Fit };
 
 export type FilterResult = {
   open: Listed[];
@@ -175,13 +175,13 @@ function passes(listed: Listed, filters: ScholarshipFilters, ctx: Context, skip?
 function compare(sort: ScholarshipSort) {
   return (a: Listed, b: Listed) => {
     if (sort === "amount") return awardSortValue(b.item.award) - awardSortValue(a.item.award);
-    if (sort === "newest") return b.item.createdAt.localeCompare(a.item.createdAt);
+    if (sort === "newest") return b.item.created_at.localeCompare(a.item.created_at);
     return deadlineSortValue(a.item.deadline) - deadlineSortValue(b.item.deadline);
   };
 }
 
 export function applyFilters(
-  items: Scholarship[],
+  items: ScholarshipPublic[],
   filters: ScholarshipFilters,
   ctx: Context,
 ): FilterResult {
@@ -210,6 +210,6 @@ export function applyFilters(
   };
 }
 
-export function fieldOptions(items: Scholarship[]): string[] {
+export function fieldOptions(items: ScholarshipPublic[]): string[] {
   return [...new Set(items.flatMap((item) => item.fields))].sort();
 }
