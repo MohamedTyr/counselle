@@ -1,9 +1,16 @@
-import type { ApplicationView } from "@/api/workspace/types";
+import type {
+  ApplicationSupplements,
+  ApplicationView,
+} from "@/api/workspace/types";
 import type { Essay } from "@/domain/essay";
 import type { EssayActions } from "@/features/essays/EssayActionsMenu";
 import type { EssaysBySchool as Groups } from "@/features/essays/essays-by-school";
 import { PersonalStatementLintel } from "@/features/essays/PersonalStatementLintel";
 import { SchoolEssayColumn } from "@/features/essays/SchoolEssayColumn";
+import {
+  SupplementColumnRows,
+  SupplementSourceNote,
+} from "@/features/essays/SupplementColumnRows";
 import { formatDeadlineDate } from "@/features/schools/explore/explore-format";
 import { schoolColour } from "@/features/schools/explore/school-colours";
 import { SchoolAvatar } from "@/features/schools/school-cells";
@@ -23,6 +30,7 @@ export function EssaysBySchool({
   isFiltering,
   onAddEssay,
   onStartPersonalStatement,
+  supplements,
   visible,
 }: {
   actions: EssayActions;
@@ -30,6 +38,9 @@ export function EssaysBySchool({
   isFiltering: boolean;
   onAddEssay: (applicationId: string) => void;
   onStartPersonalStatement: () => void;
+  /* Each listed school's prompts, by application id. Hidden while filtering:
+   * a filter narrows essays, and prompts not yet started are not essays. */
+  supplements: Map<string, ApplicationSupplements>;
   visible: Set<string>;
 }) {
   const only = (essays: Essay[]) =>
@@ -73,6 +84,16 @@ export function EssaysBySchool({
             }
             name={application.school_name}
             onAdd={isFiltering ? undefined : () => onAddEssay(application.id)}
+            supplements={
+              isFiltering ? null : (
+                <SupplementColumnRows supplements={supplements.get(application.id)} />
+              )
+            }
+            footnote={
+              isFiltering ? null : (
+                <SupplementSourceNote supplements={supplements.get(application.id)} />
+              )
+            }
           />
         ))}
         {unlinked.length > 0 ? (

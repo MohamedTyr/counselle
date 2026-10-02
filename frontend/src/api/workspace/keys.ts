@@ -16,6 +16,9 @@ export const workspaceKeys = {
     detail: (id: string) =>
       [...workspaceKeys.essays.all(), "detail", id] as const,
   },
+  supplements: {
+    all: () => [...workspaceKeys.all, "supplements"] as const,
+  },
   activities: {
     all: () => [...workspaceKeys.all, "activities"] as const,
     list: () => [...workspaceKeys.activities.all(), "list"] as const,

@@ -4,8 +4,12 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { toast } from "sonner";
 
-import { useCreateEssay } from "@/api/workspace/hooks";
-import type { ApplicationDetail, EssaySummary } from "@/api/workspace/types";
+import { useCreateEssay, useSupplements } from "@/api/workspace/hooks";
+import type {
+  ApplicationDetail,
+  ApplicationSupplements,
+  EssaySummary,
+} from "@/api/workspace/types";
 import { Button } from "@/components/ui/button";
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -26,6 +30,7 @@ import {
   isWordLimitInvalid,
   parseWordLimit,
 } from "@/features/essays/EssayPromptComposer";
+import { SchoolSupplementList } from "@/features/schools/SchoolSupplementList";
 import { cycleLabel } from "@/features/schools/school-workspace-format";
 
 /** Rule 34: an absent prompt renders as words, never a blank word count. */
@@ -230,6 +235,8 @@ interface EssaysListProps {
   onCopyRequest: () => void;
   schoolEssays: EssaySummary[];
   schoolName: string;
+  /* Listed prompts, or "none"; an unlisted school keeps the plain essay list. */
+  supplements: ApplicationSupplements | undefined;
 }
 
 /**
@@ -249,6 +256,7 @@ function EssaysList({
   onCopyRequest,
   schoolEssays,
   schoolName,
+  supplements,
 }: EssaysListProps) {
   // Mirrors whether CollapsibleContent is actually present in the DOM
   // (mounted while open, and for the duration of its exit animation while
@@ -289,7 +297,11 @@ function EssaysList({
           schoolName={schoolName}
         />
       </CollapsibleContent>
-      {schoolEssays.length === 0 && !composerOpen && !composerMounted ? (
+      {supplements && supplements.status !== "unlisted" ? (
+        <div className="pt-5 first:pt-0">
+          <SchoolSupplementList essays={schoolEssays} supplements={supplements} />
+        </div>
+      ) : schoolEssays.length === 0 && !composerOpen && !composerMounted ? (
         <EssaysEmptyState onAddEssay={onAddEssay} onCopyRequest={onCopyRequest} />
       ) : (
         schoolEssays.map((essay) => <EssayRow essay={essay} key={essay.id} />)
@@ -324,6 +336,9 @@ function handleComposerEscape(
 
 export function SchoolEssaysSection({ detail }: { detail: ApplicationDetail }) {
   const [composerOpen, setComposerOpen] = useState(false);
+  const supplements = useSupplements().data?.find(
+    (item) => item.application_id === detail.application.id,
+  );
   const addEssayButtonRef = useRef<HTMLButtonElement>(null);
   const schoolEssays = detail.essays.filter(
     (essay) => essay.essay_type !== "Personal statement",
@@ -364,6 +379,7 @@ export function SchoolEssaysSection({ detail }: { detail: ApplicationDetail }) {
               onCopyRequest={() => void copySuggestedRequest(suggestedRequest)}
               schoolEssays={schoolEssays}
               schoolName={detail.application.school_name}
+              supplements={supplements}
             />
           </CardContent>
         </Card>

@@ -9,6 +9,7 @@ import {
   useDuplicateEssay,
   useEssays,
   useRestoreEssay,
+  useSupplements,
   useUpdateEssay,
 } from "@/api/workspace/hooks";
 import type { ApplicationView, EssayType } from "@/api/workspace/types";
@@ -84,6 +85,14 @@ function listOrEmpty<TItem>(value: TItem[] | undefined): TItem[] {
 export function EssaysPage({ onOpenEssay }: EssaysPageProps = {}) {
   const essaysQuery = useEssays();
   const applicationsQuery = useApplications();
+  const supplementsQuery = useSupplements();
+  const supplementsByApplication = useMemo(
+    () =>
+      new Map(
+        (supplementsQuery.data ?? []).map((item) => [item.application_id, item]),
+      ),
+    [supplementsQuery.data],
+  );
   const createEssayMutation = useCreateEssay();
   const duplicateEssayMutation = useDuplicateEssay();
   const updateEssayMutation = useUpdateEssay();
@@ -308,6 +317,7 @@ export function EssaysPage({ onOpenEssay }: EssaysPageProps = {}) {
                 onStartPersonalStatement={() =>
                   openCreateDialog("Personal statement")
                 }
+                supplements={supplementsByApplication}
                 visible={visibleIds}
               />
             ) : (

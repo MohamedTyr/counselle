@@ -20,6 +20,6 @@ Choices — only when the student picks which of several prompts to answer:
 Fields:
 - `requirement`: `optional` when the block says the prompt — or the whole choice, or the whole section — is optional; otherwise `required`. Prompts in one choice share one requirement.
 - `word_limit`: the maximum in words the block states for that prompt, or explicitly for every prompt in the section; "approximately 250 words" is 250 and a range is its maximum. Never carry a limit stated for one question onto another, never convert a character limit, never guess; otherwise null.
-- `applies_to`: who answers the prompt when not every first-year applicant to this university — the program ("Honors College applicants", "College of Engineering applicants") or the condition ("Applicants who have had a gap in their education"). Otherwise null.
+- `applies_to`: who answers the prompt when not every first-year applicant to this university — the program ("Honors College applicants", "College of Engineering applicants") or the condition ("Applicants who have had a gap in their education"). Otherwise null. Which application platform the student uses (Common App, Coalition, the school's own application) is not a condition: leave it null.
 
 Return an empty `prompts` list when the block contains no prompt.

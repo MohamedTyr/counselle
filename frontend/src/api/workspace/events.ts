@@ -58,6 +58,9 @@ export function useWorkspaceEvents(
       switch (change.data.object_type) {
         case "application":
           void queryClient.invalidateQueries({
+            queryKey: workspaceKeys.supplements.all(),
+          });
+          void queryClient.invalidateQueries({
             queryKey: workspaceKeys.applications.list(),
           });
           void queryClient.invalidateQueries({
@@ -76,6 +79,9 @@ export function useWorkspaceEvents(
           });
           break;
         case "essay":
+          void queryClient.invalidateQueries({
+            queryKey: workspaceKeys.supplements.all(),
+          });
           void queryClient.invalidateQueries({
             queryKey: workspaceKeys.essays.list(),
           });

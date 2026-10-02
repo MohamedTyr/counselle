@@ -220,6 +220,10 @@ export type EssaySummary = {
   created_at: string;
   updated_at: string;
   archived_at: string | null;
+  supplement_key?: string | null;
+  prompt_previous?: string | null;
+  prompt_updated_at?: string | null;
+  prompt_removed_at?: string | null;
 };
 
 export type TiptapContent = Record<string, unknown>;
@@ -605,4 +609,29 @@ export type Memory = {
   created_at: string;
   updated_at: string;
   archived_at: string | null;
+};
+
+/* A school's supplemental prompts for the current cycle (GET /supplements).
+ * `status` "unlisted" means no data, which is never the same as "none". */
+export type SupplementPrompt = {
+  key: string;
+  prompt: string;
+  context: string | null;
+  word_limit: number | null;
+  requirement: "required" | "optional";
+  group_label: string | null;
+  choose_count: number | null;
+  applies_to: string | null;
+  essay_id: string | null;
+};
+
+export type ApplicationSupplements = {
+  application_id: string;
+  school_unitid: number;
+  cycle: string;
+  status: "prompts" | "none" | "unlisted";
+  checked: "unchecked" | "common_app" | "official_site" | null;
+  checked_on: string | null;
+  changed_at: string | null;
+  prompts: SupplementPrompt[];
 };

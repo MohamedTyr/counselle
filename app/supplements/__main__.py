@@ -36,7 +36,12 @@ async def _sync(force: bool) -> int:
     settings = get_settings()
     pool = await create_pool(dsn=settings.db_app_dsn, settings=settings)
     try:
-        _print_report(await run_sync(pool, settings, force=force))
+        report = await run_sync(pool, settings, force=force)
+        _print_report(report)
+        from app.workspace.service_supplements import apply_catalog_changes
+
+        touched = await apply_catalog_changes(pool, report.changed_unitids)
+        print(f"essays updated or created: {touched}")
     finally:
         await pool.close()
     return 0

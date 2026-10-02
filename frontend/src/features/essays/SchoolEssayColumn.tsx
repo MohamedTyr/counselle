@@ -9,6 +9,7 @@ import {
   type EssayActions,
 } from "@/features/essays/EssayActionsMenu";
 import { EssayWordProgress } from "@/features/essays/EssayWordProgress";
+import { PromptChangeNotice } from "@/features/essays/PromptChangeNotice";
 import { isEssayDone } from "@/features/essays/essays-by-school";
 import type { SchoolColour } from "@/features/schools/explore/school-colours";
 import { essayStatusVariant } from "@/lib/essay-display";
@@ -48,6 +49,14 @@ function EssayRow({ essay, ...actions }: EssayActions & { essay: Essay }) {
           {...actions}
         />
       </span>
+      {essay.promptChange ? (
+        <PromptChangeNotice
+          change={essay.promptChange}
+          className="col-span-2"
+          essayId={essay.id}
+          prompt={essay.prompt}
+        />
+      ) : null}
       <EssayWordProgress className="col-span-2" essay={essay} />
     </li>
   );
@@ -64,6 +73,8 @@ export function SchoolEssayColumn({
   mark,
   name,
   onAdd,
+  supplements,
+  footnote,
 }: {
   actions: EssayActions;
   addLabel?: string;
@@ -77,6 +88,10 @@ export function SchoolEssayColumn({
   mark: ReactNode;
   name: ReactNode;
   onAdd?: () => void;
+  /* The school's supplement choices and prompts, under its essays. */
+  supplements?: ReactNode;
+  /* A last line under everything, e.g. where the prompts came from. */
+  footnote?: ReactNode;
 }) {
   const headingId = useId();
   const done = countEssays.filter(isEssayDone).length;
@@ -123,6 +138,8 @@ export function SchoolEssayColumn({
         </ul>
       ) : null}
 
+      {supplements}
+
       {onAdd ? (
         <button
           aria-label={addLabel}
@@ -135,6 +152,8 @@ export function SchoolEssayColumn({
           Add an essay
         </button>
       ) : null}
+
+      {footnote}
     </section>
   );
 }

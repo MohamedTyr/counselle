@@ -95,7 +95,12 @@ describe("workspace events", () => {
     expect(invalidate).toHaveBeenCalledWith({
       queryKey: workspaceKeys.essays.detail("essay-id"),
     });
-    expect(invalidate).toHaveBeenCalledTimes(5);
+    // An essay change can start or drop a school's supplement, so the
+    // prompt list refreshes too.
+    expect(invalidate).toHaveBeenCalledWith({
+      queryKey: workspaceKeys.supplements.all(),
+    });
+    expect(invalidate).toHaveBeenCalledTimes(6);
     expect(
       invalidate.mock.calls.filter(
         ([filters]) =>

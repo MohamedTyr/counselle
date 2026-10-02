@@ -15,6 +15,12 @@ export type EssayStatus =
 export type EssayType =
   "Personal statement" | "Supplement" | "Scholarship" | "Optional";
 
+/* A catalog prompt change the student has not seen yet: the school reworded
+ * the prompt (old wording kept for comparison) or stopped asking it. */
+export type PromptChange =
+  | { kind: "updated"; previous: string | null; at: string }
+  | { kind: "removed"; at: string };
+
 export type Essay = {
   applicationId: string | null;
   cycleYear: number | null;
@@ -24,6 +30,8 @@ export type Essay = {
   id: string;
   preview: string;
   prompt: string | null;
+  promptChange: PromptChange | null;
+  supplementKey: string | null;
   schoolLocation: string;
   schoolName: string;
   schoolWebsiteUrl: string | null;
@@ -125,6 +133,20 @@ function formatSchoolLocation(city: string | null, state: string | null) {
   return [city, state].filter(Boolean).join(", ");
 }
 
+export function promptChangeFromSummary(summary: EssaySummary): PromptChange | null {
+  const removedAt = textOrNull(summary.prompt_removed_at);
+  if (removedAt) return { kind: "removed", at: removedAt };
+  const updatedAt = textOrNull(summary.prompt_updated_at);
+  if (updatedAt) {
+    return {
+      kind: "updated",
+      previous: textOrNull(summary.prompt_previous),
+      at: updatedAt,
+    };
+  }
+  return null;
+}
+
 export function essayFromSummary(summary: EssaySummary): Essay {
   const applicationId = textOrNull(summary.application_id);
   const type = isEssayType(summary.essay_type)
@@ -160,6 +182,8 @@ export function essayFromSummary(summary: EssaySummary): Essay {
     id: textOrEmpty(summary.id),
     preview: textOrEmpty(summary.preview),
     prompt: textOrNull(summary.prompt),
+    promptChange: promptChangeFromSummary(summary),
+    supplementKey: textOrNull(summary.supplement_key),
     schoolLocation,
     schoolName,
     schoolWebsiteUrl: textOrNull(summary.school_website_url),

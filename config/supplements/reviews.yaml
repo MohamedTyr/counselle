@@ -76,3 +76,15 @@ schools:
     # The block lists the School of Health prompt twice; one copy has a typo.
     corrections:
       - {match: "develivery", drop: true}
+  Yale University:
+    checked: unchecked
+    block_sha256: 697aeb5fc631
+    # "Common Application and Coalition Application applicants" is the platform
+    # nearly every applicant uses, not a subset; these are owed by everyone.
+    corrections:
+      - {match: "teach any college course", applies_to: null}
+      - {match: "grow or develop during college", applies_to: null}
+      - {match: "not included anywhere else", applies_to: null}
+      - {match: "discussed an issue important", applies_to: null}
+      - {match: "membership in a community", applies_to: null}
+      - {match: "element of your personal experience", applies_to: null}
