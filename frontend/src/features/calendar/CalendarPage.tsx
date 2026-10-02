@@ -35,7 +35,8 @@ import {
 import { CalendarRail } from "@/features/calendar/CalendarRail";
 import { CompactMonthView } from "@/features/calendar/CompactMonthView";
 import { DayPanel } from "@/features/calendar/DayPanel";
-import { MonthView, type FocusRequest } from "@/features/calendar/MonthView";
+import { focusDayCell } from "@/features/calendar/calendar-grid-keys";
+import { MonthView } from "@/features/calendar/MonthView";
 import { ScheduleView } from "@/features/calendar/ScheduleView";
 import { useAddToList } from "@/features/calendar/useAddToList";
 import { useCalendarKeymap } from "@/features/calendar/useCalendarKeymap";
@@ -163,7 +164,10 @@ export function CalendarPage() {
   const today = getNowDate();
   const todayKey = getDateKey(today);
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
-  const [focusRequest, setFocusRequest] = useState<FocusRequest>(null);
+  // The day a keyboard move asked to focus; cleared once its cell exists, so
+  // a move that pages the range lands after the new range renders.
+  const pendingDayFocus = useRef<string | null>(null);
+  const [focusSeq, setFocusSeq] = useState(0);
   const [overlay, setOverlay] = useState<CalendarOverlay>(null);
   const [goToOpen, setGoToOpen] = useState(false);
   const dragRef = useRef<DragPayload | null>(null);
@@ -179,6 +183,11 @@ export function CalendarPage() {
   // Week needs seven readable columns; where the month is compact, so is Week.
   const view: CalendarView =
     isCompact && calendar.view === "week" ? "month" : calendar.view;
+  // A selection paged off screen no longer decides where `c` or `a` lands.
+  const selectedInRange =
+    selectedKey && isInRange(parseDateOnly(selectedKey), calendar.anchor, view)
+      ? selectedKey
+      : null;
 
   const { actions, undo, undoToastProps } = useTaskRowActions({
     onAfterDelete: (taskId) => {
@@ -192,14 +201,22 @@ export function CalendarPage() {
   const { addToList } = useAddToList(deadlinesQuery.data?.cycle_year);
 
   // A chip moved from the keyboard keeps focus once it lands on its new day.
+  // A task's `due:` chip moved onto its own when day merges into the `task:`
+  // chip, so the match falls back to any chip ending in the same task id.
   useEffect(() => {
     const pending = pendingChipFocus.current;
     if (!pending) {
       return;
     }
-    const chip = document.querySelector<HTMLElement>(
-      `[data-day-key="${pending.day}"] [data-chip-key="${pending.key}"]`,
-    );
+    const day = `[data-day-key="${pending.day}"]`;
+    const taskId = pending.key.split(":").at(-1);
+    const chip =
+      document.querySelector<HTMLElement>(
+        `${day} [data-chip-key="${pending.key}"]`,
+      ) ??
+      document.querySelector<HTMLElement>(
+        `${day} [data-chip-key^="task:"][data-chip-key$=":${taskId}"]`,
+      );
     const target = chip?.matches("[data-calendar-focus]")
       ? chip
       : chip?.querySelector<HTMLElement>("[data-calendar-focus]");
@@ -209,13 +226,21 @@ export function CalendarPage() {
     }
   }, [itemsByDay]);
 
+  useEffect(() => {
+    const pending = pendingDayFocus.current;
+    if (pending && focusDayCell(pending)) {
+      pendingDayFocus.current = null;
+    }
+  }, [focusSeq, calendar.anchorKey, view]);
+
   function moveToDay(day: Date) {
     const key = getDateKey(day);
     if (!isInRange(day, calendar.anchor, view)) {
       calendar.goTo(day, "keyboard");
     }
     setSelectedKey(key);
-    setFocusRequest((current) => ({ key, seq: (current?.seq ?? 0) + 1 }));
+    pendingDayFocus.current = key;
+    setFocusSeq((seq) => seq + 1);
   }
 
   function selectFromPointer(day: Date) {
@@ -256,7 +281,7 @@ export function CalendarPage() {
   }
 
   function handleEscape() {
-    if (panelOpen) {
+    if (calendar.activeTaskId || calendar.dayPanel) {
       calendar.closePanel();
     } else {
       setSelectedKey(null);
@@ -265,7 +290,7 @@ export function CalendarPage() {
 
   useCalendarKeymap({
     onEscape: handleEscape,
-    onGo: (dir) => calendar.go(dir, "keyboard"),
+    onGo: (dir) => calendar.go(dir, "keyboard", view),
     onGoToDate: () => setGoToOpen(true),
     onQuickAdd: openQuickAddOnSelected,
     onToday: () => {
@@ -274,7 +299,12 @@ export function CalendarPage() {
     },
     onUndo: undo,
     onView: (next) => {
-      if (!(isCompact && next === "week")) {
+      if (isCompact && next === "week") {
+        return;
+      }
+      if (next === "schedule" && selectedInRange) {
+        calendar.openIn(next, parseDateOnly(selectedInRange));
+      } else {
         calendar.setView(next);
       }
     },
@@ -380,7 +410,7 @@ export function CalendarPage() {
   // `+ Task` and `c` add to the selected day, else today when it is on
   // screen, else the first day of the range.
   const defaultAddDay =
-    selectedKey ??
+    selectedInRange ??
     (isInRange(today, calendar.anchor, view) ? todayKey : calendar.anchorKey);
 
   const rail = (
@@ -399,14 +429,12 @@ export function CalendarPage() {
 
   const gridProps = {
     anchor: calendar.anchor,
-    focusRequest,
     itemsByDay,
     labelledBy: CALENDAR_TITLE_ID,
     onKeyboardMove: moveToDay,
     onOpenDate: (dayKey: string) => {
       setSelectedKey(dayKey);
-      calendar.setView("schedule");
-      calendar.goTo(parseDateOnly(dayKey), "keyboard");
+      calendar.openIn("schedule", parseDateOnly(dayKey));
     },
     rangeMotion: calendar.rangeMotion,
   };
@@ -431,7 +459,7 @@ export function CalendarPage() {
           <CalendarHeading
             anchor={calendar.anchor}
             goToOpen={goToOpen}
-            onGo={calendar.go}
+            onGo={(dir, via) => calendar.go(dir, via, view)}
             onGoTo={(day) => {
               setSelectedKey(getDateKey(day));
               calendar.goTo(day, "pointer");
@@ -510,18 +538,19 @@ export function CalendarPage() {
           ) : null}
           <div
             className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-xl border border-[var(--task-sheet-border)] bg-[var(--task-sheet-surface)] shadow-[var(--elevation-1)]"
+            aria-busy={!allLoaded}
             data-calendar-sheet=""
           >
             {view === "schedule" ? (
               <ScheduleView
                 anchor={calendar.anchor}
                 itemsByDay={itemsByDay}
-                onNextWindow={() => calendar.go(1, "pointer")}
+                loading={!allLoaded}
+                onNextWindow={() => calendar.go(1, "pointer", view)}
               />
             ) : isCompact ? (
               <CompactMonthView
                 anchor={calendar.anchor}
-                focusRequest={focusRequest}
                 itemsByDay={itemsByDay}
                 labelledBy={CALENDAR_TITLE_ID}
                 onKeyboardMove={moveToDay}

@@ -72,8 +72,20 @@ export function useCalendarState() {
     update((params) => params.set("date", key));
   }
 
-  function go(dir: 1 | -1, via: NavigationSource) {
-    goTo(shiftAnchor(anchor, view, dir), via);
+  /** `shown` is the view on screen, which a compact layout can narrow from
+   * the URL's (Week renders as Month there, and pages by month). */
+  function go(dir: 1 | -1, via: NavigationSource, shown: CalendarView) {
+    goTo(shiftAnchor(anchor, shown, dir), via);
+  }
+
+  /** Switches view and date in one write: two writes in one tick would each
+   * start from the same params, and the second would drop the first. */
+  function openIn(next: CalendarView, day: Date) {
+    setRangeMotion("none");
+    update((params) => {
+      params.set("view", next);
+      params.set("date", getDateKey(day));
+    });
   }
 
   function goToday(via: NavigationSource) {
@@ -119,6 +131,7 @@ export function useCalendarState() {
     goTo,
     goToday,
     openDay,
+    openIn,
     openTask,
     rangeMotion,
     setView,

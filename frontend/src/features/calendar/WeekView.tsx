@@ -1,7 +1,7 @@
 // Week view (plan §2.8): seven columns, a small weekday over a large date, and
 // one all-day lane per day showing every chip — no cap, and each chip gets a
 // second line. Same grid semantics and interactions as Month.
-import { useEffect, useRef } from "react";
+import { useRef } from "react";
 
 import { CalendarDayCell, DateMark } from "@/features/calendar/CalendarDayCell";
 import { useCalendarContext } from "@/features/calendar/calendar-context";
@@ -10,11 +10,9 @@ import {
   formatWeekdayLong,
   formatWeekdayShort,
   weekDays,
+  rovingDayKey,
 } from "@/features/calendar/calendar-grid";
-import {
-  focusDayCell,
-  handleGridKeyDown,
-} from "@/features/calendar/calendar-grid-keys";
+import { handleGridKeyDown } from "@/features/calendar/calendar-grid-keys";
 import type { CalendarItem } from "@/features/calendar/calendar-items";
 import type { GridViewProps } from "@/features/calendar/MonthView";
 import { getDateKey } from "@/features/tasks/task-dates";
@@ -24,7 +22,6 @@ const EMPTY: CalendarItem[] = [];
 
 export function WeekView({
   anchor,
-  focusRequest,
   itemsByDay,
   labelledBy,
   onKeyboardMove,
@@ -34,13 +31,7 @@ export function WeekView({
   const ctx = useCalendarContext();
   const gridRef = useRef<HTMLDivElement>(null);
   const days = weekDays(anchor);
-  const anchorKey = getDateKey(anchor);
-
-  useEffect(() => {
-    if (focusRequest) {
-      focusDayCell(gridRef.current, focusRequest.key);
-    }
-  }, [focusRequest]);
+  const focusKey = rovingDayKey(days, ctx.selectedKey, anchor);
 
   return (
     <div
@@ -69,7 +60,7 @@ export function WeekView({
               </span>
               <button
                 aria-label={`Open ${formatDayLabel(day)} in Schedule`}
-                className="-ml-2 rounded-full outline-none transition-[background-color] duration-150 ease-out hover:[&>span]:bg-[var(--surface-inset)] focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] motion-reduce:transition-none"
+                className="-ml-2 rounded-full outline-none hover:[&>span]:bg-[var(--surface-inset)] focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] [&>span]:transition-[background-color] [&>span]:duration-150 [&>span]:ease-out motion-reduce:[&>span]:transition-none"
                 onClick={() => onOpenDate(dayKey)}
                 tabIndex={-1}
                 type="button"
@@ -95,7 +86,7 @@ export function WeekView({
                 index > 0 && "border-l border-[var(--calendar-gridline)]",
               )}
               day={day}
-              isFocusTarget={dayKey === anchorKey}
+              isFocusTarget={dayKey === focusKey}
               items={itemsByDay.get(dayKey) ?? EMPTY}
               key={dayKey}
               showDateBand={false}

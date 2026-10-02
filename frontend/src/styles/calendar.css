@@ -23,6 +23,7 @@
   --calendar-glyph-box: --spacing(3.5);
   --calendar-today-size: --spacing(5.5);
   --calendar-dot-size: --spacing(1);
+  /* The app shell's own ease-out (`--as-ease-out`). */
   --calendar-ease-out: cubic-bezier(0.23, 1, 0.32, 1);
 
   /* ---- grid ---- */
@@ -67,7 +68,7 @@
  */
 [data-range-motion] .calendar-cell-content {
   transition-property: opacity, translate;
-  transition-duration: 180ms;
+  transition-duration: 200ms;
   transition-timing-function: var(--calendar-ease-out);
 }
 

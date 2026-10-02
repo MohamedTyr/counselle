@@ -99,6 +99,15 @@ describe("buildCalendarItems", () => {
     expect(kinds(days.get("2026-12-01"))).toEqual(["due"]);
   });
 
+  it("keeps an inherited essay deadline when My schools is off", () => {
+    const days = build({
+      applications: [application({ deadline: "2027-01-01" })],
+      essays: [essay({ deadline: "2027-01-01" })],
+      layers: { ...DEFAULT_LAYERS, mySchools: false },
+    });
+    expect(kinds(days.get("2027-01-01"))).toEqual(["due"]);
+  });
+
   it("shows each dated application field and skips withdrawn schools", () => {
     const days = build({
       applications: [

@@ -100,7 +100,13 @@ function DeadlineRow({
             </span>
           ) : null}
         </span>
-        <StateWord item={item} today={ctx.today} />
+        {/* The two empty boxes stand where a task row keeps its flag and
+            `⋯`, so a column of dates lines up down the whole day. */}
+        <span className="flex shrink-0 items-center gap-2">
+          <StateWord item={item} today={ctx.today} />
+          <span aria-hidden="true" className="size-5" />
+          <span aria-hidden="true" className="size-5" />
+        </span>
       </button>
     </li>
   );
@@ -223,10 +229,13 @@ export function ScheduleItem({ item }: { item: CalendarItem }) {
 export function ScheduleView({
   anchor,
   itemsByDay,
+  loading,
   onNextWindow,
 }: {
   anchor: Date;
   itemsByDay: ReadonlyMap<string, CalendarItem[]>;
+  /** An enabled source is still loading: an empty window says nothing yet. */
+  loading: boolean;
   onNextWindow: () => void;
 }) {
   const ctx = useCalendarContext();
@@ -236,7 +245,7 @@ export function ScheduleView({
 
   return (
     <div className="h-full min-h-0 overflow-y-auto px-[var(--task-sheet-inset)] pb-2">
-      {days.length === 0 ? (
+      {days.length === 0 && loading ? null : days.length === 0 ? (
         <p className="px-3 pt-6 pb-4 text-sm text-[var(--ink-secondary)]">
           Nothing in the next 8 weeks.
         </p>

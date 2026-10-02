@@ -42,6 +42,7 @@ def _row(
     on: date | None = None,
     flag: bool | None = None,
     period: str | None = _PERIOD,
+    observed: datetime | None = _OBSERVED,
 ) -> dict[str, Any]:
     return {
         "school_id": unitid,
@@ -49,7 +50,7 @@ def _row(
         "value_date": on,
         "value_bool": flag,
         "reported_period": period,
-        "observed_at": _OBSERVED,
+        "observed_at": observed,
     }
 
 
@@ -65,6 +66,34 @@ def test_a_row_inherited_date_rejects_is_dropped() -> None:
         ]
     )
     assert [item.unitid for item in result.items] == [2]
+
+
+def test_a_stale_unobserved_or_undated_row_is_dropped() -> None:
+    on = date(2027, 1, 1)
+    result = _build(
+        [
+            _row(1, "deadlines.regular", on=on, observed=datetime(2026, 1, 1, tzinfo=UTC)),
+            _row(2, "deadlines.regular", on=on, observed=None),
+            _row(3, "deadlines.regular", on=None),
+            _row(3, "deadlines.early_action", on=date(2026, 11, 1)),
+        ]
+    )
+    assert [(item.unitid, item.round) for item in result.items] == [(3, "EA")]
+
+
+def test_a_shared_not_offered_flag_drops_every_round_it_covers() -> None:
+    on = date(2026, 11, 1)
+    result = _build(
+        [
+            _row(1, "deadlines.early_decision", on=on),
+            _row(1, "deadlines.early_decision_2", on=on),
+            _row(1, "admissions.early_decision_offered", flag=False),
+            _row(1, "deadlines.early_action", on=on),
+            _row(1, "deadlines.early_action_2", on=on),
+            _row(1, "admissions.early_action_offered", flag=None),
+        ]
+    )
+    assert sorted(item.round for item in result.items) == ["EA", "EA2"]
 
 
 def test_a_round_reported_not_offered_is_dropped() -> None:

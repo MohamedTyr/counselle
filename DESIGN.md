@@ -1864,7 +1864,10 @@ widths live in the feature's `*-config.ts`. Below `md:`, tables become card stac
 is single-day and date-only, so there is no hours grid, no spans and no lane packing.
 Four kinds share one chip anatomy — `--calendar-chip-height` (20px; 32px on coarse
 pointers), `rounded-md`, a 14px glyph box, `text-xs`, one truncating line with a
-`title`, no shadow — and are told apart by **form, never hue**:
+`title`, no shadow — and are told apart by **form, never hue**. Week view's taller
+chips are the one variation: the name gets two lines and the round moves down beside
+the subtitle (`Boston University` / `ED · Tomorrow`), so a narrow column never splits
+a word to fit the suffix.
 
 | Kind | Rest | Weight | Glyph | Label |
 |---|---|---|---|---|
@@ -1894,9 +1897,11 @@ grid only while seven columns keep ≥88px; and below 7 × 88px the month become
 compact grid of dates — one dot per day, a second, red one when something is overdue —
 with the selected day listed underneath, on phones and in a narrow window alike.
 
-**Motion.** Paging with a pointer slides cell contents 8px with opacity over 180ms
-`--calendar-ease-out`; paging from the keyboard is instant; reduced motion keeps a
-150ms fade. No page-load choreography.
+**Motion.** Paging with a pointer slides cell contents 8px with opacity over 200ms
+`--calendar-ease-out` (the app shell's `--as-ease-out` curve); paging from the keyboard
+is instant; reduced motion keeps a 150ms fade. No page-load choreography. The header's
+chevrons, view tabs and `+ Task` add `active:scale-[0.97]` to their press state — a
+calendar is paged in bursts, and the press has to read under a fast finger.
 
 **Drag (exception to §17.5).** Chips are 20px tall with no room for a grip, so on
 `(pointer: fine)` the whole task or task-due chip is the native HTML5 drag source; the

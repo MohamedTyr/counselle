@@ -48,6 +48,7 @@ const MINI_MONTH_CLASSES = {
   today:
     "*:after:hidden [&>button]:bg-[var(--calendar-today-fill)] [&>button]:font-medium [&>button]:text-[var(--calendar-today-ink)] [&>button]:hover:bg-[var(--brand-hover)]",
   weekday:
+    // 11px: seven weekday initials must fit a 32px mini-month cell (§6.2).
     "size-(--cell-size) p-0 text-[11px] font-normal text-[var(--ink-faint)]",
 };
 

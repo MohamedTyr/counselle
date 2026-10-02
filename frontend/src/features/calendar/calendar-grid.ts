@@ -204,3 +204,18 @@ export function formatRelativeDay(dateKey: string, today: Date): string {
   }
   return diff > 0 ? `In ${diff} days` : `${-diff} days ago`;
 }
+
+/**
+ * The grid's one tab stop: the selected day when it is on screen, so Shift+Tab
+ * out and Tab back lands where the user left off, else the anchor.
+ */
+export function rovingDayKey(
+  days: readonly Date[],
+  selectedKey: string | null,
+  anchor: Date,
+): string {
+  if (selectedKey && days.some((day) => getDateKey(day) === selectedKey)) {
+    return selectedKey;
+  }
+  return getDateKey(anchor);
+}

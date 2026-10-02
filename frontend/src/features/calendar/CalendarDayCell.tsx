@@ -45,7 +45,7 @@ export function DateMark({
         "inline-flex items-center justify-center rounded-full font-medium tabular-nums",
         size === "sm"
           ? "h-[var(--calendar-today-size)] min-w-[var(--calendar-today-size)] px-1.5 text-chrome"
-          : "h-8 min-w-8 px-2 text-xl",
+          : "h-8 min-w-8 px-2 text-lg",
         isToday
           ? "bg-[var(--calendar-today-fill)] text-[var(--calendar-today-ink)]"
           : isSelected

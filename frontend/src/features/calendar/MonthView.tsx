@@ -1,7 +1,7 @@
 // The month grid (plan §2.3–§2.4): exactly the weeks the month touches, rows
 // stretched to fill the sheet, hairlines between cells and no outer frame —
 // the sheet's own border is the frame.
-import { useEffect, useRef } from "react";
+import { useRef } from "react";
 
 import { CalendarDayCell } from "@/features/calendar/CalendarDayCell";
 import {
@@ -9,22 +9,18 @@ import {
   formatWeekdayShort,
   isSameMonth,
   monthMatrix,
+  rovingDayKey,
 } from "@/features/calendar/calendar-grid";
-import {
-  focusDayCell,
-  handleGridKeyDown,
-} from "@/features/calendar/calendar-grid-keys";
+import { handleGridKeyDown } from "@/features/calendar/calendar-grid-keys";
+import { useCalendarContext } from "@/features/calendar/calendar-context";
 import type { CalendarItem } from "@/features/calendar/calendar-items";
 import type { RangeMotion } from "@/features/calendar/useCalendarState";
 import { useVisibleChipCount } from "@/features/calendar/useVisibleChipCount";
 import { getDateKey } from "@/features/tasks/task-dates";
 import { cn } from "@/lib/utils";
 
-export type FocusRequest = { key: string; seq: number } | null;
-
 export type GridViewProps = {
   anchor: Date;
-  focusRequest: FocusRequest;
   itemsByDay: ReadonlyMap<string, CalendarItem[]>;
   labelledBy: string;
   onKeyboardMove: (day: Date) => void;
@@ -76,7 +72,6 @@ export function WeekdayHeader({ days }: { days: Date[] }) {
 
 export function MonthView({
   anchor,
-  focusRequest,
   itemsByDay,
   labelledBy,
   onKeyboardMove,
@@ -87,13 +82,8 @@ export function MonthView({
   const probeRef = useRef<HTMLDivElement>(null);
   const weeks = monthMatrix(anchor);
   const visibleCount = useVisibleChipCount(gridRef, probeRef, weeks.length);
-  const anchorKey = getDateKey(anchor);
-
-  useEffect(() => {
-    if (focusRequest) {
-      focusDayCell(gridRef.current, focusRequest.key);
-    }
-  }, [focusRequest]);
+  const { selectedKey } = useCalendarContext();
+  const focusKey = rovingDayKey(weeks.flat(), selectedKey, anchor);
 
   return (
     <div
@@ -126,7 +116,7 @@ export function MonthView({
                 )}
                 day={day}
                 inMonth={isSameMonth(day, anchor)}
-                isFocusTarget={dayKey === anchorKey}
+                isFocusTarget={dayKey === focusKey}
                 items={itemsByDay.get(dayKey) ?? EMPTY}
                 key={dayKey}
                 onOpenDate={onOpenDate}

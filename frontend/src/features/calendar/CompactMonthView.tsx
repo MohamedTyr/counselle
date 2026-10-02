@@ -2,7 +2,7 @@
 // each day carries one dot when it has anything, plus a second, red one when
 // something that day is overdue. Tapping a day lists it underneath in the
 // Schedule's row form.
-import { useEffect, useRef } from "react";
+import { useRef } from "react";
 
 import { DateMark } from "@/features/calendar/CalendarDayCell";
 import { useCalendarContext } from "@/features/calendar/calendar-context";
@@ -12,19 +12,14 @@ import {
   formatRelativeDay,
   isSameMonth,
   monthMatrix,
+  rovingDayKey,
 } from "@/features/calendar/calendar-grid";
-import {
-  focusDayCell,
-  handleGridKeyDown,
-} from "@/features/calendar/calendar-grid-keys";
+import { handleGridKeyDown } from "@/features/calendar/calendar-grid-keys";
 import {
   getItemState,
   type CalendarItem,
 } from "@/features/calendar/calendar-items";
-import {
-  WeekdayHeader,
-  type FocusRequest,
-} from "@/features/calendar/MonthView";
+import { WeekdayHeader } from "@/features/calendar/MonthView";
 import { ScheduleItem } from "@/features/calendar/ScheduleView";
 import { TaskList } from "@/features/tasks/TaskSheet";
 import { getDateKey, parseDateOnly } from "@/features/tasks/task-dates";
@@ -54,14 +49,12 @@ function dayLabel(
 
 export function CompactMonthView({
   anchor,
-  focusRequest,
   itemsByDay,
   labelledBy,
   onKeyboardMove,
   onSelectDay,
 }: {
   anchor: Date;
-  focusRequest: FocusRequest;
   itemsByDay: ReadonlyMap<string, CalendarItem[]>;
   labelledBy: string;
   onKeyboardMove: (day: Date) => void;
@@ -70,14 +63,8 @@ export function CompactMonthView({
   const ctx = useCalendarContext();
   const gridRef = useRef<HTMLDivElement>(null);
   const weeks = monthMatrix(anchor);
-  const anchorKey = getDateKey(anchor);
+  const anchorKey = rovingDayKey(weeks.flat(), ctx.selectedKey, anchor);
   const selectedItems = itemsByDay.get(anchorKey) ?? EMPTY;
-
-  useEffect(() => {
-    if (focusRequest) {
-      focusDayCell(gridRef.current, focusRequest.key);
-    }
-  }, [focusRequest]);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">

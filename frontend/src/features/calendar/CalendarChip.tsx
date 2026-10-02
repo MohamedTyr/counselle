@@ -96,38 +96,42 @@ function ChipLabel({
 }) {
   const { name, suffix } = chipText(item);
   const title = suffix ? `${name} ${suffix}` : name;
-  const line = (
-    <span
-      className={cn(
-        "flex min-w-0 items-baseline gap-1",
-        density === "comfortable" && "items-start",
-      )}
-    >
-      <span
-        className={cn(
-          "min-w-0",
-          density === "comfortable" ? "line-clamp-2 break-words" : "truncate",
-          done && "line-through decoration-[var(--calendar-done-ink)]",
-          item.kind === "aggregate" &&
-            item.schools.length > 1 &&
-            "tabular-nums",
-        )}
-      >
-        {name}
-      </span>
-      {suffix ? <span className="shrink-0">{suffix}</span> : null}
-    </span>
-  );
+  const comfortable = density === "comfortable";
+  // Comfortable (Week) chips give a school's name both lines to wrap in and
+  // move the round down beside the subtitle, so a narrow column never splits
+  // a word to make room for "· ED". A count ("94 · RD") keeps it inline.
+  const suffixBelow = comfortable && Boolean(suffix) && !/^\d+$/.test(name);
+  const meta = comfortable
+    ? [suffixBelow ? suffix?.replace(/^·\s*/, "") : undefined, subtitle]
+        .filter(Boolean)
+        .join(" · ")
+    : "";
   return (
     <span
       aria-hidden="true"
       className="flex min-w-0 flex-1 flex-col"
       title={title}
     >
-      {line}
-      {density === "comfortable" && subtitle ? (
+      <span className="flex min-w-0 items-baseline gap-1">
+        <span
+          className={cn(
+            "min-w-0",
+            comfortable ? "line-clamp-2 hyphens-auto break-words" : "truncate",
+            done && "line-through decoration-[var(--calendar-done-ink)]",
+            item.kind === "aggregate" &&
+              item.schools.length > 1 &&
+              "tabular-nums",
+          )}
+        >
+          {name}
+        </span>
+        {suffix && !suffixBelow ? (
+          <span className="shrink-0">{suffix}</span>
+        ) : null}
+      </span>
+      {meta ? (
         <span className="truncate text-xs font-normal text-[var(--ink-faint)]">
-          {subtitle}
+          {meta}
         </span>
       ) : null}
     </span>
@@ -281,6 +285,7 @@ export function CalendarChip({
             }
             aria-pressed={done}
             className={cn(
+              // 1.5px: the Tasks page's done circle, scaled to a 12px chip.
               "relative grid size-3 shrink-0 place-items-center rounded-full border-[1.5px] outline-none",
               "transition-[background-color,border-color] duration-150 ease-out motion-reduce:transition-none",
               "after:absolute after:-inset-1 pointer-coarse:after:-inset-2.5",
@@ -322,6 +327,7 @@ export function CalendarChip({
                 ctx.actions.onComplete(task.id, !done);
               }
             }}
+            aria-keyshortcuts="Space"
             role="button"
             tabIndex={tabIndex}
           >

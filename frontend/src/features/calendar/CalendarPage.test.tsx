@@ -85,6 +85,22 @@ describe("CalendarPage", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("opens a day in Schedule, switching view and date together", async () => {
+    const user = userEvent.setup();
+    await renderCalendar();
+    await user.click(
+      within(gridCell("2026-10-15")).getByRole("button", {
+        hidden: true,
+        name: /Open .*October 15.* in Schedule/,
+      }),
+    );
+    await waitFor(() => {
+      const params = new URLSearchParams(window.location.search);
+      expect(params.get("view")).toBe("schedule");
+      expect(params.get("date")).toBe("2026-10-15");
+    });
+  });
+
   it("pages to the next month on j", async () => {
     const user = userEvent.setup();
     await renderCalendar();

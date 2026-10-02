@@ -2,7 +2,7 @@
 // bottom `Sheet` below it. The task detail panel and the calendar's day panel
 // both render through it, so the two can never drift in width, inset, motion
 // or breakpoint.
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 
 import { Sheet, SheetPopup, SheetTitle } from "@/components/ui/sheet";
 import { useIsDesktop } from "@/hooks/use-desktop";
@@ -74,6 +74,37 @@ function useDelayedUnmount(open: boolean): {
   return { mounted: mounted || open, entered };
 }
 
+/**
+ * The aside is not modal, so opening it leaves focus where it was. Closing it
+ * hands focus back to whatever had it at open time when focus was inside the
+ * panel (its Close button) or has fallen to `<body>` (the panel unmounted).
+ */
+function useReturnFocus(
+  open: boolean,
+  panelRef: React.RefObject<HTMLElement | null>,
+) {
+  const openerRef = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+    openerRef.current =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
+    const panel = panelRef.current;
+    return () => {
+      const opener = openerRef.current;
+      const active = document.activeElement;
+      const lost =
+        !active || active === document.body || Boolean(panel?.contains(active));
+      if (lost && opener?.isConnected) {
+        opener.focus({ preventScroll: true });
+      }
+    };
+  }, [open, panelRef]);
+}
+
 export function DockedPanel({
   children,
   label,
@@ -95,6 +126,8 @@ export function DockedPanel({
   // its own presence/exit animation once `open` goes false — wrapping it in
   // this too would cut that animation off early instead of complementing it.
   const { mounted, entered } = useDelayedUnmount(open);
+  const panelRef = useRef<HTMLElement>(null);
+  useReturnFocus(open && isDesktop, panelRef);
 
   if (!isDesktop) {
     return (
@@ -118,6 +151,8 @@ export function DockedPanel({
   return (
     <aside
       aria-label={label}
+      data-docked-panel=""
+      ref={panelRef}
       className={cn(
         "fixed inset-y-2 end-2 z-[var(--z-sticky)] hidden w-[var(--task-panel-width)] flex-col rounded-2xl border border-[var(--hairline)] bg-[var(--surface-raised)] p-6 shadow-[var(--elevation-2)] lg:flex",
         "transition-[opacity,translate] ease-out motion-reduce:transition-[opacity]",

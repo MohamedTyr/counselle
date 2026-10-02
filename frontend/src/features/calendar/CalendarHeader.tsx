@@ -124,14 +124,13 @@ export function CalendarHeading({
         <button
           aria-label={`${title.primary} ${title.secondary}, go to date`}
           className={cn(
-            "group/title -ms-1.5 flex min-w-0 items-center gap-1 rounded-lg px-1.5 py-0.5 outline-none",
+            "-ms-1.5 flex min-w-0 items-center gap-1 rounded-lg px-1.5 py-0.5 outline-none",
             "transition-[background-color] duration-150 ease-out motion-reduce:transition-none",
             "hover:bg-[var(--canvas-hover)] focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] data-[popup-open]:bg-[var(--canvas-hover)]",
           )}
           type="button"
         >
           <span
-            aria-live="polite"
             className="text-xl leading-7 font-semibold tracking-tight whitespace-nowrap text-[var(--ink)]"
             id={CALENDAR_TITLE_ID}
           >
@@ -142,10 +141,15 @@ export function CalendarHeading({
           </span>
           <ChevronDown
             aria-hidden="true"
-            className="size-4 shrink-0 text-[var(--ink-faint)] transition-[translate] duration-150 ease-out group-hover/title:translate-y-px motion-reduce:transition-none"
+            className="size-4 shrink-0 text-[var(--ink-faint)]"
           />
         </button>
       </GoToDatePopover>
+      {/* Outside the button: a live region inside a labelled control is
+          not reliably announced. */}
+      <span aria-live="polite" className="sr-only">
+        {title.primary} {title.secondary}
+      </span>
     </div>
   );
 }

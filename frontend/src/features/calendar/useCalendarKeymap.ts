@@ -28,8 +28,17 @@ export type CalendarKeymapHandlers = {
   onEscape: () => void;
 };
 
-function isInsideGrid(target: EventTarget | null): boolean {
-  return target instanceof Element && Boolean(target.closest('[role="grid"]'));
+/** ←/→ page the range only from somewhere that has no arrow keys of its own:
+ * the page itself, not a grid, a tab list, a button or a link. */
+function ownsArrowKeys(target: EventTarget | null): boolean {
+  return (
+    target instanceof Element &&
+    Boolean(
+      target.closest(
+        '[role="grid"],[role="tablist"],button,a[href],[role="button"],[role="checkbox"],[role="switch"]',
+      ),
+    )
+  );
 }
 
 function isInsideDialog(target: EventTarget | null): boolean {
@@ -38,6 +47,14 @@ function isInsideDialog(target: EventTarget | null): boolean {
     Boolean(
       target.closest('[role="dialog"],[role="menu"],[data-slot="sheet-popup"]'),
     )
+  );
+}
+
+/** The docked side panel is not modal, so Escape still closes it, but its
+ * buttons are not the calendar's: letters there must not page the range. */
+function isInsideDockedPanel(target: EventTarget | null): boolean {
+  return (
+    target instanceof Element && Boolean(target.closest("[data-docked-panel]"))
   );
 }
 
@@ -65,6 +82,13 @@ export function useCalendarKeymap(handlers: CalendarKeymapHandlers) {
         return;
       }
 
+      if (
+        isInsidePopover(target) ||
+        isInsideDialog(target) ||
+        isInsideDockedPanel(target)
+      ) {
+        return;
+      }
       const key = event.key.toLowerCase();
       if (key === "z" && (event.metaKey || event.ctrlKey) && !event.shiftKey) {
         event.preventDefault();
@@ -72,9 +96,6 @@ export function useCalendarKeymap(handlers: CalendarKeymapHandlers) {
         return;
       }
       if (event.metaKey || event.ctrlKey || event.altKey) {
-        return;
-      }
-      if (isInsidePopover(target) || isInsideDialog(target)) {
         return;
       }
 
@@ -86,8 +107,7 @@ export function useCalendarKeymap(handlers: CalendarKeymapHandlers) {
         current.onGo(-1);
       } else if (
         (event.key === "ArrowRight" || event.key === "ArrowLeft") &&
-        !isInsideGrid(target) &&
-        !(target instanceof Element && target.closest('[role="tablist"]'))
+        !ownsArrowKeys(target)
       ) {
         current.onGo(event.key === "ArrowRight" ? 1 : -1);
       } else if (VIEW_KEYS[key]) {

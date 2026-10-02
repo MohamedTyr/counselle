@@ -1,8 +1,8 @@
 // The W3C APG grid pattern for the Month and Week grids. One cell is a tab
 // stop; arrows move a day or a week, Home/End the week's ends, PageUp/PageDown
-// a month. Enter moves into the cell's chips and Escape back out. Moving past
-// the edge of the range pages it, with no animation — keyboard paging is
-// instant by design.
+// a month. Enter moves into the cell's chips, ↑/↓ rove them and Escape goes
+// back out. Moving past the edge of the range pages it, with no animation —
+// keyboard paging is instant by design.
 import type { KeyboardEvent } from "react";
 
 import { shiftMonths, startOfWeek } from "@/features/calendar/calendar-grid";
@@ -82,10 +82,9 @@ export function handleGridKeyDown(
     cell.focus();
     return true;
   }
-  const isNext =
-    (event.key === "Tab" && !event.shiftKey) || event.key === "ArrowDown";
-  const isPrev =
-    (event.key === "Tab" && event.shiftKey) || event.key === "ArrowUp";
+  // Tab is left alone so it leaves the grid, as the APG grid pattern expects.
+  const isNext = event.key === "ArrowDown";
+  const isPrev = event.key === "ArrowUp";
   if (!isNext && !isPrev) {
     return false;
   }
@@ -103,9 +102,11 @@ export function handleGridKeyDown(
   return true;
 }
 
-/** Focuses the cell for `dayKey` inside `root`, once React has rendered it. */
-export function focusDayCell(root: HTMLElement | null, dayKey: string) {
-  root
-    ?.querySelector<HTMLElement>(`[role="gridcell"][data-day-key="${dayKey}"]`)
-    ?.focus();
+/** Focuses the calendar grid's cell for `dayKey`. False until it renders. */
+export function focusDayCell(dayKey: string): boolean {
+  const cell = document.querySelector<HTMLElement>(
+    `[data-calendar-sheet] [role="gridcell"][data-day-key="${dayKey}"]`,
+  );
+  cell?.focus();
+  return Boolean(cell);
 }

@@ -314,11 +314,16 @@ function essayItems(
       continue;
     }
     // `EssaySummary.deadline` falls back to its application's deadline, so a
-    // date equal to that one is the school's, already on the school chip.
+    // date equal to that one is the school's, already on the school chip —
+    // when My schools is on to draw it.
     const application = essay.application_id
       ? applicationsById.get(essay.application_id)
       : undefined;
-    if (application && validKey(application.deadline) === date) {
+    if (
+      layers.mySchools &&
+      application &&
+      validKey(application.deadline) === date
+    ) {
       continue;
     }
     items.push({
