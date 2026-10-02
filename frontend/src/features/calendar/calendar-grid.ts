@@ -19,7 +19,7 @@ export const SCHEDULE_DAYS = 56;
 export const RAIL_MIN_BODY_WIDTH = 960;
 /** The narrowest a day column may get before an open panel stops reserving
  * room beside the grid and simply overlays it instead. */
-export const MIN_DAY_COLUMN_WIDTH = 96;
+export const MIN_DAY_COLUMN_WIDTH = 88;
 export const DAYS_PER_WEEK = 7;
 
 export type CalendarView = "month" | "week" | "schedule";
@@ -36,7 +36,8 @@ export function isCalendarView(value: string | null): value is CalendarView {
 
 export function startOfWeek(day: Date): Date {
   const start = startOfLocalDay(day);
-  const offset = (start.getDay() - WEEK_STARTS_ON + DAYS_PER_WEEK) % DAYS_PER_WEEK;
+  const offset =
+    (start.getDay() - WEEK_STARTS_ON + DAYS_PER_WEEK) % DAYS_PER_WEEK;
   return addDays(start, -offset);
 }
 
@@ -102,7 +103,11 @@ export function isSameDay(a: Date, b: Date): boolean {
 }
 
 /** Whether `day` falls inside the range the view is currently showing. */
-export function isInRange(day: Date, anchor: Date, view: CalendarView): boolean {
+export function isInRange(
+  day: Date,
+  anchor: Date,
+  view: CalendarView,
+): boolean {
   if (view === "week") {
     return isSameDay(startOfWeek(day), startOfWeek(anchor));
   }

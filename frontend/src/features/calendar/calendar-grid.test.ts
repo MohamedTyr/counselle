@@ -38,7 +38,9 @@ describe("monthMatrix", () => {
       const keys = weekDays(new Date(2026, month, day)).map(getDateKey);
       expect(new Set(keys).size).toBe(7);
       keys.slice(1).forEach((key, index) => {
-        expect(key).toBe(getDateKey(addDays(new Date(`${keys[index]}T12:00`), 1)));
+        expect(key).toBe(
+          getDateKey(addDays(new Date(`${keys[index]}T12:00`), 1)),
+        );
       });
     },
   );

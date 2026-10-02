@@ -41,7 +41,7 @@ const VIEW_KEYS: Record<string, TaskKeymapView> = {
 
 /** Moved verbatim from the pre-redesign `TasksRoute.tsx:75-85` (`git show
  * HEAD~2:…`) — guards every single-letter binding below. */
-function isEditingSurface(target: EventTarget | null): boolean {
+export function isEditingSurface(target: EventTarget | null): boolean {
   return (
     target instanceof Element &&
     Boolean(
@@ -68,7 +68,7 @@ function focusedTaskId(): string | null {
  * event originated inside it — its own `handleListKeyDown` already owns
  * `t m w k a p` there (spec §5), so this hook defers entirely rather than
  * double-dispatching a reschedule. */
-function isInsidePopover(target: EventTarget | null): boolean {
+export function isInsidePopover(target: EventTarget | null): boolean {
   return (
     target instanceof Element &&
     Boolean(target.closest('[data-slot="popover-popup"]'))

@@ -108,11 +108,17 @@ describe("buildCalendarItems", () => {
           id: "kept",
           scholarship_deadline: "2026-12-01",
         }),
-        application({ deadline: "2026-11-01", id: "gone", status: "Withdrawn" }),
+        application({
+          deadline: "2026-11-01",
+          id: "gone",
+          status: "Withdrawn",
+        }),
       ],
     });
     expect(days.get("2026-11-01")).toHaveLength(1);
-    expect(days.get("2026-11-15")?.[0]).toMatchObject({ field: "aid_deadline" });
+    expect(days.get("2026-11-15")?.[0]).toMatchObject({
+      field: "aid_deadline",
+    });
     expect(days.get("2026-12-01")?.[0]).toMatchObject({
       field: "scholarship_deadline",
     });
@@ -135,15 +141,21 @@ describe("buildCalendarItems", () => {
       "EA2",
       "RD",
     ]);
-    const rd = jan.find((item) => item.kind === "aggregate" && item.round === "RD");
-    expect(rd?.kind === "aggregate" && rd.schools.map((s) => s.unitid)).toEqual([
-      2, 3,
-    ]);
+    const rd = jan.find(
+      (item) => item.kind === "aggregate" && item.round === "RD",
+    );
+    expect(rd?.kind === "aggregate" && rd.schools.map((s) => s.unitid)).toEqual(
+      [2, 3],
+    );
     expect(days.get("2026-11-01")).toHaveLength(1);
   });
 
   it("filters All schools by round and waits for the student's list", () => {
-    const layers = { ...DEFAULT_LAYERS, allSchools: true, allSchoolsRounds: [] };
+    const layers = {
+      ...DEFAULT_LAYERS,
+      allSchools: true,
+      allSchoolsRounds: [],
+    };
     expect(build({ layers, schoolDeadlines: [school(2)] }).size).toBe(0);
     expect(
       build({ layers: { ...DEFAULT_LAYERS, allSchools: true } }).size,
@@ -153,7 +165,13 @@ describe("buildCalendarItems", () => {
   it("hides finished work when Show completed is off", () => {
     const layers = { ...DEFAULT_LAYERS, showCompleted: false };
     const days = build({
-      essays: [essay({ application_id: null, deadline: "2026-10-20", status: "Submitted" })],
+      essays: [
+        essay({
+          application_id: null,
+          deadline: "2026-10-20",
+          status: "Submitted",
+        }),
+      ],
       layers,
       tasks: [
         task({
@@ -180,7 +198,11 @@ describe("buildCalendarItems", () => {
       layers: { ...DEFAULT_LAYERS, allSchools: true },
       schoolDeadlines: [school(9, { date: "2026-10-05" })],
       tasks: [
-        task({ done_at: "2026-10-01T00:00:00Z", id: "done", when_on: "2026-10-05" }),
+        task({
+          done_at: "2026-10-01T00:00:00Z",
+          id: "done",
+          when_on: "2026-10-05",
+        }),
         task({ id: "plain", when_on: "2026-10-05" }),
         task({ flagged: true, id: "flag", when_on: "2026-10-05" }),
         task({ deadline_on: "2026-10-05", id: "due" }),
@@ -223,10 +245,18 @@ describe("visibleCellItems", () => {
   it("pins the first aggregate to the last visible slot", () => {
     const days = build({
       layers: { ...DEFAULT_LAYERS, allSchools: true },
-      schoolDeadlines: [school(9, { date: "2026-10-05" }), school(8, { date: "2026-10-05" })],
-      tasks: ["a", "b", "c", "d"].map((id) => task({ id, when_on: "2026-10-05" })),
+      schoolDeadlines: [
+        school(9, { date: "2026-10-05" }),
+        school(8, { date: "2026-10-05" }),
+      ],
+      tasks: ["a", "b", "c", "d"].map((id) =>
+        task({ id, when_on: "2026-10-05" }),
+      ),
     });
-    const { hiddenCount, shown } = visibleCellItems(days.get("2026-10-05") ?? [], 3);
+    const { hiddenCount, shown } = visibleCellItems(
+      days.get("2026-10-05") ?? [],
+      3,
+    );
     expect(kinds(shown)).toEqual(["task", "aggregate"]);
     expect(hiddenCount).toBe(3);
   });

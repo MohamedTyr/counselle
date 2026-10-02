@@ -46,6 +46,16 @@
   --calendar-aggregate-edge: var(--edge-control-strong);
   --calendar-task-hover: var(--canvas-hover);
   --calendar-done-ink: var(--ink-faint);
+  /* The ink "On list" pill Explore uses, not green: green means done. */
+  --calendar-onlist-surface: var(--brand);
+  --calendar-onlist-ink: var(--on-brand);
+  --calendar-onlist-icon: var(--progress-fill);
+  /* A filled chip's hover deepens its own fill rather than swapping it, so
+   * a due-soon chip stays amber under the pointer. in oklab: the operands
+   * are barely chromatic (DESIGN.md §3.2). */
+  --calendar-school-hover: color-mix(in oklab, var(--calendar-school-fill), var(--ink) 4%);
+  --calendar-warning-hover: color-mix(in oklab, var(--warning-surface), var(--ink) 4%);
+  --calendar-danger-hover: color-mix(in oklab, var(--danger-surface), var(--ink) 4%);
 }
 
 /*

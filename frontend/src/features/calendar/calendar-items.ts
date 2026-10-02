@@ -29,9 +29,7 @@ export const CALENDAR_ROUND_ORDER: readonly CalendarRound[] = [
 ];
 
 export type SchoolDeadlineField =
-  | "deadline"
-  | "aid_deadline"
-  | "scholarship_deadline";
+  "deadline" | "aid_deadline" | "scholarship_deadline";
 
 const SCHOOL_FIELDS: readonly SchoolDeadlineField[] = [
   "deadline",
@@ -145,12 +143,7 @@ export function pluralSchools(count: number): string {
 // ---- state ----
 
 export type CalendarItemState =
-  | "overdue"
-  | "due-soon"
-  | "normal"
-  | "done"
-  | "submitted"
-  | "passed";
+  "overdue" | "due-soon" | "normal" | "done" | "submitted" | "passed";
 
 export function isSubmittedOrLater(application: ApplicationView): boolean {
   return (
@@ -272,10 +265,7 @@ function validKey(value: string | null | undefined): string | undefined {
   return key && isValidDateKey(key) ? key : undefined;
 }
 
-function taskItems(
-  tasks: Task[],
-  layers: CalendarLayers,
-): CalendarItem[] {
+function taskItems(tasks: Task[], layers: CalendarLayers): CalendarItem[] {
   const items: CalendarItem[] = [];
   for (const task of tasks) {
     if (task.done_at && !layers.showCompleted) {
@@ -283,7 +273,8 @@ function taskItems(
     }
     const whenOn = validKey(task.when_on);
     const deadlineOn = validKey(task.deadline_on);
-    const merged = layers.tasks && whenOn !== undefined && whenOn === deadlineOn;
+    const merged =
+      layers.tasks && whenOn !== undefined && whenOn === deadlineOn;
     if (layers.tasks && whenOn) {
       items.push({
         date: whenOn,
