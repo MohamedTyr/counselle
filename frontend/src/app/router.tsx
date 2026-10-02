@@ -10,6 +10,9 @@ import { LoginRoute } from "@/features/auth/LoginRoute";
 import { OnboardingRoute } from "@/features/onboarding/OnboardingRoute";
 import { RegisterRoute } from "@/features/auth/RegisterRoute";
 import { AdminFactsPage } from "@/features/admin-facts/AdminFactsPage";
+import { AdminScholarshipsPage } from "@/features/scholarships-admin/AdminScholarshipsPage";
+import { ScholarshipEditorPage } from "@/features/scholarships-admin/ScholarshipEditorPage";
+import { ScholarshipsRoute } from "@/features/scholarships/ScholarshipsRoute";
 import { AiPage } from "@/pages/ai-page";
 import { AiChatRoute } from "@/features/ai-chat/AiChatRoute";
 import { ActivitiesPage } from "@/pages/activities-page";
@@ -162,6 +165,10 @@ export function createAppRouter() {
                   element: <ActivitiesPage />,
                 },
                 {
+                  path: "scholarships",
+                  element: <ScholarshipsRoute />,
+                },
+                {
                   path: "sat",
                   lazy: satDashboard,
                   HydrateFallback: SatDashboardSkeleton,
@@ -185,6 +192,23 @@ export function createAppRouter() {
                   element: (
                     <AdminGate>
                       <AdminFactsPage />
+                    </AdminGate>
+                  ),
+                },
+                {
+                  path: "admin/scholarships",
+                  element: (
+                    <AdminGate>
+                      <AdminScholarshipsPage />
+                    </AdminGate>
+                  ),
+                },
+                {
+                  /* `new` opens an empty draft; anything else is a record id. */
+                  path: "admin/scholarships/:scholarshipId",
+                  element: (
+                    <AdminGate>
+                      <ScholarshipEditorPage />
                     </AdminGate>
                   ),
                 },

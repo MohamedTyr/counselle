@@ -1,0 +1,93 @@
+/*
+ * Scholarships — the `--scholarship-*` family (tier 3, see styles/README.md).
+ * Every value resolves through semantic.css. The list is the "one raised
+ * panel, hairline rows" container shape (DESIGN.md §17.2); the detail panel
+ * is a second raised surface beside it, never nested in it.
+ */
+
+:root {
+  --scholarship-row-hover: var(--surface-hover);
+  --scholarship-row-selected: var(--surface-selected);
+  --scholarship-row-selected-edge: var(--edge-strong);
+  --scholarship-amount-ink: var(--ink);
+  --scholarship-fit-met: var(--success-fg);
+  --scholarship-fit-met-surface: var(--success-surface);
+  --scholarship-fit-unknown: var(--ink-secondary);
+  --scholarship-fit-unknown-surface: var(--surface-inset);
+  --scholarship-fit-unmet: var(--danger-fg);
+  --scholarship-fit-unmet-surface: var(--danger-surface);
+  --scholarship-soon-ink: var(--warning-fg);
+  --scholarship-group-ink: var(--ink-muted);
+  --scholarship-detail-width: 25rem;
+  --scholarship-ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+/* The detail panel's content changes in place when the selection moves:
+ * a short rise and fade, never a slide of the whole panel, so flicking
+ * through rows with j/k reads as one surface updating. */
+@keyframes scholarship-detail-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.scholarship-detail-enter {
+  animation: scholarship-detail-in 180ms var(--scholarship-ease-out) both;
+}
+
+/* First paint of the list: the first rows rise in, capped so a long list
+ * is not a slideshow. The delay is set inline per row. */
+@keyframes scholarship-row-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.scholarship-row-enter {
+  animation: scholarship-row-in 260ms var(--scholarship-ease-out) both;
+}
+
+/* The save bar rises from the bottom edge of the editor when there are
+ * unsaved changes. */
+@keyframes scholarship-savebar-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.scholarship-savebar-enter {
+  animation: scholarship-savebar-in 200ms var(--scholarship-ease-out) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scholarship-detail-enter,
+  .scholarship-row-enter,
+  .scholarship-savebar-enter {
+    animation-name: scholarship-fade-in;
+    animation-duration: 120ms;
+  }
+}
+
+@keyframes scholarship-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}

@@ -802,6 +802,8 @@ under it, so the tools stay attached to the thing they edit.
 | `/app/schools`, `/app/schools/:unitid` | list; school page (About + Compare + Your application). Keyed by school, so a school you have not added still has a page; an application id in the slot redirects to the canonical URL | ” |
 | `/app/essays`, `/app/essays/:id` | library, editor | ” |
 | `/app/activities` | activities + honors | ” |
+| `/app/scholarships` | scholarship list with a detail panel (a sheet below 1280px); view, filters, sort and selection live in the URL | ” |
+| `/app/admin/scholarships`, `/app/admin/scholarships/:id` | scholarship admin list; editor (`new` for a new draft) | ” + `AdminGate` |
 | `/app/profile` | profile | ” |
 | `/app/calendar` | stub | ” |
 | `/app/sat` | SAT practice dashboard (inside the shell) | ” |
@@ -1814,6 +1816,13 @@ Never both at once. Never a card inside a card.
 discrete-control click, PATCH as a minimal merge-patch, errors surfaced as an inline
 message or a button state — never a blocking modal. Used by profile, essays, tasks, and
 the school workspace.
+
+**One named exception: the scholarship admin editor** (`/app/admin/scholarships/:id`).
+It saves explicitly, through a save bar that rises from the bottom edge only while there
+are unsaved changes (Discard · Save, `⌘S`), and leaving with unsaved changes asks first.
+Autosave would push a half-typed amount or deadline onto a published record a student is
+reading. Publishing runs a checklist, and a published record that fails it can't be saved.
+The editor's preview is the student-facing `ScholarshipDetail` itself, not a copy.
 
 ### 17.4 Destructive actions
 

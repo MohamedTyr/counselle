@@ -1,9 +1,10 @@
 import type { ReactNode } from "react";
-import { DatabaseZap } from "lucide-react";
+import { DatabaseZap, FilePenLine } from "lucide-react";
 
 import calIcon from "@/assets/app-shell/cal.svg";
 import capIcon from "@/assets/app-shell/cap.svg";
 import checkIcon from "@/assets/app-shell/check.svg";
+import coinsIcon from "@/assets/app-shell/coins.svg";
 import fileIcon from "@/assets/app-shell/file.svg";
 import listIcon from "@/assets/app-shell/list.svg";
 import sparklesIcon from "@/assets/app-shell/sparkles.svg";
@@ -35,6 +36,7 @@ function tileIcon(src: string) {
 export const shellRoutes: ShellRoute[] = [
   { id: "ai", title: "AI", link: "/app/ai", icon: tileIcon(sparklesIcon), tile: "#e9f8ef", tileActive: "#d0f0dd" },
   { id: "schools", title: "Schools", link: "/app/schools", icon: tileIcon(capIcon), tile: "#e9f8ef", tileActive: "#d0f0dd" },
+  { id: "scholarships", title: "Scholarships", link: "/app/scholarships", icon: tileIcon(coinsIcon), tile: "#fdedf4", tileActive: "#fadbe9" },
   { id: "essays", title: "Essays", link: "/app/essays", icon: tileIcon(fileIcon), tile: "#fdf0de" },
   { id: "activities", title: "Activities", link: "/app/activities", icon: tileIcon(listIcon), tile: "#eee9fe" },
   { id: "sat", title: "SAT practice", link: "/app/sat", icon: tileIcon(targetIcon), tile: "#fdf6d8" },
@@ -50,6 +52,13 @@ export const adminShellRoutes: ShellRoute[] = [
     title: "CDS",
     link: "/app/admin/facts",
     icon: <DatabaseZap color="#4e5754" strokeWidth={1.5} />,
+    tile: "#eff1f0",
+  },
+  {
+    id: "admin-scholarships",
+    title: "Scholarship admin",
+    link: "/app/admin/scholarships",
+    icon: <FilePenLine color="#4e5754" strokeWidth={1.5} />,
     tile: "#eff1f0",
   },
 ];
