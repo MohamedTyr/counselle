@@ -257,6 +257,7 @@ function Editor({ record, others, onReload }: EditorProps) {
   const commit = useCallback(
     (next: ScholarshipDraft, message: string) => {
       if (conflict) return;
+      const submittedFrom = draft;
       if (next.status === "published" && !isReady(publishChecks(next, serverProblems))) {
         toast.error("Fix the checklist before saving a published scholarship");
         return;
@@ -265,7 +266,9 @@ function Editor({ record, others, onReload }: EditorProps) {
         { id: record?.id ?? null, draft: next, expected_version: record ? state.baseVersion : null },
         {
           onSuccess: (saved) => {
-            reset(saved, next);
+            // Compare with the draft as it was when the save started, not with
+            // `next`, which may carry a status override (Publish).
+            reset(saved, submittedFrom);
             toast.success(message);
             if (!record) {
               bypass.current = true;
@@ -276,7 +279,7 @@ function Editor({ record, others, onReload }: EditorProps) {
         },
       );
     },
-    [bypass, conflict, navigate, onSaveError, record, reset, save, serverProblems, state.baseVersion],
+    [bypass, conflict, draft, navigate, onSaveError, record, reset, save, serverProblems, state.baseVersion],
   );
 
   const changeStatus = (status: ScholarshipStatus, message: string) => {

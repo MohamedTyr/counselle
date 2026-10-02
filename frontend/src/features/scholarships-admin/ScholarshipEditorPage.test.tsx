@@ -197,6 +197,20 @@ describe("ScholarshipEditorPage", () => {
     expect(server.calls.find((call) => call.method === "PUT")?.body).toMatchObject({ status: "draft", expected_version: 2 });
   });
 
+  it("publishing a clean draft leaves the editor clean and published", async () => {
+    const user = userEvent.setup();
+    const server = adminServer(admin());
+    renderApp(PATH, { fetchHandler: server.handler });
+
+    await nameInput();
+    await user.click(screen.getByRole("button", { name: "Publish" }));
+
+    await waitFor(() => expect(server.calls.find((call) => call.method === "PUT")?.body).toMatchObject({ status: "published" }));
+    await waitFor(() => expect(screen.queryByRole("button", { name: /Publish/ })).not.toBeInTheDocument());
+    expect(screen.queryByRole("region", { name: "Unsaved changes" })).not.toBeInTheDocument();
+    expect(screen.getAllByText("Published").length).toBeGreaterThan(0);
+  });
+
   it("keeps edits typed while a save is in flight", async () => {
     const user = userEvent.setup();
     let release!: () => void;
