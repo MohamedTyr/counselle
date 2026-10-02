@@ -73,6 +73,7 @@ from app.deps import build_runtime
 from app.facts.jobs import start_facts_worker
 from app.prompt import validate_prompt_assets
 from app.skills import load_all_skill_meta
+from app.supplements.worker import start_supplements_worker
 from app.titles import make_auto_titler
 from app.turns import TurnRegistry
 from config.logging import setup_logging
@@ -114,6 +115,9 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
         # COUNSELLE_FACTS_WORKER_ENABLED is false (default).
         facts_poller = await start_facts_worker(runtime, settings)
         app.state.facts_poller = facts_poller
+        # The daily supplemental-prompts sync (app/supplements) — a no-op
+        # unless COUNSELLE_SUPPLEMENTS_WORKER_ENABLED=true.
+        supplements_worker = await start_supplements_worker(runtime, settings)
         try:
             yield
         finally:
@@ -121,6 +125,8 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
             # depends on (runtime.pipeline_pool) are closed below.
             if facts_poller is not None:
                 await facts_poller.stop()
+            if supplements_worker is not None:
+                await supplements_worker.stop()
             # Drain the registry FIRST: in-flight turns' final state writes
             # must land before runtime.aclose() closes the pools.
             await registry.aclose()

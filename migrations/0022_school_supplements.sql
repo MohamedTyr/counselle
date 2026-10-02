@@ -47,3 +47,15 @@ CREATE TABLE counselle.supplement_prompts (
   FOREIGN KEY (school_unitid, cycle)
     REFERENCES counselle.supplement_schools (school_unitid, cycle) ON DELETE CASCADE
 );
+
+-- One row per sync pass, written by the daily worker (app/supplements/worker.py):
+-- it decides when the next pass is due and keeps a record of what each pass did.
+CREATE TABLE counselle.supplement_sync_runs (
+  id              bigserial PRIMARY KEY,
+  started_at      timestamptz NOT NULL DEFAULT now(),
+  finished_at     timestamptz,
+  status          text NOT NULL DEFAULT 'running' CHECK (status IN ('running', 'ok', 'failed')),
+  updated         integer,
+  unchanged       integer,
+  problems        text                            -- failed/unmapped/stale headings, or the error
+);

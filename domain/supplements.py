@@ -1,4 +1,4 @@
-"""Supplemental essay prompts — the pure honesty core.
+"""Supplemental essay prompts \u2014 the pure honesty core.
 
 Prompts come from one compilation page, one text block per school. A model
 reads each block and proposes prompts; this module decides, in code, which of
@@ -21,26 +21,26 @@ Requirement = Literal["required", "optional"]
 
 _TYPOGRAPHY = str.maketrans(
     {
-        "‘": "'",
-        "’": "'",
-        "‚": "'",
-        "‛": "'",
-        "“": '"',
-        "”": '"',
-        "„": '"',
-        "‟": '"',
-        "–": "-",
-        "—": "-",
-        "−": "-",
-        " ": " ",
-        "…": "...",
+        "\u2018": "'",
+        "\u2019": "'",
+        "\u201a": "'",
+        "\u201b": "'",
+        "\u201c": '"',
+        "\u201d": '"',
+        "\u201e": '"',
+        "\u201f": '"',
+        "\u2013": "-",
+        "\u2014": "-",
+        "\u2212": "-",
+        "\u00a0": " ",
+        "\u2026": "...",
     }
 )
 _LIST_MARKER = re.compile(r"(?m)^\s*(?:\d+|[a-z])[.)]\s+")
 #: An inline limit such as "(650 word limit)" or "(Please answer in 650 words
-#: or less.)" — dropped on both sides, so a prompt copied without it still matches.
+#: or less.)" - dropped on both sides, so a prompt copied without it still matches.
 _INLINE_LIMIT = re.compile(r"\([^()]*\bwords?\b[^()]*\)", re.I)
-_MARKUP = re.compile(r"[*_#>`|•]+")
+_MARKUP = re.compile(r"[*_#>`|\u2022]+")
 _WHITESPACE = re.compile(r"\s+")
 _SPACE_BEFORE_PUNCT = re.compile(r" ([.,;:!?)])")
 

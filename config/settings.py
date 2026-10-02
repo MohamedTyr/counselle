@@ -438,6 +438,14 @@ class Settings(BaseSettings):
     supplements_reasoning_effort: ReasoningEffort = "low"
     supplements_extract_concurrency: int = Field(default=6, gt=0)
     supplements_extract_attempts: int = Field(default=3, gt=0)
+    # The daily sync worker (app/supplements/worker.py), started from the API
+    # lifespan. A pass is due when none succeeded in the last interval; a
+    # failed pass is retried after `supplements_retry_minutes`, so a bad
+    # fetch still recovers the same day.
+    supplements_worker_enabled: bool = False
+    supplements_sync_interval_hours: int = Field(default=24, gt=0)
+    supplements_retry_minutes: int = Field(default=60, gt=0)
+    supplements_worker_poll_seconds: int = Field(default=300, gt=0)
     # observed_at_spread's "compared at different times" threshold (days) —
     # much tighter than facts_stale_days (120): two facts on the same
     # school observed more than this many days apart get a spread caveat.
