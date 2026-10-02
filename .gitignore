@@ -79,3 +79,5 @@ frontend/.vite-school-chances-fixture/
 
 # Wrangler local secrets (frontend/.dev.vars): the admin dev bypass.
 .dev.vars
+
+.env
