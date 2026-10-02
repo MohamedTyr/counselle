@@ -318,7 +318,7 @@
       ],
       "status": "complete",
       "response_mode": "quick",
-      "model": "google-vertex:gemini-2.5-pro",
+      "model": "fireworks:accounts/fireworks/models/quick-model",
       "segments": [
         {
           "kind": "step",
@@ -575,7 +575,7 @@
       "sources": [],
       "status": "complete",
       "response_mode": "quick",
-      "model": "google-vertex:gemini-2.5-pro",
+      "model": "fireworks:accounts/fireworks/models/quick-model",
       "segments": [
         {
           "kind": "delta",
@@ -615,7 +615,7 @@
       "sources": [],
       "status": "cancelled",
       "response_mode": "quick",
-      "model": "google-vertex:gemini-2.5-pro",
+      "model": "fireworks:accounts/fireworks/models/quick-model",
       "segments": [
         {
           "kind": "delta",

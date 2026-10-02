@@ -12,11 +12,8 @@ const ssrOut = path.join(root, "node_modules/.prerender-landing");
 const ROOT_DIV = '<div id="root"></div>';
 const STYLESHEET =
   /<link rel="stylesheet"[^>]*href="(\/assets\/[^"]+\.css)"[^>]*>/g;
-/** The two faces the H1 needs; the others load when their text renders. */
-const PRELOAD_FONTS = [
-  /^inter-latin-wght-normal-.*\.woff2$/,
-  /^instrument-serif-latin-400-italic-.*\.woff2$/,
-];
+/** The face the H1 needs; the others load when their text renders. */
+const PRELOAD_FONTS = [/^inter-latin-wght-normal-.*\.woff2$/];
 
 function fail(message) {
   console.error(`prerender-landing: ${message}`);

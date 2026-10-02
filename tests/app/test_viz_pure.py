@@ -38,7 +38,9 @@ def _catalog() -> Catalog:
     return cast(
         Catalog,
         SimpleNamespace(
-            snapshot=SimpleNamespace(schools={}, fact_keys={}, profile_groups=(), sections={})
+            snapshot=SimpleNamespace(
+                name_index={}, schools={}, fact_keys={}, profile_groups=(), sections={}
+            )
         ),
     )
 
@@ -49,6 +51,7 @@ def _db_catalog() -> Catalog:
         Catalog,
         SimpleNamespace(
             snapshot=SimpleNamespace(
+                name_index={"canonical school": (1,), "canon": (1,)},
                 schools={1: SimpleNamespace(basics=school)},
                 fact_keys={"admissions.one": object(), "admissions.two": object()},
                 profile_groups=(),
@@ -400,6 +403,45 @@ async def test_metric_reads_are_grouped_once_and_column_is_canonicalized(
 
 
 @pytest.mark.asyncio
+async def test_column_named_exactly_after_one_school_resolves_but_an_alias_does_not(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def fake_get_facts(
+        _catalog: object,
+        unitid: int,
+        sections: list[str] | None = None,
+        keys: list[str] | None = None,
+    ) -> FactsQueryResult:
+        return _facts_result(unitid, (_fact_row("one", 1),))
+
+    monkeypatch.setattr("app.viz.get_facts", fake_get_facts)
+    rows = [VizRowInput(label="One", cells=(MetricCellInput(fact_key="admissions.one"),))]
+
+    async def render(name: str) -> dict[str, Any]:
+        return await render_viz(
+            _db_catalog(), SourceRegistry(), [], "stat_block", [ColumnInput(name=name)], rows
+        )
+
+    exact = await render("canonical  SCHOOL")
+    alias = await render("Canon")
+
+    duplicate = await render_viz(
+        _db_catalog(),
+        SourceRegistry(),
+        [],
+        "comparison_table",
+        [ColumnInput(unitid=1), ColumnInput(name="Canonical School")],
+        [VizRowInput(label="One", cells=(MetricCellInput(fact_key="admissions.one"),) * 2)],
+    )
+
+    assert exact["ok"] is True
+    assert alias["ok"] is False
+    assert "web-only columns" in alias["rejected_cells"][0]["reason"]
+    assert duplicate["ok"] is False
+    assert "duplicate database unitid 1" in duplicate["rejected_cells"][0]["reason"]
+
+
+@pytest.mark.asyncio
 async def test_profile_reads_are_grouped_once_and_source_label_names_snapshot(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -442,7 +484,7 @@ async def test_profile_reads_are_grouped_once_and_source_label_names_snapshot(
         cast(
             Catalog,
             SimpleNamespace(
-                snapshot=SimpleNamespace(
+                snapshot=SimpleNamespace(name_index={}, 
                     schools={
                         1: SimpleNamespace(basics=SchoolBasics(unitid=1, name="Canonical School"))
                     },
@@ -521,7 +563,7 @@ async def test_profile_typo_is_unknown_while_present_null_leaf_is_unavailable(
         cast(
             Catalog,
             SimpleNamespace(
-                snapshot=SimpleNamespace(
+                snapshot=SimpleNamespace(name_index={}, 
                     schools={
                         1: SimpleNamespace(basics=SchoolBasics(unitid=1, name="Canonical School"))
                     },
@@ -793,7 +835,7 @@ async def test_facts_confirmed_far_apart_attach_spread_caveat(
     catalog = cast(
         Catalog,
         SimpleNamespace(
-            snapshot=SimpleNamespace(
+            snapshot=SimpleNamespace(name_index={}, 
                 schools=schools,
                 fact_keys={"admissions.one": object()},
                 profile_groups=(),

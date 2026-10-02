@@ -655,12 +655,28 @@ def test_normalize_document_summary_enforces_persisted_shape_and_length() -> Non
     assert normalize_document_summary(f"Type: {'x' * 121}\nTopics: academics") is None
 
 
-async def test_document_summary_uses_the_configured_non_google_cheap_model_and_excerpt(
+def _fake_build_model(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, str]]:
+    """Stand in for ``app.llm.build_model`` (no key, no network); returns the
+    ``(model_setting, reasoning_effort)`` calls it received."""
+    import app.llm
+
+    calls: list[tuple[str, str]] = []
+
+    def fake(_settings: object, model_setting: str, *, reasoning_effort: str) -> str:
+        calls.append((model_setting, reasoning_effort))
+        return f"built:{model_setting}"
+
+    monkeypatch.setattr(app.llm, "build_model", fake)
+    return calls
+
+
+async def test_document_summary_uses_the_cheap_model_at_cheap_effort_and_excerpt(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     import app.workspace.document_summary as document_summary
 
     received: dict[str, object] = {}
+    build_calls = _fake_build_model(monkeypatch)
 
     class FakeAgent:
         def __init__(self, model: object, *, system_prompt: str) -> None:
@@ -673,7 +689,8 @@ async def test_document_summary_uses_the_configured_non_google_cheap_model_and_e
     monkeypatch.setattr(document_summary, "Agent", FakeAgent)
     monkeypatch.setattr(document_summary, "load_prompt", lambda _: "summary prompt")
     settings = SimpleNamespace(
-        model_cheap="anthropic:claude-haiku-4-5",
+        model_cheap="fireworks:accounts/fireworks/models/cheap-model",
+        reasoning_effort_cheap="none",
         document_summary_excerpt_max_chars=12,
         document_summary_timeout_s=1.0,
     )
@@ -687,70 +704,10 @@ async def test_document_summary_uses_the_configured_non_google_cheap_model_and_e
     )
 
     assert summary == "Type: school record\nTopics: academics, coursework"
-    assert received["model"] == "anthropic:claude-haiku-4-5"
+    assert build_calls == [("fireworks:accounts/fireworks/models/cheap-model", "none")]
+    assert received["model"] == "built:fireworks:accounts/fireworks/models/cheap-model"
     assert source_text[:12] in str(received["prompt"])
     assert source_text[12:] not in str(received["prompt"])
-
-
-def test_summary_model_builds_an_authenticated_google_model_for_the_vertex_prefix(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """The production fallback must use the shared explicit Vertex client."""
-    # Importing app.agent_node pulls in app.toolset, which calls get_settings()
-    # at module import time — supply the required fields so that succeeds here.
-    monkeypatch.setenv("COUNSELLE_DB_RO_DSN", "postgresql://ro@localhost/pipeline")
-    monkeypatch.setenv("COUNSELLE_DB_APP_DSN", "postgresql://app@localhost/counselle")
-    from config.settings import reset_config_caches
-
-    reset_config_caches()
-    try:
-        import app.workspace.document_summary as document_summary
-        from app.agent_node import model_name_from_setting
-
-        settings = SimpleNamespace(
-            model_cheap="google-vertex:gemini-2.5-flash",
-            vertex_api_key="test-vertex-express-mode-key",
-        )
-
-        model = document_summary._summary_model(settings, None)
-
-        from pydantic_ai.models.google import GoogleModel
-        from pydantic_ai.providers.google_cloud import GoogleCloudProvider
-
-        assert isinstance(model, GoogleModel)
-        assert model.model_name == model_name_from_setting(settings.model_cheap)
-        assert model.model_name == "gemini-2.5-flash"
-        assert isinstance(model._provider, GoogleCloudProvider)
-        assert model._provider.client._api_client.api_key == settings.vertex_api_key
-    finally:
-        reset_config_caches()
-
-
-def test_summary_model_without_vertex_api_key_uses_adc(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setenv("COUNSELLE_DB_RO_DSN", "postgresql://ro@localhost/pipeline")
-    monkeypatch.setenv("COUNSELLE_DB_APP_DSN", "postgresql://app@localhost/counselle")
-    from config.settings import reset_config_caches
-
-    reset_config_caches()
-    try:
-        import app.workspace.document_summary as document_summary
-
-        settings = SimpleNamespace(
-            model_cheap="google-vertex:gemini-2.5-flash",
-            vertex_api_key=None,
-            google_cloud_project="counselle-adc-test",
-            google_cloud_location="us-central1",
-        )
-
-        model = document_summary._summary_model(settings, None)
-
-        assert model._provider.client._api_client.api_key is None
-        assert model._provider.client._api_client.project == settings.google_cloud_project
-        assert model._provider.client._api_client.location == settings.google_cloud_location
-    finally:
-        reset_config_caches()
 
 
 async def test_summary_timeout_keeps_the_extracted_document_and_logs_no_source_contents(
@@ -778,13 +735,15 @@ async def test_summary_timeout_keeps_the_extracted_document_and_logs_no_source_c
             return SimpleNamespace(output="Type: school record\nTopics: academics, coursework")
 
     monkeypatch.setattr(document_summary, "Agent", SlowAgent)
+    _fake_build_model(monkeypatch)
     monkeypatch.setattr(document_summary, "load_prompt", lambda _: "summary prompt")
     monkeypatch.setattr(document_summary, "logger", CapturingLogger(summary_logs))
     import app.workspace.service_documents as service_documents
 
     monkeypatch.setattr(service_documents, "logger", CapturingLogger(service_logs))
     settings = SimpleNamespace(
-        model_cheap="anthropic:claude-haiku-4-5",
+        model_cheap="fireworks:accounts/fireworks/models/cheap-model",
+        reasoning_effort_cheap="none",
         document_summary_excerpt_max_chars=100,
         document_summary_timeout_s=0.001,
     )
@@ -873,10 +832,12 @@ async def test_summary_exception_logs_no_document_or_exception_contents(
             raise RuntimeError(source_text)
 
     monkeypatch.setattr(document_summary, "Agent", FailingAgent)
+    _fake_build_model(monkeypatch)
     monkeypatch.setattr(document_summary, "load_prompt", lambda _: "summary prompt")
     monkeypatch.setattr(document_summary, "logger", CapturingLogger())
     settings = SimpleNamespace(
-        model_cheap="anthropic:claude-haiku-4-5",
+        model_cheap="fireworks:accounts/fireworks/models/cheap-model",
+        reasoning_effort_cheap="none",
         document_summary_excerpt_max_chars=100,
         document_summary_timeout_s=1.0,
     )

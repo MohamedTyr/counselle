@@ -1,6 +1,6 @@
 # ADR 0028 — The run is the message
 
-**Status:** Accepted
+**Status:** Accepted — the `thinking_stream`-on default and the `thinking_summaries` alias are reversed by [ADR 0043](0043-fireworks-deepseek-default-model.md) (raw reasoning is hidden by default).
 
 ## Context
 

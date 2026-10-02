@@ -15,6 +15,7 @@ if (!base) {
 /** Each visit: a path, and what must be on screen before it is judged. */
 const VISITS = [
   { path: "/", ready: ".lp-hero h1" },
+  { path: "/about", ready: "h1" },
   { path: "/privacy", ready: "h1" },
   { path: "/terms", ready: "h1" },
   { path: "/#waitlist", ready: "[role=dialog] input[type=email]" },

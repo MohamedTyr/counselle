@@ -418,13 +418,6 @@
   align-items: baseline;
   gap: calc(15em / 72);
 }
-.lp-headline-serif {
-  font-family: var(--lp-font-serif);
-  font-style: italic;
-  font-size: calc(78em / 72);
-  line-height: calc(85 / 78);
-  letter-spacing: -0.02em;
-}
 
 /* The composer is an illustration of the product, in the product's type. */
 .lp-composer {

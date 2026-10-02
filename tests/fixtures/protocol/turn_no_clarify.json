@@ -6,7 +6,7 @@
       "data": {
         "trace_id": "id-1",
         "session_id": "id-2",
-        "model": "google-vertex:gemini-2.5-pro",
+        "model": "fireworks:accounts/fireworks/models/quick-model",
         "message_id": "id-3",
         "user_message_id": "id-4",
         "response_mode": "quick",

@@ -8,13 +8,19 @@ const KEY = "phc_vpue7ekaVvNrv5kBtwFhDBJAeEKQ2YxyHpPThoNQzzcY";
 const HOST = "/ingest";
 
 /**
- * The named events the waitlist funnel is built on. Clicks, pageviews and
- * scroll depth come from autocapture; these are the steps that must not move
- * when the page's markup does. None of them ever carries the email.
+ * The named events the waitlist funnel is built on. Clicks, pageviews,
+ * scroll depth, replays and errors come from the SDK; these are the steps
+ * that must not move when the page's markup does. A join identifies the
+ * visitor by email, so their earlier visits and replays carry their name.
  */
 type Events = {
   waitlist_opened: { side: Side; source: Source; plan?: string };
-  waitlist_joined: { side: Side; source: Source; plan?: string };
+  waitlist_joined: {
+    side: Side;
+    source: Source;
+    plan?: string;
+    email: string;
+  };
   waitlist_details: {
     side: Side;
     source: Source;
@@ -64,8 +70,10 @@ function withRefSource(event: CaptureResult | null): CaptureResult | null {
 
 /**
  * Only the production host reports, so previews, local builds and the dev
- * server never skew the funnel. Nothing is stored on the device and nothing
- * is recorded, whatever the dashboard says: the privacy policy depends on it.
+ * server never skew the funnel. Everything else is on: a first-party cookie
+ * recognizes a returning visitor, every visitor gets a person profile, and
+ * every visit is recorded, typed text, console and network included. The
+ * privacy policy says so; keep the two in step.
  */
 export function initAnalytics(): void {
   if (client || location.hostname !== SITE_HOST) return;
@@ -76,12 +84,18 @@ export function initAnalytics(): void {
         api_host: HOST,
         ui_host: "https://us.posthog.com",
         defaults: "2026-08-30",
-        person_profiles: "identified_only",
-        persistence: "memory",
-        disable_session_recording: true,
-        // Should replay ever be turned on, it still never records the
-        // waitlist POST, whose body is the email.
-        session_recording: { recordBody: false, recordHeaders: false },
+        person_profiles: "always",
+        persistence: "localStorage+cookie",
+        session_recording: {
+          maskAllInputs: false,
+          recordBody: true,
+          recordHeaders: true,
+        },
+        enable_recording_console_log: true,
+        capture_exceptions: true,
+        capture_heatmaps: true,
+        capture_dead_clicks: true,
+        capture_performance: { web_vitals: true, network_timing: true },
         disable_surveys: true,
         disable_product_tours: true,
         before_send: withRefSource,
@@ -92,11 +106,34 @@ export function initAnalytics(): void {
   client.catch(() => undefined);
 }
 
+/** Events whose properties also describe the person, not just the moment. */
+const PERSON_EVENTS: ReadonlySet<keyof Events> = new Set([
+  "waitlist_joined",
+  "waitlist_details",
+]);
+
+function send<E extends keyof Events>(
+  posthog: PostHog,
+  event: E,
+  properties: Events[E],
+): void {
+  if ("email" in properties)
+    posthog.identify(properties.email, { email: properties.email });
+  if (!PERSON_EVENTS.has(event)) {
+    posthog.capture(event, properties);
+    return;
+  }
+  const person = Object.fromEntries(
+    Object.entries(properties).filter(([, value]) => value !== undefined),
+  );
+  posthog.capture(event, properties, { $set: person });
+}
+
 export function track<E extends keyof Events>(
   event: E,
   properties: Events[E],
 ): void {
   void client
-    ?.then((posthog) => posthog.capture(event, properties))
+    ?.then((posthog) => send(posthog, event, properties))
     .catch(() => undefined);
 }

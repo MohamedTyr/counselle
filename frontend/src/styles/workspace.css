@@ -155,3 +155,10 @@
   --scrollbar-thumb-active: color-mix(in oklch, var(--ink) 55%, transparent);
   --scrollbar-track: transparent;
 }
+
+/* The waitlist admin's bars (chart and composition), in ink like
+ * --school-chart-mark: the brand lime is under 3:1 on the canvas, below the
+ * floor for a non-text mark. */
+:root {
+  --waitlist-chart-mark: var(--ink);
+}

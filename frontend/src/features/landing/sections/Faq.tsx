@@ -1,10 +1,11 @@
 import { useState } from "react";
 import minus from "../assets/faq-minus.svg";
 import plus from "../assets/faq-plus.svg";
-import { QUESTIONS } from "./faqQuestions";
+import { FAQ_AUDIENCES, QUESTIONS, type Audience } from "./faqQuestions";
 import "./faq.css";
 
 export function Faq() {
+  const [audience, setAudience] = useState<Audience>("students");
   const [open, setOpen] = useState(0);
   const [pointerMotion, setPointerMotion] = useState(false);
   return (
@@ -25,10 +26,30 @@ export function Faq() {
         </div>
       </div>
       <div className="lp-faq-list" data-pointer-motion={pointerMotion}>
+        <div className="lp-faq-filter" role="group" aria-label="Questions for">
+          {FAQ_AUDIENCES.map(({ id, label }) => (
+            <button
+              key={id}
+              type="button"
+              aria-pressed={audience === id}
+              onClick={() => {
+                setAudience(id);
+                setOpen(QUESTIONS.findIndex((item) => item.audience === id));
+              }}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        {/* Both groups stay in the HTML, so crawlers read every answer. */}
         {QUESTIONS.map((item, index) => {
           const isOpen = index === open;
           return (
-            <div key={item.q} className="lp-faq-item">
+            <div
+              key={item.q}
+              className="lp-faq-item"
+              hidden={item.audience !== audience}
+            >
               <button
                 type="button"
                 className="lp-faq-toggle"

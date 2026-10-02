@@ -12,6 +12,11 @@ import {
   SOURCES,
   UTM_KEYS,
 } from "../../src/features/landing/waitlist/contract";
+import {
+  errorCode,
+  fail,
+  reply,
+} from "../../src/features/landing/waitlist/http";
 
 type Env = { DB: D1Database };
 
@@ -19,11 +24,6 @@ const MAX_BODY_BYTES = 2048;
 const UTM_SHAPE = /^[\w\-.~ ]{1,100}$/;
 /** Production, plus wrangler pages dev. Previews share the production D1. */
 const WRITE_HOSTS = [SITE_HOST, "localhost", "127.0.0.1"];
-/** _headers never applies to Functions, so every reply carries its own. */
-const REPLY_HEADERS = {
-  "X-Content-Type-Options": "nosniff",
-  "Cache-Control": "no-store",
-};
 
 /**
  * Same side: fill answers in, never replace one with null. Side changed: take
@@ -53,17 +53,6 @@ type Signup = {
 };
 
 class Invalid extends Error {}
-
-function reply(status: number, body: object, headers?: HeadersInit) {
-  return Response.json(body, {
-    status,
-    headers: { ...REPLY_HEADERS, ...headers },
-  });
-}
-
-function fail(status: number, error: string, headers?: HeadersInit) {
-  return reply(status, { ok: false, error }, headers);
-}
 
 function normaliseEmail(value: unknown): string {
   if (typeof value !== "string") throw new Invalid("email");
@@ -136,13 +125,6 @@ function rejectRequest(request: Request): Response | null {
   if (Number(request.headers.get("Content-Length") ?? 0) > MAX_BODY_BYTES)
     return fail(413, "too large");
   return null;
-}
-
-/** An error's code for the log, never its message: that can carry the email. */
-function errorCode(error: unknown): string {
-  const message = error instanceof Error ? error.message : "";
-  const code = message.match(/\b(?:D1|SQLITE)_[A-Z_]+\b/)?.[0];
-  return code ?? (error instanceof Error ? error.name : "unknown");
 }
 
 export const onRequest: PagesFunction<Env> = async ({ request, env }) => {

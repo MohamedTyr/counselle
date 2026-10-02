@@ -1,56 +1,30 @@
 """Server-owned Quick/Think model resolution (plans/quick-think-response-mode.md §3.2).
 
 The browser sends only ``"quick"`` or ``"think"``; it never sends a model ID,
-provider, thinking level, or ``include_thoughts`` flag. This module is the only
-mapping from that product intent to provider configuration.
+provider, or reasoning effort. This module is the only mapping from that
+product intent to a model setting and reasoning effort.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING
 
 from domain.response_mode import ResponseMode
 
 if TYPE_CHECKING:
-    from config.settings import Settings
-
-_VERTEX_PREFIX = "google-vertex:"
+    from config.settings import ReasoningEffort, Settings
 
 
 def model_name_from_setting(model_setting: str) -> str:
-    """``"google-vertex:gemini-2.5-pro"`` → ``"gemini-2.5-pro"`` — the provider
-    prefix is unusable with our Express-mode key; only the bare model name
-    feeds the explicit ``GoogleModel``/genai-client constructors that consume
-    it (``app.agent_node.default_model_factory`` and its siblings in
-    ``app.titles``, ``app.workspace.document_summary``, ``evals.runner``).
+    """``"fireworks:accounts/fireworks/models/x"`` → ``"accounts/fireworks/models/x"``:
+    the bare model name the provider API expects, with the provider prefix
+    stripped (``app.llm.build_model`` consumes it).
 
-    Hoisted here from ``app.agent_node`` (school-data-v3 Phase 0) — this
-    module is the model-selection seam, so the name-normalization helper
-    belongs beside it rather than in the agent node. ``app.agent_node``
-    re-exports the name so existing ``from app.agent_node import
-    model_name_from_setting`` imports keep working unchanged.
+    ``app.agent_node`` re-exports the name for the parked CDS code that
+    imports it from there.
     """
     return model_setting.split(":", 1)[-1]
-
-
-def google_thinking_config(selection: CounselorModelSelection) -> dict[str, object]:
-    """Return the provider-shaped thinking settings for a resolved counselor mode.
-
-    Gemini 2.5 uses numeric ``thinking_budget`` values; its Vertex endpoint
-    rejects Gemini 3's ``thinking_level`` field with HTTP 400. Later model
-    families keep the level-based protocol until Google documents otherwise.
-    """
-    model_name = model_name_from_setting(selection.model_setting)
-    if model_name.startswith("gemini-2.5-"):
-        return {
-            "thinking_budget": -1 if selection.response_mode is ResponseMode.THINK else 0,
-            "include_thoughts": selection.include_thoughts,
-        }
-    return {
-        "thinking_level": selection.thinking_level,
-        "include_thoughts": selection.include_thoughts,
-    }
 
 
 @dataclass(frozen=True)
@@ -59,26 +33,7 @@ class CounselorModelSelection:
 
     response_mode: ResponseMode
     model_setting: str
-    thinking_level: Literal["MINIMAL", "HIGH"]
-    include_thoughts: bool
-
-
-class UnsupportedCounselorProvider(RuntimeError):
-    """Raised when a configured counselor model setting is not ``google-vertex:``.
-
-    The current production factory always constructs a ``GoogleModel``;
-    silently stripping an unknown prefix would misroute the call through
-    Google. Provider-generic construction is a separate ADR-level change.
-    """
-
-
-def _require_vertex_prefix(model_setting: str) -> None:
-    if not model_setting.startswith(_VERTEX_PREFIX):
-        raise UnsupportedCounselorProvider(
-            f"counselor model setting {model_setting!r} must use the "
-            f"{_VERTEX_PREFIX!r} prefix; provider-generic construction is not "
-            "implemented"
-        )
+    reasoning_effort: ReasoningEffort
 
 
 def goal_agent_model_setting(settings: Settings) -> str:
@@ -119,29 +74,20 @@ def counselor_model_selection(
     response_mode: ResponseMode,
     settings: Settings,
 ) -> CounselorModelSelection:
-    """Resolve *response_mode* to exactly one model + thinking configuration.
+    """Resolve *response_mode* to exactly one model setting + reasoning effort.
 
-    Quick maps to ``settings.model_counselor`` (the existing Quick setting,
-    kept unrenamed to preserve ``COUNSELLE_MODEL_COUNSELOR`` compatibility) at
-    ``MINIMAL`` thinking with no requested provider thoughts. Think maps to
-    ``settings.model_counselor_think`` at ``HIGH`` thinking, with provider
-    thoughts requested only when ``settings.effective_thinking_stream`` is on.
+    Quick maps to ``settings.model_counselor`` at ``reasoning_effort_quick``;
+    Think maps to ``settings.model_counselor_think`` at
+    ``reasoning_effort_think``.
     """
     if response_mode is ResponseMode.THINK:
-        model_setting = settings.model_counselor_think
-        _require_vertex_prefix(model_setting)
         return CounselorModelSelection(
             response_mode=ResponseMode.THINK,
-            model_setting=model_setting,
-            thinking_level="HIGH",
-            include_thoughts=settings.effective_thinking_stream,
+            model_setting=settings.model_counselor_think,
+            reasoning_effort=settings.reasoning_effort_think,
         )
-
-    model_setting = settings.model_counselor
-    _require_vertex_prefix(model_setting)
     return CounselorModelSelection(
         response_mode=ResponseMode.QUICK,
-        model_setting=model_setting,
-        thinking_level="MINIMAL",
-        include_thoughts=False,
+        model_setting=settings.model_counselor,
+        reasoning_effort=settings.reasoning_effort_quick,
     )

@@ -7,7 +7,7 @@
 **Owner, security and money:**
 - **2FA** on Cloudflare (a single Super Administrator), Spaceship and PostHog.
 - **Workers Paid** (D-5), before any launch spike: `/ingest` and `/api/waitlist` share the free 100k requests a day, so a spike stops signups until 00:00 UTC.
-- **The 29 raw-IP PostHog events** (acceptra.ai, before 09:04 UTC on 2026-09-29): the owner chose not to file the deletion request, so the privacy page's "does not keep the address itself" stays untrue for those events until they are deleted in the PostHog UI (the API can't: they are personless and self-service deletion is off). Every later event has no `$ip`.
+- **Analytics consent.** The landing records full replays (typed text included), keeps IPs and sets a first-party cookie. The privacy policy says so, but there is no consent banner; EU/UK visitors (ePrivacy/GDPR) would need one, and many visitors are 13–17. The policy's own "Changes" section promises an email to the waitlist on a significant change, and this is one.
 - **Honesty calls on the live page** (principle 3), default remove unless sourced or consented: the three testimonials; the mentor calls, the counselor view and the university logos (D-6); "$10,000 counselor", "$140–300 an hour" and the ChatGPT comparison row. Also confirm the Google appointment schedule has open slots.
 
 **Cloudflare, done 2026-09-29 with a short-lived owner token:** SSL/TLS Full (strict); CAA for letsencrypt.org, pki.goog, ssl.com and sectigo.com (the Universal certificate stayed active); email alerts to admin@ for a failed Pages production deploy, Universal SSL and HTTP DDoS. Still open:
@@ -44,10 +44,39 @@
   - WebP for the three PNG logo tiles.
   - A `<details>` FAQ for no-JS visitors (the answers are in the HTML, but collapsed without JS).
   - A server-side honeypot check (today the client drops a filled trap).
-  - Spreadsheet-safe CSV export of the list.
   - Trimming the ~40 kB of inline SVG data URIs.
   - The 37px "Skip to content" link, accepted: it is a keyboard target, not a touch target.
   - The unused registry exports knip still lists, and test-only Python helpers.
+
+## Waitlist admin (`plans/landing-admin-plan.md`): what is left
+
+The page, its API and the gate are built and tested locally (`docs/DEPLOY.md` § The admin page). Open:
+
+- **Go-live.** Access is set up (2026-09-30: team `acceptra`, one-time PIN, the "Founders" policy with `admin@acceptra.ai`, and the `wrangler.toml` `[vars]`). Left: add any other founder to both the policy and `ADMIN_EMAILS`, the deploy, the production checks in `verify-landing.sh`, and one real sign-in on a laptop and a phone (including the "Your session ended" state after deleting the `CF_Authorization` cookie).
+- **The ESLint import ban the plan asked for is a test instead.** A `no-restricted-imports` rule on `src/features/waitlist-admin/**` (banning `@/features/landing/analytics` and `posthog-js`) was blocked by a local hook that refuses any `eslint.config.js` edit; `src/features/waitlist-admin/no-analytics.test.ts` enforces the same ban. Swap it for the lint rule if the hook is lifted.
+- **`verify-landing.sh` checks two FAQ questions the page no longer has** ("What is Acceptra?" and "Is my data sold or used for advertising?"), since the FAQ was rewritten in `9656ff73`/`40eb0d6a`. Both checks fail against any build of `main`; update them to the current questions.
+- **Two stale labels in the app, out of this plan's scope:** `AdminGate`'s doc comment (`src/app/auth/AdminGate.tsx`) still describes gating three `/app/admin/cds/*` routes, though it now guards `/app/admin/facts`; and the sidebar entry for that page is titled "CDS" (`src/app/shell/navigation.tsx`).
+
+## Focused Answer speed pass (`plans/quick-answers-plan.md`): what is left
+
+- **One eval run is noisy.** Single-case flips between identical runs are common (the memory case picked `update_profile` over `remember`; a score-band answer added an invented threshold). Judge a change on two runs, not one.
+- **Eval latencies before 2026-09-30 include grading.** `duration_s` used to stop after the LLM judge scored the case, which adds up to ~40s on criteria cases; it now stops when the turn ends. Measured the new way on main after the speed work: median 11.6s, 87 words. The slow tail is the SQL ranking cases (58-177s, 10-15k reasoning tokens), where the model worked through a denominator conflict. The owner decided (2026-09-30) that a ranking is out of all profiled schools; the recipe and the guard now agree with the prompt.
+- **Large `get_facts` reads truncate.** `rows` and `unavailable` share a 60-row cap, and `getting-in` (90 facts) and `money` (63) exceed it alone, so a section read of either truncates and the model reads again by key, spending a round. Focused Answer now asks for exact keys; if it still happens, a larger cap (against the 20k inline limit) is the next step.
+
+## DeepSeek on Fireworks (ADR 0043): what is left
+
+Every live model call moved from Gemini on Vertex to DeepSeek V4.1 Flash on Fireworks (`plans/fireworks-deepseek-plan.md`). Still open:
+
+- **The account price.** `model_prices` holds the highest Global rate Fireworks publishes ($0.30 in / $1.20 out per 1M); the docs also show $0.45/$1.80 (US) and $0.22/$0.66 (the model page). The owner confirms the account's rate on the Fireworks billing page, then the default changes.
+- **Data terms, before real student data.** Student chats, profiles and essays now go to Fireworks. Confirm zero data retention and no training on prompts or outputs before production traffic; until then only synthetic or throwaway accounts.
+- **Before the app is deployed (B6):** the app's privacy copy must name Fireworks as the model processor. Today the only privacy page is the landing waitlist's, which names no model provider, so nothing shipped went stale.
+- **The parked CDS extraction system is still on Gemini** (`adapters/cds_gemini.py`, `model_cds_*`, the Vertex credentials). Reviving it (`PARKED.md`) means either keeping Vertex credentials for it alone or porting it to `app/llm.py`.
+- **One client per model build.** `app/llm.py::build_model` makes a new `AsyncOpenAI` (and httpx pool) per call site and never closes it. The SDK's 600s default timeout is gone: `model_read_timeout_s` (45s) retries a chat turn's request that stalls before its first byte; non-streamed calls (judge, titles) and goal turns keep the SDK default. If sockets pile up under load, cache the client per key.
+- **The judge gate's strict bar.** FPR is 0 in every run, but no effort gave two consecutive 1.000 runs; the two misses (test-22, test-28) have debatable labels. The owner relabels or accepts (`evals/goal_judge/REPORT-20260930-deepseek.md`).
+- **Quick is slow and verbose; Think over-researches.** Quick at `low`, over the eval's 10 comparison cases: median 32.6s against Gemini's 17.1s, about twice the output tokens, p95 200s. One Think turn made 43 tool calls and hit the budget with an empty answer; a normal one took about 4.5 minutes and $0.35. The Think eval run at `high` was not completed.
+- **A goal-drafted essay invented a personal anecdote** in the browser pass, against `essay-honesty`'s fabrication ban.
+- **Transcript usage records carry no cost.** `est_cost_usd` is null in stored usage records (they keep raw usage); the streamed `usage` event is priced. Pre-existing.
+- **Local Python needs IPv4.** On a workstation with broken IPv6, Python's HTTP clients hang on `api.fireworks.ai` instead of falling back (curl falls back). Fix it in the environment (`precedence ::ffff:0:0/96 100` in `/etc/gai.conf`), not in app code.
 
 ## `cds_library.school_explore` view ownership drifted from the seed (live DB fix applied, source not)
 - **What:** the live v3 database's `cds_library.school_explore` view was owned by `postgres`

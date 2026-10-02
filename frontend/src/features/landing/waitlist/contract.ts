@@ -18,6 +18,40 @@ export type ClassYear = (typeof CLASS_YEARS)[number];
 export type PlanId = (typeof PLAN_IDS)[number];
 export type Source = (typeof SOURCES)[number];
 
+/** One list for the form and the admin page, so a new value is one edit. */
+export const ROLE_LABELS: Record<Role, string> = {
+  student: "Student",
+  parent: "Parent",
+  counselor: "Counselor",
+};
+export const PLAN_LABELS: Record<PlanId, string> = {
+  free: "Free",
+  monthly: "Monthly",
+  yearly: "Yearly",
+};
+export const SOURCE_LABELS: Record<Source, string> = {
+  nav: "Header button",
+  plan: "Pricing",
+  schools: "For schools",
+  footer: "Footer",
+  link: "Direct link",
+};
+
+/** A row as D1 stores it, and as /admin/api/waitlist returns it. */
+export type WaitlistRow = {
+  email: string;
+  side: Side;
+  source: Source;
+  plan: PlanId | null;
+  role: Role | null;
+  class_of: ClassYear | null;
+  utm_source: string | null;
+  utm_medium: string | null;
+  utm_campaign: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 export function isSource(value: unknown): value is Source {
   return SOURCES.includes(value as Source);
 }

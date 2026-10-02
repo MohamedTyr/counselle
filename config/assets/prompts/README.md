@@ -14,7 +14,7 @@ is about, rendered in code by `app.prompt.render_essay_context`), `student_conte
 `temporal_context`. It never names a tool it does not have: the essay surface's narrower
 tool profile is enforced in code at mount time (ADR 0013), never by this prose.
 
-`goal_criteria.md` and `goal_judge.md` are goal mode's two cheap-model calls
+`goal_criteria.md` and `goal_judge.md` are goal mode's two typed-output calls
 (plans/goal-mode-plan.md Part 3, `app/goal_judge.py`), each a standalone
 `Agent(...)` with typed output — neither is a `counselor.md` substitution and
 neither ever mounts a tool. `goal_criteria.md`'s one runtime slot is

@@ -12,6 +12,16 @@ function isAsset(path: string): boolean {
   return path.startsWith("/static/") || path.startsWith("/array/");
 }
 
+/**
+ * Only the versioned SDK files are cached. `/array/<key>/config.js` is the
+ * project's live settings, and PostHog turns replay on in it only for a
+ * request from an allowed domain, so it is forwarded with the visitor's own
+ * Referer and never cached.
+ */
+function isCacheable(path: string): boolean {
+  return path.startsWith("/static/");
+}
+
 async function retrieveAsset(
   request: Request,
   upstream: string,
@@ -48,13 +58,14 @@ async function route(
   const path = url.pathname.slice(PREFIX.length) || "/";
   const host = isAsset(path) ? ASSET_HOST : API_HOST;
   const upstream = `https://${host}${path}${url.search}`;
-  if (isAsset(path) && request.method === "GET")
+  if (isCacheable(path) && request.method === "GET")
     return retrieveAsset(request, upstream, waitUntil);
   return forward(request, upstream);
 }
 
 /**
- * The site stores nothing on the device, so no upstream cookie gets through.
+ * The SDK sets its own first-party cookie; PostHog's upstream cookies never
+ * reach the visitor.
  * The proxy is same-origin, so PostHog's own CORS headers, which let any
  * origin read the reply with credentials, are dropped too.
  */

@@ -1,6 +1,6 @@
 @import "../landing.css";
 
-/* The legal pages borrow the landing's tokens and type, as one plain
+/* The about and legal pages borrow the landing's tokens and type, as one plain
    reading column. */
 .lp-legal {
   max-width: 720px;
@@ -57,6 +57,10 @@
   color: var(--lp-green-deep);
   text-decoration: underline;
   text-underline-offset: 2px;
+}
+.lp-legal-signoff {
+  margin-top: 32px;
+  font-weight: 500;
 }
 .lp-legal-footer {
   margin-top: 64px;

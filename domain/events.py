@@ -287,11 +287,10 @@ class NarrationData(BaseModel):
 
 
 class ThinkingData(BaseModel):
-    """A native raw-reasoning line (Gemini thought summaries via
-    ``include_thoughts``), interleaved in the timeline. ONLY emitted when
-    the effective ``thinking_stream`` setting is on — collapsed by default,
-    never shown as prose. ``thinking_summaries`` is deprecated compatibility
-    config only. Never carries narration; see :class:`NarrationData` for that."""
+    """A line of the model's native reasoning, interleaved in the timeline.
+    ONLY emitted when the ``thinking_stream`` setting is on (off by default,
+    ADR 0043) — collapsed by default, never shown as prose. Never carries
+    narration; see :class:`NarrationData` for that."""
 
     text: str
 
