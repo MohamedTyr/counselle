@@ -31,16 +31,23 @@ class EnvelopeError(Exception):
     """A user-safe error that renders as the project's ``{"error": …}`` envelope.
 
     ``headers`` lets a raiser attach response headers (B4: ``Retry-After`` on a
-    429) — the handler emits them on the JSONResponse.
+    429) — the handler emits them on the JSONResponse. ``extra`` is merged
+    into the ``error`` object, the only way structured detail (a 422's failing
+    ``problems``, a 409's ``current_version``) reaches the client.
     """
 
     def __init__(
-        self, status_code: int, message: str, headers: dict[str, str] | None = None
+        self,
+        status_code: int,
+        message: str,
+        headers: dict[str, str] | None = None,
+        extra: dict[str, Any] | None = None,
     ) -> None:
         super().__init__(message)
         self.status_code = status_code
         self.message = message
         self.headers = headers
+        self.extra = extra
 
 
 async def envelope_error_handler(request: Request, exc: Exception) -> JSONResponse:
@@ -49,7 +56,7 @@ async def envelope_error_handler(request: Request, exc: Exception) -> JSONRespon
     trace_id = getattr(request.state, "trace_id", None)
     return JSONResponse(
         status_code=err.status_code,
-        content={"error": {"message": err.message, "trace_id": trace_id}},
+        content={"error": {**(err.extra or {}), "message": err.message, "trace_id": trace_id}},
         headers=err.headers,
     )
 
