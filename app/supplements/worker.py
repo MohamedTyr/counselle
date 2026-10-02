@@ -2,15 +2,16 @@
 
 Every `supplements_worker_poll_seconds` the loop asks the database whether a
 pass is due (see `_DUE_SQL`) and, if so, runs `run_sync` under a Postgres
-advisory lock, so two API instances never sync at once. Each pass is recorded
-in `counselle.supplement_sync_runs`, which is also what makes "due" survive a
-restart.
+advisory lock, so two API instances (or the CLI) never sync at once. Each pass
+is recorded in `counselle.supplement_sync_runs`, which is also what makes
+"due" survive a restart.
 """
 
 from __future__ import annotations
 
 import asyncio
 import contextlib
+from collections.abc import AsyncIterator
 from typing import Any
 
 import asyncpg
@@ -18,7 +19,7 @@ import structlog
 
 from app.supplements.sync import SyncReport, run_sync
 from app.workspace.changes import WorkspaceEventBus
-from app.workspace.service_supplements import apply_catalog_changes
+from app.workspace.service_supplements import propagate_catalog_changes
 
 logger = structlog.get_logger(__name__)
 
@@ -70,31 +71,48 @@ class SupplementsWorker:
     async def run_if_due(self) -> bool:
         """Run one pass when due and the lock is free; True when a pass ran."""
         settings = self._settings
+        async with self._locked() as lock_conn:
+            if lock_conn is None:
+                return False
+            due = await lock_conn.fetchval(
+                _DUE_SQL,
+                settings.supplements_sync_interval_hours,
+                settings.supplements_retry_minutes,
+            )
+            if not due:
+                return False
+            await self._run_recorded(lock_conn)
+            return True
+
+    async def run_now(self, *, force: bool = False) -> tuple[bool, SyncReport | None, int]:
+        """One recorded pass regardless of "due" (the CLI): (ran, report,
+        essays touched). ran is False when another pass holds the lock."""
+        async with self._locked() as lock_conn:
+            if lock_conn is None:
+                return False, None, 0
+            report, essays = await self._run_recorded(lock_conn, force=force)
+            return True, report, essays
+
+    @contextlib.asynccontextmanager
+    async def _locked(self) -> AsyncIterator[asyncpg.Connection | None]:
         async with self._pool.acquire() as lock_conn:
             if not await lock_conn.fetchval("SELECT pg_try_advisory_lock($1)", _LOCK_KEY):
-                return False
+                yield None
+                return
             try:
-                due = await lock_conn.fetchval(
-                    _DUE_SQL,
-                    settings.supplements_sync_interval_hours,
-                    settings.supplements_retry_minutes,
-                )
-                if not due:
-                    return False
-                await self._run_recorded(lock_conn)
-                return True
+                yield lock_conn
             finally:
                 await lock_conn.execute("SELECT pg_advisory_unlock($1)", _LOCK_KEY)
 
-    async def _run_recorded(self, conn: asyncpg.Connection) -> None:
+    async def _run_recorded(
+        self, conn: asyncpg.Connection, *, force: bool = False
+    ) -> tuple[SyncReport | None, int]:
         run_id = await conn.fetchval(
             "INSERT INTO counselle.supplement_sync_runs DEFAULT VALUES RETURNING id"
         )
         try:
-            report = await run_sync(self._pool, self._settings)
-            essays = await apply_catalog_changes(
-                self._pool, report.changed_unitids, self._event_bus
-            )
+            report = await run_sync(self._pool, self._settings, force=force)
+            essays = await propagate_catalog_changes(self._pool, self._event_bus)
             logger.info("supplements_essays_updated", essays=essays)
         except Exception as exc:
             logger.exception("supplements_sync_failed")
@@ -106,7 +124,7 @@ class SupplementsWorker:
                 run_id,
                 f"{type(exc).__name__}: {exc}"[:2000],
             )
-            return
+            return None, 0
         await conn.execute(
             """
             UPDATE counselle.supplement_sync_runs
@@ -118,6 +136,7 @@ class SupplementsWorker:
             report.unchanged,
             _problems(report),
         )
+        return report, essays
 
 
 def _problems(report: SyncReport) -> str | None:

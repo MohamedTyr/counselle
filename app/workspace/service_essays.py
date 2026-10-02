@@ -233,9 +233,7 @@ async def update_essay(
         current = await _require_essay(conn, user_id, essay_id, for_update=True)
         before = Essay.model_validate(dict(current))
         if _essay_link_identity(current) != _essay_link_identity(snapshot):
-            raise WorkspaceValidationError(
-                "essay links changed concurrently; refresh and retry"
-            )
+            raise WorkspaceValidationError("essay links changed concurrently; refresh and retry")
         _check_not_stale(current["updated_at"], expected_updated_at)
         row = await _update_essay_row(conn, user_id, essay_id, values) if values else current
         essay = Essay.model_validate(dict(row))
@@ -497,7 +495,24 @@ async def restore_essay(
     actor: Actor,
     essay_id: UUID,
 ) -> Essay:
-    events: list[ChangeEvent] = []
+    try:
+        essay, event = await _restore_essay_row(
+            app_pool, user_id=user_id, actor=actor, essay_id=essay_id
+        )
+    except asyncpg.UniqueViolationError as exc:
+        # essays_application_supplement_active_idx: the school's prompt
+        # already has an active essay (started again after this one was
+        # deleted).
+        raise WorkspaceValidationError(
+            "you already have an essay for this prompt; delete it before restoring this one"
+        ) from exc
+    publish_events(event_bus, user_id, [event])
+    return await get_essay(app_pool, catalog, user_id=user_id, essay_id=essay.id)
+
+
+async def _restore_essay_row(
+    app_pool: asyncpg.Pool, *, user_id: UUID, actor: Actor, essay_id: UUID
+) -> tuple[Essay, ChangeEvent]:
     async with app_pool.acquire() as conn, conn.transaction():
         snapshot = await conn.fetchrow(
             """
@@ -523,9 +538,7 @@ async def restore_essay(
         if current is None:
             raise WorkspaceNotFoundError()
         if _essay_link_identity(current) != _essay_link_identity(snapshot):
-            raise WorkspaceValidationError(
-                "essay links changed concurrently; refresh and retry"
-            )
+            raise WorkspaceValidationError("essay links changed concurrently; refresh and retry")
         row = await conn.fetchrow(
             """
             UPDATE counselle.essays e
@@ -547,9 +560,7 @@ async def restore_essay(
         if row is None:
             raise WorkspaceNotFoundError()
         essay = Essay.model_validate(dict(row))
-        events.append(await _record_essay_change(conn, user_id, actor, essay, "restored"))
-    publish_events(event_bus, user_id, events)
-    return await get_essay(app_pool, catalog, user_id=user_id, essay_id=essay.id)
+        return essay, await _record_essay_change(conn, user_id, actor, essay, "restored")
 
 
 async def _summaries_from_rows(catalog: Catalog, rows: list[asyncpg.Record]) -> list[EssaySummary]:
@@ -698,6 +709,20 @@ async def _update_essay_row(
             word_count = CASE WHEN $15 THEN $16 ELSE word_count END,
             word_limit = CASE WHEN $17 THEN $18 ELSE word_limit END,
             deadline = CASE WHEN $19 THEN $20 ELSE deadline END,
+            -- A supplement moved to another school no longer answers its
+            -- original school's prompt: drop the catalog link with it.
+            supplement_key = CASE WHEN $5 AND $6::uuid IS DISTINCT FROM application_id
+                                  THEN NULL ELSE supplement_key END,
+            supplement_prompt = CASE WHEN $5 AND $6::uuid IS DISTINCT FROM application_id
+                                     THEN NULL ELSE supplement_prompt END,
+            supplement_word_limit = CASE WHEN $5 AND $6::uuid IS DISTINCT FROM application_id
+                                         THEN NULL ELSE supplement_word_limit END,
+            prompt_previous = CASE WHEN $5 AND $6::uuid IS DISTINCT FROM application_id
+                                   THEN NULL ELSE prompt_previous END,
+            prompt_updated_at = CASE WHEN $5 AND $6::uuid IS DISTINCT FROM application_id
+                                     THEN NULL ELSE prompt_updated_at END,
+            prompt_removed_at = CASE WHEN $5 AND $6::uuid IS DISTINCT FROM application_id
+                                     THEN NULL ELSE prompt_removed_at END,
             updated_at = now()
         WHERE id = $1 AND user_id = $2 AND archived_at IS NULL
         RETURNING *

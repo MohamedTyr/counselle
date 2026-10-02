@@ -77,9 +77,7 @@ def _test_policy(*, vintage: str, source: str, raw: str) -> CitationEnvelope:
     )
 
 
-def _test_policy_facts_result(
-    *, value: str, observed_at: datetime
-) -> FactsQueryResult:
+def _test_policy_facts_result(*, value: str, observed_at: datetime) -> FactsQueryResult:
     row = FactValueRow(
         fact_key="admissions.test_policy_sat_or_act",
         tab="admissions",
@@ -151,13 +149,22 @@ async def test_stale_test_policy_is_unavailable_and_requires_portal_verification
 async def test_add_application_creates_only_the_application_and_no_children(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """No tasks, ever; essays only through the supplements catalog step."""
     connection = _AddApplicationConnection()
     application = ApplicationView.model_construct(id=connection.application_id)
+    supplement_calls: list[dict[str, object]] = []
 
     async def fake_application_view(*_: object, **__: object) -> ApplicationView:
         return application
 
+    async def fake_required_essays(*_: object, **kwargs: object) -> int:
+        supplement_calls.append(kwargs)
+        return 0
+
     monkeypatch.setattr(service_applications, "_application_view_by_id", fake_application_view)
+    monkeypatch.setattr(
+        service_applications, "create_required_essays_for_new_application", fake_required_essays
+    )
     catalog = SimpleNamespace(school_name=lambda unitid: "Example University")
 
     result = await service_applications.add_application(
@@ -181,6 +188,7 @@ async def test_add_application_creates_only_the_application_and_no_children(
     assert "INSERT INTO counselle.applications" in object_inserts[0]
     assert all("counselle.tasks" not in query for query in connection.queries)
     assert all("counselle.essays" not in query for query in connection.queries)
+    assert [call["application_id"] for call in supplement_calls] == [connection.application_id]
 
 
 class _DeadlineFactsPool:

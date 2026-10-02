@@ -27,8 +27,21 @@ export function PromptChangeNotice({
   const actions = useSupplementActions();
   if (change.kind === "removed") {
     return (
-      <p className={cn("text-xs font-medium text-(--warning-fg)", className)}>
+      <p
+        className={cn(
+          "relative z-10 flex flex-wrap items-baseline gap-x-2 text-xs font-medium text-(--warning-fg)",
+          className,
+        )}
+      >
         The school no longer asks this prompt
+        <button
+          className="rounded-sm text-muted-foreground underline decoration-current/40 underline-offset-2 outline-none hover:decoration-current focus-visible:ring-2 focus-visible:ring-(--focus-ring) disabled:opacity-50"
+          disabled={actions.isAcknowledging}
+          onClick={() => actions.acknowledge(essayId)}
+          type="button"
+        >
+          Dismiss
+        </button>
       </p>
     );
   }

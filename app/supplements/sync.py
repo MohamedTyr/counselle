@@ -49,8 +49,6 @@ class SyncReport:
     unmapped: list[str] = field(default_factory=list)
     stale_reviews: list[str] = field(default_factory=list)
     rejected: dict[str, list[RejectedPrompt]] = field(default_factory=dict)
-    #: Schools whose prompts changed this pass (their students' essays follow).
-    changed_unitids: list[int] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -94,8 +92,10 @@ async def run_sync(pool: asyncpg.Pool, settings: Any, *, force: bool = False) ->
                     report,
                     force=force,
                 )
-            except asyncpg.PostgresError:
-                # One school's bad row must not stop the others; its old row stays.
+            except Exception:
+                # One school's failure (a bad row, a malformed review entry)
+                # must not stop the others, nor leave them running after the
+                # pass has ended; its old row stays.
                 logger.exception("supplements_save_failed", heading=block.heading)
                 report.failed.append(block.heading)
 
@@ -144,8 +144,11 @@ async def _sync_block(
             return
         if rejected:
             report.rejected[block.heading] = rejected
-        if not prompts:
-            # A block with nothing verifiable is a failed read, never "no supplements".
+        if not prompts or (rejected and any(p is not None for p in previous)):
+            # A block with nothing verifiable is a failed read, never "no
+            # supplements"; so is a re-read that lost a prompt to
+            # verification, which would otherwise drop it from the catalog
+            # and flag students' essays as removed. The stored prompts stay.
             report.failed.append(block.heading)
             return
 
@@ -175,8 +178,6 @@ async def _sync_block(
         changed = before is None or before.prompts_sha256 != digest_prompts
         await store.save_school(pool, cycle, row, changed=changed)
         report.updated.append(block.heading)
-        if changed:
-            report.changed_unitids.append(unitid)
 
 
 async def _sync_none_list(
@@ -233,8 +234,6 @@ async def _sync_none_list(
                 changed=before is None or before.prompts_sha256 != empty,
             )
             report.updated.append(name)
-            if before is None or before.prompts_sha256 != empty:
-                report.changed_unitids.append(unitid)
 
 
 def _current_review(

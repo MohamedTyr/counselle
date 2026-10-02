@@ -51,8 +51,16 @@ async def fetch_source_html(url: str, *, user_agent: str) -> str:
         timeout=_TIMEOUT_S, headers=headers, follow_redirects=True
     ) as client:
         robots = await client.get(urljoin(url, "/robots.txt"))
+        # As urllib.robotparser.RobotFileParser.read(): a missing robots.txt
+        # (4xx) allows everything, except 401/403, which disallow; a server
+        # error means we cannot know, so this pass does not read the page.
+        if robots.status_code >= 500:
+            raise SourceUnavailable(f"robots.txt returned HTTP {robots.status_code}")
         parser = RobotFileParser()
-        parser.parse(robots.text.splitlines() if robots.status_code == 200 else [])
+        if robots.status_code in (401, 403):
+            parser.disallow_all = True
+        else:
+            parser.parse(robots.text.splitlines() if robots.status_code == 200 else [])
         if not parser.can_fetch(user_agent, url):
             raise SourceUnavailable(f"robots.txt disallows {url}")
         response = await client.get(url)

@@ -1,7 +1,8 @@
 """`python -m app.supplements` — the supplements sync CLI.
 
-- `sync [--force]`: one pass (the same `run_sync` the daily worker runs);
-  `--force` re-reads every block with the model, not just changed ones.
+- `sync [--force]`: one recorded pass, exactly as the daily worker runs it
+  (same advisory lock, so it never overlaps a worker's pass); `--force`
+  re-reads every block with the model, not just changed ones.
 - `backfill`: create the required supplemental essays for every school
   already on a student's list (adding a school does this from now on).
 - `export <dir>`: write the stored prompts, with school names, to
@@ -17,7 +18,7 @@ import json
 import sys
 from pathlib import Path
 
-from app.supplements.sync import SyncReport, run_sync
+from app.supplements.sync import SyncReport
 from config.settings import get_settings
 from counselle_db.db import create_pool
 
@@ -33,17 +34,22 @@ ORDER BY s.school_unitid, p.ordinal
 
 
 async def _sync(force: bool) -> int:
+    from app.supplements.worker import SupplementsWorker
+
     settings = get_settings()
     pool = await create_pool(dsn=settings.db_app_dsn, settings=settings)
     try:
-        report = await run_sync(pool, settings, force=force)
-        _print_report(report)
-        from app.workspace.service_supplements import apply_catalog_changes
-
-        touched = await apply_catalog_changes(pool, report.changed_unitids)
-        print(f"essays updated or created: {touched}")
+        ran, report, touched = await SupplementsWorker(pool, settings).run_now(force=force)
     finally:
         await pool.close()
+    if not ran:
+        print("another sync is running; try again when it finishes")
+        return 1
+    if report is None:
+        print("sync failed; see the log and counselle.supplement_sync_runs")
+        return 1
+    _print_report(report)
+    print(f"essays updated or created: {touched}")
     return 0
 
 

@@ -8,9 +8,11 @@ what each school asks; this module connects it to the student's essays:
 - the student starts any other prompt (a pick from a choice, an optional or
   program-specific one) explicitly;
 - the daily sync's changes reach existing essays through
-  :func:`apply_catalog_changes` — a reworded prompt is moved and flagged, a
-  dropped one flagged, a new required one created. The essay's text is never
-  touched.
+  :func:`propagate_catalog_changes` — a reworded prompt is moved and flagged,
+  a dropped one flagged, a new required one created. The essay's text is never
+  touched, and the sync compares the catalog only with what it last applied
+  (``supplement_prompt``/``supplement_word_limit``), never with the
+  student-editable prompt or limit.
 
 An essay the student deleted (archived) still counts as answered, so it is
 never re-created for them.
@@ -60,7 +62,8 @@ ORDER BY created_at
 """
 
 _LINKED_ESSAYS_SQL = """
-SELECT id, application_id, supplement_key, archived_at, prompt, word_limit
+SELECT id, application_id, supplement_key, archived_at, prompt, word_limit,
+       supplement_prompt, supplement_word_limit, prompt_removed_at
 FROM counselle.essays
 WHERE user_id = $1 AND application_id = ANY($2::uuid[]) AND supplement_key IS NOT NULL
 """
@@ -68,8 +71,11 @@ WHERE user_id = $1 AND application_id = ANY($2::uuid[]) AND supplement_key IS NO
 _INSERT_ESSAY_SQL = """
 INSERT INTO counselle.essays
   (user_id, application_id, title, essay_type, status, prompt, content,
-   word_count, word_limit, supplement_key)
-VALUES ($1, $2, $3, 'Supplement', 'Not started', $4, $5, 0, $6, $7)
+   word_count, word_limit, supplement_key, supplement_prompt, supplement_word_limit)
+VALUES ($1, $2, $3, 'Supplement', 'Not started', $4, $5, 0, $6, $7, $4, $6)
+ON CONFLICT (application_id, supplement_key)
+  WHERE supplement_key IS NOT NULL AND archived_at IS NULL
+  DO NOTHING
 RETURNING *
 """
 
@@ -179,7 +185,9 @@ async def _insert_supplement_essay(
     actor: Actor,
     application_id: UUID,
     prompt: SupplementPromptView,
-) -> tuple[asyncpg.Record, ChangeEvent]:
+) -> tuple[asyncpg.Record, ChangeEvent] | None:
+    """None when the application already has an active essay for the prompt
+    (a concurrent add or a double click)."""
     row = await conn.fetchrow(
         _INSERT_ESSAY_SQL,
         user_id,
@@ -190,6 +198,8 @@ async def _insert_supplement_essay(
         prompt.word_limit,
         prompt.key,
     )
+    if row is None:
+        return None
     return row, await _record(conn, user_id, actor, row["id"], application_id, "created")
 
 
@@ -241,10 +251,11 @@ async def ensure_required_essays(
     events = []
     for prompt in school[1]:
         if _is_auto_created(prompt) and prompt.key not in answered:
-            _, event = await _insert_supplement_essay(
+            created = await _insert_supplement_essay(
                 conn, user_id=user_id, actor=actor, application_id=application_id, prompt=prompt
             )
-            events.append(event)
+            if created is not None:
+                events.append(created[1])
             answered.add(prompt.key)
     return events
 
@@ -271,7 +282,7 @@ async def create_required_essays_for_new_application(
                 school_unitid=school_unitid,
                 cycle_year=cycle_year,
             )
-    except asyncpg.PostgresError:
+    except Exception:
         logger.exception("supplement_essays_create_failed", application_id=str(application_id))
         return 0
     publish_events(event_bus, user_id, events)
@@ -303,17 +314,18 @@ async def start_supplement_essay(
         prompt = next((p for p in (school[1] if school else []) if p.key == key), None)
         if prompt is None or not covers_cycle_year(application["cycle_year"]):
             raise WorkspaceValidationError("that prompt is not on this school's current list")
-        existing = await conn.fetchrow(
-            "SELECT * FROM counselle.essays WHERE application_id = $1 AND supplement_key = $2 "
-            "AND archived_at IS NULL",
-            application_id,
-            key,
-        )
-        if existing is not None:
-            return Essay.model_validate(dict(existing))
-        row, event = await _insert_supplement_essay(
+        created = await _insert_supplement_essay(
             conn, user_id=user_id, actor=actor, application_id=application_id, prompt=prompt
         )
+        if created is None:
+            existing = await conn.fetchrow(
+                "SELECT * FROM counselle.essays WHERE application_id = $1 "
+                "AND supplement_key = $2 AND archived_at IS NULL",
+                application_id,
+                key,
+            )
+            return Essay.model_validate(dict(existing))
+        row, event = created
     publish_events(event_bus, user_id, [event])
     return Essay.model_validate(dict(row))
 
@@ -321,12 +333,15 @@ async def start_supplement_essay(
 async def acknowledge_prompt_change(
     app_pool: asyncpg.Pool, event_bus: WorkspaceEventBus, *, user_id: UUID, essay_id: UUID
 ) -> None:
-    """The student has seen a prompt update or removal notice; clear it."""
+    """The student has seen a prompt update or removal notice; clear it.
+
+    ``updated_at`` is left alone so an open editor's guarded autosave does
+    not conflict with the acknowledgement."""
     async with app_pool.acquire() as conn, conn.transaction():
         row = await conn.fetchrow(
             """
             UPDATE counselle.essays
-            SET prompt_updated_at = NULL, prompt_previous = NULL, updated_at = now()
+            SET prompt_updated_at = NULL, prompt_previous = NULL, prompt_removed_at = NULL
             WHERE id = $1 AND user_id = $2 AND archived_at IS NULL
             RETURNING id, application_id
             """,
@@ -339,89 +354,157 @@ async def acknowledge_prompt_change(
     publish_events(event_bus, user_id, [event])
 
 
-async def apply_catalog_changes(
-    app_pool: asyncpg.Pool, school_unitids: list[int], event_bus: WorkspaceEventBus | None = None
+_PENDING_SCHOOLS_SQL = """
+SELECT school_unitid FROM counselle.supplement_schools
+WHERE cycle = $1 AND essays_synced_sha256 IS DISTINCT FROM prompts_sha256
+ORDER BY school_unitid
+"""
+
+
+async def propagate_catalog_changes(
+    app_pool: asyncpg.Pool, event_bus: WorkspaceEventBus | None = None
 ) -> int:
-    """Carry changed schools' prompts into every student's essays; returns essays touched."""
-    if not school_unitids:
-        return 0
+    """Carry every school whose prompts changed since its essays were last
+    synced into its students' essays; returns essays touched.
+
+    Driven by stored state (``essays_synced_sha256``), not by one sync pass's
+    report, so a step that failed or was cut short is retried next pass. Each
+    school commits on its own: one school's failure never holds back another.
+    """
+    async with app_pool.acquire() as conn:
+        pending = [r["school_unitid"] for r in await conn.fetch(_PENDING_SCHOOLS_SQL, _cycle())]
     touched = 0
+    for unitid in pending:
+        try:
+            touched += await _propagate_school(app_pool, unitid, event_bus)
+        except asyncpg.PostgresError:
+            logger.exception("supplement_essays_propagate_failed", school_unitid=unitid)
+    return touched
+
+
+async def _propagate_school(
+    app_pool: asyncpg.Pool, unitid: int, event_bus: WorkspaceEventBus | None
+) -> int:
+    events: dict[UUID, list[ChangeEvent]] = defaultdict(list)
     async with app_pool.acquire() as conn, conn.transaction():
-        catalog = await _load_catalog(conn, school_unitids)
+        prompts_sha256 = await conn.fetchval(
+            "SELECT prompts_sha256 FROM counselle.supplement_schools "
+            "WHERE cycle = $1 AND school_unitid = $2 FOR UPDATE",
+            _cycle(),
+            unitid,
+        )
+        prompts = (await _load_catalog(conn, [unitid])).get(unitid, (None, []))[1]
         applications = await conn.fetch(
             "SELECT id, user_id, school_unitid, cycle_year FROM counselle.applications "
-            "WHERE archived_at IS NULL AND school_unitid = ANY($1::int[])",
-            school_unitids,
+            "WHERE archived_at IS NULL AND school_unitid = $1",
+            unitid,
         )
-        events: dict[UUID, list[ChangeEvent]] = defaultdict(list)
         for application in applications:
             if not covers_cycle_year(application["cycle_year"]):
                 continue
-            prompts = catalog.get(application["school_unitid"], (None, []))[1]
             changed = await _move_or_flag_essays(conn, application, prompts)
             changed += await ensure_required_essays(
                 conn,
                 user_id=application["user_id"],
                 actor="counselle",
                 application_id=application["id"],
-                school_unitid=application["school_unitid"],
+                school_unitid=unitid,
                 cycle_year=application["cycle_year"],
             )
             events[application["user_id"]].extend(changed)
-            touched += len(changed)
+        await conn.execute(
+            "UPDATE counselle.supplement_schools SET essays_synced_sha256 = $3 "
+            "WHERE cycle = $1 AND school_unitid = $2",
+            _cycle(),
+            unitid,
+            prompts_sha256,
+        )
     if event_bus is not None:
         for user_id, user_events in events.items():
             publish_events(event_bus, user_id, user_events)
-    return touched
+    return sum(len(e) for e in events.values())
 
 
 async def _move_or_flag_essays(
     conn: asyncpg.Connection, application: Any, prompts: list[SupplementPromptView]
 ) -> list[ChangeEvent]:
+    """Bring the application's linked essays in line with the school's prompts.
+
+    Active essays go first, so they get first claim on a reworded prompt;
+    archived ones follow so their key moves too (a deleted supplement whose
+    prompt was reworded must still count as answered), but they are never
+    flagged as removed.
+    """
     by_key = {p.key: p for p in prompts}
-    essays = await conn.fetch(
-        _LINKED_ESSAYS_SQL + " AND archived_at IS NULL", application["user_id"], [application["id"]]
+    essays = sorted(
+        await conn.fetch(_LINKED_ESSAYS_SQL, application["user_id"], [application["id"]]),
+        key=lambda e: e["archived_at"] is not None,
     )
-    linked = {e["supplement_key"] for e in essays}
+    linked = {e["supplement_key"] for e in essays if e["supplement_key"] in by_key}
     events = []
     for essay in essays:
         current = by_key.get(essay["supplement_key"])
+        if current is None:
+            free = [p for p in prompts if p.key not in linked]
+            previous = essay["supplement_prompt"] or essay["prompt"] or ""
+            match = best_rewording(previous, [_essay_prompt_text(p) for p in free])
+            if match is not None:
+                current = free[match]
+                linked.add(current.key)
         if current is not None:
-            if current.word_limit != essay["word_limit"]:
-                await _update_prompt(conn, essay, current)
-                events.append(await _essay_event(conn, application, essay["id"]))
-            continue
-        free = [p for p in prompts if p.key not in linked]
-        match = best_rewording(essay["prompt"] or "", [_essay_prompt_text(p) for p in free])
-        if match is not None:
-            await _update_prompt(conn, essay, free[match])
-            linked.add(free[match].key)
-        else:
+            changed = await _apply_prompt(conn, essay, current)
+        elif essay["archived_at"] is None and essay["prompt_removed_at"] is None:
             await conn.execute(
-                "UPDATE counselle.essays SET prompt_removed_at = now(), updated_at = now() "
-                "WHERE id = $1 AND prompt_removed_at IS NULL",
+                "UPDATE counselle.essays SET prompt_removed_at = now() WHERE id = $1",
                 essay["id"],
             )
-        events.append(await _essay_event(conn, application, essay["id"]))
+            changed = True
+        else:
+            changed = False
+        if changed:
+            events.append(await _essay_event(conn, application, essay["id"]))
     return events
 
 
-async def _update_prompt(
+async def _apply_prompt(
     conn: asyncpg.Connection, essay: asyncpg.Record, prompt: SupplementPromptView
-) -> None:
+) -> bool:
+    """Point the essay at *prompt*; True when anything changed.
+
+    The wording and the limit move only when the catalog's own value moved
+    (against the snapshot), so the student's edits to either survive a sync
+    that changed something else at the school. ``updated_at`` is left alone:
+    an open editor's guarded autosave must not conflict with a sync.
+    """
+    text = _essay_prompt_text(prompt)
+    reworded = text != essay["supplement_prompt"]
+    new_limit = prompt.word_limit != essay["supplement_word_limit"]
+    rekeyed = prompt.key != essay["supplement_key"]
+    returned = essay["prompt_removed_at"] is not None
+    if not (reworded or new_limit or rekeyed or returned):
+        return False
     await conn.execute(
         """
         UPDATE counselle.essays
-        SET prompt = $2, word_limit = $3, supplement_key = $4,
-            prompt_previous = COALESCE(prompt_previous, prompt),
-            prompt_updated_at = now(), prompt_removed_at = NULL, updated_at = now()
+        SET supplement_key = $2,
+            prompt = CASE WHEN $3 THEN $4 ELSE prompt END,
+            prompt_previous = CASE WHEN $3 THEN COALESCE(prompt_previous, supplement_prompt)
+                                   ELSE prompt_previous END,
+            prompt_updated_at = CASE WHEN $3 THEN now() ELSE prompt_updated_at END,
+            supplement_prompt = $4,
+            word_limit = CASE WHEN $5 THEN $6 ELSE word_limit END,
+            supplement_word_limit = $6,
+            prompt_removed_at = NULL
         WHERE id = $1
         """,
         essay["id"],
-        _essay_prompt_text(prompt),
-        prompt.word_limit,
         prompt.key,
+        reworded,
+        text,
+        new_limit,
+        prompt.word_limit,
     )
+    return True
 
 
 async def _essay_event(conn: asyncpg.Connection, application: Any, essay_id: UUID) -> ChangeEvent:
