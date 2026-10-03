@@ -290,50 +290,36 @@ export function ScholarshipsRoute() {
   }
 
   return (
-    <PageContainer
-      title="Scholarships"
-      width="panel"
-      className="scholarship-page"
-    >
+    <PageContainer title="Scholarships" className="scholarship-page">
       <div className="flex flex-col gap-3">
-        <div className="flex flex-wrap items-center gap-3">
-          <Tabs
+        <Tabs
+          aria-label="Scholarship views"
+          onValueChange={(value) => setView(value as ScholarshipTab)}
+          value={filters.view}
+        >
+          <TabsList
+            variant="pill"
+            className="justify-start self-start"
             aria-label="Scholarship views"
-            onValueChange={(value) => setView(value as ScholarshipTab)}
-            value={filters.view}
           >
-            <TabsList
-              variant="pill"
-              className="justify-start"
-              aria-label="Scholarship views"
-            >
-              <TabsTab className="grow-0" value="foryou">
-                For you
-              </TabsTab>
-              <TabsTab className="grow-0" value="all">
-                All
-              </TabsTab>
-              <TabsTab className="grow-0" value="saved">
-                <span>Saved</span>
-                <span className="text-xs text-muted-foreground tabular-nums">
-                  {savedIds.length}
-                </span>
-              </TabsTab>
-            </TabsList>
-          </Tabs>
-          <div className="order-last w-full md:order-none md:ms-auto md:w-80">
-            <ScholarshipSearchField
-              onChange={(q) => update({ ...filters, q })}
-              value={filters.q}
-            />
-          </div>
-          <div className="ms-auto md:ms-0">
-            <SortMenu
-              onChange={(sort) => update({ ...filters, sort })}
-              value={filters.sort}
-            />
-          </div>
-        </div>
+            <TabsTab className="grow-0" value="foryou">
+              For you
+            </TabsTab>
+            <TabsTab className="grow-0" value="all">
+              All
+            </TabsTab>
+            <TabsTab className="grow-0" value="saved">
+              <span>Saved</span>
+              <span className="text-xs text-muted-foreground tabular-nums">
+                {savedIds.length}
+              </span>
+            </TabsTab>
+          </TabsList>
+        </Tabs>
+        <ScholarshipSearchField
+          onChange={(q) => update({ ...filters, q })}
+          value={filters.q}
+        />
         <ScholarshipFilterBar
           fieldOptions={fieldOptions(items)}
           filters={filters}
@@ -348,18 +334,32 @@ export function ScholarshipsRoute() {
         ) : null}
       </div>
 
-      <div
-        ref={resultsRef}
-        tabIndex={-1}
-        className="scholarship-results"
-        role="status"
-        aria-live="polite"
-      >
-        {scholarships.isPending
-          ? "Loading scholarships…"
-          : scholarships.isError
-            ? "Scholarships unavailable"
-            : `${result.open.length} ${result.open.length === 1 ? "scholarship" : "scholarships"}${result.closed.length ? ` · ${result.closed.length} closed this cycle` : ""}`}
+      <div className="scholarship-results-bar">
+        <div
+          ref={resultsRef}
+          tabIndex={-1}
+          className="scholarship-results"
+          role="status"
+          aria-live="polite"
+        >
+          {scholarships.isPending ? (
+            "Loading scholarships…"
+          ) : scholarships.isError ? (
+            "Scholarships unavailable"
+          ) : (
+            <>
+              {result.open.length}{" "}
+              {result.open.length === 1 ? "scholarship" : "scholarships"}
+              {result.closed.length ? (
+                <span> · {result.closed.length} closed this cycle</span>
+              ) : null}
+            </>
+          )}
+        </div>
+        <SortMenu
+          onChange={(sort) => update({ ...filters, sort })}
+          value={filters.sort}
+        />
       </div>
       {body}
 
