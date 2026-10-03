@@ -1,0 +1,563 @@
+[
+ {
+  "row": 3,
+  "outcome": "record",
+  "skip_reason": null,
+  "notes": "Read in a real browser. Class of 2028 cycle: opens 2027-02-01, closes 2027-05-01 or when 3,000 complete eligible applications are received. Class of 2028 = current 11th graders. Finalist interviews fall 2027, recipients announced Dec 2027. Covers full tuition, fees and books at any accredited US college. About 25% of awards go to students pursuing public-service careers.",
+  "record": {
+   "name": "Cameron Impact Scholarship",
+   "sponsor": "Bryan Cameron Education Foundation",
+   "summary": "Four-year full-tuition scholarship for 15 US high school students who show leadership, community service and academic excellence.",
+   "apply_url": "https://www.bryancameroneducationfoundation.org/scholarship",
+   "source_url": "https://www.bryancameroneducationfoundation.org/scholarship",
+   "logo_url": "",
+   "award": {
+    "kind": "full_tuition",
+    "amount": null,
+    "min": null,
+    "max": null,
+    "renewable": true,
+    "years": 4,
+    "awards_count": 15
+   },
+   "deadline": {
+    "kind": "fixed",
+    "date": "2027-05-01",
+    "opens_on": "2027-02-01",
+    "recurs_annually": true
+   },
+   "basis": [
+    "merit"
+   ],
+   "fields": [],
+   "eligibility": [
+    {
+     "kind": "citizenship",
+     "any_of": [
+      "us_citizen"
+     ]
+    },
+    {
+     "kind": "gpa_min",
+     "value": 3.7
+    },
+    {
+     "kind": "grade",
+     "any_of": [
+      "11"
+     ]
+    }
+   ],
+   "other_eligibility": [
+    "Minimum cumulative unweighted GPA of 3.7 on a 4.0 scale or equivalent",
+    "High school graduating Class of 2028, enrolling full time at an accredited four-year US college or university",
+    "Rolling review; closes at 3,000 completed applications or May 1, 2027, whichever is first",
+    "Two letters of recommendation, one from current school personnel",
+    "Recipients must attend an annual awards ceremony"
+   ],
+   "requirements": {
+    "essays": [],
+    "recommendations": 2,
+    "transcript": true,
+    "financial_documents": false,
+    "interview": true
+   },
+   "last_checked_on": "2026-10-02"
+  }
+ },
+ {
+  "row": 5,
+  "outcome": "record",
+  "skip_reason": null,
+  "notes": "Official portal campuschina.org did not resolve from this machine and csc.edu.cn / studyinchina.csc.edu.cn return HTTP 412 even in a browser. Facts read on the Chinese Embassy in Indonesia's official page (id.china-embassy.gov.cn, 2025-10-27) and the Embassy in FSM page, both Chinese government sites. Deadline there for 2026/2027 was 2026-02-08 (FSM embassy: 2026-02-24); each embassy/university sets its own, 2027/28 dates not yet published. Funding: full scholarship covering tuition, accommodation and monthly stipend, excluding international travel.",
+  "record": {
+   "name": "Chinese Government Scholarship (CSC / Campus China)",
+   "sponsor": "China Scholarship Council, Ministry of Education of China",
+   "summary": "Fully funded study in China for non-Chinese citizens at undergraduate, master's, doctoral and non-degree level; applications go through the Campus China system. Deadlines vary by embassy.",
+   "apply_url": "https://studyinchina.csc.edu.cn/#/login",
+   "source_url": "https://id.china-embassy.gov.cn/eng/sgdt/202510/t20251027_11741674.htm",
+   "logo_url": "",
+   "award": {
+    "kind": "full_ride",
+    "amount": null,
+    "min": null,
+    "max": null,
+    "renewable": false,
+    "years": null,
+    "awards_count": null
+   },
+   "deadline": {
+    "kind": "fixed",
+    "date": "2026-02-08",
+    "opens_on": null,
+    "recurs_annually": true
+   },
+   "basis": [
+    "merit"
+   ],
+   "fields": [],
+   "eligibility": [
+    {
+     "kind": "citizenship",
+     "any_of": [
+      "international"
+     ]
+    }
+   ],
+   "other_eligibility": [
+    "Open to citizens of countries other than China, in good health",
+    "Undergraduate applicants must be high school graduates under 25; master's under 35; doctoral under 40",
+    "Bachelor's applicants must take the CSCA exam and submit a valid score report",
+    "Chinese-taught programs need HSK 3 to 4 depending on level; pre-admission document from a Chinese university required",
+    "Deadlines vary by dispatching embassy or university; 2026/27 cycle closed Feb 8, 2026 for one embassy"
+   ],
+   "requirements": {
+    "essays": [
+     {
+      "prompt": "Study plan or research proposal (minimum 200 words for undergraduates)",
+      "words": null
+     }
+    ],
+    "recommendations": 0,
+    "transcript": true,
+    "financial_documents": false,
+    "interview": false
+   },
+   "last_checked_on": "2026-10-02"
+  }
+ },
+ {
+  "row": 10,
+  "outcome": "record",
+  "skip_reason": null,
+  "notes": "Read in a real browser (www2.daad.de scholarship database; main daad.de returns 403 to scripts). Database lists 150 options for international students and researchers; mostly graduate level. Each programme has its own deadline.",
+  "record": {
+   "name": "DAAD Scholarships",
+   "sponsor": "German Academic Exchange Service (DAAD)",
+   "summary": "DAAD is a set of scholarships for international students and researchers to study in Germany, mostly at graduate level; each programme has its own rules and deadline.",
+   "apply_url": "https://www2.daad.de/deutschland/stipendium/datenbank/en/21148-scholarship-database/",
+   "source_url": "https://www2.daad.de/deutschland/stipendium/datenbank/en/21148-scholarship-database/",
+   "logo_url": "",
+   "award": {
+    "kind": "varies",
+    "amount": null,
+    "min": null,
+    "max": null,
+    "renewable": false,
+    "years": null,
+    "awards_count": null
+   },
+   "deadline": {
+    "kind": "rolling",
+    "date": null,
+    "opens_on": null,
+    "recurs_annually": false
+   },
+   "basis": [
+    "merit"
+   ],
+   "fields": [],
+   "eligibility": [
+    {
+     "kind": "citizenship",
+     "any_of": [
+      "international"
+     ]
+    }
+   ],
+   "other_eligibility": [
+    "Deadlines vary by award; use the scholarship database to find the programme that fits",
+    "Most programmes are for graduates, doctoral candidates and postdoctoral researchers"
+   ],
+   "requirements": {
+    "essays": [],
+    "recommendations": 0,
+    "transcript": false,
+    "financial_documents": false,
+    "interview": false
+   },
+   "last_checked_on": "2026-10-02"
+  }
+ },
+ {
+  "row": 25,
+  "outcome": "record",
+  "skip_reason": null,
+  "notes": "Peterson's runs a scholarship search tool; no own-named award found on the page read.",
+  "record": {
+   "name": "Peterson's scholarship search",
+   "sponsor": "Peterson's",
+   "summary": "A free search tool listing 1.9 million+ scholarships, grants and fellowships; it does not award money itself.",
+   "apply_url": "https://www.petersons.com/scholarship-search.aspx",
+   "source_url": "https://www.petersons.com/scholarship-search.aspx",
+   "logo_url": "",
+   "award": {
+    "kind": "varies",
+    "amount": null,
+    "min": null,
+    "max": null,
+    "renewable": false,
+    "years": null,
+    "awards_count": null
+   },
+   "deadline": {
+    "kind": "rolling",
+    "date": null,
+    "opens_on": null,
+    "recurs_annually": false
+   },
+   "basis": [],
+   "fields": [],
+   "eligibility": [],
+   "other_eligibility": [
+    "A directory of scholarships from other providers; each has its own rules and deadline",
+    "Deadlines vary by award"
+   ],
+   "requirements": {
+    "essays": [],
+    "recommendations": 0,
+    "transcript": false,
+    "financial_documents": false,
+    "interview": false
+   },
+   "last_checked_on": "2026-10-02"
+  }
+ },
+ {
+  "row": 31,
+  "outcome": "record",
+  "skip_reason": null,
+  "notes": "Page says it is not affiliated with providers it lists.",
+  "record": {
+   "name": "Scholars4Dev scholarship listings",
+   "sponsor": "Scholars4Dev (Scholarships for Development)",
+   "summary": "A free directory of international scholarships for students from developing countries; it does not award money itself.",
+   "apply_url": "https://www.scholars4dev.com/",
+   "source_url": "https://www.scholars4dev.com/",
+   "logo_url": "",
+   "award": {
+    "kind": "varies",
+    "amount": null,
+    "min": null,
+    "max": null,
+    "renewable": false,
+    "years": null,
+    "awards_count": null
+   },
+   "deadline": {
+    "kind": "rolling",
+    "date": null,
+    "opens_on": null,
+    "recurs_annually": false
+   },
+   "basis": [],
+   "fields": [],
+   "eligibility": [
+    {
+     "kind": "citizenship",
+     "any_of": [
+      "international"
+     ]
+    }
+   ],
+   "other_eligibility": [
+    "A directory of scholarships from other providers; each has its own rules and deadline",
+    "Deadlines vary by award"
+   ],
+   "requirements": {
+    "essays": [],
+    "recommendations": 0,
+    "transcript": false,
+    "financial_documents": false,
+    "interview": false
+   },
+   "last_checked_on": "2026-10-02"
+  }
+ },
+ {
+  "row": 32,
+  "outcome": "record",
+  "skip_reason": null,
+  "notes": "Read stampsscholars.org: scholarships are awarded by the 38 partner schools, not the Foundation; annual awards $20,000 to $98,000. Deadlines set by each school.",
+  "record": {
+   "name": "Stamps Scholarship",
+   "sponsor": "Stamps Scholars Program (Stamps Family Charitable Foundation)",
+   "summary": "Merit scholarships at 38 partner schools in the US and UK worth $20,000 to $98,000 a year; each school runs its own application and deadline.",
+   "apply_url": "https://www.stampsscholars.org/",
+   "source_url": "https://www.stampsscholars.org/",
+   "logo_url": "",
+   "award": {
+    "kind": "range",
+    "amount": null,
+    "min": 20000,
+    "max": 98000,
+    "renewable": true,
+    "years": null,
+    "awards_count": null
+   },
+   "deadline": {
+    "kind": "rolling",
+    "date": null,
+    "opens_on": null,
+    "recurs_annually": false
+   },
+   "basis": [
+    "merit"
+   ],
+   "fields": [],
+   "eligibility": [],
+   "other_eligibility": [
+    "Apply through a partner school; terms and deadlines vary by school",
+    "Deadlines vary by partner school"
+   ],
+   "requirements": {
+    "essays": [],
+    "recommendations": 0,
+    "transcript": false,
+    "financial_documents": false,
+    "interview": false
+   },
+   "last_checked_on": "2026-10-02"
+  }
+ },
+ {
+  "row": 35,
+  "outcome": "record",
+  "skip_reason": null,
+  "notes": "Read uncf.org/scholarships. UNCF awards over $62 million a year to students at 600+ schools; each program has its own eligibility and deadline.",
+  "record": {
+   "name": "UNCF Scholarships",
+   "sponsor": "UNCF (United Negro College Fund)",
+   "summary": "UNCF runs hundreds of scholarships for students at its member colleges and beyond; each has its own rules and deadline.",
+   "apply_url": "https://uncf.org/scholarships",
+   "source_url": "https://uncf.org/scholarships",
+   "logo_url": "",
+   "award": {
+    "kind": "varies",
+    "amount": null,
+    "min": null,
+    "max": null,
+    "renewable": false,
+    "years": null,
+    "awards_count": null
+   },
+   "deadline": {
+    "kind": "rolling",
+    "date": null,
+    "opens_on": null,
+    "recurs_annually": false
+   },
+   "basis": [
+    "merit",
+    "need"
+   ],
+   "fields": [],
+   "eligibility": [],
+   "other_eligibility": [
+    "Each program sets its own eligibility, requirements and deadline",
+    "Deadlines vary by award"
+   ],
+   "requirements": {
+    "essays": [],
+    "recommendations": 0,
+    "transcript": false,
+    "financial_documents": false,
+    "interview": false
+   },
+   "last_checked_on": "2026-10-02"
+  }
+ },
+ {
+  "row": 59,
+  "outcome": "record",
+  "skip_reason": null,
+  "notes": "Archived copy (Dec 2025) of the sponsor's own page abc-med.com/scholarships; the live page now redirects to /scholarships-paused, which returns 404. Fall 2025 window July 1 to Oct 1, 2025; $1,000 each Spring and Fall.",
+  "record": {
+   "name": "ABC Medical Adaptive Sports Scholarship",
+   "sponsor": "ABC Medical (ABC Home Medical Supply, Inc.)",
+   "summary": "Paused by the sponsor. $1,000 award for people with SCI, spina bifida, TBI or ABI who show integrity and leadership in adaptive sports.",
+   "apply_url": "https://www.abc-med.com/scholarships",
+   "source_url": "https://www.abc-med.com/scholarships",
+   "logo_url": "",
+   "award": {
+    "kind": "fixed",
+    "amount": 1000,
+    "min": null,
+    "max": null,
+    "renewable": false,
+    "years": null,
+    "awards_count": null
+   },
+   "deadline": {
+    "kind": "fixed",
+    "date": "2025-10-01",
+    "opens_on": null,
+    "recurs_annually": false
+   },
+   "basis": [
+    "merit"
+   ],
+   "fields": [],
+   "eligibility": [],
+   "other_eligibility": [
+    "For people living with spinal cord injury, spina bifida, traumatic brain injury or acute brain injury",
+    "Awarded each Spring and Fall"
+   ],
+   "requirements": {
+    "essays": [],
+    "recommendations": 0,
+    "transcript": false,
+    "financial_documents": false,
+    "interview": false
+   },
+   "last_checked_on": "2026-10-02"
+  }
+ },
+ {
+  "row": 60,
+  "outcome": "record",
+  "skip_reason": null,
+  "notes": "Archived copy (Dec 2025) of the sponsor's own page abc-med.com/scholarships; the live page now redirects to /scholarships-paused, which returns 404. Fall 2025 window July 1 to Oct 1, 2025; $1,000 each Spring and Fall.",
+  "record": {
+   "name": "ABC Medical Education Scholarship",
+   "sponsor": "ABC Medical (ABC Home Medical Supply, Inc.)",
+   "summary": "Paused by the sponsor. $1,000 award to help people with SCI, spina bifida, TBI or ABI with educational expenses.",
+   "apply_url": "https://www.abc-med.com/scholarships",
+   "source_url": "https://www.abc-med.com/scholarships",
+   "logo_url": "",
+   "award": {
+    "kind": "fixed",
+    "amount": 1000,
+    "min": null,
+    "max": null,
+    "renewable": false,
+    "years": null,
+    "awards_count": null
+   },
+   "deadline": {
+    "kind": "fixed",
+    "date": "2025-10-01",
+    "opens_on": null,
+    "recurs_annually": false
+   },
+   "basis": [
+    "need"
+   ],
+   "fields": [],
+   "eligibility": [
+    {
+     "kind": "financial_need"
+    }
+   ],
+   "other_eligibility": [
+    "For people living with spinal cord injury, spina bifida, traumatic brain injury or acute brain injury",
+    "Awarded each Spring and Fall"
+   ],
+   "requirements": {
+    "essays": [],
+    "recommendations": 0,
+    "transcript": false,
+    "financial_documents": false,
+    "interview": false
+   },
+   "last_checked_on": "2026-10-02"
+  }
+ },
+ {
+  "row": 61,
+  "outcome": "record",
+  "skip_reason": null,
+  "notes": "Archived copy (Dec 2025) of the sponsor's own page abc-med.com/scholarships; the live page now redirects to /scholarships-paused, which returns 404. Fall 2025 window July 1 to Oct 1, 2025; $1,000 each Spring and Fall.",
+  "record": {
+   "name": "ABC Medical Making a Difference Scholarship",
+   "sponsor": "ABC Medical (ABC Home Medical Supply, Inc.)",
+   "summary": "Paused by the sponsor. $1,000 award for people with SCI, spina bifida, TBI or ABI working to improve their own lives and others'.",
+   "apply_url": "https://www.abc-med.com/scholarships",
+   "source_url": "https://www.abc-med.com/scholarships",
+   "logo_url": "",
+   "award": {
+    "kind": "fixed",
+    "amount": 1000,
+    "min": null,
+    "max": null,
+    "renewable": false,
+    "years": null,
+    "awards_count": null
+   },
+   "deadline": {
+    "kind": "fixed",
+    "date": "2025-10-01",
+    "opens_on": null,
+    "recurs_annually": false
+   },
+   "basis": [
+    "merit"
+   ],
+   "fields": [],
+   "eligibility": [],
+   "other_eligibility": [
+    "For people living with spinal cord injury, spina bifida, traumatic brain injury or acute brain injury",
+    "Awarded each Spring and Fall"
+   ],
+   "requirements": {
+    "essays": [],
+    "recommendations": 0,
+    "transcript": false,
+    "financial_documents": false,
+    "interview": false
+   },
+   "last_checked_on": "2026-10-02"
+  }
+ },
+ {
+  "row": 53,
+  "outcome": "record",
+  "skip_reason": null,
+  "notes": "Read on UWF's AcademicWorks portal (opportunity 9031): 'UWF Master of Science in Nursing Degree', award shown $0.00, deadline 09/30/2026 (status Ended as of 2026-10-02). Two related UWF/BCBSF awards exist (9145 undergraduate Nursing, varies; 9455 SAHLS, $250 per term). No BCBSFL-owned page found.",
+  "record": {
+   "name": "Blue Cross Blue Shield of Florida, Inc. Nursing",
+   "sponsor": "University of West Florida (funded by Blue Cross Blue Shield of Florida)",
+   "summary": "Scholarship for University of West Florida Master of Science in Nursing students; apply through UWF's scholarship portal.",
+   "apply_url": "https://uwf.academicworks.com/opportunities/9031",
+   "source_url": "https://uwf.academicworks.com/opportunities/9031",
+   "logo_url": "",
+   "award": {
+    "kind": "varies",
+    "amount": null,
+    "min": null,
+    "max": null,
+    "renewable": false,
+    "years": null,
+    "awards_count": null
+   },
+   "deadline": {
+    "kind": "fixed",
+    "date": "2026-09-30",
+    "opens_on": null,
+    "recurs_annually": true
+   },
+   "basis": [],
+   "fields": [],
+   "eligibility": [
+    {
+     "kind": "major",
+     "any_of": [
+      "Nursing"
+     ]
+    }
+   ],
+   "other_eligibility": [
+    "Graduate students in the UWF Master of Science in Nursing program",
+    "Award amount not stated"
+   ],
+   "requirements": {
+    "essays": [],
+    "recommendations": 0,
+    "transcript": false,
+    "financial_documents": false,
+    "interview": false
+   },
+   "last_checked_on": "2026-10-02"
+  }
+ }
+]

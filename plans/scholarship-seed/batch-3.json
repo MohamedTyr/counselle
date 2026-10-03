@@ -1,0 +1,700 @@
+[
+  {
+    "row": 31,
+    "outcome": "skip",
+    "skip_reason": "Directory of scholarships, not a single award",
+    "notes": "Scholars4Dev is a scholarship news/directory site, not an award.",
+    "record": null
+  },
+  {
+    "row": 32,
+    "outcome": "skip",
+    "skip_reason": "Umbrella network page; each partner school runs its own award",
+    "notes": "stampsscholars.org is the Stamps Family Charitable Foundation's partner-network page; scholarships are awarded by the 38 partner schools with their own deadlines. Georgia Tech, Notre Dame, Miami, Georgia State Stamps are separate rows.",
+    "record": null
+  },
+  {
+    "row": 33,
+    "outcome": "record",
+    "skip_reason": null,
+    "notes": "Row names 'International Leader of Tomorrow / Karen McKellin Award'; the official page lists four award categories (Karen McKellin International Leader of Tomorrow, Donald A. Wehrung International Student Award, International Impact Award, Vantage One Excellence Award) and gives one shared timeline, so one record for the KMILOT. Award value not stated on the page; the page says only that the Vantage One Excellence Award ranges up to the full cost of program and living expenses. Renewability not stated on the page I read, left false. Dates: application opens Oct 5 2026, deadline Nov 15 (2026 for Sept 2027 intake), documents due Jan 31, video interview Jan-Mar. Transcripts are required by Jan 31. Number of awards not stated.",
+    "record": {
+      "name": "Karen McKellin International Leader of Tomorrow Award",
+      "sponsor": "University of British Columbia",
+      "summary": "Need-and-merit award for international students entering a first UBC undergraduate degree from secondary school, part of UBC's International Scholars Program.",
+      "apply_url": "https://you.ubc.ca/financial-planning/scholarships-awards-international-students/international-scholars/",
+      "source_url": "https://you.ubc.ca/financial-planning/scholarships-awards-international-students/international-scholars/",
+      "logo_url": "",
+      "award": {
+        "kind": "varies",
+        "amount": null,
+        "min": null,
+        "max": null,
+        "renewable": false,
+        "years": null,
+        "awards_count": null
+      },
+      "deadline": {
+        "kind": "fixed",
+        "date": "2026-11-15",
+        "opens_on": "2026-10-05",
+        "recurs_annually": true
+      },
+      "basis": [
+        "merit",
+        "need"
+      ],
+      "fields": [],
+      "eligibility": [
+        {
+          "kind": "citizenship",
+          "any_of": [
+            "international"
+          ]
+        },
+        {
+          "kind": "grade",
+          "any_of": [
+            "12"
+          ]
+        },
+        {
+          "kind": "financial_need"
+        }
+      ],
+      "other_eligibility": [
+        "International students who need a Canadian study permit",
+        "Entering a first undergraduate degree directly from an accredited secondary school",
+        "Superior academic achievement (all As or equivalent)",
+        "Must meet UBC admission and English language standards",
+        "Must be nominated by the school (one nominator plus one teacher referee); schools may nominate up to two students for UBC Vancouver or one for UBC Okanagan",
+        "Not open to Nursing, Dental Hygiene, Medical Laboratory Science, Bachelor + Master of Management, dual or joint degrees"
+      ],
+      "requirements": {
+        "essays": [
+          {
+            "prompt": "Four essay questions (approximately 150-250 words each)",
+            "words": 250
+          }
+        ],
+        "recommendations": 2,
+        "transcript": true,
+        "financial_documents": true,
+        "interview": true
+      },
+      "last_checked_on": "2026-10-02"
+    }
+  },
+  {
+    "row": 34,
+    "outcome": "record",
+    "skip_reason": null,
+    "notes": "Class of 2031 cycle: application opened Aug 15 2026, all materials due Oct 1 2026 (one day past as of today); the page says deadlines may vary by region (a third-party source says Canada Oct 15, not verified on official page). Value of the scholarship not stated on the official pages I read, so award is 'varies' (third-party sources call it a full ride, unverified). Semifinalist video interviews mid-Dec; final selection Feb 26-Mar 1 2027. Essay requirements not stated on pages read. One recommendation form from school confirmed in FAQ.",
+    "record": {
+      "name": "Morehead-Cain Scholarship",
+      "sponsor": "Morehead-Cain Foundation (UNC-Chapel Hill)",
+      "summary": "Merit scholarship at UNC-Chapel Hill for nominated high school seniors, with summer enrichment programs.",
+      "apply_url": "https://www.moreheadcain.org/application-eligibility/",
+      "source_url": "https://www.moreheadcain.org/application-eligibility/deadlines/",
+      "logo_url": "",
+      "award": {
+        "kind": "varies",
+        "amount": null,
+        "min": null,
+        "max": null,
+        "renewable": false,
+        "years": null,
+        "awards_count": null
+      },
+      "deadline": {
+        "kind": "fixed",
+        "date": "2026-10-01",
+        "opens_on": "2026-08-15",
+        "recurs_annually": true
+      },
+      "basis": [
+        "merit"
+      ],
+      "fields": [],
+      "eligibility": [
+        {
+          "kind": "grade",
+          "any_of": [
+            "12"
+          ]
+        }
+      ],
+      "other_eligibility": [
+        "Must be nominated by a participating high school or affiliate program",
+        "Must be a competitive applicant to UNC-Chapel Hill",
+        "Students from schools that do not nominate may be considered through the Admissions Referral Program by applying Early Action to UNC (Oct 15, 2026)",
+        "Open to candidates from North Carolina, the rest of the US, Canada, the UK and other countries",
+        "Test-optional"
+      ],
+      "requirements": {
+        "essays": [],
+        "recommendations": 1,
+        "transcript": false,
+        "financial_documents": false,
+        "interview": true
+      },
+      "last_checked_on": "2026-10-02"
+    }
+  },
+  {
+    "row": 35,
+    "outcome": "skip",
+    "skip_reason": "Directory of many UNCF scholarships, not a single award",
+    "notes": "UNCF scholarships page is a directory of many UNCF scholarship programs, each with its own rules.",
+    "record": null
+  },
+  {
+    "row": 36,
+    "outcome": "record",
+    "skip_reason": null,
+    "notes": "Row is the Unigo site; it runs several named scholarships (Education Matters, Superpower, I Have a Dream, etc.). Recorded the flagship $10K one, which I read in full. Deadline Dec 31 2026 11:59pm PT, winner about Mar 31 2027. Other Unigo scholarships were not recorded.",
+    "record": {
+      "name": "Unigo $10K Scholarship",
+      "sponsor": "Unigo",
+      "summary": "No-GPA essay scholarship from Unigo, answering 'Would you rather be smart, funny or rich?' in 250 words; open to post-secondary students and applicants.",
+      "apply_url": "https://www.unigo.com/scholarships/our-scholarships/unigo-10k-scholarship",
+      "source_url": "https://www.unigo.com/scholarships/our-scholarships/unigo-10k-scholarship",
+      "logo_url": "",
+      "award": {
+        "kind": "fixed",
+        "amount": 10000,
+        "min": null,
+        "max": null,
+        "renewable": false,
+        "years": null,
+        "awards_count": 1
+      },
+      "deadline": {
+        "kind": "fixed",
+        "date": "2026-12-31",
+        "opens_on": null,
+        "recurs_annually": true
+      },
+      "basis": [],
+      "fields": [],
+      "eligibility": [],
+      "other_eligibility": [
+        "Legal U.S. resident living in the 50 states or D.C.",
+        "At least 14 years old at application",
+        "Currently enrolled, or planning to enroll by fall 2031, in an accredited post-secondary institution",
+        "Paid to the winner's school, not as cash; proof of enrollment required",
+        "Winner chosen on writing, creativity, originality and overall excellence (25% each)"
+      ],
+      "requirements": {
+        "essays": [
+          {
+            "prompt": "Would you rather be smart, funny or rich? Why?",
+            "words": 250
+          }
+        ],
+        "recommendations": 0,
+        "transcript": false,
+        "financial_documents": false,
+        "interview": false
+      },
+      "last_checked_on": "2026-10-02"
+    }
+  },
+  {
+    "row": 37,
+    "outcome": "record",
+    "skip_reason": null,
+    "notes": "Official odyssey.uchicago.edu page does not state eligibility mechanics, an application process or a deadline; a search snippet from uchicago.edu says need-based aid applicants are considered automatically with no separate application, but I did not read that page, so it is not recorded as fact. Deadline left null; reviewer may tie it to UChicago's financial aid deadlines. Marked financial_documents true on the assumption of an aid application - unverified, reviewer decide.",
+    "record": {
+      "name": "Odyssey Scholarship",
+      "sponsor": "University of Chicago",
+      "summary": "UChicago program for students from lower-income families or first in their families to attend college, with need-based aid and career support.",
+      "apply_url": "https://financialaid.uchicago.edu/",
+      "source_url": "https://odyssey.uchicago.edu/",
+      "logo_url": "",
+      "award": {
+        "kind": "varies",
+        "amount": null,
+        "min": null,
+        "max": null,
+        "renewable": false,
+        "years": null,
+        "awards_count": null
+      },
+      "deadline": {
+        "kind": "fixed",
+        "date": null,
+        "opens_on": null,
+        "recurs_annually": true
+      },
+      "basis": [
+        "need"
+      ],
+      "fields": [],
+      "eligibility": [],
+      "other_eligibility": [
+        "Talented students from lower-income families or who are the first in their family to attend college",
+        "Must be admitted to the University of Chicago",
+        "Meets full demonstrated need with loan-free aid; also funds study abroad, health insurance and paid internships"
+      ],
+      "requirements": {
+        "essays": [],
+        "recommendations": 0,
+        "transcript": false,
+        "financial_documents": true,
+        "interview": false
+      },
+      "last_checked_on": "2026-10-02"
+    }
+  },
+  {
+    "row": 38,
+    "outcome": "record",
+    "skip_reason": null,
+    "notes": "Deadline is Miami's Nov 1 2026 EDI/EA application deadline (fall 2027 entry) per the admissions deadlines page; the 3.0 GPA is a renewal condition on the Stamps page, not an entry requirement, so I did not set gpa_min as an entry rule. Number of awards not stated. Citizenship not restricted on page.",
+    "record": {
+      "name": "Stamps Scholarship at the University of Miami",
+      "sponsor": "University of Miami",
+      "summary": "Full cost of attendance for eight semesters plus a $12,000 enrichment fund, awarded through Miami's Early Decision I and Early Action admission review.",
+      "apply_url": "https://admissions.miami.edu/undergraduate/financial-aid/scholarships/stamps/index.html",
+      "source_url": "https://admissions.miami.edu/undergraduate/financial-aid/scholarships/stamps/index.html",
+      "logo_url": "",
+      "award": {
+        "kind": "full_ride",
+        "amount": null,
+        "min": null,
+        "max": null,
+        "renewable": true,
+        "years": 4,
+        "awards_count": null
+      },
+      "deadline": {
+        "kind": "fixed",
+        "date": "2026-11-01",
+        "opens_on": null,
+        "recurs_annually": true
+      },
+      "basis": [
+        "merit"
+      ],
+      "fields": [],
+      "eligibility": [
+        {
+          "kind": "grade",
+          "any_of": [
+            "12"
+          ]
+        }
+      ],
+      "other_eligibility": [
+        "Must apply to Miami through Early Decision I or Early Action; no separate scholarship application",
+        "Selected on academic achievement, leadership and intellectual curiosity through holistic review",
+        "Semi-finalists are contacted by mid-January for an interview",
+        "Must keep a 3.0 GPA and enroll full-time (12 credits per semester) to renew",
+        "Covers eight semesters (ten for five-year programs)"
+      ],
+      "requirements": {
+        "essays": [],
+        "recommendations": 0,
+        "transcript": false,
+        "financial_documents": false,
+        "interview": true
+      },
+      "last_checked_on": "2026-10-02"
+    }
+  },
+  {
+    "row": 39,
+    "outcome": "record",
+    "skip_reason": null,
+    "notes": "UTokyo's page gives no stipend, deadlines or nationality rules; it points to MEXT's application guidelines for the applicable year. Deadlines vary by country/embassy, left null. 'International' citizenship is inferred from the embassy-application route and the name 'Japanese Government Scholarship' - reviewer should confirm against MEXT guidelines (mext.go.jp/a_menu/koutou/ryugaku/06032818.htm).",
+    "record": {
+      "name": "MEXT (Japanese Government) Scholarship at the University of Tokyo",
+      "sponsor": "MEXT / University of Tokyo",
+      "summary": "Japanese government scholarship for international undergraduates (after a one-year Japanese preparatory course) and graduate research students at UTokyo.",
+      "apply_url": "https://www.u-tokyo.ac.jp/en/prospective-students/mext_scholarship.html",
+      "source_url": "https://www.u-tokyo.ac.jp/en/prospective-students/mext_scholarship.html",
+      "logo_url": "",
+      "award": {
+        "kind": "varies",
+        "amount": null,
+        "min": null,
+        "max": null,
+        "renewable": false,
+        "years": null,
+        "awards_count": null
+      },
+      "deadline": {
+        "kind": "fixed",
+        "date": null,
+        "opens_on": null,
+        "recurs_annually": true
+      },
+      "basis": [
+        "merit"
+      ],
+      "fields": [],
+      "eligibility": [
+        {
+          "kind": "citizenship",
+          "any_of": [
+            "international"
+          ]
+        }
+      ],
+      "other_eligibility": [
+        "Undergraduate applicants complete a mandatory one-year preparatory course in Japanese before university entrance",
+        "MEXT decides placement; applicants may not be able to take UTokyo's entrance examinations",
+        "Also open to research students in Master's, Doctorate and Professional Degree programs (university recommendation)",
+        "Apply through the Japanese embassy or consulate in your country (embassy recommendation) - process varies by country",
+        "Non-Japanese nationals applying from outside Japan; confirm details in the MEXT application guidelines"
+      ],
+      "requirements": {
+        "essays": [],
+        "recommendations": 0,
+        "transcript": false,
+        "financial_documents": false,
+        "interview": false
+      },
+      "last_checked_on": "2026-10-02"
+    }
+  },
+  {
+    "row": 40,
+    "outcome": "record",
+    "skip_reason": null,
+    "notes": "Oct 9 2026 is the school nomination deadline (earliest); the student's separate scholarship application is due Nov 6 2026. About 37 scholars annually (page: ~37, $12M+ in 2024). full_ride is my reading of 'tuition, books, incidental fees and full residence support'; it does not explicitly mention food. Essay/reference details not on page.",
+    "record": {
+      "name": "Lester B. Pearson International Scholarship",
+      "sponsor": "University of Toronto",
+      "summary": "Four-year award covering tuition, books, incidental fees and full residence for outstanding international students nominated by their high school.",
+      "apply_url": "https://future.utoronto.ca/pearson-scholarships",
+      "source_url": "https://future.utoronto.ca/pearson-scholarships",
+      "logo_url": "",
+      "award": {
+        "kind": "full_ride",
+        "amount": null,
+        "min": null,
+        "max": null,
+        "renewable": true,
+        "years": 4,
+        "awards_count": 37
+      },
+      "deadline": {
+        "kind": "fixed",
+        "date": "2026-10-09",
+        "opens_on": null,
+        "recurs_annually": true
+      },
+      "basis": [
+        "merit"
+      ],
+      "fields": [],
+      "eligibility": [
+        {
+          "kind": "citizenship",
+          "any_of": [
+            "international"
+          ]
+        },
+        {
+          "kind": "grade",
+          "any_of": [
+            "12"
+          ]
+        }
+      ],
+      "other_eligibility": [
+        "International students who need a study permit; not Canadian citizens or permanent residents",
+        "Final year of secondary school in 2026/27, or graduated after June 2026",
+        "Plan to begin first undergraduate degree at U of T in September 2027; not already in post-secondary education",
+        "Must be nominated by the high school; admission to a U of T undergraduate program required (by Oct 16, 2026)"
+      ],
+      "requirements": {
+        "essays": [],
+        "recommendations": 0,
+        "transcript": false,
+        "financial_documents": false,
+        "interview": false
+      },
+      "last_checked_on": "2026-10-02"
+    }
+  },
+  {
+    "row": 41,
+    "outcome": "record",
+    "skip_reason": null,
+    "notes": "Dec 1 (year assumed 2026 per portal opening in August; page says only 'December 1'). Value stated: over $42,000/yr for Virginians, over $83,000/yr for non-Virginians (cost of attendance for four years plus enrichment). Number of recommendations not stated precisely ('recommendations'); I set 1. 'Must also be admitted to UVA' is my inference, not stated explicitly - reviewer verify. Regional interviews mid-Dec to Jan, final interviews late Feb.",
+    "record": {
+      "name": "Jefferson Scholars Undergraduate Scholarship",
+      "sponsor": "Jefferson Scholars Foundation",
+      "summary": "Nomination-only scholarship covering four years of costs at the University of Virginia, plus enrichment, for senior-class leaders.",
+      "apply_url": "https://www.jeffersonscholars.org/scholarships/selection",
+      "source_url": "https://www.jeffersonscholars.org/scholarships",
+      "logo_url": "",
+      "award": {
+        "kind": "full_ride",
+        "amount": null,
+        "min": null,
+        "max": null,
+        "renewable": true,
+        "years": 4,
+        "awards_count": null
+      },
+      "deadline": {
+        "kind": "fixed",
+        "date": "2026-12-01",
+        "opens_on": null,
+        "recurs_annually": true
+      },
+      "basis": [
+        "merit"
+      ],
+      "fields": [],
+      "eligibility": [
+        {
+          "kind": "grade",
+          "any_of": [
+            "12"
+          ]
+        }
+      ],
+      "other_eligibility": [
+        "Students cannot self-apply; eligible schools nominate one senior who exemplifies leadership, scholarship and citizenship",
+        "The Walentas Scholarship variant requires nominees to be first or among the first in their families to earn a bachelor's degree",
+        "Nominations come from 65+ Jefferson and 20+ Walentas nominating regions",
+        "Must also be admitted to the University of Virginia"
+      ],
+      "requirements": {
+        "essays": [
+          {
+            "prompt": "Two essays (prompts not published on the pages read)",
+            "words": null
+          }
+        ],
+        "recommendations": 1,
+        "transcript": true,
+        "financial_documents": false,
+        "interview": true
+      },
+      "last_checked_on": "2026-10-02"
+    }
+  },
+  {
+    "row": 42,
+    "outcome": "record",
+    "skip_reason": null,
+    "notes": "Deadline Dec 1 2026; recipients notified by Mar 31 2027. Page does not state number of scholars, renewal length, essay or recommendation requirements, so left default (renewable false is not stated on the page).",
+    "record": {
+      "name": "Cornelius Vanderbilt Scholarship",
+      "sponsor": "Vanderbilt University",
+      "summary": "Full-tuition merit scholarship at Vanderbilt plus a summer experience stipend, chosen on academic achievement, intellectual promise and leadership.",
+      "apply_url": "https://www.vanderbilt.edu/scholarships/signature/",
+      "source_url": "https://www.vanderbilt.edu/scholarships/signature/",
+      "logo_url": "",
+      "award": {
+        "kind": "full_tuition",
+        "amount": null,
+        "min": null,
+        "max": null,
+        "renewable": false,
+        "years": null,
+        "awards_count": null
+      },
+      "deadline": {
+        "kind": "fixed",
+        "date": "2026-12-01",
+        "opens_on": null,
+        "recurs_annually": true
+      },
+      "basis": [
+        "merit"
+      ],
+      "fields": [],
+      "eligibility": [
+        {
+          "kind": "grade",
+          "any_of": [
+            "12"
+          ]
+        }
+      ],
+      "other_eligibility": [
+        "Must first submit a regular Vanderbilt admission application, then apply via MyAppVU for the scholarship",
+        "Selected on academic achievement, intellectual promise, and leadership and contribution outside the classroom",
+        "Blair School of Music applicants are also judged on audition scores",
+        "Additional need-based aid is available if need exceeds full tuition"
+      ],
+      "requirements": {
+        "essays": [],
+        "recommendations": 0,
+        "transcript": false,
+        "financial_documents": false,
+        "interview": false
+      },
+      "last_checked_on": "2026-10-02"
+    }
+  },
+  {
+    "row": 43,
+    "outcome": "record",
+    "skip_reason": null,
+    "notes": "Not a student scholarship. Page says applications are currently closed and gives no stipend amount (a search result said the 2027 application opens Sept 2026, unverified on the page I fetched). No current date, so deadline null. Typically 2-4 fellows a year per page. Application: resume/LinkedIn, two investigative clips, project description, and a supervisor support letter (or recommendation letter for independents).",
+    "record": {
+      "name": "Chauncey Bailey Journalist of Color Investigative Reporting Fellowship",
+      "sponsor": "Investigative Reporters and Editors (IRE)",
+      "summary": "Yearlong IRE fellowship with training, mentorship and conference access for early-career U.S. journalists of color pursuing investigative reporting.",
+      "apply_url": "https://www.ire.org/training/fellowships-and-scholarships/ire-journalist-of-color-investigative-reporting-fellowship/",
+      "source_url": "https://www.ire.org/training/fellowships-and-scholarships/ire-journalist-of-color-investigative-reporting-fellowship/",
+      "logo_url": "",
+      "award": {
+        "kind": "varies",
+        "amount": null,
+        "min": null,
+        "max": null,
+        "renewable": false,
+        "years": null,
+        "awards_count": null
+      },
+      "deadline": {
+        "kind": "fixed",
+        "date": null,
+        "opens_on": null,
+        "recurs_annually": true
+      },
+      "basis": [],
+      "fields": [],
+      "eligibility": [],
+      "other_eligibility": [
+        "Professional journalists, not students: journalists of color with at least three years of post-college work experience",
+        "U.S. journalists; journalists elsewhere may apply if their work is for a U.S. audience",
+        "Working with a supportive news organization or as an independent journalist; not a current student",
+        "Must propose an investigative project benefiting their community",
+        "Provides IRE trainings (Data Journalism Bootcamp, NICAR, IRE Conference), mentoring and data services"
+      ],
+      "requirements": {
+        "essays": [],
+        "recommendations": 1,
+        "transcript": false,
+        "financial_documents": false,
+        "interview": false
+      },
+      "last_checked_on": "2026-10-02"
+    }
+  },
+  {
+    "row": 44,
+    "outcome": "record",
+    "skip_reason": null,
+    "notes": "Amount in CAD so award is 'varies'. 2027 competition: deadline Sept 3 2026 3pm ET (now passed), award start July 1 2027, notification May 2027. Required: research proposal, biosketch, three emailed letters of recommendation, etc. Number of awards not stated.",
+    "record": {
+      "name": "Heart and Stroke Foundation of Canada New Investigator Award",
+      "sponsor": "Heart and Stroke Foundation of Canada",
+      "summary": "Salary award of up to CAD 240,000 over three years for early-career cardiovascular or cerebrovascular researchers at Canadian institutions.",
+      "apply_url": "https://www.heartandstroke.ca/what-we-do/research/for-researchers",
+      "source_url": "https://www.heartandstroke.ca/-/media/research/docs/2026-27/ni-competition-guidelines-en.pdf",
+      "logo_url": "",
+      "award": {
+        "kind": "varies",
+        "amount": null,
+        "min": null,
+        "max": null,
+        "renewable": true,
+        "years": 3,
+        "awards_count": null
+      },
+      "deadline": {
+        "kind": "fixed",
+        "date": "2026-09-03",
+        "opens_on": null,
+        "recurs_annually": true
+      },
+      "basis": [
+        "merit"
+      ],
+      "fields": [],
+      "eligibility": [],
+      "other_eligibility": [
+        "Researchers, not students: full-time Assistant Professor or above at an eligible Canadian institution",
+        "MD, PhD or equivalent; no more than five years since first faculty appointment",
+        "Salary award of up to CAD 240,000 (CAD 80,000 per year for up to three years)",
+        "Must have one mentor and a Mentorship & Training Plan, and institutional support",
+        "Research must be in cardiovascular or cerebrovascular science within Canada"
+      ],
+      "requirements": {
+        "essays": [],
+        "recommendations": 3,
+        "transcript": false,
+        "financial_documents": false,
+        "interview": false
+      },
+      "last_checked_on": "2026-10-02"
+    }
+  },
+  {
+    "row": 45,
+    "outcome": "record",
+    "skip_reason": null,
+    "notes": "2026 cycle deadline Sept 4 2026 midnight PST (passed); winner $1,500 and runner-up $500 (one winner, one runner-up) to be notified Sept 18. Canadian citizens are eligible but the structured citizenship rule can only list US citizens and permanent residents.",
+    "record": {
+      "name": "Castagra Roofing Scholarship Program",
+      "sponsor": "Castagra Products Inc.",
+      "summary": "Scholarship for people pursuing roofing or building-industry education, applying with a 2-4 minute video or a 500-1000 word essay.",
+      "apply_url": "https://www.castagra.com/scholarship/",
+      "source_url": "https://www.castagra.com/scholarship/",
+      "logo_url": "",
+      "award": {
+        "kind": "range",
+        "amount": null,
+        "min": 500,
+        "max": 1500,
+        "renewable": false,
+        "years": null,
+        "awards_count": 2
+      },
+      "deadline": {
+        "kind": "fixed",
+        "date": "2026-09-04",
+        "opens_on": null,
+        "recurs_annually": true
+      },
+      "basis": [
+        "merit"
+      ],
+      "fields": [
+        "Roofing",
+        "Construction",
+        "Waterproofing"
+      ],
+      "eligibility": [
+        {
+          "kind": "citizenship",
+          "any_of": [
+            "us_citizen",
+            "permanent_resident"
+          ]
+        }
+      ],
+      "other_eligibility": [
+        "Pursuing post-secondary education in college or vocational programs in roofing or a related building-industry field",
+        "Passionate about innovation and/or sustainability",
+        "U.S. or Canadian citizens or permanent residents",
+        "People not planning to attend school may be considered if they show commitment to the industry",
+        "Castagra employees and their relatives are not eligible"
+      ],
+      "requirements": {
+        "essays": [
+          {
+            "prompt": "Describe your educational and career goals, objectives, and how you will contribute to the roofing industry - a 500-1000 word essay, or a 2-4 minute video instead",
+            "words": 1000
+          }
+        ],
+        "recommendations": 0,
+        "transcript": false,
+        "financial_documents": false,
+        "interview": false
+      },
+      "last_checked_on": "2026-10-02"
+    }
+  }
+]

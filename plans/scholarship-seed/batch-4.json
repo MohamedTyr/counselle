@@ -1,0 +1,649 @@
+[
+  {
+    "row": 46,
+    "outcome": "record",
+    "skip_reason": null,
+    "notes": "Dates: ONCC page says deadline 'September 15 (for a test or renewal in the following year)', no year stated; used 2026-09-15 (just passed), so shown as closed/reopens yearly. Award is free ONCC exam registration/renewal, not cash; award kind 'varies'. Nominations window July 1 - Sept 15 per search summary of the ONCC page.",
+    "record": {
+      "logo_url": "",
+      "basis": [
+        "merit"
+      ],
+      "fields": [],
+      "eligibility": [],
+      "other_eligibility": [
+        "Nurses committed to oncology nursing and to obtaining or renewing oncology nursing certification (not for high-school students)",
+        "Award is a free ONCC certification exam or renewal registration, non-transferable, must be used in the year awarded",
+        "Applicants may not use artificial intelligence to write the essay",
+        "ONCC Recognition Subcommittee members and Board Directors cannot apply"
+      ],
+      "last_checked_on": "2026-10-02",
+      "name": "Roberta Scofield Memorial Certification Award",
+      "sponsor": "Oncology Nursing Certification Corporation (ONCC)",
+      "summary": "Free registration for an ONCC oncology nursing certification exam or renewal for nurses committed to oncology nursing.",
+      "apply_url": "https://www.oncc.org/roberta-scofield-application",
+      "source_url": "https://www.oncc.org/roberta-scofield-memorial-certification-award",
+      "award": {
+        "kind": "varies",
+        "amount": null,
+        "min": null,
+        "max": null,
+        "renewable": false,
+        "years": null,
+        "awards_count": 150
+      },
+      "deadline": {
+        "kind": "fixed",
+        "date": "2026-09-15",
+        "opens_on": null,
+        "recurs_annually": true
+      },
+      "requirements": {
+        "essays": [
+          {
+            "prompt": "How will certification help you achieve your goals?",
+            "words": 200
+          }
+        ],
+        "recommendations": 0,
+        "transcript": false,
+        "financial_documents": false,
+        "interview": false
+      }
+    }
+  },
+  {
+    "row": 47,
+    "outcome": "record",
+    "skip_reason": null,
+    "notes": "Official name on the NASP page is 'Graduate Student Research Grants (GSRG) Program'; the page does not mention 'ERT'. Deadline Sept 20, 2026 (just passed), shown as closed/reopens yearly. 'Up to three $1,000 awards'.",
+    "record": {
+      "logo_url": "",
+      "basis": [
+        "merit"
+      ],
+      "fields": [],
+      "eligibility": [],
+      "other_eligibility": [
+        "Graduate students (doctoral or non-doctoral) in school psychology programs; not for undergraduates",
+        "Must be a NASP member and the principal investigator of the research",
+        "At least one grant intended for thesis-level and one for dissertation-level research"
+      ],
+      "last_checked_on": "2026-10-02",
+      "name": "NASP Graduate Student Research Grants (GSRG) Program",
+      "sponsor": "National Association of School Psychologists (NASP)",
+      "summary": "Up to three $1,000 grants for NASP-member school psychology graduate students to fund thesis or dissertation research.",
+      "apply_url": "https://www.nasponline.org/membership-and-community/nasp-awards-scholarships-and-grants/graduate-student-research-grants-(gsrg)-program",
+      "source_url": "https://www.nasponline.org/membership-and-community/nasp-awards-scholarships-and-grants/graduate-student-research-grants-(gsrg)-program",
+      "award": {
+        "kind": "fixed",
+        "amount": 1000,
+        "min": null,
+        "max": null,
+        "renewable": false,
+        "years": null,
+        "awards_count": 3
+      },
+      "deadline": {
+        "kind": "fixed",
+        "date": "2026-09-20",
+        "opens_on": null,
+        "recurs_annually": true
+      },
+      "requirements": {
+        "essays": [
+          {
+            "prompt": "Research proposal: title page, introduction, purpose, research questions and hypotheses, methodology, data analytic plan, contribution to school psychology, references (plus letter of application, CV, demographic form)",
+            "words": null
+          }
+        ],
+        "recommendations": 0,
+        "transcript": false,
+        "financial_documents": false,
+        "interview": false
+      }
+    }
+  },
+  {
+    "row": 48,
+    "outcome": "record",
+    "skip_reason": null,
+    "notes": "Deadline 'September 30, 5:00pm ET' with no year stated; used 2026-09-30 (just passed), shown as closed/reopens yearly. Nomination cycle opens in spring (search summary of ons.org). Nominees, not self-applicants; the Distinguished Researcher page lists one award per year.",
+    "record": {
+      "logo_url": "",
+      "basis": [
+        "merit"
+      ],
+      "fields": [],
+      "eligibility": [],
+      "other_eligibility": [
+        "Active ONS member nominated by an ONS member; for established oncology nurse researchers, not students",
+        "Earned doctorate in nursing or a related field",
+        "Outstanding, sustained record of oncology research and publication",
+        "Also includes a desktop award and ONS Congress travel support"
+      ],
+      "last_checked_on": "2026-10-02",
+      "name": "ONS Distinguished Researcher Award",
+      "sponsor": "Oncology Nursing Society (ONS)",
+      "summary": "$2,000 award recognizing an ONS member whose oncology nursing research has advanced the science and practice of cancer care.",
+      "apply_url": "https://ons.awardsplatform.com/",
+      "source_url": "https://www.ons.org/distinguished-researcher-award",
+      "award": {
+        "kind": "fixed",
+        "amount": 2000,
+        "min": null,
+        "max": null,
+        "renewable": false,
+        "years": null,
+        "awards_count": 1
+      },
+      "deadline": {
+        "kind": "fixed",
+        "date": "2026-09-30",
+        "opens_on": null,
+        "recurs_annually": true
+      },
+      "requirements": {
+        "essays": [
+          {
+            "prompt": "Nomination narrative statement",
+            "words": null
+          }
+        ],
+        "recommendations": 2,
+        "transcript": false,
+        "financial_documents": false,
+        "interview": false
+      }
+    }
+  },
+  {
+    "row": 49,
+    "outcome": "record",
+    "skip_reason": null,
+    "notes": "Entry period June 1 - September 30 each year per SRT page; no year given, so used 2026-09-30 as the most recent occurrence (shown closed/reopens yearly). Aggregator Peterson's lists 2027 but is not an official source. Entries are mailed (4 copies) - no online portal found, so apply_url is the SRT site. Two categories: best published book (minimum first prize $1,200) and best paper/article/non-literary project.",
+    "record": {
+      "logo_url": "",
+      "basis": [
+        "merit"
+      ],
+      "fields": [],
+      "eligibility": [],
+      "other_eligibility": [
+        "Writers, researchers and artists; entry is a published book, paper, article or project on Spanish Colonial influence on Texas culture (not a student scholarship)",
+        "Total prize pool $2,000 per year; minimum first place $1,200 for best published book",
+        "Four copies of each entry must be mailed to the Sons of the Republic of Texas; copies are not returned"
+      ],
+      "last_checked_on": "2026-10-02",
+      "name": "Presidio La Bahia Award",
+      "sponsor": "Sons of the Republic of Texas",
+      "summary": "Annual award ($2,000 total) for published work on the Spanish Colonial influence on Texas culture.",
+      "apply_url": "https://www.srttexas.org/",
+      "source_url": "http://www.srttexas.org/community/",
+      "award": {
+        "kind": "varies",
+        "amount": null,
+        "min": null,
+        "max": null,
+        "renewable": false,
+        "years": null,
+        "awards_count": null
+      },
+      "deadline": {
+        "kind": "fixed",
+        "date": "2026-09-30",
+        "opens_on": "2026-06-01",
+        "recurs_annually": true
+      },
+      "requirements": {
+        "essays": [],
+        "recommendations": 0,
+        "transcript": false,
+        "financial_documents": false,
+        "interview": false
+      }
+    }
+  },
+  {
+    "row": 50,
+    "outcome": "record",
+    "skip_reason": null,
+    "notes": "Deadline 'September 30, 5:00pm ET' with no year stated; used 2026-09-30 (just passed), shown as closed/reopens yearly. Nomination cycle opens in spring (search summary of ons.org). Self-nominations allowed. One award per year.",
+    "record": {
+      "logo_url": "",
+      "basis": [
+        "merit"
+      ],
+      "fields": [],
+      "eligibility": [],
+      "other_eligibility": [
+        "Registered nurses who are active ONS members with 1 to 5 years of oncology leadership experience; not for students",
+        "Self-nominations accepted; past recipients ineligible",
+        "Also includes a desktop award and ONS Congress travel support",
+        "Recipients volunteer as awards reviewers for the next two cycles"
+      ],
+      "last_checked_on": "2026-10-02",
+      "name": "ONS Emerging Leader Award",
+      "sponsor": "Oncology Nursing Society (ONS)",
+      "summary": "$500 award for an emerging oncology nurse leader making a difference locally or regionally.",
+      "apply_url": "https://ons.awardsplatform.com/",
+      "source_url": "https://www.ons.org/emerging-leader-award",
+      "award": {
+        "kind": "fixed",
+        "amount": 500,
+        "min": null,
+        "max": null,
+        "renewable": false,
+        "years": null,
+        "awards_count": 1
+      },
+      "deadline": {
+        "kind": "fixed",
+        "date": "2026-09-30",
+        "opens_on": null,
+        "recurs_annually": true
+      },
+      "requirements": {
+        "essays": [
+          {
+            "prompt": "Nomination narrative statement",
+            "words": null
+          }
+        ],
+        "recommendations": 2,
+        "transcript": false,
+        "financial_documents": false,
+        "interview": false
+      }
+    }
+  },
+  {
+    "row": 51,
+    "outcome": "record",
+    "skip_reason": null,
+    "notes": "Deadline 'September 30, 5:00pm ET' with no year stated; used 2026-09-30 (just passed), shown as closed/reopens yearly. Nomination cycle opens in spring (search summary of ons.org). Self-nominations allowed. One award per year.",
+    "record": {
+      "logo_url": "",
+      "basis": [
+        "merit"
+      ],
+      "fields": [],
+      "eligibility": [],
+      "other_eligibility": [
+        "Active ONS members whose full-time duties are non-management patient care; not for students",
+        "Self-nominations accepted",
+        "Also includes a desktop award and ONS Congress travel support"
+      ],
+      "last_checked_on": "2026-10-02",
+      "name": "ONS Frontline Care Award",
+      "sponsor": "Oncology Nursing Society (ONS)",
+      "summary": "$500 award for a frontline oncology nurse who delivers outstanding evidence-based patient care.",
+      "apply_url": "https://ons.awardsplatform.com/",
+      "source_url": "https://www.ons.org/frontline-care-award",
+      "award": {
+        "kind": "fixed",
+        "amount": 500,
+        "min": null,
+        "max": null,
+        "renewable": false,
+        "years": null,
+        "awards_count": 1
+      },
+      "deadline": {
+        "kind": "fixed",
+        "date": "2026-09-30",
+        "opens_on": null,
+        "recurs_annually": true
+      },
+      "requirements": {
+        "essays": [
+          {
+            "prompt": "Nomination narrative statement",
+            "words": null
+          }
+        ],
+        "recommendations": 2,
+        "transcript": false,
+        "financial_documents": false,
+        "interview": false
+      }
+    }
+  },
+  {
+    "row": 52,
+    "outcome": "record",
+    "skip_reason": null,
+    "notes": "Deadline 'September 30, 5:00pm ET' with no year stated; used 2026-09-30 (just passed), shown as closed/reopens yearly. Nomination cycle opens in spring (search summary of ons.org). One award per year (team travel support for one member).",
+    "record": {
+      "logo_url": "",
+      "basis": [
+        "merit"
+      ],
+      "fields": [],
+      "eligibility": [],
+      "other_eligibility": [
+        "Teams of 3 to 10 members; team leader must be an RN and active ONS member; not for students",
+        "Also includes a desktop award and ONS Congress travel support for one team member"
+      ],
+      "last_checked_on": "2026-10-02",
+      "name": "ONS Team Achievement Award",
+      "sponsor": "Oncology Nursing Society (ONS)",
+      "summary": "$500 award for a small oncology nursing team that improved patient care or education in its workplace or community.",
+      "apply_url": "https://ons.awardsplatform.com/",
+      "source_url": "https://www.ons.org/team-achievement-award",
+      "award": {
+        "kind": "fixed",
+        "amount": 500,
+        "min": null,
+        "max": null,
+        "renewable": false,
+        "years": null,
+        "awards_count": 1
+      },
+      "deadline": {
+        "kind": "fixed",
+        "date": "2026-09-30",
+        "opens_on": null,
+        "recurs_annually": true
+      },
+      "requirements": {
+        "essays": [
+          {
+            "prompt": "Nomination narrative statement",
+            "words": null
+          }
+        ],
+        "recommendations": 2,
+        "transcript": false,
+        "financial_documents": false,
+        "interview": false
+      }
+    }
+  },
+  {
+    "row": 53,
+    "outcome": "skip",
+    "skip_reason": "Official page not found: only aggregator listings (Peterson's, BigFuture) exist. The award appears to be a University of West Florida (UWF) scholarship funded by BCBS of Florida, administered via UWF's AcademicWorks portal, with no BCBSFL-owned page located; also ambiguous (undergrad/graduate/SAHLS variants).",
+    "notes": "Reviewer could retry with a UWF scholarship page if desired; Peterson's says graduate MSN students at UWF.",
+    "record": null
+  },
+  {
+    "row": 54,
+    "outcome": "record",
+    "skip_reason": null,
+    "notes": "Deadline Thursday Oct 1, 2026 11:59pm PT stated on the page (just passed); recurs annually. Overview page does not list essays, recommendations, documents or interview, so requirements left at defaults. 2025: 2,550 finalists matched (not entered as awards_count). Page also gives income guideline under $65,000 for a family of four.",
+    "record": {
+      "logo_url": "",
+      "basis": [
+        "merit",
+        "need"
+      ],
+      "fields": [],
+      "eligibility": [
+        {
+          "kind": "grade",
+          "any_of": [
+            "12"
+          ]
+        },
+        {
+          "kind": "financial_need"
+        }
+      ],
+      "other_eligibility": [
+        "Primarily A's in the most challenging courses offered",
+        "Household income under about $65,000 for a family of four, with minimal assets",
+        "Match covers tuition, housing, food and other expenses with no parental contribution or loans (value over $360,000)",
+        "Must be matched with one of 55 QuestBridge college partners"
+      ],
+      "last_checked_on": "2026-10-02",
+      "name": "QuestBridge National College Match Scholarship",
+      "sponsor": "QuestBridge",
+      "summary": "Full four-year scholarship at a QuestBridge partner college for high-achieving, low-income high-school seniors.",
+      "apply_url": "https://apply.questbridge.org/portal/apply",
+      "source_url": "https://www.questbridge.org/high-school-students/national-college-match",
+      "award": {
+        "kind": "full_ride",
+        "amount": null,
+        "min": null,
+        "max": null,
+        "renewable": false,
+        "years": null,
+        "awards_count": null
+      },
+      "deadline": {
+        "kind": "fixed",
+        "date": "2026-10-01",
+        "opens_on": null,
+        "recurs_annually": true
+      },
+      "requirements": {
+        "essays": [],
+        "recommendations": 0,
+        "transcript": false,
+        "financial_documents": false,
+        "interview": false
+      }
+    }
+  },
+  {
+    "row": 55,
+    "outcome": "record",
+    "skip_reason": null,
+    "notes": "UNVERIFIED ON OFFICIAL PAGE: oah.org returns HTTP 403 to WebFetch and curl, so facts come from search-result text of oah.org pages and last_checked_on is null. Search text gives $1,000 and 'current cycle deadline October 1, 2026'; Peterson's (aggregator) conflicts (October 1, 2027, 2023-2024 books). Biennial prize. Not a student scholarship.",
+    "record": {
+      "logo_url": "",
+      "basis": [
+        "merit"
+      ],
+      "fields": [],
+      "eligibility": [],
+      "other_eligibility": [
+        "Authors of a book on the history of native and/or settler peoples in frontier, border and borderland zones of intercultural contact",
+        "Awarded every two years; not a student scholarship",
+        "Entries are sent to committee members"
+      ],
+      "last_checked_on": null,
+      "name": "Ray Allen Billington Prize",
+      "sponsor": "Organization of American Historians (OAH)",
+      "summary": "Biennial $1,000 prize for the best book on native and settler peoples in frontier, border and borderland zones.",
+      "apply_url": "https://www.oah.org/awards/book-awards-and-prizes/ray-allen-billington-prize/",
+      "source_url": "https://www.oah.org/awards/book-awards-and-prizes/ray-allen-billington-prize/",
+      "award": {
+        "kind": "fixed",
+        "amount": 1000,
+        "min": null,
+        "max": null,
+        "renewable": false,
+        "years": null,
+        "awards_count": 1
+      },
+      "deadline": {
+        "kind": "fixed",
+        "date": "2026-10-01",
+        "opens_on": null,
+        "recurs_annually": true
+      },
+      "requirements": {
+        "essays": [],
+        "recommendations": 0,
+        "transcript": false,
+        "financial_documents": false,
+        "interview": false
+      }
+    }
+  },
+  {
+    "row": 56,
+    "outcome": "record",
+    "skip_reason": null,
+    "notes": "UNVERIFIED ON OFFICIAL PAGE: oah.org returns 403 to WebFetch and curl; facts from search-result text of the oah.org page, last_checked_on null. Search text: deadline October 1, 2027 (submissions postmarked), works published Jan 1 2026 - Dec 31 2027, $1,500. Biennial. Not a student scholarship.",
+    "record": {
+      "logo_url": "",
+      "basis": [
+        "merit"
+      ],
+      "fields": [],
+      "eligibility": [],
+      "other_eligibility": [
+        "Full-time historians or federal contract historians in a U.S. government agency or museum (5+ years); not a student scholarship",
+        "Work on America and the world, military affairs, federal government history, documentary history or biography",
+        "Entry published or installed Jan 1, 2026 - Dec 31, 2027",
+        "Awarded every two years; copies mailed to committee members, postmarked by deadline"
+      ],
+      "last_checked_on": null,
+      "name": "Richard W. Leopold Prize",
+      "sponsor": "Organization of American Historians (OAH)",
+      "summary": "Biennial $1,500 prize for historical scholarship by U.S. government historians or federal contract historians.",
+      "apply_url": "https://www.oah.org/awards/book-awards-and-prizes/richard-w-leopold-prize/",
+      "source_url": "https://www.oah.org/awards/book-awards-and-prizes/richard-w-leopold-prize/",
+      "award": {
+        "kind": "fixed",
+        "amount": 1500,
+        "min": null,
+        "max": null,
+        "renewable": false,
+        "years": null,
+        "awards_count": 1
+      },
+      "deadline": {
+        "kind": "fixed",
+        "date": "2027-10-01",
+        "opens_on": null,
+        "recurs_annually": true
+      },
+      "requirements": {
+        "essays": [],
+        "recommendations": 0,
+        "transcript": false,
+        "financial_documents": false,
+        "interview": false
+      }
+    }
+  },
+  {
+    "row": 57,
+    "outcome": "record",
+    "skip_reason": null,
+    "notes": "Page says '2026 Award Cycle': applications open July 14, 2026, close October 1, 2026. 2026 winner (Iraqi Division) was already announced in March 2026 and the page says the 2027 award goes to the Peruvian Division, so this cycle likely selects the 2027 recipient. Fellowship rotates alphabetically among IADR divisions each year; candidates apply through their IADR Division officers (no central URL on page), so apply_url is the award page.",
+    "record": {
+      "logo_url": "",
+      "basis": [
+        "merit"
+      ],
+      "fields": [],
+      "eligibility": [],
+      "other_eligibility": [
+        "Dental students in an accredited dental school; not for high-school students",
+        "Must be an IADR member, sponsored by a dental researcher with the dean's approval",
+        "Must not have received or be about to receive the dental degree in the award year",
+        "Award rotates alphabetically among IADR Divisions; applicant's Division must hold the award that year"
+      ],
+      "last_checked_on": "2026-10-02",
+      "name": "IADR David B. Scott Fellowship",
+      "sponsor": "International Association for Dental Research (IADR)",
+      "summary": "$2,500 fellowship for a dental student, rotating among IADR divisions, to support a research proposal.",
+      "apply_url": "https://www.iadr.org/awards/iadr-david-b-scott-fellowship",
+      "source_url": "https://www.iadr.org/awards/iadr-david-b-scott-fellowship",
+      "award": {
+        "kind": "fixed",
+        "amount": 2500,
+        "min": null,
+        "max": null,
+        "renewable": false,
+        "years": null,
+        "awards_count": 1
+      },
+      "deadline": {
+        "kind": "fixed",
+        "date": "2026-10-01",
+        "opens_on": "2026-07-14",
+        "recurs_annually": true
+      },
+      "requirements": {
+        "essays": [
+          {
+            "prompt": "Research proposal (max 8 double-spaced pages): aims, objectives and significance; rationale and background; materials and methods; statistical treatment of data; facilities and equipment; budget",
+            "words": null
+          }
+        ],
+        "recommendations": 0,
+        "transcript": false,
+        "financial_documents": false,
+        "interview": false
+      }
+    }
+  },
+  {
+    "row": 58,
+    "outcome": "record",
+    "skip_reason": null,
+    "notes": "Deadline: official page says complete FAFSA 'by the state required deadline'; the October 1 date comes from a search summary of the Miami page, year not stated; used 2026-10-01 (just passed) - reviewer please confirm. Award amount set annually by the state and limited to instructional/general fees. Student Aid Index <= $3,750 and household income <= $96,000 per page.",
+    "record": {
+      "logo_url": "",
+      "basis": [
+        "need"
+      ],
+      "fields": [],
+      "eligibility": [
+        {
+          "kind": "state",
+          "any_of": [
+            "OH"
+          ]
+        },
+        {
+          "kind": "financial_need"
+        }
+      ],
+      "other_eligibility": [
+        "First-time, degree-seeking undergraduate admitted to Miami University's Oxford campus (regional campuses vary by year)",
+        "Student Aid Index of $3,750 or less and household income not above $96,000",
+        "Apply by completing the FAFSA by the state deadline; male applicants 18+ must register for Selective Service",
+        "Does not renew automatically; refile FAFSA yearly; limit of 10 semesters"
+      ],
+      "last_checked_on": "2026-10-02",
+      "name": "Ohio College Opportunity Grant (OCOG) at Miami University",
+      "sponsor": "Ohio Department of Higher Education / Miami University",
+      "summary": "State need-based grant for first-time Ohio undergraduates with exceptional financial need admitted to Miami University's Oxford campus.",
+      "apply_url": "https://miamioh.edu/onestop/financial-aid/funding-opportunities/grants/index.html",
+      "source_url": "https://miamioh.edu/onestop/financial-aid/funding-opportunities/grants/index.html",
+      "award": {
+        "kind": "varies",
+        "amount": null,
+        "min": null,
+        "max": null,
+        "renewable": false,
+        "years": null,
+        "awards_count": null
+      },
+      "deadline": {
+        "kind": "fixed",
+        "date": "2026-10-01",
+        "opens_on": null,
+        "recurs_annually": true
+      },
+      "requirements": {
+        "essays": [],
+        "recommendations": 0,
+        "transcript": false,
+        "financial_documents": true,
+        "interview": false
+      }
+    }
+  },
+  {
+    "row": 59,
+    "outcome": "skip",
+    "skip_reason": "Official sponsor page (abc-med.com/scholarships) returned 404 to WebFetch and curl, and abc-med.com/adaptive-sports has no scholarship details; facts exist only in search snippets and aggregators.",
+    "notes": "Search snippets say $1,000, Fall/Spring cycles (Fall 2025 window July 1 - Oct 1, 2025; one source says Oct 1, 2026 deadline), for people with SCI, spina bifida, TBI or ABI who are high-school seniors or undergraduates in adaptive sports. Recheck page later.",
+    "record": null
+  },
+  {
+    "row": 60,
+    "outcome": "skip",
+    "skip_reason": "Official sponsor page (abc-med.com/scholarships) returned 404 to WebFetch and curl; facts only in search snippets and aggregators (BigFuture).",
+    "notes": "Same ABC Medical program as row 59 (Education category: financial need, essay; $1,000). Recheck page later.",
+    "record": null
+  }
+]

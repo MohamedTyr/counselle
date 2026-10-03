@@ -1,0 +1,762 @@
+[
+  {
+    "row": 16,
+    "outcome": "record",
+    "skip_reason": null,
+    "notes": "Cycle: entry 2027/8. Deadline 14 Oct 2026 is the US round (US citizens resident in the US); all other applicants apply by 8 Dec 2026 or 6 Jan 2027 depending on course (Cambridge course directory). Recommendations = two academic references plus one Gates Cambridge reference. Maintenance allowance GBP 23,152 for 12 months (2026-27) plus fees, airfare, visa; not converted to USD. About 70 awards/year.",
+    "record": {
+      "name": "Gates Cambridge Scholarship",
+      "sponsor": "Gates Cambridge Trust",
+      "summary": "Full-cost postgraduate scholarship at the University of Cambridge for outstanding applicants from outside the UK.",
+      "apply_url": "https://www.gatescambridge.org/apply/how-to-apply/",
+      "source_url": "https://www.gatescambridge.org/apply/timeline/",
+      "logo_url": "",
+      "award": {
+        "kind": "full_ride",
+        "amount": null,
+        "min": null,
+        "max": null,
+        "renewable": false,
+        "years": null,
+        "awards_count": 70
+      },
+      "deadline": {
+        "kind": "fixed",
+        "date": "2026-10-14",
+        "opens_on": "2026-09-11",
+        "recurs_annually": true
+      },
+      "basis": [
+        "merit"
+      ],
+      "fields": [],
+      "eligibility": [
+        {
+          "kind": "citizenship",
+          "any_of": [
+            "us_citizen",
+            "permanent_resident",
+            "daca",
+            "international"
+          ]
+        }
+      ],
+      "other_eligibility": [
+        "Postgraduate study only (master's or PhD) at the University of Cambridge",
+        "Open to applicants from countries outside the UK",
+        "US citizens resident in the USA must apply in the earlier US round",
+        "Must also apply for admission to Cambridge through the Graduate Application Portal",
+        "About two-thirds of awards go to PhD students"
+      ],
+      "requirements": {
+        "essays": [
+          {
+            "prompt": "Four selection questions: academic excellence (~200 words); why this course at Cambridge (~200 words); commitment to improving the lives of others (~300 words); capacity for leadership (~300 words).",
+            "words": null
+          }
+        ],
+        "recommendations": 3,
+        "transcript": false,
+        "financial_documents": false,
+        "interview": false
+      },
+      "last_checked_on": "2026-10-02"
+    }
+  },
+  {
+    "row": 17,
+    "outcome": "record",
+    "skip_reason": null,
+    "notes": "Deadline shown is the non-Georgia Early Action 2 date (Nov 2, 2026); Georgia residents must apply by Oct 15, 2026. Scholarship covers tuition, fees, housing, meals, books, personal expenses plus $12,000 enrichment over four years and $1,100 laptop stipend; I set renewable/4 years from the four-year program description. ~50 Stamps President's awards anticipated (plus 20+ Gold Scholarships) per calendar page.",
+    "record": {
+      "name": "Stamps President's Scholarship at Georgia Tech",
+      "sponsor": "Georgia Institute of Technology",
+      "summary": "Full-ride merit scholarship for incoming first-year Georgia Tech students, selected from the Early Action admission pool.",
+      "apply_url": "https://stampsps.gatech.edu/apply",
+      "source_url": "https://stampsps.gatech.edu/apply/calendar",
+      "logo_url": "",
+      "award": {
+        "kind": "full_ride",
+        "amount": null,
+        "min": null,
+        "max": null,
+        "renewable": true,
+        "years": 4,
+        "awards_count": 50
+      },
+      "deadline": {
+        "kind": "fixed",
+        "date": "2026-11-02",
+        "opens_on": null,
+        "recurs_annually": true
+      },
+      "basis": [
+        "merit"
+      ],
+      "fields": [],
+      "eligibility": [
+        {
+          "kind": "grade",
+          "any_of": [
+            "12"
+          ]
+        },
+        {
+          "kind": "citizenship",
+          "any_of": [
+            "us_citizen",
+            "permanent_resident"
+          ]
+        }
+      ],
+      "other_eligibility": [
+        "First-year applicants only; transfer applicants are not eligible",
+        "UK citizens are also eligible",
+        "Must apply to Georgia Tech by the Early Action deadline; no separate scholarship application",
+        "Georgia residents' Early Action deadline is October 15, 2026",
+        "Must compete with, and keep, the primary major listed on the admission application until the end of the first year",
+        "Semifinalists complete a virtual interview; finalists attend Stamps Scholars Weekend"
+      ],
+      "requirements": {
+        "essays": [],
+        "recommendations": 0,
+        "transcript": false,
+        "financial_documents": false,
+        "interview": true
+      },
+      "last_checked_on": "2026-10-02"
+    }
+  },
+  {
+    "row": 18,
+    "outcome": "record",
+    "skip_reason": null,
+    "notes": "No single deadline: each of 60+ partner institutions sets its own. The page says the program covers tuition, accommodation, books, materials, mentoring and return airfare when needed; amount/years not stated, so award is full_ride with no count. Need basis inferred from 'underrepresented backgrounds' wording; reviewer may want to confirm. Eligibility by country varies by partner.",
+    "record": {
+      "name": "Mastercard Foundation Scholars Program",
+      "sponsor": "Mastercard Foundation",
+      "summary": "Scholarships for talented, service-oriented young people, mainly from Africa, applied for through partner universities.",
+      "apply_url": "https://mastercardfdn.org/en/what-we-do/our-programs/mastercard-foundation-scholars-program/",
+      "source_url": "https://mastercardfdn.org/en/what-we-do/our-programs/mastercard-foundation-scholars-program/",
+      "logo_url": "",
+      "award": {
+        "kind": "full_ride",
+        "amount": null,
+        "min": null,
+        "max": null,
+        "renewable": false,
+        "years": null,
+        "awards_count": null
+      },
+      "deadline": {
+        "kind": "fixed",
+        "date": null,
+        "opens_on": null,
+        "recurs_annually": true
+      },
+      "basis": [
+        "merit",
+        "need"
+      ],
+      "fields": [],
+      "eligibility": [
+        {
+          "kind": "citizenship",
+          "any_of": [
+            "international"
+          ]
+        }
+      ],
+      "other_eligibility": [
+        "Aimed at highly talented, service-oriented young people from underrepresented and economically disadvantaged backgrounds, mainly in Africa",
+        "Priority is given to women and marginalized groups",
+        "Apply directly to a partner university or organization, not to the Foundation; eligibility and deadlines are set by each partner",
+        "Admission to a partner university does not guarantee a scholarship"
+      ],
+      "requirements": {},
+      "last_checked_on": "2026-10-02"
+    }
+  },
+  {
+    "row": 19,
+    "outcome": "record",
+    "skip_reason": null,
+    "notes": "Deadline is the Restrictive Early Action admission deadline (Nov 1, 2026, from admissions.nd.edu); Regular Decision is Jan 4, 2027. Scholarship page says it covers tuition and fees plus estimated books, personal expenses and transportation for up to four years, plus $12,000 enrichment fund. Class sizes shown on page ~10-11 per year, not stated as a quota, so count left null. Candidates are notified of next steps early December (REA) or early March (RD).",
+    "record": {
+      "name": "Notre Dame Stamps Scholars Program",
+      "sponsor": "University of Notre Dame",
+      "summary": "Merit scholarship covering tuition, fees and living costs plus a $12,000 enrichment fund, awarded to top admitted Notre Dame first-year applicants.",
+      "apply_url": "https://admissions.nd.edu/apply/",
+      "source_url": "https://stampsscholars.nd.edu/",
+      "logo_url": "",
+      "award": {
+        "kind": "full_tuition",
+        "amount": null,
+        "min": null,
+        "max": null,
+        "renewable": true,
+        "years": 4,
+        "awards_count": null
+      },
+      "deadline": {
+        "kind": "fixed",
+        "date": "2026-11-01",
+        "opens_on": null,
+        "recurs_annually": true
+      },
+      "basis": [
+        "merit"
+      ],
+      "fields": [],
+      "eligibility": [
+        {
+          "kind": "grade",
+          "any_of": [
+            "12"
+          ]
+        }
+      ],
+      "other_eligibility": [
+        "No separate application: all Notre Dame applicants in the Restrictive Early Action and Regular Decision pools are considered",
+        "Must be admitted to the University of Notre Dame",
+        "Covers up to five years for Architecture or approved dual-degree programs"
+      ],
+      "requirements": {
+        "interview": false
+      },
+      "last_checked_on": "2026-10-02"
+    }
+  },
+  {
+    "row": 20,
+    "outcome": "record",
+    "skip_reason": null,
+    "notes": "Amounts are in SGD (not converted): 100% of subsidised tuition after MOE Tuition Grant, S$5,800 annual living allowance, S$1,750 one-time computer allowance, S$5,000 annual accommodation allowance. Deadline follows the NUS admissions application timeline, which this page does not give as a date; interviews Jan-July, outcomes by mid-July. Row names NUS scholarships generally; I recorded the one open to all international students.",
+    "record": {
+      "name": "NUS International Undergraduate Scholarship",
+      "sponsor": "National University of Singapore",
+      "summary": "Scholarship for exceptional international freshmen at NUS covering subsidised tuition plus living, computer and accommodation allowances.",
+      "apply_url": "https://www.nus.edu.sg/oam/scholarships/scholarships-for-freshmen-international-students/nus-international-undergraduate-scholarship",
+      "source_url": "https://www.nus.edu.sg/oam/scholarships/scholarships-for-freshmen-international-students/nus-international-undergraduate-scholarship",
+      "logo_url": "",
+      "award": {
+        "kind": "varies",
+        "amount": null,
+        "min": null,
+        "max": null,
+        "renewable": true,
+        "years": null,
+        "awards_count": null
+      },
+      "deadline": {
+        "kind": "fixed",
+        "date": null,
+        "opens_on": null,
+        "recurs_annually": true
+      },
+      "basis": [
+        "merit"
+      ],
+      "fields": [],
+      "eligibility": [
+        {
+          "kind": "citizenship",
+          "any_of": [
+            "international"
+          ]
+        }
+      ],
+      "other_eligibility": [
+        "Citizens of all countries except Singapore",
+        "Must apply for admission to a full-time undergraduate degree programme at NUS; transfer applicants are not eligible",
+        "Considered through the admission application; no separate scholarship application",
+        "Renewed each semester with a GPA of at least 3.5 (or equivalent)",
+        "Scholars must take up the MOE Tuition Grant, which carries a 3-year work bond in Singapore",
+        "Other NUS awards exist for ASEAN citizens (ASEAN Undergraduate Scholarship) and others"
+      ],
+      "requirements": {
+        "interview": true
+      },
+      "last_checked_on": "2026-10-02"
+    }
+  },
+  {
+    "row": 21,
+    "outcome": "record",
+    "skip_reason": null,
+    "notes": "Covers course fees in full plus a living-expenses grant (at least GBP 20,780 in 2025-26); not converted. 'Over 200' new scholarships per year, set count 200. Specific deadline not on the Clarendon pages (it is the course deadline in the December or January round); date left null. Part-time scholars get a smaller study support grant.",
+    "record": {
+      "name": "Clarendon Scholarship",
+      "sponsor": "University of Oxford (Clarendon Fund)",
+      "summary": "Over 200 fully funded graduate scholarships at Oxford each year, awarded automatically to outstanding applicants to master's and DPhil courses.",
+      "apply_url": "https://www.ox.ac.uk/admissions/graduate/fees-and-funding/funding/clarendon/applicants",
+      "source_url": "https://www.ox.ac.uk/admissions/graduate/fees-and-funding/funding/clarendon/applicants",
+      "logo_url": "",
+      "award": {
+        "kind": "full_ride",
+        "amount": null,
+        "min": null,
+        "max": null,
+        "renewable": false,
+        "years": null,
+        "awards_count": 200
+      },
+      "deadline": {
+        "kind": "fixed",
+        "date": null,
+        "opens_on": null,
+        "recurs_annually": true
+      },
+      "basis": [
+        "merit"
+      ],
+      "fields": [],
+      "eligibility": [],
+      "other_eligibility": [
+        "Graduate students only: new full-time or part-time master's or DPhil courses",
+        "No restriction by nationality, residence or field of study",
+        "No separate application: apply to your course by its December or January deadline and you are considered automatically",
+        "Not open to holders of deferred graduate offers or current students continuing the same degree"
+      ],
+      "requirements": {},
+      "last_checked_on": "2026-10-02"
+    }
+  },
+  {
+    "row": 22,
+    "outcome": "record",
+    "skip_reason": null,
+    "notes": "Cycle: 2027 entry, deadline 26 Jan 2027; details for 2027 entry are published on the page in January 2027, so opens_on null. Covers course fees, living grant and one return airfare per year; 3 or 4 years depending on course (years set to 3). Around 2-3 awards per year (count 3). Financial need is a stated major selection criterion.",
+    "record": {
+      "name": "Reach Oxford Scholarship",
+      "sponsor": "University of Oxford",
+      "summary": "Fully funded Oxford undergraduate scholarship for students from low-income countries who could not otherwise study for a degree.",
+      "apply_url": "https://www.ox.ac.uk/admissions/undergraduate/fees-and-funding/oxford-bursaries-and-scholarships/reach-oxford",
+      "source_url": "https://www.ox.ac.uk/admissions/undergraduate/fees-and-funding/oxford-bursaries-and-scholarships/reach-oxford",
+      "logo_url": "",
+      "award": {
+        "kind": "full_ride",
+        "amount": null,
+        "min": null,
+        "max": null,
+        "renewable": true,
+        "years": 3,
+        "awards_count": 3
+      },
+      "deadline": {
+        "kind": "fixed",
+        "date": "2027-01-26",
+        "opens_on": null,
+        "recurs_annually": true
+      },
+      "basis": [
+        "merit",
+        "need"
+      ],
+      "fields": [],
+      "eligibility": [
+        {
+          "kind": "citizenship",
+          "any_of": [
+            "international"
+          ]
+        },
+        {
+          "kind": "financial_need"
+        }
+      ],
+      "other_eligibility": [
+        "Nationals of countries on the OECD DAC list of official development assistance recipients (long list on the official page)",
+        "New undergraduate students; all subjects except medicine",
+        "Must have applied to and received an offer from Oxford first",
+        "Applicants should intend to return to their home country after study",
+        "Priority to students who have not studied at undergraduate level before",
+        "Competition is very high"
+      ],
+      "requirements": {
+        "interview": false
+      },
+      "last_checked_on": "2026-10-02"
+    }
+  },
+  {
+    "row": 23,
+    "outcome": "record",
+    "skip_reason": null,
+    "notes": "Cycle 2027-28. Dec 15, 2026 is the last day to submit the Eligibility Form (needed to apply); completed applications are due Feb 1, 2027 (already enrolled) or Mar 15, 2027 (not yet enrolled); awards announced May 2027. Maximum award $12,500, lesser amounts according to need, so kind is varies.",
+    "record": {
+      "name": "P.E.O. International Peace Scholarship",
+      "sponsor": "P.E.O. International",
+      "summary": "Need-based scholarship of up to $12,500 for women from outside the US and Canada pursuing graduate study in the US or Canada.",
+      "apply_url": "https://www.peointernational.org/educational-support/international-peace-scholarship-fund/eligibility-and-application-process/",
+      "source_url": "https://www.peointernational.org/educational-support/international-peace-scholarship-fund/eligibility-and-application-process/",
+      "logo_url": "",
+      "award": {
+        "kind": "varies",
+        "amount": null,
+        "min": null,
+        "max": null,
+        "renewable": false,
+        "years": null,
+        "awards_count": null
+      },
+      "deadline": {
+        "kind": "fixed",
+        "date": "2026-12-15",
+        "opens_on": "2026-09-15",
+        "recurs_annually": true
+      },
+      "basis": [
+        "need"
+      ],
+      "fields": [],
+      "eligibility": [
+        {
+          "kind": "financial_need"
+        },
+        {
+          "kind": "citizenship",
+          "any_of": [
+            "international"
+          ]
+        }
+      ],
+      "other_eligibility": [
+        "Women only",
+        "Graduate students seeking an advanced degree at an accredited US or Canadian university, with a full year of coursework remaining",
+        "Must be outside the US and Canada and plan to return to her home country; US and Canadian citizens and permanent residents are not eligible",
+        "Also open to international students attending Cottey College",
+        "Doctoral students who have only a dissertation left are not eligible as first-time applicants",
+        "No awards for online courses, research or internships without formal coursework"
+      ],
+      "requirements": {},
+      "last_checked_on": "2026-10-02"
+    }
+  },
+  {
+    "row": 24,
+    "outcome": "record",
+    "skip_reason": null,
+    "notes": "Cycle: 2027 fellowship, deadline Oct 29, 2026 at 2 pm ET. Up to $90,000 over two years (home page), 30 fellows chosen from 77 finalists; 3-5 recommendations (set 3). Essay prompts not on the pages read. Row is for graduate students, not high-schoolers.",
+    "record": {
+      "name": "Paul & Daisy Soros Fellowships for New Americans",
+      "sponsor": "Paul & Daisy Soros Fellowships for New Americans",
+      "summary": "Graduate school funding of up to $90,000 over two years for immigrants and children of immigrants aged 30 or younger.",
+      "apply_url": "https://pdsoros.org/application-process/",
+      "source_url": "https://pdsoros.org/eligibility/",
+      "logo_url": "",
+      "award": {
+        "kind": "varies",
+        "amount": null,
+        "min": null,
+        "max": null,
+        "renewable": false,
+        "years": null,
+        "awards_count": 30
+      },
+      "deadline": {
+        "kind": "fixed",
+        "date": "2026-10-29",
+        "opens_on": null,
+        "recurs_annually": true
+      },
+      "basis": [
+        "merit"
+      ],
+      "fields": [],
+      "eligibility": [
+        {
+          "kind": "citizenship",
+          "any_of": [
+            "us_citizen",
+            "permanent_resident",
+            "daca"
+          ]
+        }
+      ],
+      "other_eligibility": [
+        "Graduate or professional school only: full-time degree program in the US in 2027-28; apply while applying to graduate school or in the first two years of study",
+        "Must be an immigrant or child of immigrants (both birth parents born abroad as non-US citizens)",
+        "Immigrants may be naturalized citizens, green card holders, refugees or asylees, or graduates of both a US high school and a US college (including DACA recipients)",
+        "Must be 30 or younger at the deadline",
+        "Open to all fields of study; no GPA or test score minimum"
+      ],
+      "requirements": {
+        "essays": [
+          {
+            "prompt": "Two essays (prompts are shown in the online application).",
+            "words": null
+          }
+        ],
+        "recommendations": 3,
+        "transcript": true,
+        "financial_documents": false,
+        "interview": true
+      },
+      "last_checked_on": "2026-10-02"
+    }
+  },
+  {
+    "row": 25,
+    "outcome": "skip",
+    "skip_reason": "Not a single award: Peterson's is a college-search and scholarship-listing website; no named scholarship from it was identified.",
+    "notes": "Row links to petersons.com, a directory. Did not look for a Peterson's-run scholarship.",
+    "record": null
+  },
+  {
+    "row": 26,
+    "outcome": "record",
+    "skip_reason": null,
+    "notes": "Row names PTK transfer scholarships generally; PTK runs many awards via one application (open year-round). I recorded the Hites Transfer Scholarship (up to $7,500). Dec 1, 2026 is the review deadline for the PTK Scholarship Application for this award; the May 17, 2027 deadline covers other PTK awards (e.g. Coca-Cola Leaders of Promise). Other PTK transfer awards (New Century Transfer Pathway, Calhoun) were not recorded.",
+    "record": {
+      "name": "Phi Theta Kappa Hites Transfer Scholarship",
+      "sponsor": "Phi Theta Kappa Foundation",
+      "summary": "Scholarship of up to $7,500 for Phi Theta Kappa members transferring from a community college to a four-year school.",
+      "apply_url": "https://www.ptk.org/scholarships/apply-now/",
+      "source_url": "https://www.ptk.org/scholarships/hites-transfer-scholarship/",
+      "logo_url": "",
+      "award": {
+        "kind": "varies",
+        "amount": null,
+        "min": null,
+        "max": null,
+        "renewable": false,
+        "years": null,
+        "awards_count": null
+      },
+      "deadline": {
+        "kind": "fixed",
+        "date": "2026-12-01",
+        "opens_on": null,
+        "recurs_annually": true
+      },
+      "basis": [
+        "merit"
+      ],
+      "fields": [],
+      "eligibility": [
+        {
+          "kind": "gpa_min",
+          "value": 3.5
+        }
+      ],
+      "other_eligibility": [
+        "Community college students who are Phi Theta Kappa members in good standing",
+        "Enrolled in 6+ semester credits of associate-degree coursework through December, with 45+ semester credits completed by December",
+        "3.5 GPA or higher on coursework from the last 5 years",
+        "Intends to transfer to a regionally accredited four-year college and attend full-time",
+        "Academic record free of suspension, probation or disciplinary action"
+      ],
+      "requirements": {},
+      "last_checked_on": "2026-10-02"
+    }
+  },
+  {
+    "row": 27,
+    "outcome": "record",
+    "skip_reason": null,
+    "notes": "Cycle: 2027, deadline Nov 5, 2026 8pm ET. Range uses $2,000 (Top 300 scholar award) to $250,000 (first place); entrants who finish an application also get small gifts. Recommendations = educator + project recommendation (set 2); transcript = High School Report. Row link was regeneron.com; facts come from the administrator, Society for Science.",
+    "record": {
+      "name": "Regeneron Science Talent Search",
+      "sponsor": "Society for Science",
+      "summary": "National science research competition for high school seniors with $3.1 million in awards, including a $250,000 top prize.",
+      "apply_url": "https://www.societyforscience.org/regeneron-sts/",
+      "source_url": "https://www.societyforscience.org/regeneron-sts/application-requirements/",
+      "logo_url": "",
+      "award": {
+        "kind": "range",
+        "amount": null,
+        "min": 2000,
+        "max": 250000,
+        "renewable": false,
+        "years": null,
+        "awards_count": null
+      },
+      "deadline": {
+        "kind": "fixed",
+        "date": "2026-11-05",
+        "opens_on": "2026-06-01",
+        "recurs_annually": true
+      },
+      "basis": [
+        "merit"
+      ],
+      "fields": [],
+      "eligibility": [
+        {
+          "kind": "grade",
+          "any_of": [
+            "12"
+          ]
+        }
+      ],
+      "other_eligibility": [
+        "Students in their last year of secondary school in the US or its territories, regardless of citizenship",
+        "US citizens living abroad may qualify; students at American schools abroad who are not US citizens are not eligible",
+        "Must submit an original, independent research project",
+        "300 scholars receive $2,000 each; 40 finalists receive at least $25,000; first place is $250,000"
+      ],
+      "requirements": {
+        "essays": [
+          {
+            "prompt": "Short essays are part of the application (prompts are in the online application).",
+            "words": null
+          }
+        ],
+        "recommendations": 2,
+        "transcript": true,
+        "financial_documents": false,
+        "interview": false
+      },
+      "last_checked_on": "2026-10-02"
+    }
+  },
+  {
+    "row": 28,
+    "outcome": "record",
+    "skip_reason": null,
+    "notes": "Cycle: 2027 cohort. Deadline Oct 7, 2026 23:59 ET is the US constituency date (opened Jul 1, 2026); other countries have different deadlines not recorded here. Covers all fees and a stipend for two to three years (GBP amounts not stated). Age rule quoted as given in search summary of the US page; the date range line comes from the Rhodes US guidance, reviewer should confirm.",
+    "record": {
+      "name": "Rhodes Scholarship",
+      "sponsor": "Rhodes Trust",
+      "summary": "Fully funded postgraduate study at the University of Oxford for outstanding young people from around the world.",
+      "apply_url": "https://www.rhodeshouse.ox.ac.uk/scholarships/applications/",
+      "source_url": "https://www.rhodeshouse.ox.ac.uk/scholarships/applications/united-states/",
+      "logo_url": "",
+      "award": {
+        "kind": "full_ride",
+        "amount": null,
+        "min": null,
+        "max": null,
+        "renewable": false,
+        "years": null,
+        "awards_count": 100
+      },
+      "deadline": {
+        "kind": "fixed",
+        "date": "2026-10-07",
+        "opens_on": "2026-07-01",
+        "recurs_annually": true
+      },
+      "basis": [
+        "merit"
+      ],
+      "fields": [],
+      "eligibility": [],
+      "other_eligibility": [
+        "Postgraduate students: for full-time postgraduate study at the University of Oxford",
+        "Apply through your country's constituency; the United States round is for US applicants",
+        "US applicants: aged 18-23 on Oct 1, 2026, or under 27 having finished a first undergraduate degree on or after Oct 1, 2025",
+        "US and Canada require an institutional endorsement from your college or university",
+        "Over 100 scholarships are awarded each year worldwide"
+      ],
+      "requirements": {},
+      "last_checked_on": "2026-10-02"
+    }
+  },
+  {
+    "row": 29,
+    "outcome": "record",
+    "skip_reason": null,
+    "notes": "Cycle: 2027 competition. Dec 1, 2026 final application deadline; Dec 15 counselor recommendation deadline. $40,000 total = $10,000 per year for four years; 20 scholars chosen from ~5,000 applicants (the FAQ also says 20-25). Essay and transcript requirements are not stated on the page read. The apply link is the program page (the application button there).",
+    "record": {
+      "name": "Ron Brown Scholar Program",
+      "sponsor": "Ron Brown Scholar Program",
+      "summary": "Four-year $40,000 scholarship for African American high school seniors with academic excellence, leadership, community service and financial need.",
+      "apply_url": "https://ronbrown.org/ron-brown-scholarship/",
+      "source_url": "https://ronbrown.org/ron-brown-scholarship/",
+      "logo_url": "",
+      "award": {
+        "kind": "fixed",
+        "amount": 10000,
+        "min": null,
+        "max": null,
+        "renewable": true,
+        "years": 4,
+        "awards_count": 20
+      },
+      "deadline": {
+        "kind": "fixed",
+        "date": "2026-12-01",
+        "opens_on": null,
+        "recurs_annually": true
+      },
+      "basis": [
+        "merit",
+        "need"
+      ],
+      "fields": [],
+      "eligibility": [
+        {
+          "kind": "grade",
+          "any_of": [
+            "12"
+          ]
+        },
+        {
+          "kind": "citizenship",
+          "any_of": [
+            "us_citizen",
+            "permanent_resident"
+          ]
+        },
+        {
+          "kind": "financial_need"
+        }
+      ],
+      "other_eligibility": [
+        "Must be Black/African American",
+        "Must show exceptional leadership potential and community service",
+        "Current college students are not eligible",
+        "Scholarship is usable at an accredited four-year US college or university",
+        "Finalists are interviewed virtually and in Washington, D.C."
+      ],
+      "requirements": {
+        "recommendations": 1,
+        "interview": true
+      },
+      "last_checked_on": "2026-10-02"
+    }
+  },
+  {
+    "row": 30,
+    "outcome": "record",
+    "skip_reason": null,
+    "notes": "The 2027-28 application is closed and the 2028-29 application opens online February 2027; no deadline date is given on the page, so date left null. Covers tuition and fees, room and board, round-trip transportation, internship and field-study costs. Up to 170 fellowships a year. The row also named Rotary Scholarships (local club/district awards, no single deadline) which I did not record separately.",
+    "record": {
+      "name": "Rotary Peace Fellowships",
+      "sponsor": "Rotary Foundation",
+      "summary": "Fully funded master's or certificate study at a Rotary Peace Center for peace and development professionals.",
+      "apply_url": "https://www.rotary.org/get-involved/our-programs/peace-fellowships",
+      "source_url": "https://www.rotary.org/get-involved/our-programs/peace-fellowships",
+      "logo_url": "",
+      "award": {
+        "kind": "full_ride",
+        "amount": null,
+        "min": null,
+        "max": null,
+        "renewable": false,
+        "years": null,
+        "awards_count": 170
+      },
+      "deadline": {
+        "kind": "fixed",
+        "date": null,
+        "opens_on": null,
+        "recurs_annually": true
+      },
+      "basis": [
+        "merit"
+      ],
+      "fields": [],
+      "eligibility": [],
+      "other_eligibility": [
+        "Postgraduate: master's degree (up to 50 fellowships) or professional development certificate (up to 120 fellowships) at one of eight Rotary Peace Centers",
+        "For leaders with work experience in peace and development",
+        "Rotary also offers separate club and district scholarships; contact a local Rotary club for those"
+      ],
+      "requirements": {},
+      "last_checked_on": "2026-10-02"
+    }
+  }
+]

@@ -1,0 +1,638 @@
+[
+  {
+    "row": 1,
+    "outcome": "record",
+    "skip_reason": null,
+    "notes": "Dates are the 2027-28 cycle (opens Oct 15 2026, closes Dec 15 2026 or when 30,000 applications are received). Awards range $1,000-$60,000: up to three $60,000 WHOPPER (McLamore) awards, one $20,000 Nancy McLamore award, regional/special awards $1,000-$15,000 (from burgerking.scholarsapply.org, whose own text still shows the prior-cycle date). WHOPPER award needs 3.5 unweighted GPA and US/Canada citizenship. Essay not confirmed on official pages; none listed. Financial info from tax returns is requested.",
+    "record": {
+      "name": "Burger King Scholars Program",
+      "sponsor": "Burger King Foundation (administered by Scholarship America)",
+      "summary": "Scholarships for high school seniors and Burger King employees and their families, based on GPA, work, activities, community service and financial need.",
+      "apply_url": "https://burgerking.scholarsapply.org",
+      "source_url": "https://www.burgerkingfoundation.org/programs/burger-king-sm-scholars",
+      "logo_url": "",
+      "award": {
+        "kind": "range",
+        "amount": null,
+        "min": 1000,
+        "max": 60000,
+        "renewable": false,
+        "years": null,
+        "awards_count": null
+      },
+      "deadline": {
+        "kind": "fixed",
+        "date": "2026-12-15",
+        "opens_on": "2026-10-15",
+        "recurs_annually": true
+      },
+      "basis": [
+        "merit",
+        "need"
+      ],
+      "fields": [],
+      "eligibility": [
+        {
+          "kind": "gpa_min",
+          "value": 2.0
+        }
+      ],
+      "other_eligibility": [
+        "Must live in the United States, Puerto Rico, Guam or Canada",
+        "High school seniors, or Burger King employees, their spouses/partners and dependent children",
+        "James W. McLamore WHOPPER award requires a 3.5 unweighted GPA and US or Canadian citizenship",
+        "Closes early if 30,000 applications are received"
+      ],
+      "requirements": {
+        "essays": [],
+        "recommendations": 0,
+        "transcript": true,
+        "financial_documents": true,
+        "interview": false
+      },
+      "last_checked_on": "2026-10-02"
+    }
+  },
+  {
+    "row": 2,
+    "outcome": "record",
+    "skip_reason": null,
+    "notes": "Harding Distinguished Postgraduate Scholars Programme, University of Cambridge, 2027-28 cohort: applications open September 2026; deadline is early December 2026 or January 2027 depending on the course, so no single date is given. Funding amount and award count are not stated on the pages read ('fully funded'). Departments assess candidates; no separate application (declare funding interest in the Cambridge Applicant Portal).",
+    "record": {
+      "name": "Harding Distinguished Postgraduate Scholars Programme",
+      "sponsor": "University of Cambridge (Harding Distinguished Postgraduate Scholars Fund)",
+      "summary": "Fully funded scholarships for academically excellent PhD students of any nationality and discipline at the University of Cambridge.",
+      "apply_url": "https://www.hardingscholars.fund.cam.ac.uk/apply/application-and-eligibility-information",
+      "source_url": "https://www.hardingscholars.fund.cam.ac.uk/apply/application-and-eligibility-information",
+      "logo_url": "",
+      "award": {
+        "kind": "varies",
+        "amount": null,
+        "min": null,
+        "max": null,
+        "renewable": false,
+        "years": null,
+        "awards_count": null
+      },
+      "deadline": {
+        "kind": "fixed",
+        "date": null,
+        "opens_on": null,
+        "recurs_annually": true
+      },
+      "basis": [
+        "merit"
+      ],
+      "fields": [],
+      "eligibility": [],
+      "other_eligibility": [
+        "PhD applicants to the University of Cambridge only (not for undergraduates)",
+        "Open to any nationality and any discipline",
+        "Must be assessed as academically excellent by the department",
+        "Cannot be held at Trinity or St John's Colleges; some awards are reserved for St Catharine's College",
+        "Those already enrolled on the PhD cannot be funded retroactively",
+        "Deadline is the funding deadline of the chosen course (early December 2026 or January 2027)"
+      ],
+      "requirements": {
+        "essays": [],
+        "recommendations": 0,
+        "transcript": false,
+        "financial_documents": false,
+        "interview": false
+      },
+      "last_checked_on": "2026-10-02"
+    }
+  },
+  {
+    "row": 3,
+    "outcome": "skip",
+    "skip_reason": "official page could not be read (HTTP 403); facts unverified",
+    "notes": "Official page (bryancameroneducationfoundation.org) returned HTTP 403 to every fetch; facts appeared only in search snippets and aggregator pages, which the spec does not allow as sources. Reviewer: retry in a browser (snippets suggested 4-year full tuition, 15 awards, 3.5 GPA, Class of 2027, May 1 2027 deadline, but unverified).",
+    "record": null
+  },
+  {
+    "row": 4,
+    "outcome": "record",
+    "skip_reason": null,
+    "notes": "2027/28 cycle: applications open 4 Aug 2026 11:00 UTC, closed 6 Oct 2026 11:00 UTC (deadline is only days away from today). Award said to be 'fully funded' for a one-year UK master's; amount not itemised on the pages read. Essays/reference counts not confirmed from pages read. Interviews held at British embassies Mar-Apr 2027.",
+    "record": {
+      "name": "Chevening Scholarships",
+      "sponsor": "UK Foreign, Commonwealth & Development Office (Chevening)",
+      "summary": "Fully funded one-year master's scholarships at UK universities for emerging leaders from Chevening-eligible countries.",
+      "apply_url": "https://www.chevening.org/scholarships/",
+      "source_url": "https://www.chevening.org/scholarships/who-can-apply/eligibility/",
+      "logo_url": "",
+      "award": {
+        "kind": "varies",
+        "amount": null,
+        "min": null,
+        "max": null,
+        "renewable": false,
+        "years": null,
+        "awards_count": null
+      },
+      "deadline": {
+        "kind": "fixed",
+        "date": "2026-10-06",
+        "opens_on": "2026-08-04",
+        "recurs_annually": true
+      },
+      "basis": [
+        "merit"
+      ],
+      "fields": [],
+      "eligibility": [
+        {
+          "kind": "citizenship",
+          "any_of": [
+            "international"
+          ]
+        }
+      ],
+      "other_eligibility": [
+        "Graduate (one-year master's) applicants only",
+        "Citizen of a Chevening-eligible country or territory; British citizens and UK residents are not eligible",
+        "At least two years (2,800 hours) of work experience after the undergraduate degree",
+        "Undergraduate degree finished at least two years before the deadline",
+        "Must apply to three eligible UK courses and hold an unconditional offer from at least one by the deadline",
+        "Must commit to returning to the home country for at least two years after the award",
+        "Government employees and their immediate relatives cannot apply"
+      ],
+      "requirements": {
+        "essays": [],
+        "recommendations": 0,
+        "transcript": false,
+        "financial_documents": false,
+        "interview": true
+      },
+      "last_checked_on": "2026-10-02"
+    }
+  },
+  {
+    "row": 5,
+    "outcome": "skip",
+    "skip_reason": "official page could not be read (HTTP 412); facts unverified",
+    "notes": "Official campuschina.org pages returned HTTP 412 to every fetch; only search snippets seen (undergraduate under 25, master's under 35, apply via designated Chinese universities, early January-early April). Not used as fact source.",
+    "record": null
+  },
+  {
+    "row": 6,
+    "outcome": "record",
+    "skip_reason": null,
+    "notes": "Next nomination deadline Mon 2 Nov 2026 5pm ET (Cambridge applications ideally by 14 Oct 2026); portal registration from May 2026. Total value stated as 'over $80,000' (tuition, airfare, visa/health surcharge, stipend, plus eligibility for a $4,000 research grant), so award kind is varies. Up to 18 scholarships: 16 STEM plus 2 Kanders Churchill in science policy. Requires nomination by one of the participating institutions. Application also needs a proposed research/program of study, academic history, supervisor correspondence.",
+    "record": {
+      "name": "Churchill Scholarship",
+      "sponsor": "Winston Churchill Foundation of the United States",
+      "summary": "One year of master's study in science, mathematics or engineering at Cambridge for US citizens nominated by participating institutions.",
+      "apply_url": "https://www.churchillscholarship.org/the-scholarship",
+      "source_url": "https://www.churchillscholarship.org/the-scholarship",
+      "logo_url": "",
+      "award": {
+        "kind": "varies",
+        "amount": null,
+        "min": null,
+        "max": null,
+        "renewable": false,
+        "years": null,
+        "awards_count": 18
+      },
+      "deadline": {
+        "kind": "fixed",
+        "date": "2026-11-02",
+        "opens_on": null,
+        "recurs_annually": true
+      },
+      "basis": [
+        "merit"
+      ],
+      "fields": [],
+      "eligibility": [
+        {
+          "kind": "citizenship",
+          "any_of": [
+            "us_citizen"
+          ]
+        }
+      ],
+      "other_eligibility": [
+        "Graduating seniors or recent graduates (within 12 months) heading to a one-year MPhil/MASt at the University of Cambridge",
+        "Must be nominated by one of the participating institutions; contact your school's fellowships office first",
+        "Bachelor's degree required before taking up the award",
+        "Total value over $80,000 (tuition, airfare, visa and health surcharge, stipend; $4,000 research grant available)"
+      ],
+      "requirements": {
+        "essays": [],
+        "recommendations": 4,
+        "transcript": true,
+        "financial_documents": false,
+        "interview": false
+      },
+      "last_checked_on": "2026-10-02"
+    }
+  },
+  {
+    "row": 7,
+    "outcome": "record",
+    "skip_reason": null,
+    "notes": "Row covers the Cobell program; recorded as the undergraduate scholarship (other tracks: graduate/professional, vocational/trade, summer, summer research fellowship, dissertation). Amount: up to $5,000 for new applicants, up to $8,000 for returning scholars; award count not stated. Page states 2026-27 cycle opens Dec 15 2026, closes Mar 31 2027 11:59 PM MDT. Basis (merit/need) not stated so left empty. Not renewable (reapply each year). A reference is due Apr 7 per the page, count not stated, so recommendations left 0.",
+    "record": {
+      "name": "Cobell Scholarship (Undergraduate)",
+      "sponsor": "Cobell Board of Trustees",
+      "summary": "Scholarships for enrolled members of federally recognized tribes or Alaska Native Corporations pursuing an associate or bachelor's degree.",
+      "apply_url": "https://www.cobellscholar.org/undergraduate",
+      "source_url": "https://www.cobellscholar.org/undergraduate",
+      "logo_url": "",
+      "award": {
+        "kind": "varies",
+        "amount": null,
+        "min": null,
+        "max": null,
+        "renewable": false,
+        "years": null,
+        "awards_count": null
+      },
+      "deadline": {
+        "kind": "fixed",
+        "date": "2027-03-31",
+        "opens_on": "2026-12-15",
+        "recurs_annually": true
+      },
+      "basis": [],
+      "fields": [],
+      "eligibility": [],
+      "other_eligibility": [
+        "Enrolled member of a US federally recognized American Indian tribe or Alaska Native Corporation",
+        "Pursuing an associate or bachelor's degree at an accredited nonprofit institution",
+        "Full-time, degree-seeking, making satisfactory academic progress (part-time considered case by case)",
+        "Up to $5,000 for new applicants, up to $8,000 for returning scholars",
+        "No minimum GPA; 3.25 or higher is considered competitive"
+      ],
+      "requirements": {
+        "essays": [],
+        "recommendations": 0,
+        "transcript": false,
+        "financial_documents": false,
+        "interview": false
+      },
+      "last_checked_on": "2026-10-02"
+    }
+  },
+  {
+    "row": 8,
+    "outcome": "record",
+    "skip_reason": null,
+    "notes": "Phase 1 application open Aug 3 - Sep 30 each year; the 2027 cycle closed 30 Sep 2026 5pm ET, so shown as closed/reopens yearly. Phase 1 needs no essays, transcripts or recommendations (later phases not read). Renewability not stated.",
+    "record": {
+      "name": "Coca-Cola Scholars Program",
+      "sponsor": "Coca-Cola Scholars Foundation",
+      "summary": "$20,000 scholarships for high school seniors, selected for leadership and service.",
+      "apply_url": "https://www.coca-colascholarsfoundation.org/apply/",
+      "source_url": "https://www.coca-colascholarsfoundation.org/apply/",
+      "logo_url": "",
+      "award": {
+        "kind": "fixed",
+        "amount": 20000,
+        "min": null,
+        "max": null,
+        "renewable": false,
+        "years": null,
+        "awards_count": 150
+      },
+      "deadline": {
+        "kind": "fixed",
+        "date": "2026-09-30",
+        "opens_on": "2026-08-03",
+        "recurs_annually": true
+      },
+      "basis": [
+        "merit"
+      ],
+      "fields": [],
+      "eligibility": [
+        {
+          "kind": "citizenship",
+          "any_of": [
+            "us_citizen",
+            "permanent_resident"
+          ]
+        },
+        {
+          "kind": "grade",
+          "any_of": [
+            "12"
+          ]
+        },
+        {
+          "kind": "gpa_min",
+          "value": 3.0
+        }
+      ],
+      "other_eligibility": [
+        "Also open to US nationals, refugees, asylees, Cuban-Haitian entrants and humanitarian parolees",
+        "Must attend school in a US state, DC, Puerto Rico or select Department of Defense schools abroad",
+        "Must plan to attend an accredited US post-secondary institution",
+        "Not open to children or grandchildren of certain Coca-Cola employees",
+        "Graduating in the 2026-27 school year; high school graduates are not eligible"
+      ],
+      "requirements": {
+        "essays": [],
+        "recommendations": 0,
+        "transcript": false,
+        "financial_documents": false,
+        "interview": false
+      },
+      "last_checked_on": "2026-10-02"
+    }
+  },
+  {
+    "row": 9,
+    "outcome": "record",
+    "skip_reason": null,
+    "notes": "Row is the umbrella Commonwealth program; recorded the Commonwealth Master's Scholarships (the CSC also runs PhD, Shared, Distance Learning and other schemes). Deadline 16:00 BST Tue 20 Oct 2026 on CSC Central; applicants also must go through a nominator who may set an earlier date. Funding: full tuition, airfare, monthly stipend GBP 1,712 (GBP 2,000 in London), study travel grant, child allowance. Amount in GBP so kind varies. Citizenship listed as international (citizen/refugee of an eligible low/middle-income Commonwealth country).",
+    "record": {
+      "name": "Commonwealth Master's Scholarships",
+      "sponsor": "Commonwealth Scholarship Commission in the UK",
+      "summary": "Funded full-time taught master's study at a UK university for candidates from eligible low and middle income Commonwealth countries.",
+      "apply_url": "https://cscuk.fcdo.gov.uk/scholarships/commonwealth-masters-scholarships/",
+      "source_url": "https://cscuk.fcdo.gov.uk/scholarships/commonwealth-masters-scholarships/",
+      "logo_url": "",
+      "award": {
+        "kind": "varies",
+        "amount": null,
+        "min": null,
+        "max": null,
+        "renewable": false,
+        "years": null,
+        "awards_count": null
+      },
+      "deadline": {
+        "kind": "fixed",
+        "date": "2026-10-20",
+        "opens_on": null,
+        "recurs_annually": true
+      },
+      "basis": [
+        "merit",
+        "need"
+      ],
+      "fields": [],
+      "eligibility": [
+        {
+          "kind": "citizenship",
+          "any_of": [
+            "international"
+          ]
+        }
+      ],
+      "other_eligibility": [
+        "Graduate (taught master's) applicants only",
+        "Citizen or refugee permanently resident in an eligible Commonwealth country",
+        "Upper second-class (2:1) honours degree or equivalent by Sept 2027",
+        "Must be unable to afford UK study without this funding",
+        "Must apply through an approved nominator as well as CSC Central; no direct applications",
+        "Covers tuition, airfare, GBP 1,712/month stipend (GBP 2,000 in London), study travel grant"
+      ],
+      "requirements": {
+        "essays": [],
+        "recommendations": 0,
+        "transcript": false,
+        "financial_documents": false,
+        "interview": false
+      },
+      "last_checked_on": "2026-10-02"
+    }
+  },
+  {
+    "row": 10,
+    "outcome": "skip",
+    "skip_reason": "row is an organization/directory, not a single scholarship",
+    "notes": "DAAD is the German Academic Exchange Service, an organization that administers many programs, not one award.",
+    "record": null
+  },
+  {
+    "row": 11,
+    "outcome": "record",
+    "skip_reason": null,
+    "notes": "2027 application opens fall 2026 with no date published on the pages read; the last stated deadline is 18 Feb 2026 (2026 cycle), shown as closed/reopens yearly. Awards of $100,000, $50,000 or $25,000, count per year not stated. Requires two non-family nominators and attendance at an awards event in Washington DC.",
+    "record": {
+      "name": "Davidson Fellows Scholarship",
+      "sponsor": "Davidson Institute",
+      "summary": "Scholarships of $25,000 to $100,000 for students 18 or younger who completed a significant piece of work in STEM, literature, music, philosophy or an outside-the-box project.",
+      "apply_url": "https://www.davidsongifted.org/gifted-programs/fellows-scholarship/eligibility-and-application/",
+      "source_url": "https://www.davidsongifted.org/gifted-programs/fellows-scholarship/eligibility-and-application/",
+      "logo_url": "",
+      "award": {
+        "kind": "range",
+        "amount": null,
+        "min": 25000,
+        "max": 100000,
+        "renewable": false,
+        "years": null,
+        "awards_count": null
+      },
+      "deadline": {
+        "kind": "fixed",
+        "date": "2026-02-18",
+        "opens_on": null,
+        "recurs_annually": true
+      },
+      "basis": [
+        "merit"
+      ],
+      "fields": [],
+      "eligibility": [
+        {
+          "kind": "citizenship",
+          "any_of": [
+            "us_citizen",
+            "permanent_resident"
+          ]
+        }
+      ],
+      "other_eligibility": [
+        "Must be 18 or younger at the application deadline (no minimum age)",
+        "Must live in the US (or be stationed overseas on active US military duty)",
+        "Completed a significant piece of work at about college-graduate level, in STEM, literature, music, philosophy or Outside the Box",
+        "Two-person teams allowed; arts such as photography, sculpture and film are ineligible",
+        "Two non-family nominators required",
+        "Must attend an awards event in Washington, DC in September (virtual alternative) with a parent or guardian"
+      ],
+      "requirements": {
+        "essays": [],
+        "recommendations": 0,
+        "transcript": false,
+        "financial_documents": false,
+        "interview": false
+      },
+      "last_checked_on": "2026-10-02"
+    }
+  },
+  {
+    "row": 12,
+    "outcome": "record",
+    "skip_reason": null,
+    "notes": "Official page shows 2027 cycle for Texas only: Texas high school seniors, approved college readiness program in grades 11-12, Pell Grant eligible, 2.4 GPA, attending an accredited four-year public Texas university. Opens Oct 1 2026, deadline Jan 12 2027. $20,000 flexible funding plus laptop, book credits. Essay/recommendation requirements not stated on pages read. Basis set to need because Pell eligibility is required. Reviewer: confirm this Texas-only scope is intended.",
+    "record": {
+      "name": "Dell Scholars Program",
+      "sponsor": "Michael & Susan Dell Foundation",
+      "summary": "$20,000 scholarship plus advising and support for Texas students in a college readiness program who are Pell Grant eligible.",
+      "apply_url": "https://www.dellscholars.org/scholarship/",
+      "source_url": "https://www.dellscholars.org/scholarship/",
+      "logo_url": "",
+      "award": {
+        "kind": "fixed",
+        "amount": 20000,
+        "min": null,
+        "max": null,
+        "renewable": false,
+        "years": null,
+        "awards_count": null
+      },
+      "deadline": {
+        "kind": "fixed",
+        "date": "2027-01-12",
+        "opens_on": "2026-10-01",
+        "recurs_annually": true
+      },
+      "basis": [
+        "need"
+      ],
+      "fields": [],
+      "eligibility": [
+        {
+          "kind": "state",
+          "any_of": [
+            "TX"
+          ]
+        },
+        {
+          "kind": "grade",
+          "any_of": [
+            "12"
+          ]
+        },
+        {
+          "kind": "gpa_min",
+          "value": 2.4
+        }
+      ],
+      "other_eligibility": [
+        "Must participate in an approved college readiness program during grades 11 and 12",
+        "Must be Pell Grant eligible",
+        "Must plan to attend an accredited four-year public college or university in Texas"
+      ],
+      "requirements": {
+        "essays": [],
+        "recommendations": 0,
+        "transcript": false,
+        "financial_documents": false,
+        "interview": false
+      },
+      "last_checked_on": "2026-10-02"
+    }
+  },
+  {
+    "row": 13,
+    "outcome": "record",
+    "skip_reason": null,
+    "notes": "Duke/UNC-Chapel Hill 2026-27 high school cycle: opens Aug 15 2026, early notification Oct 15, regular deadline Nov 15 2026. Covers eight semesters of full tuition, room and board and most mandatory fees plus summer/study-abroad funding; recorded as full_ride, reviewer may prefer varies since fees are 'most'. 25 incoming students in the Class of 2030 (count per year). Two recommendations per search snippet from the official site; the application guide page itself did not give the count. Essay prompts not read. Must also apply separately to Duke and/or UNC.",
+    "record": {
+      "name": "Robertson Scholars Leadership Program",
+      "sponsor": "Robertson Scholars Leadership Program (Duke University and UNC-Chapel Hill)",
+      "summary": "Full scholarship to Duke or UNC-Chapel Hill with leadership programs across both campuses, for incoming undergraduates.",
+      "apply_url": "https://robertsonscholars.org/high-school-students-2/",
+      "source_url": "https://robertsonscholars.org/high-school-students-2/",
+      "logo_url": "",
+      "award": {
+        "kind": "full_ride",
+        "amount": null,
+        "min": null,
+        "max": null,
+        "renewable": true,
+        "years": 4,
+        "awards_count": 25
+      },
+      "deadline": {
+        "kind": "fixed",
+        "date": "2026-11-15",
+        "opens_on": "2026-08-15",
+        "recurs_annually": true
+      },
+      "basis": [
+        "merit"
+      ],
+      "fields": [],
+      "eligibility": [],
+      "other_eligibility": [
+        "Undergraduate applicants only; transfer and graduate applicants are not eligible",
+        "Open to students of any citizenship; international students must be able to obtain a US visa",
+        "Must also apply separately for admission to Duke and/or UNC-Chapel Hill",
+        "Students already admitted to Duke or UNC who take a gap year cannot apply until they enroll",
+        "Early notification deadline Oct 15, 2026"
+      ],
+      "requirements": {
+        "essays": [],
+        "recommendations": 2,
+        "transcript": false,
+        "financial_documents": false,
+        "interview": true
+      },
+      "last_checked_on": "2026-10-02"
+    }
+  },
+  {
+    "row": 14,
+    "outcome": "skip",
+    "skip_reason": "empty row in owner list",
+    "notes": "",
+    "record": null
+  },
+  {
+    "row": 15,
+    "outcome": "record",
+    "skip_reason": null,
+    "notes": "Applications go directly to each Erasmus Mundus master's consortium, each with its own deadline (typically open Oct-Jan), so no single date is given. Scholarship amounts not itemised on the page (travel, visa, living allowance and participation costs).",
+    "record": {
+      "name": "Erasmus Mundus Joint Masters Scholarships",
+      "sponsor": "European Commission (Erasmus+)",
+      "summary": "Full scholarships for international joint master's degrees delivered by at least three institutions in three countries.",
+      "apply_url": "https://erasmus-plus.ec.europa.eu/opportunities/individuals/students/erasmus-mundus-joint-masters",
+      "source_url": "https://erasmus-plus.ec.europa.eu/opportunities/individuals/students/erasmus-mundus-joint-masters",
+      "logo_url": "",
+      "award": {
+        "kind": "varies",
+        "amount": null,
+        "min": null,
+        "max": null,
+        "renewable": false,
+        "years": null,
+        "awards_count": null
+      },
+      "deadline": {
+        "kind": "fixed",
+        "date": null,
+        "opens_on": null,
+        "recurs_annually": true
+      },
+      "basis": [
+        "merit"
+      ],
+      "fields": [],
+      "eligibility": [],
+      "other_eligibility": [
+        "Graduate (master's) applicants only; open to students worldwide",
+        "Must hold a bachelor's degree or be in the final year and graduate before the master's begins",
+        "Apply directly to the institution running the chosen programme; each master sets its own deadline",
+        "Scholarships for top-ranked students cover travel, visa, a living allowance and participation costs"
+      ],
+      "requirements": {
+        "essays": [],
+        "recommendations": 0,
+        "transcript": false,
+        "financial_documents": false,
+        "interview": false
+      },
+      "last_checked_on": "2026-10-02"
+    }
+  }
+]

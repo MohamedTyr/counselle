@@ -1,0 +1,895 @@
+[
+ {
+  "row": 91,
+  "outcome": "record",
+  "skip_reason": null,
+  "notes": "Amount not stated. A teacher/professor recommendation 'may be' requested, so recommendations left 0. Deadline is for the 2026-27 cycle; apply through MyUCF.",
+  "record": {
+   "name": "Nimkoff Family Scholarship in Art",
+   "sponsor": "UCF School of Visual Arts and Design",
+   "summary": "Need-based scholarship for full-time University of Central Florida undergraduate or graduate students majoring in visual arts or design.",
+   "apply_url": "https://cah.ucf.edu/svad/scholarship/nimkoff/",
+   "source_url": "https://cah.ucf.edu/svad/scholarship/nimkoff/",
+   "logo_url": "",
+   "award": {
+    "kind": "varies",
+    "amount": null,
+    "min": null,
+    "max": null,
+    "renewable": false,
+    "years": null,
+    "awards_count": null
+   },
+   "deadline": {
+    "kind": "fixed",
+    "date": "2026-10-16",
+    "opens_on": null,
+    "recurs_annually": true
+   },
+   "basis": [
+    "need"
+   ],
+   "fields": [
+    "Visual arts",
+    "Design"
+   ],
+   "eligibility": [
+    {
+     "kind": "gpa_min",
+     "value": 2.5
+    },
+    {
+     "kind": "financial_need"
+    },
+    {
+     "kind": "major",
+     "any_of": [
+      "Visual arts",
+      "Design"
+     ]
+    }
+   ],
+   "other_eligibility": [
+    "Full-time undergraduate or graduate student at the University of Central Florida",
+    "Graduation no earlier than Fall 2027",
+    "Submit three samples of artwork in JPG format",
+    "Financial need is judged by FAFSA guidelines",
+    "May be asked to attend a scholarship luncheon"
+   ],
+   "requirements": {
+    "essays": [],
+    "recommendations": 0,
+    "transcript": false,
+    "financial_documents": false,
+    "interview": false
+   },
+   "last_checked_on": "2026-10-02"
+  }
+ },
+ {
+  "row": 92,
+  "outcome": "record",
+  "skip_reason": null,
+  "notes": "Row name is ambiguous (a SAFE Federal Credit Union scholarship also exists); chose SFMA's SAFE Scholarship since it is literally called that. Official page gives no single amount (multiple named scholarships; a third-party site says $2,500). Two references = faculty adviser + employer forms. Deadline Oct 15 of the open 2026 cycle.",
+  "record": {
+   "name": "SAFE Scholarship",
+   "sponsor": "Sports Field Management Association (SAFE Foundation)",
+   "summary": "Scholarships for full-time students pursuing a career in sports turf management.",
+   "apply_url": "https://www.sportsfieldmanagement.org/scholarship-program/",
+   "source_url": "https://www.sportsfieldmanagement.org/scholarship-program/",
+   "logo_url": "",
+   "award": {
+    "kind": "varies",
+    "amount": null,
+    "min": null,
+    "max": null,
+    "renewable": false,
+    "years": null,
+    "awards_count": null
+   },
+   "deadline": {
+    "kind": "fixed",
+    "date": "2026-10-15",
+    "opens_on": null,
+    "recurs_annually": true
+   },
+   "basis": [
+    "merit"
+   ],
+   "fields": [
+    "Sports turf management"
+   ],
+   "eligibility": [
+    {
+     "kind": "gpa_min",
+     "value": 2.5
+    },
+    {
+     "kind": "major",
+     "any_of": [
+      "Sports turf management"
+     ]
+    }
+   ],
+   "other_eligibility": [
+    "Full-time student at a U.S. accredited institution",
+    "Judged on academic preparation, GPA, sports turf experience and references"
+   ],
+   "requirements": {
+    "essays": [],
+    "recommendations": 2,
+    "transcript": false,
+    "financial_documents": false,
+    "interview": false
+   },
+   "last_checked_on": "2026-10-02"
+  }
+ },
+ {
+  "row": 93,
+  "outcome": "record",
+  "skip_reason": null,
+  "notes": "Deadline is 5 p.m. Nov 1 (senior year). About 50 winners a year; two recommendations are required from semi-finalists; interviews Mar-Apr. $20,000/yr for four years. Essay and transcript details not stated on the pages read.",
+  "record": {
+   "name": "Boettcher Foundation Scholarship",
+   "sponsor": "Boettcher Foundation",
+   "summary": "Four-year scholarship for Colorado high school seniors attending one of 16 partner Colorado colleges, chosen for scholastic ability, leadership and character.",
+   "apply_url": "https://boettcherfoundation.org/scholarships/prospective-scholars/",
+   "source_url": "https://boettcherfoundation.org/scholarships/prospective-scholars/",
+   "logo_url": "",
+   "award": {
+    "kind": "fixed",
+    "amount": 20000,
+    "min": null,
+    "max": null,
+    "renewable": true,
+    "years": 4,
+    "awards_count": 50
+   },
+   "deadline": {
+    "kind": "fixed",
+    "date": "2026-11-01",
+    "opens_on": "2026-09-01",
+    "recurs_annually": true
+   },
+   "basis": [
+    "merit"
+   ],
+   "fields": [],
+   "eligibility": [
+    {
+     "kind": "citizenship",
+     "any_of": [
+      "us_citizen",
+      "permanent_resident",
+      "daca"
+     ]
+    },
+    {
+     "kind": "state",
+     "any_of": [
+      "CO"
+     ]
+    },
+    {
+     "kind": "grade",
+     "any_of": [
+      "12"
+     ]
+    }
+   ],
+   "other_eligibility": [
+    "Lived in Colorado for the full junior and senior years, or a registered member of a federally recognized tribe with historical ties to Colorado",
+    "Graduate from a Colorado high school",
+    "Citizen, permanent resident or lawfully present (including DACA), or actively working toward such status",
+    "Scholarship is used at a participating Colorado college (16 partners)",
+    "Relatives of Boettcher Trustees or employees are ineligible",
+    "Financial need is not considered"
+   ],
+   "requirements": {
+    "essays": [],
+    "recommendations": 2,
+    "transcript": false,
+    "financial_documents": false,
+    "interview": true
+   },
+   "last_checked_on": "2026-10-02"
+  }
+ },
+ {
+  "row": 94,
+  "outcome": "record",
+  "skip_reason": null,
+  "notes": "Amounts are for the 2027-28 academic year: Junior Fellow $25,000, Fellow $35,000 (half for a single term). Nov 1, 2026 deadline is for 2027-28. Recommendation and essay requirements not stated on the page read.",
+  "record": {
+   "name": "Dumbarton Oaks Research Fellowships (Byzantine, Pre-Columbian, Garden and Landscape Studies)",
+   "sponsor": "Dumbarton Oaks",
+   "summary": "Residential research fellowships for scholars and doctoral candidates in Byzantine, Pre-Columbian, or Garden and Landscape Studies.",
+   "apply_url": "https://dumbarton.embark.com/apply/oaks",
+   "source_url": "https://www.doaks.org/research/fellowships-and-awards/research-fellowships",
+   "logo_url": "",
+   "award": {
+    "kind": "range",
+    "amount": null,
+    "min": 25000,
+    "max": 35000,
+    "renewable": false,
+    "years": null,
+    "awards_count": null
+   },
+   "deadline": {
+    "kind": "fixed",
+    "date": "2026-11-01",
+    "opens_on": null,
+    "recurs_annually": true
+   },
+   "basis": [
+    "merit"
+   ],
+   "fields": [
+    "Byzantine studies",
+    "Pre-Columbian studies",
+    "Garden and landscape studies"
+   ],
+   "eligibility": [],
+   "other_eligibility": [
+    "Fellows must hold a terminal degree (PhD, MLA, etc.) by the deadline",
+    "Junior Fellows are PhD candidates who have completed all preliminary requirements and will work on their dissertation",
+    "Graduate/postdoctoral scholars only, not undergraduates",
+    "Open to international applicants (J-1 visa sponsorship)",
+    "Includes on-site housing, optional health insurance and travel support"
+   ],
+   "requirements": {
+    "essays": [],
+    "recommendations": 0,
+    "transcript": false,
+    "financial_documents": false,
+    "interview": false
+   },
+   "last_checked_on": "2026-10-02"
+  }
+ },
+ {
+  "row": 95,
+  "outcome": "record",
+  "skip_reason": null,
+  "notes": "Page says 'November 1' without a year; used the upcoming Nov 1, 2026. 2.5 GPA, 3 recommendation letters and transcript come from the ITEEA search listing text; the fetched page showed amount, deadline, membership and major rules.",
+  "record": {
+   "name": "ITEEA Foundation Undergraduate Scholarship",
+   "sponsor": "International Technology and Engineering Educators Association (ITEEA)",
+   "summary": "$500 scholarship for ITEEA-member undergraduates preparing to teach technology and engineering.",
+   "apply_url": "https://www.iteea.org/iteea-undergraduate-scholarship",
+   "source_url": "https://www.iteea.org/iteea-undergraduate-scholarship",
+   "logo_url": "",
+   "award": {
+    "kind": "fixed",
+    "amount": 500,
+    "min": null,
+    "max": null,
+    "renewable": false,
+    "years": null,
+    "awards_count": 1
+   },
+   "deadline": {
+    "kind": "fixed",
+    "date": "2026-11-01",
+    "opens_on": null,
+    "recurs_annually": true
+   },
+   "basis": [
+    "merit"
+   ],
+   "fields": [
+    "Technology and engineering education"
+   ],
+   "eligibility": [
+    {
+     "kind": "gpa_min",
+     "value": 2.5
+    },
+    {
+     "kind": "major",
+     "any_of": [
+      "Technology and engineering education teacher preparation"
+     ]
+    }
+   ],
+   "other_eligibility": [
+    "Current full-time undergraduate; must not be a senior at the deadline",
+    "ITEEA member (membership can accompany the application)",
+    "Self-nominations accepted"
+   ],
+   "requirements": {
+    "essays": [],
+    "recommendations": 3,
+    "transcript": true,
+    "financial_documents": false,
+    "interview": false
+   },
+   "last_checked_on": "2026-10-02"
+  }
+ },
+ {
+  "row": 96,
+  "outcome": "record",
+  "skip_reason": null,
+  "notes": "Page says 'November 1' without a year; used upcoming Nov 1, 2026. Need is part of the nomination letter, not a formal rule; basis set to need on that reading.",
+  "record": {
+   "name": "Maley/ITEEA Foundation Teacher Professional Development Scholarship",
+   "sponsor": "International Technology and Engineering Educators Association (ITEEA)",
+   "summary": "$500 scholarship for ITEEA-member technology and engineering teachers beginning or continuing graduate study.",
+   "apply_url": "https://www.iteea.org/maleyiteea-teacher-professional-development-scholarship",
+   "source_url": "https://www.iteea.org/maleyiteea-teacher-professional-development-scholarship",
+   "logo_url": "",
+   "award": {
+    "kind": "fixed",
+    "amount": 500,
+    "min": null,
+    "max": null,
+    "renewable": false,
+    "years": null,
+    "awards_count": null
+   },
+   "deadline": {
+    "kind": "fixed",
+    "date": "2026-11-01",
+    "opens_on": null,
+    "recurs_annually": true
+   },
+   "basis": [
+    "need"
+   ],
+   "fields": [
+    "Technology and engineering education"
+   ],
+   "eligibility": [],
+   "other_eligibility": [
+    "Practicing technology and engineering teachers (any grade level) who are beginning or continuing graduate study, not high school students",
+    "ITEEA member",
+    "Self-nominations accepted",
+    "Nomination letter must explain graduate study plans, action research plans and need"
+   ],
+   "requirements": {
+    "essays": [],
+    "recommendations": 3,
+    "transcript": true,
+    "financial_documents": false,
+    "interview": false
+   },
+   "last_checked_on": "2026-10-02"
+  }
+ },
+ {
+  "row": 97,
+  "outcome": "record",
+  "skip_reason": null,
+  "notes": "Prize is a silk handkerchief reproduction, no money. Initial nomination form due Nov 1, 2026; full packet (cover letter, CV, three CSA-member letters) due Dec 1, 2026.",
+  "record": {
+   "name": "CSA Mary D. Doering Guardian Honor",
+   "sponsor": "Costume Society of America",
+   "summary": "Biennial honor, not a scholarship, recognizing people who long-term collect, conserve and share dress artifacts.",
+   "apply_url": "https://www.costumesocietyamerica.com/csa-mary-d-doering-guardian-honor",
+   "source_url": "https://www.costumesocietyamerica.com/csa-mary-d-doering-guardian-honor",
+   "logo_url": "",
+   "award": {
+    "kind": "varies",
+    "amount": null,
+    "min": null,
+    "max": null,
+    "renewable": false,
+    "years": null,
+    "awards_count": null
+   },
+   "deadline": {
+    "kind": "fixed",
+    "date": "2026-11-01",
+    "opens_on": null,
+    "recurs_annually": true
+   },
+   "basis": [],
+   "fields": [],
+   "eligibility": [],
+   "other_eligibility": [
+    "Not for high school students: an honor for collectors, conservators, dealers and similar guardians of dress objects",
+    "Nominated by a Costume Society of America member (sponsor) with the nominee's consent",
+    "Nominee has CSA membership or supports an institutional/standard member employer",
+    "Second stage: nomination packet due Dec 1, 2026"
+   ],
+   "requirements": {
+    "essays": [],
+    "recommendations": 3,
+    "transcript": false,
+    "financial_documents": false,
+    "interview": false
+   },
+   "last_checked_on": "2026-10-02"
+  }
+ },
+ {
+  "row": 98,
+  "outcome": "record",
+  "skip_reason": null,
+  "notes": "oah.org returned 403 to my fetch, so facts (deadline Nov 2, 2026, 10,000 words, grad students only) come from the search result text of the official OAH page; last_checked_on left null. One older listing said 7,000 words. Prize amount not seen. Reviewer should confirm.",
+  "record": {
+   "name": "Louis Pelzer Memorial Award",
+   "sponsor": "Organization of American Historians",
+   "summary": "Award for the best essay in U.S. history by a graduate student, published in the Journal of American History.",
+   "apply_url": "https://www.oah.org/awards/awards-for-graduate-students-and-recent-graduates/louis-pelzer-memorial-award/",
+   "source_url": "https://www.oah.org/awards/awards-for-graduate-students-and-recent-graduates/louis-pelzer-memorial-award/",
+   "logo_url": "",
+   "award": {
+    "kind": "varies",
+    "amount": null,
+    "min": null,
+    "max": null,
+    "renewable": false,
+    "years": null,
+    "awards_count": null
+   },
+   "deadline": {
+    "kind": "fixed",
+    "date": "2026-11-02",
+    "opens_on": null,
+    "recurs_annually": true
+   },
+   "basis": [
+    "merit"
+   ],
+   "fields": [
+    "History"
+   ],
+   "eligibility": [
+    {
+     "kind": "major",
+     "any_of": [
+      "History"
+     ]
+    }
+   ],
+   "other_eligibility": [
+    "Graduate students only",
+    "Essay on any period or topic in U.S. history; winning essay is published in the Journal of American History",
+    "Essay up to 10,000 words including footnotes, with an abstract"
+   ],
+   "requirements": {
+    "essays": [],
+    "recommendations": 0,
+    "transcript": false,
+    "financial_documents": false,
+    "interview": false
+   },
+   "last_checked_on": null
+  }
+ },
+ {
+  "row": 99,
+  "outcome": "record",
+  "skip_reason": null,
+  "notes": "Range is by entry term; renewable for eight semesters (4 years). Page gives admission deadlines of Nov 1-3 depending on term, no year stated; used Nov 1, 2026, reviewer should verify. A UIC news item cites older criteria (3.8 GPA, 1360 SAT), the financial aid page is newer.",
+  "record": {
+   "name": "University of Illinois Chicago Chancellor's Fellows Award",
+   "sponsor": "University of Illinois Chicago",
+   "summary": "Renewable $7,500-$10,000 a year award for high-achieving, income-eligible Illinois high school seniors entering UIC.",
+   "apply_url": "https://financialaid.uic.edu/types-of-aid/scholarships/",
+   "source_url": "https://financialaid.uic.edu/types-of-aid/scholarships/",
+   "logo_url": "",
+   "award": {
+    "kind": "range",
+    "amount": null,
+    "min": 7500,
+    "max": 10000,
+    "renewable": true,
+    "years": 4,
+    "awards_count": null
+   },
+   "deadline": {
+    "kind": "fixed",
+    "date": "2026-11-01",
+    "opens_on": null,
+    "recurs_annually": true
+   },
+   "basis": [
+    "merit"
+   ],
+   "fields": [],
+   "eligibility": [
+    {
+     "kind": "state",
+     "any_of": [
+      "IL"
+     ]
+    },
+    {
+     "kind": "grade",
+     "any_of": [
+      "12"
+     ]
+    }
+   ],
+   "other_eligibility": [
+    "U.S. citizen or eligible noncitizen",
+    "Family income no more than 6 or 8 times the federal poverty guideline, depending on entry term",
+    "Ranked 1st in class, OR 3.70+ unweighted GPA with 8+ Honors/AP/IB courses in grades 11-12, OR 3.70+ unweighted GPA with ACT 33+ or SAT 1450+",
+    "Renewal: 12+ credits per term, 3.0+ GPA, FAFSA each year",
+    "No separate application: apply to UIC by the priority deadline"
+   ],
+   "requirements": {
+    "essays": [],
+    "recommendations": 0,
+    "transcript": false,
+    "financial_documents": false,
+    "interview": false
+   },
+   "last_checked_on": "2026-10-02"
+  }
+ },
+ {
+  "row": 100,
+  "outcome": "record",
+  "skip_reason": null,
+  "notes": "Row's 'Churchill Fellowship' taken as the UK trust (Australia and NZ have separate ones). Grant is in GBP and calculated per project; third-party sources say an average over GBP 6,000 and up to 150 fellows a year, not confirmed on pages I could read. Eligibility lines come from search summaries, since the fetched official pages did not list them; deadline verified on the official page.",
+  "record": {
+   "name": "The Churchill Fellowship",
+   "sponsor": "Winston Churchill Memorial Trust",
+   "summary": "Travelling fellowship for UK residents of any background to research a topic abroad for a few weeks and bring practical benefit back to the UK.",
+   "apply_url": "https://www.churchillfellowship.org/become-a-fellow/how-to-apply/the-application-form/",
+   "source_url": "https://www.churchillfellowship.org/become-a-fellow/how-to-apply/",
+   "logo_url": "",
+   "award": {
+    "kind": "varies",
+    "amount": null,
+    "min": null,
+    "max": null,
+    "renewable": false,
+    "years": null,
+    "awards_count": null
+   },
+   "deadline": {
+    "kind": "fixed",
+    "date": "2026-10-20",
+    "opens_on": null,
+    "recurs_annually": true
+   },
+   "basis": [],
+   "fields": [],
+   "eligibility": [],
+   "other_eligibility": [
+    "Not for high school students: adults 18+ living in the UK (UK citizens)",
+    "Project must offer a practical benefit to UK society",
+    "Usually 4-8 weeks of research overseas",
+    "Applications close midday on 20 October 2026"
+   ],
+   "requirements": {
+    "essays": [],
+    "recommendations": 0,
+    "transcript": false,
+    "financial_documents": false,
+    "interview": false
+   },
+   "last_checked_on": "2026-10-02"
+  }
+ },
+ {
+  "row": 101,
+  "outcome": "record",
+  "skip_reason": null,
+  "notes": "Official page says only 'Application for 2027 now open' with no deadline; the Oct 9 date comes from an AgriNews article dated 2026-09-30 (not the sponsor). Reviewer should confirm. Also needs a one-page letter of intent.",
+  "record": {
+   "name": "CME Beef Industry Scholarship",
+   "sponsor": "National Cattlemen's Foundation (CME Group)",
+   "summary": "Ten $1,500 scholarships for high school seniors and full-time undergraduates pursuing beef industry careers.",
+   "apply_url": "https://www.nationalcattlemensfoundation.org/scholarships/cme-beef-industry-scholarship",
+   "source_url": "https://www.nationalcattlemensfoundation.org/scholarships/cme-beef-industry-scholarship",
+   "logo_url": "",
+   "award": {
+    "kind": "fixed",
+    "amount": 1500,
+    "min": null,
+    "max": null,
+    "renewable": false,
+    "years": null,
+    "awards_count": 10
+   },
+   "deadline": {
+    "kind": "fixed",
+    "date": "2026-10-09",
+    "opens_on": null,
+    "recurs_annually": true
+   },
+   "basis": [
+    "merit"
+   ],
+   "fields": [],
+   "eligibility": [
+    {
+     "kind": "grade",
+     "any_of": [
+      "12"
+     ]
+    }
+   ],
+   "other_eligibility": [
+    "Graduating high school senior OR full-time undergraduate enrolled at a two- or four-year institution for 2027-28",
+    "Applicant or family must be a National Cattlemen's Beef Association member",
+    "Fields can include education, communications, production, research or other beef-industry areas",
+    "Must show commitment to a beef industry career"
+   ],
+   "requirements": {
+    "essays": [
+     {
+      "prompt": "Describe an issue confronting the beef industry and offer solutions.",
+      "words": 750
+     }
+    ],
+    "recommendations": 2,
+    "transcript": false,
+    "financial_documents": false,
+    "interview": false
+   },
+   "last_checked_on": "2026-10-02"
+  }
+ },
+ {
+  "row": 102,
+  "outcome": "record",
+  "skip_reason": null,
+  "notes": "Award is a travel plus living allowance, not a lump sum, so kind is varies. Deadline 9:00 am MT Nov 9, 2026. Needs student form, host nomination and work plan; recommendation letters are NOT required.",
+  "record": {
+   "name": "NCAR Graduate Student Visitor Program",
+   "sponsor": "NSF National Center for Atmospheric Research (NCAR)",
+   "summary": "Funds advanced master's and PhD students to visit NSF NCAR in Boulder to work with a host scientist on thesis research.",
+   "apply_url": "https://edec.ucar.edu/advanced-study-program/graduate-visitor-program",
+   "source_url": "https://edec.ucar.edu/advanced-study-program/graduate-visitor-program",
+   "logo_url": "",
+   "award": {
+    "kind": "varies",
+    "amount": null,
+    "min": null,
+    "max": null,
+    "renewable": false,
+    "years": null,
+    "awards_count": null
+   },
+   "deadline": {
+    "kind": "fixed",
+    "date": "2026-11-09",
+    "opens_on": "2026-09-08",
+    "recurs_annually": true
+   },
+   "basis": [
+    "merit"
+   ],
+   "fields": [
+    "Atmospheric and Earth system science"
+   ],
+   "eligibility": [],
+   "other_eligibility": [
+    "Graduate students only: advanced master's or PhD students working on a thesis, dissertation or final project",
+    "Enrolled at a U.S. degree-granting institution, or a U.S. citizen enrolled abroad",
+    "Must be in good standing and have an NSF NCAR scientist or engineer as host",
+    "Covers round-trip travel, $2,500/month living allowance and one week of advisor travel; no salary or health insurance"
+   ],
+   "requirements": {
+    "essays": [],
+    "recommendations": 0,
+    "transcript": false,
+    "financial_documents": false,
+    "interview": false
+   },
+   "last_checked_on": "2026-10-02"
+  }
+ },
+ {
+  "row": 103,
+  "outcome": "record",
+  "skip_reason": null,
+  "notes": "Award is 'up to $27,500' so kept as varies. Deadline Nov 16, 2026 11:59 pm PT. Also requires prospectus, timeline, CV, budget (via AERA Apply). Number of awards not stated.",
+  "record": {
+   "name": "AERA Minority Dissertation Fellowship in Education Research",
+   "sponsor": "American Educational Research Association (AERA)",
+   "summary": "One-year dissertation fellowship of up to $27,500 for doctoral candidates from underrepresented racial and ethnic groups.",
+   "apply_url": "https://www.aera.net/Professional-Opportunities-Funding/AERA-Funding-Opportunities/Minority-Dissertation-Fellowship-Program",
+   "source_url": "https://www.aera.net/Professional-Opportunities-Funding/AERA-Funding-Opportunities/Minority-Dissertation-Fellowship-Program",
+   "logo_url": "",
+   "award": {
+    "kind": "varies",
+    "amount": null,
+    "min": null,
+    "max": null,
+    "renewable": false,
+    "years": null,
+    "awards_count": null
+   },
+   "deadline": {
+    "kind": "fixed",
+    "date": "2026-11-16",
+    "opens_on": null,
+    "recurs_annually": true
+   },
+   "basis": [
+    "merit"
+   ],
+   "fields": [
+    "Education research"
+   ],
+   "eligibility": [
+    {
+     "kind": "citizenship",
+     "any_of": [
+      "us_citizen",
+      "permanent_resident"
+     ]
+    }
+   ],
+   "other_eligibility": [
+    "Doctoral students at the dissertation writing stage who can work full-time on it, not undergraduates",
+    "Members of racial and ethnic groups historically underrepresented in higher education (African American, Alaskan Native, American Indian, Asian American, Hispanic/Latino, Native Hawaiian or Pacific Islander)",
+    "Education research or related fields (economics, history, political science, psychology, public policy, sociology)",
+    "Fellowship year begins July 2027 or later",
+    "Fellows present at the 2028 AERA Annual Meeting"
+   ],
+   "requirements": {
+    "essays": [],
+    "recommendations": 2,
+    "transcript": true,
+    "financial_documents": false,
+    "interview": false
+   },
+   "last_checked_on": "2026-10-02"
+  }
+ },
+ {
+  "row": 104,
+  "outcome": "record",
+  "skip_reason": null,
+  "notes": "Amounts shown are the $8,000/yr Fellows track; four years is inferred from the four-year program wording, so verify. Nov 10 is the 2027-entry Fellows application date. Essays and recommendations not stated on pages read.",
+  "record": {
+   "name": "Elon University Fellows Programs",
+   "sponsor": "Elon University",
+   "summary": "Merit scholarship programs at Elon, mostly $8,000 a year plus a $1,000 global study grant, for admitted first-year students.",
+   "apply_url": "https://www.elon.edu/u/admissions/undergraduate/financial-aid/fellows-and-scholars-programs/",
+   "source_url": "https://www.elon.edu/u/admissions/undergraduate/financial-aid/fellows-and-scholars-programs/",
+   "logo_url": "",
+   "award": {
+    "kind": "fixed",
+    "amount": 8000,
+    "min": null,
+    "max": null,
+    "renewable": true,
+    "years": 4,
+    "awards_count": null
+   },
+   "deadline": {
+    "kind": "fixed",
+    "date": "2026-11-10",
+    "opens_on": null,
+    "recurs_annually": true
+   },
+   "basis": [
+    "merit"
+   ],
+   "fields": [],
+   "eligibility": [
+    {
+     "kind": "grade",
+     "any_of": [
+      "12"
+     ]
+    }
+   ],
+   "other_eligibility": [
+    "Must first apply to Elon by Nov 1 (ED/EA) or Jan 10 (Regular)",
+    "Separate Fellows/Honors application through an Acorn account",
+    "Finalists invited to Fellows weekend interviews, Feb 5-6, 2027",
+    "Program tracks include Business, Communications, Elon College, Engineering/Computing, Nursing, Teaching, Isabella Cannon Leadership (3.6+ GPA) and Sport Industry",
+    "The separate Honors Program pays $15,000/yr plus a $12,000 Presidential Scholarship"
+   ],
+   "requirements": {
+    "essays": [],
+    "recommendations": 0,
+    "transcript": false,
+    "financial_documents": false,
+    "interview": true
+   },
+   "last_checked_on": "2026-10-02"
+  }
+ },
+ {
+  "row": 105,
+  "outcome": "record",
+  "skip_reason": null,
+  "notes": "Applications open each January; the page says 2026-27 applications are closed and gives no deadline date, so date is null. Third-party listings say up to $8,000 a year and that incoming first-years apply by invitation; the official page gives no amount.",
+  "record": {
+   "name": "University of Cincinnati NEXT Innovation Scholars Program",
+   "sponsor": "University of Cincinnati",
+   "summary": "Cohort-based scholarship for current or incoming UC students with cross-disciplinary innovation programming.",
+   "apply_url": "https://www.uc.edu/about/president/presidential-awards/next-innovation-scholars.html",
+   "source_url": "https://www.uc.edu/about/president/presidential-awards/next-innovation-scholars.html",
+   "logo_url": "",
+   "award": {
+    "kind": "varies",
+    "amount": null,
+    "min": null,
+    "max": null,
+    "renewable": true,
+    "years": 4,
+    "awards_count": null
+   },
+   "deadline": {
+    "kind": "fixed",
+    "date": null,
+    "opens_on": null,
+    "recurs_annually": true
+   },
+   "basis": [
+    "merit"
+   ],
+   "fields": [],
+   "eligibility": [],
+   "other_eligibility": [
+    "Current or incoming University of Cincinnati students with at least two years left in a full-time bachelor's degree",
+    "Must keep a 3.3 cumulative GPA and full-time enrollment",
+    "Commit 4-6 hours a week to program activities",
+    "Renewable up to eight full-time semesters"
+   ],
+   "requirements": {
+    "essays": [],
+    "recommendations": 0,
+    "transcript": false,
+    "financial_documents": false,
+    "interview": false
+   },
+   "last_checked_on": "2026-10-02"
+  }
+ },
+ {
+  "row": 106,
+  "outcome": "record",
+  "skip_reason": null,
+  "notes": "Page says deadline 'November 15' with no year; used upcoming Nov 15, 2026. Award is presented at the ONS Congress. Award count assumed one (OCN 'of the Year'); not stated, so verify.",
+  "record": {
+   "name": "OCN of the Year Award",
+   "sponsor": "Oncology Nursing Certification Corporation (ONCC)",
+   "summary": "$1,000 award for an OCN-certified nurse who has advanced oncology nursing and promoted certification.",
+   "apply_url": "https://www.oncc.org/promote-certification/recognize/ocn-year-award",
+   "source_url": "https://www.oncc.org/promote-certification/recognize/ocn-year-award",
+   "logo_url": "",
+   "award": {
+    "kind": "fixed",
+    "amount": 1000,
+    "min": null,
+    "max": null,
+    "renewable": false,
+    "years": null,
+    "awards_count": null
+   },
+   "deadline": {
+    "kind": "fixed",
+    "date": "2026-11-15",
+    "opens_on": null,
+    "recurs_annually": true
+   },
+   "basis": [
+    "merit"
+   ],
+   "fields": [
+    "Oncology nursing"
+   ],
+   "eligibility": [],
+   "other_eligibility": [
+    "Not for students: nurses currently holding OCN certification and an active RN license",
+    "Nominated with biographical data and two recommendation letters; submitted to ONCCNominations@oncc.org",
+    "ONCC Recognition Subcommittee and Board members are ineligible",
+    "Use of AI to prepare the nomination is prohibited"
+   ],
+   "requirements": {
+    "essays": [],
+    "recommendations": 2,
+    "transcript": false,
+    "financial_documents": false,
+    "interview": false
+   },
+   "last_checked_on": "2026-10-02"
+  }
+ }
+]

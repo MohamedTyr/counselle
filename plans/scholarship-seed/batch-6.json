@@ -1,0 +1,854 @@
+[
+ {
+  "row": 76,
+  "outcome": "record",
+  "skip_reason": null,
+  "notes": "Fall 2026 cycle (Sep 1 - Oct 13, 2026); Spring 2027 round tentatively opens January 2027. Number of awards TBD. Also needs a 1-page resume and proof of US citizenship. Eligibility detail from ctspacegrant.org/undergraduate-graduate.",
+  "record": {
+   "name": "NASA Connecticut Space Grant Consortium Community College Scholarship",
+   "sponsor": "Connecticut Space Grant Consortium (NASA)",
+   "summary": "Scholarship for full-time Connecticut State Community College students in STEM associate degree or certificate programs.",
+   "apply_url": "https://app.smartsheet.com/b/form/0198c843a3dd701ca226b5ad3337e02c",
+   "source_url": "https://ctspacegrant.org/student-funding-opportunities",
+   "logo_url": "",
+   "award": {
+    "kind": "fixed",
+    "amount": 1500,
+    "min": null,
+    "max": null,
+    "renewable": false,
+    "years": null,
+    "awards_count": null
+   },
+   "deadline": {
+    "kind": "fixed",
+    "date": "2026-10-13",
+    "opens_on": "2026-09-01",
+    "recurs_annually": true
+   },
+   "basis": [
+    "merit"
+   ],
+   "fields": [],
+   "eligibility": [
+    {
+     "kind": "citizenship",
+     "any_of": [
+      "us_citizen"
+     ]
+    }
+   ],
+   "other_eligibility": [
+    "Full-time student at a Connecticut community college that is a Consortium member",
+    "Pursuing a STEM-related associate degree or certificate",
+    "Must have completed at least one semester (first-semester students cannot apply)"
+   ],
+   "requirements": {
+    "essays": [
+     {
+      "prompt": "Narrative (3 pages max) on academic/career goals, research or relevant experience, community service and activities, and expected benefit of the scholarship",
+      "words": null
+     }
+    ],
+    "recommendations": 1,
+    "transcript": true,
+    "financial_documents": false,
+    "interview": false
+   },
+   "last_checked_on": "2026-10-02"
+  }
+ },
+ {
+  "row": 77,
+  "outcome": "record",
+  "skip_reason": null,
+  "notes": "Fall 2026 cycle (Sep 1 - Oct 13, 2026); Spring 2027 round tentatively January 2027. Number of awards TBD. Requirements same as the community college scholarship (resume, citizenship proof).",
+  "record": {
+   "name": "NASA Connecticut Space Grant Consortium Community College Transfer Scholarship",
+   "sponsor": "Connecticut Space Grant Consortium (NASA)",
+   "summary": "Scholarship for students who started at a community college and now study STEM full-time at a four-year Consortium institution.",
+   "apply_url": "https://app.smartsheet.com/b/form/0198c843a3dd701ca226b5ad3337e02c",
+   "source_url": "https://ctspacegrant.org/student-funding-opportunities",
+   "logo_url": "",
+   "award": {
+    "kind": "fixed",
+    "amount": 3000,
+    "min": null,
+    "max": null,
+    "renewable": false,
+    "years": null,
+    "awards_count": null
+   },
+   "deadline": {
+    "kind": "fixed",
+    "date": "2026-10-13",
+    "opens_on": "2026-09-01",
+    "recurs_annually": true
+   },
+   "basis": [
+    "merit"
+   ],
+   "fields": [],
+   "eligibility": [
+    {
+     "kind": "citizenship",
+     "any_of": [
+      "us_citizen"
+     ]
+    }
+   ],
+   "other_eligibility": [
+    "Began postsecondary education at a community college (at least two terms) and now enrolled full-time at a four-year Consortium member institution",
+    "Pursuing a STEM degree",
+    "Can be received once per academic career",
+    "First-semester students at the four-year school and students in their final semester are ineligible"
+   ],
+   "requirements": {
+    "essays": [
+     {
+      "prompt": "Narrative (3 pages max) on academic/career goals, research or relevant experience, community service and activities, and expected benefit of the scholarship",
+      "words": null
+     }
+    ],
+    "recommendations": 1,
+    "transcript": true,
+    "financial_documents": false,
+    "interview": false
+   },
+   "last_checked_on": "2026-10-02"
+  }
+ },
+ {
+  "row": 78,
+  "outcome": "record",
+  "skip_reason": null,
+  "notes": "Official page says up to $10,000 and that the grant is NOT offered for Fall 2026, so no deadline is published; stored as varies because there is no stated fixed or min/max range. apply_url is the program page (no current application link).",
+  "record": {
+   "name": "NASA Connecticut Space Grant Consortium Graduate Fellowship Grant",
+   "sponsor": "Connecticut Space Grant Consortium (NASA)",
+   "summary": "Grant of up to $10,000 for graduate students doing faculty-mentored research that advances NASA mission priorities.",
+   "apply_url": "https://ctspacegrant.org/undergraduate-graduate",
+   "source_url": "https://ctspacegrant.org/student-funding-opportunities",
+   "logo_url": "",
+   "award": {
+    "kind": "varies",
+    "amount": null,
+    "min": null,
+    "max": null,
+    "renewable": false,
+    "years": null,
+    "awards_count": null
+   },
+   "deadline": {
+    "kind": "fixed",
+    "date": null,
+    "opens_on": null,
+    "recurs_annually": true
+   },
+   "basis": [
+    "merit"
+   ],
+   "fields": [],
+   "eligibility": [],
+   "other_eligibility": [
+    "Graduate students only",
+    "Independent, faculty-mentored research relevant to NASA mission directorates and priorities"
+   ],
+   "requirements": {
+    "essays": [],
+    "recommendations": 0,
+    "transcript": false,
+    "financial_documents": false,
+    "interview": false
+   },
+   "last_checked_on": "2026-10-02"
+  }
+ },
+ {
+  "row": 79,
+  "outcome": "record",
+  "skip_reason": null,
+  "notes": "No entry deadline published; student contacts local post/counselor or emailed Department HQ (emartin@nebraskalegion.net, 402-464-6338). State prizes: contest page lists 1st $1,500, 2nd $1,000, 3rd $800, 4th $500; scholarships page says $100-$1,500, so range used. National prizes up to $25,000 not included.",
+  "record": {
+   "name": "American Legion Department of Nebraska High School Oratorical Contest",
+   "sponsor": "American Legion, Department of Nebraska",
+   "summary": "Memorized-speech contest on the US Constitution for Nebraska high school students, with state scholarships and a path to nationals.",
+   "apply_url": "https://nebraskalegion.net/oratorical-contest/",
+   "source_url": "https://nebraskalegion.net/oratorical-contest/",
+   "logo_url": "",
+   "award": {
+    "kind": "range",
+    "amount": null,
+    "min": 100,
+    "max": 1500,
+    "renewable": false,
+    "years": null,
+    "awards_count": 4
+   },
+   "deadline": {
+    "kind": "fixed",
+    "date": null,
+    "opens_on": null,
+    "recurs_annually": true
+   },
+   "basis": [],
+   "fields": [],
+   "eligibility": [
+    {
+     "kind": "citizenship",
+     "any_of": [
+      "us_citizen",
+      "permanent_resident"
+     ]
+    },
+    {
+     "kind": "state",
+     "any_of": [
+      "NE"
+     ]
+    },
+    {
+     "kind": "grade",
+     "any_of": [
+      "9",
+      "10",
+      "11",
+      "12"
+     ]
+    }
+   ],
+   "other_eligibility": [
+    "Under age 20 on the date of the national contest",
+    "Must live in Nebraska or attend school there",
+    "8-10 minute memorized speech on the US Constitution plus a 3-5 minute speech on an assigned topic",
+    "Starts at the local Legion post, then district, area and state finals (held each January)"
+   ],
+   "requirements": {
+    "essays": [],
+    "recommendations": 0,
+    "transcript": false,
+    "financial_documents": false,
+    "interview": false
+   },
+   "last_checked_on": "2026-10-02"
+  }
+ },
+ {
+  "row": 80,
+  "outcome": "record",
+  "skip_reason": null,
+  "notes": "Deadline is for NEW applicants for 2027-28 (Aug 15 - Oct 15, 2026); renewals May 15 - Jul 1, 2027. Support is reduced tuition, not a stated dollar amount. Eligibility: NM high school graduate or 3 consecutive years NM residency. Basis (merit/need) not stated, left empty.",
+  "record": {
+   "name": "New Mexico WICHE Loan-for-Service Program",
+   "sponsor": "New Mexico Higher Education Department",
+   "summary": "Reduced out-of-state tuition for New Mexico residents entering health graduate programs not offered in-state, in exchange for working in New Mexico.",
+   "apply_url": "https://hed.nm.gov/financial-aid/loan-service-programs/wiche",
+   "source_url": "https://hed.nm.gov/financial-aid/loan-service-programs/wiche",
+   "logo_url": "",
+   "award": {
+    "kind": "varies",
+    "amount": null,
+    "min": null,
+    "max": null,
+    "renewable": true,
+    "years": 4,
+    "awards_count": null
+   },
+   "deadline": {
+    "kind": "fixed",
+    "date": "2026-10-15",
+    "opens_on": "2026-08-15",
+    "recurs_annually": true
+   },
+   "basis": [],
+   "fields": [],
+   "eligibility": [
+    {
+     "kind": "citizenship",
+     "any_of": [
+      "us_citizen",
+      "permanent_resident"
+     ]
+    },
+    {
+     "kind": "state",
+     "any_of": [
+      "NM"
+     ]
+    }
+   ],
+   "other_eligibility": [
+    "Graduate or professional students only (e.g. dentistry, veterinary medicine, optometry, podiatry)",
+    "Must be accepted to an eligible out-of-state program",
+    "Must return to practice in New Mexico; loan forgiven per year of service, up to a 3-year commitment"
+   ],
+   "requirements": {
+    "essays": [],
+    "recommendations": 0,
+    "transcript": false,
+    "financial_documents": false,
+    "interview": false
+   },
+   "last_checked_on": "2026-10-02"
+  }
+ },
+ {
+  "row": 81,
+  "outcome": "record",
+  "skip_reason": null,
+  "notes": "Deadline is for nominations, Oct 15, 2026. Award amount and number not stated on the official pages I could read (aggregator suggests conference-related support); left varies/null. GPA/major/random-drawing details come from search snippet of amatyc.org criteria page; the criteria page itself returned 404, so verify.",
+  "record": {
+   "name": "AMATYC Wanda Garner Presidential Student Scholarship",
+   "sponsor": "American Mathematical Association of Two-Year Colleges",
+   "summary": "Scholarship for a student nominated by an AMATYC member who plans to study mathematics, statistics or another STEM field.",
+   "apply_url": "https://www.amatyc.org/professional-development/garner-scholarship/",
+   "source_url": "https://www.amatyc.org/professional-development/garner-scholarship/",
+   "logo_url": "",
+   "award": {
+    "kind": "varies",
+    "amount": null,
+    "min": null,
+    "max": null,
+    "renewable": false,
+    "years": null,
+    "awards_count": null
+   },
+   "deadline": {
+    "kind": "fixed",
+    "date": "2026-10-15",
+    "opens_on": null,
+    "recurs_annually": true
+   },
+   "basis": [
+    "merit"
+   ],
+   "fields": [],
+   "eligibility": [
+    {
+     "kind": "gpa_min",
+     "value": 3.0
+    },
+    {
+     "kind": "major",
+     "any_of": [
+      "Mathematics",
+      "Mathematics Education",
+      "Statistics",
+      "STEM"
+     ]
+    }
+   ],
+   "other_eligibility": [
+    "Must be nominated by an AMATYC member (students cannot apply directly)",
+    "Enrolled full-time at an institution with at least one AMATYC member",
+    "Recipient chosen by random drawing among eligible nominees"
+   ],
+   "requirements": {
+    "essays": [],
+    "recommendations": 0,
+    "transcript": false,
+    "financial_documents": false,
+    "interview": false
+   },
+   "last_checked_on": "2026-10-02"
+  }
+ },
+ {
+  "row": 82,
+  "outcome": "record",
+  "skip_reason": null,
+  "notes": "Page gives 'October 15, 4:00 p.m. MT' with no year; assumed 2026 cycle (opens Sept 1). Award stored as varies (three tiers, in summary/other lines); Renewability not stated on the page I read. Essays/recommendations not described on the page. Semi-finalists send tax returns, scores, residency/citizenship proof, FAFSA summary; finalist interviews late March.",
+  "record": {
+   "name": "Daniels Scholarship Program",
+   "sponsor": "Daniels Fund",
+   "summary": "Scholarship for graduating seniors from Colorado, New Mexico, Utah and Wyoming with financial need, at partner or non-partner colleges.",
+   "apply_url": "https://scholarship.danielsfund.org/s/",
+   "source_url": "https://danielsfund.org/our-work/scholarships/",
+   "logo_url": "",
+   "award": {
+    "kind": "varies",
+    "amount": null,
+    "min": null,
+    "max": null,
+    "renewable": false,
+    "years": null,
+    "awards_count": null
+   },
+   "deadline": {
+    "kind": "fixed",
+    "date": "2026-10-15",
+    "opens_on": "2026-09-01",
+    "recurs_annually": true
+   },
+   "basis": [
+    "need",
+    "merit"
+   ],
+   "fields": [],
+   "eligibility": [
+    {
+     "kind": "citizenship",
+     "any_of": [
+      "us_citizen",
+      "permanent_resident"
+     ]
+    },
+    {
+     "kind": "state",
+     "any_of": [
+      "CO",
+      "NM",
+      "UT",
+      "WY"
+     ]
+    },
+    {
+     "kind": "grade",
+     "any_of": [
+      "12"
+     ]
+    },
+    {
+     "kind": "gpa_min",
+     "value": 3.0
+    },
+    {
+     "kind": "financial_need"
+    }
+   ],
+   "other_eligibility": [
+    "GPA must be unweighted",
+    "Household adjusted gross income of $100,000 or less (allowances for additional dependents)",
+    "ACT 18+ in each section or SAT 490+ in Math and in Reading/Writing",
+    "Partner schools: full cost of attendance; non-partner out-of-state: up to $25,000 a year; non-partner in-state: up to $7,500 a year",
+    "Includes a MacBook, mentoring and required June orientation"
+   ],
+   "requirements": {
+    "essays": [],
+    "recommendations": 0,
+    "transcript": true,
+    "financial_documents": true,
+    "interview": true
+   },
+   "last_checked_on": "2026-10-02"
+  }
+ },
+ {
+  "row": 83,
+  "outcome": "record",
+  "skip_reason": null,
+  "notes": "Official page: up to $10,000, one award a year, deadline not stated (see AACN Grants Program Handbook). Stored as varies with date null. Amount is an upper limit so range was not used.",
+  "record": {
+   "name": "AACN-Sigma Theta Tau Critical Care Grant",
+   "sponsor": "American Association of Critical-Care Nurses",
+   "summary": "Research grant of up to $10,000 for experienced nurses studying high-acuity and critical care nursing practice.",
+   "apply_url": "https://www.aacn.org/nursing-excellence/grants/sigma-theta-tau-critical-care",
+   "source_url": "https://www.aacn.org/nursing-excellence/grants/sigma-theta-tau-critical-care",
+   "logo_url": "",
+   "award": {
+    "kind": "varies",
+    "amount": null,
+    "min": null,
+    "max": null,
+    "renewable": false,
+    "years": null,
+    "awards_count": 1
+   },
+   "deadline": {
+    "kind": "fixed",
+    "date": null,
+    "opens_on": null,
+    "recurs_annually": true
+   },
+   "basis": [
+    "merit"
+   ],
+   "fields": [
+    "Nursing"
+   ],
+   "eligibility": [],
+   "other_eligibility": [
+    "Nurses conducting research; not for high school students",
+    "Principal investigator must be a member of AACN or Sigma Theta Tau International",
+    "Must hold a master's degree or have completed candidacy in a BSN-to-PhD or DNP program",
+    "Research must address critical care nursing and an AACN research priority area"
+   ],
+   "requirements": {
+    "essays": [],
+    "recommendations": 0,
+    "transcript": false,
+    "financial_documents": false,
+    "interview": false
+   },
+   "last_checked_on": "2026-10-02"
+  }
+ },
+ {
+  "row": 84,
+  "outcome": "record",
+  "skip_reason": null,
+  "notes": "$60,000 a year for 12, 18 or 24 months (years=2 is the maximum). Deadline Oct 30, 2026 12:00 p.m. ET. Apply link taken from the predoctoral page (same ProposalCentral GMID); verify it is the postdoc opportunity. Research plan, biosketch and training plan required, no essays.",
+  "record": {
+   "name": "PhRMA Foundation Postdoctoral Fellowship in Value Assessment and Health Outcomes Research",
+   "sponsor": "PhRMA Foundation",
+   "summary": "Fellowship for postdoctoral researchers in value assessment and health outcomes research who engage patients, caregivers or clinicians.",
+   "apply_url": "https://proposalcentral.com/GrantOpportunities.asp?GMID=206",
+   "source_url": "https://www.phrmafoundation.org/grants-fellowships/postdoctoral-fellowships/value-assessment-health-outcomes-research/",
+   "logo_url": "",
+   "award": {
+    "kind": "fixed",
+    "amount": 60000,
+    "min": null,
+    "max": null,
+    "renewable": true,
+    "years": 2,
+    "awards_count": null
+   },
+   "deadline": {
+    "kind": "fixed",
+    "date": "2026-10-30",
+    "opens_on": "2026-08-31",
+    "recurs_annually": true
+   },
+   "basis": [
+    "merit"
+   ],
+   "fields": [],
+   "eligibility": [],
+   "other_eligibility": [
+    "Postdoctoral researchers only",
+    "PhD, PharmD, MD or equivalent terminal doctorate awarded on or after January 1, 2024",
+    "At least two first-author publications",
+    "Based at an accredited US doctoral degree-granting university; US and non-US citizens eligible",
+    "Proposal must include meaningful engagement with patients, caregivers or clinicians"
+   ],
+   "requirements": {
+    "essays": [],
+    "recommendations": 0,
+    "transcript": false,
+    "financial_documents": false,
+    "interview": false
+   },
+   "last_checked_on": "2026-10-02"
+  }
+ },
+ {
+  "row": 85,
+  "outcome": "record",
+  "skip_reason": null,
+  "notes": "$30,000 a year for 12, 18 or 24 months. Deadline Oct 30, 2026 12:00 p.m. ET. Letters: thesis advisor plus 1-3 general references (recommendations=2 is the minimum). 7-page research plan, biosketch, training plan; no essays.",
+  "record": {
+   "name": "PhRMA Foundation Predoctoral Fellowship in Value Assessment and Health Outcomes Research",
+   "sponsor": "PhRMA Foundation",
+   "summary": "Fellowship for advanced PhD students doing thesis research in value assessment and health outcomes research.",
+   "apply_url": "https://proposalcentral.com/GrantOpportunities.asp?GMID=206",
+   "source_url": "https://www.phrmafoundation.org/grants-fellowships/predoctoral-fellowships/value-assessment-health-outcomes-research/",
+   "logo_url": "",
+   "award": {
+    "kind": "fixed",
+    "amount": 30000,
+    "min": null,
+    "max": null,
+    "renewable": true,
+    "years": 2,
+    "awards_count": null
+   },
+   "deadline": {
+    "kind": "fixed",
+    "date": "2026-10-30",
+    "opens_on": "2026-08-31",
+    "recurs_annually": true
+   },
+   "basis": [
+    "merit"
+   ],
+   "fields": [],
+   "eligibility": [],
+   "other_eligibility": [
+    "PhD students only, full-time and in residence at an accredited US university",
+    "Must have passed qualifying exams and not expect to finish before April 1, 2028; not just starting graduate school",
+    "Must have authored a publication or presented a poster",
+    "Not eligible with other stipend funding or an NIH F award; one applicant per research group",
+    "Proposal must include meaningful engagement with patients, caregivers or clinicians"
+   ],
+   "requirements": {
+    "essays": [],
+    "recommendations": 2,
+    "transcript": false,
+    "financial_documents": false,
+    "interview": false
+   },
+   "last_checked_on": "2026-10-02"
+  }
+ },
+ {
+  "row": 86,
+  "outcome": "record",
+  "skip_reason": null,
+  "notes": "Valued at up to $250,000 over up to five years; exact stipend not read, so varies. Deadline Oct 30, 2026 (opens Aug 31). Who-can-apply page says first/second-year PhD students while FAQ also includes seniors; merged. Four recommenders use an evaluation form. Up to 25 fellows a year (not recorded as awards_count since sources mix 'up to').",
+  "record": {
+   "name": "Fannie and John Hertz Foundation Fellowship",
+   "sponsor": "Fannie and John Hertz Foundation",
+   "summary": "Up to five years of PhD funding for US applicants in applied physical and biological sciences, engineering and mathematics.",
+   "apply_url": "http://fellowship.hertzfoundation.org/apply",
+   "source_url": "https://www.hertzfoundation.org/hertz-fellowship/who-can-apply/",
+   "logo_url": "",
+   "award": {
+    "kind": "varies",
+    "amount": null,
+    "min": null,
+    "max": null,
+    "renewable": true,
+    "years": 5,
+    "awards_count": null
+   },
+   "deadline": {
+    "kind": "fixed",
+    "date": "2026-10-30",
+    "opens_on": "2026-08-31",
+    "recurs_annually": true
+   },
+   "basis": [
+    "merit"
+   ],
+   "fields": [],
+   "eligibility": [
+    {
+     "kind": "citizenship",
+     "any_of": [
+      "us_citizen",
+      "permanent_resident"
+     ]
+    }
+   ],
+   "other_eligibility": [
+    "For college seniors, gap-year students and first- or second-year PhD students planning a full-time PhD (starting fall 2027)",
+    "Applied physical or biological sciences, mathematics or engineering at a US institution; standalone professional degrees ineligible",
+    "Non-binding moral commitment to make skills available to the US in a national emergency"
+   ],
+   "requirements": {
+    "essays": [
+     {
+      "prompt": "Short essays and a personal essay (word counts are guidance; the personal essay is about 500-1,000 words)",
+      "words": null
+     }
+    ],
+    "recommendations": 4,
+    "transcript": true,
+    "financial_documents": false,
+    "interview": true
+   },
+   "last_checked_on": "2026-10-02"
+  }
+ },
+ {
+  "row": 87,
+  "outcome": "record",
+  "skip_reason": null,
+  "notes": "Deadline Friday Oct 30, 2026. Number of awards and essay/recommendation specifics are only in the downloadable application, not read; requirements left default.",
+  "record": {
+   "name": "Women in Logistics Scholarship",
+   "sponsor": "Women in Logistics",
+   "summary": "Scholarship for Bay Area undergraduate and graduate students in logistics, supply chain management or related fields.",
+   "apply_url": "https://www.womeninlogistics.org/scholarship-program",
+   "source_url": "https://www.womeninlogistics.org/scholarship-program",
+   "logo_url": "",
+   "award": {
+    "kind": "fixed",
+    "amount": 4000,
+    "min": null,
+    "max": null,
+    "renewable": false,
+    "years": null,
+    "awards_count": null
+   },
+   "deadline": {
+    "kind": "fixed",
+    "date": "2026-10-30",
+    "opens_on": null,
+    "recurs_annually": true
+   },
+   "basis": [
+    "merit"
+   ],
+   "fields": [
+    "Logistics",
+    "Supply Chain Management"
+   ],
+   "eligibility": [],
+   "other_eligibility": [
+    "Undergraduate or graduate students at San Francisco Bay Area institutions",
+    "Studying logistics or supply chain management or a related field (e.g. transportation, international security)",
+    "Open to students of all genders",
+    "Recipients receive WIL membership with waived fee"
+   ],
+   "requirements": {
+    "essays": [],
+    "recommendations": 0,
+    "transcript": false,
+    "financial_documents": false,
+    "interview": false
+   },
+   "last_checked_on": "2026-10-02"
+  }
+ },
+ {
+  "row": 88,
+  "outcome": "record",
+  "skip_reason": null,
+  "notes": "Date is the 2025 RFP deadline (Oct 31, 2025 11:59 PM CDT) from the 2026 RFP PDF on batcon.org; the next RFP opens Oct 1, 2026 and its deadline is not published on the page I read, so treated as closed. 12-15 awards per cycle (awards_count left null). Extra $500 honors exist.",
+  "record": {
+   "name": "Bat Conservation International Student Research Scholarship",
+   "sponsor": "Bat Conservation International",
+   "summary": "$5,000 research scholarships for graduate students doing bat conservation research.",
+   "apply_url": "https://smr.to/p60965",
+   "source_url": "https://www.batcon.org/our-work/research-and-scalable-solutions/student-scholars/",
+   "logo_url": "",
+   "award": {
+    "kind": "fixed",
+    "amount": 5000,
+    "min": null,
+    "max": null,
+    "renewable": false,
+    "years": null,
+    "awards_count": null
+   },
+   "deadline": {
+    "kind": "fixed",
+    "date": "2025-10-31",
+    "opens_on": null,
+    "recurs_annually": true
+   },
+   "basis": [
+    "merit"
+   ],
+   "fields": [],
+   "eligibility": [],
+   "other_eligibility": [
+    "Currently registered MSc or PhD students in good standing at a recognized institution",
+    "Research must fit BCI's priority categories on bat conservation",
+    "Previous BCI Student Scholars cannot reapply unless funding a new degree",
+    "Open to students worldwide"
+   ],
+   "requirements": {
+    "essays": [],
+    "recommendations": 1,
+    "transcript": false,
+    "financial_documents": false,
+    "interview": false
+   },
+   "last_checked_on": "2026-10-02"
+  }
+ },
+ {
+  "row": 89,
+  "outcome": "record",
+  "skip_reason": null,
+  "notes": "CAS page: applications open twice a year; deadline listed for 2026 is Sept 24, 2026 (already passed), so shown as closed/reopens. Reimburses one exam plus materials (no dollar figure). Also needs a resume and proof of exam passage (counted as transcript). The Actuarial Foundation snippet claimed July 31, 2026; not used.",
+  "record": {
+   "name": "The Actuary - A Career Change: Elizabeth M. Mauro Reimbursement Program",
+   "sponsor": "Casualty Actuarial Society",
+   "summary": "Exam and study-material reimbursement plus six months of mentoring for career changers entering property and casualty actuarial work.",
+   "apply_url": "https://fs8.formsite.com/J2PbbG/ppuayghfcl/index",
+   "source_url": "https://www.casact.org/university-programs/students/actuary-career-change-elizabeth-m-mauro-reimbursement-program",
+   "logo_url": "",
+   "award": {
+    "kind": "varies",
+    "amount": null,
+    "min": null,
+    "max": null,
+    "renewable": false,
+    "years": null,
+    "awards_count": null
+   },
+   "deadline": {
+    "kind": "fixed",
+    "date": "2026-09-24",
+    "opens_on": null,
+    "recurs_annually": true
+   },
+   "basis": [],
+   "fields": [],
+   "eligibility": [],
+   "other_eligibility": [
+    "Career changers, age 25 or older by the deadline; not for high school students",
+    "Legally authorized to work in the US",
+    "Passed at least one actuarial exam within the past 24 months and holds no actuarial designation",
+    "Not receiving reimbursement from an employer, university or other source"
+   ],
+   "requirements": {
+    "essays": [
+     {
+      "prompt": "Personal statement",
+      "words": null
+     }
+    ],
+    "recommendations": 0,
+    "transcript": true,
+    "financial_documents": false,
+    "interview": false
+   },
+   "last_checked_on": "2026-10-02"
+  }
+ },
+ {
+  "row": 90,
+  "outcome": "record",
+  "skip_reason": null,
+  "notes": "Deadline Oct 16, 2026 per UCF page. Amount and number not stated. A teacher/professor recommendation 'may be required' (left 0). Apply through UCF's A2O platform (general plus SVAD application); renewable years not stated.",
+  "record": {
+   "name": "Kinsley Family Endowed Scholarship in Emerging Media",
+   "sponsor": "UCF School of Visual Arts and Design",
+   "summary": "Scholarship for full-time UCF undergraduate or graduate students majoring in emerging media, based on artwork.",
+   "apply_url": "https://ucf.academicworks.com/",
+   "source_url": "https://cah.ucf.edu/svad/scholarship/kinsley/",
+   "logo_url": "",
+   "award": {
+    "kind": "varies",
+    "amount": null,
+    "min": null,
+    "max": null,
+    "renewable": true,
+    "years": null,
+    "awards_count": null
+   },
+   "deadline": {
+    "kind": "fixed",
+    "date": "2026-10-16",
+    "opens_on": null,
+    "recurs_annually": true
+   },
+   "basis": [
+    "merit"
+   ],
+   "fields": [
+    "Emerging Media"
+   ],
+   "eligibility": [
+    {
+     "kind": "gpa_min",
+     "value": 3.0
+    },
+    {
+     "kind": "major",
+     "any_of": [
+      "Emerging Media"
+     ]
+    }
+   ],
+   "other_eligibility": [
+    "Full-time undergraduate or graduate students enrolled at the University of Central Florida",
+    "Based on excellence in art; three artwork samples in JPG format",
+    "Renewable in successive semesters if criteria are maintained"
+   ],
+   "requirements": {
+    "essays": [],
+    "recommendations": 0,
+    "transcript": false,
+    "financial_documents": false,
+    "interview": false
+   },
+   "last_checked_on": "2026-10-02"
+  }
+ }
+]

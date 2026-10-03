@@ -1,0 +1,590 @@
+[
+  {
+    "row": 2,
+    "outcome": "record",
+    "skip_reason": null,
+    "notes": "Cambridge Admissions (camadmissions.zendesk.com, 'When are the funding deadlines?') gives the 2027/28 funding deadlines as 8 December 2026 and January 2027 (the page misprints the year of the January date) depending on the course; the Harding page and St Catharine's say the deadline is the funding deadline of the PhD course. Used the earlier one, 2026-12-08. Applications open September 2026. Amount and award count not stated.",
+    "record": {
+      "name": "Harding Distinguished Postgraduate Scholars Programme",
+      "sponsor": "University of Cambridge (Harding Distinguished Postgraduate Scholars Fund)",
+      "summary": "Fully funded PhD scholarships at the University of Cambridge for academically excellent students of any nationality and discipline.",
+      "apply_url": "https://www.hardingscholars.fund.cam.ac.uk/apply/application-and-eligibility-information",
+      "source_url": "https://www.hardingscholars.fund.cam.ac.uk/apply/application-and-eligibility-information",
+      "logo_url": "",
+      "award": {
+        "kind": "varies",
+        "amount": null,
+        "min": null,
+        "max": null,
+        "renewable": false,
+        "years": null,
+        "awards_count": null
+      },
+      "deadline": {
+        "kind": "fixed",
+        "date": "2026-12-08",
+        "opens_on": "2026-09-01",
+        "recurs_annually": true
+      },
+      "basis": [
+        "merit"
+      ],
+      "fields": [],
+      "eligibility": [],
+      "other_eligibility": [
+        "PhD applicants to the University of Cambridge only (not for undergraduates)",
+        "Open to any nationality and any discipline",
+        "Must be assessed as academically excellent by the department",
+        "Cannot be held at Trinity or St John's Colleges; some awards are reserved for St Catharine's College",
+        "Those already enrolled on the PhD cannot be funded retroactively",
+        "Deadline is the funding deadline of the chosen course (early December 2026 or January 2027)"
+      ],
+      "requirements": {
+        "essays": [],
+        "recommendations": 0,
+        "transcript": false,
+        "financial_documents": false,
+        "interview": false
+      },
+      "last_checked_on": "2026-10-02"
+    }
+  },
+  {
+    "row": 15,
+    "outcome": "record",
+    "skip_reason": null,
+    "notes": "Each Erasmus Mundus consortium sets its own deadline; the EU page gives no general date. Recorded as rolling with the summary qualified.",
+    "record": {
+      "name": "Erasmus Mundus Joint Masters Scholarships",
+      "sponsor": "European Commission (Erasmus+)",
+      "summary": "Full scholarships for joint master's degrees run by several European universities. Deadlines vary by master's programme.",
+      "apply_url": "https://erasmus-plus.ec.europa.eu/opportunities/individuals/students/erasmus-mundus-joint-masters",
+      "source_url": "https://erasmus-plus.ec.europa.eu/opportunities/individuals/students/erasmus-mundus-joint-masters",
+      "logo_url": "",
+      "award": {
+        "kind": "varies",
+        "amount": null,
+        "min": null,
+        "max": null,
+        "renewable": false,
+        "years": null,
+        "awards_count": null
+      },
+      "deadline": {
+        "kind": "rolling",
+        "date": null,
+        "opens_on": null,
+        "recurs_annually": true
+      },
+      "basis": [
+        "merit"
+      ],
+      "fields": [],
+      "eligibility": [],
+      "other_eligibility": [
+        "Graduate (master's) applicants only; open to students worldwide",
+        "Must hold a bachelor's degree or be in the final year and graduate before the master's begins",
+        "Apply directly to the institution running the chosen programme; each master sets its own deadline",
+        "Scholarships for top-ranked students cover travel, visa, a living allowance and participation costs"
+      ],
+      "requirements": {
+        "essays": [],
+        "recommendations": 0,
+        "transcript": false,
+        "financial_documents": false,
+        "interview": false
+      },
+      "last_checked_on": "2026-10-02"
+    }
+  },
+  {
+    "row": 18,
+    "outcome": "record",
+    "skip_reason": null,
+    "notes": "Each of the 60+ partner institutions sets its own deadline; none is general. Rolling with summary qualified. Need basis inferred from the underrepresented/economically disadvantaged wording.",
+    "record": {
+      "name": "Mastercard Foundation Scholars Program",
+      "sponsor": "Mastercard Foundation",
+      "summary": "Scholarships for talented young people, mainly from Africa, applied for through partner universities. Deadlines vary by partner.",
+      "apply_url": "https://mastercardfdn.org/en/what-we-do/our-programs/mastercard-foundation-scholars-program/",
+      "source_url": "https://mastercardfdn.org/en/what-we-do/our-programs/mastercard-foundation-scholars-program/",
+      "logo_url": "",
+      "award": {
+        "kind": "full_ride",
+        "amount": null,
+        "min": null,
+        "max": null,
+        "renewable": false,
+        "years": null,
+        "awards_count": null
+      },
+      "deadline": {
+        "kind": "rolling",
+        "date": null,
+        "opens_on": null,
+        "recurs_annually": true
+      },
+      "basis": [
+        "merit",
+        "need"
+      ],
+      "fields": [],
+      "eligibility": [
+        {
+          "kind": "citizenship",
+          "any_of": [
+            "international"
+          ]
+        }
+      ],
+      "other_eligibility": [
+        "Aimed at highly talented, service-oriented young people from underrepresented and economically disadvantaged backgrounds, mainly in Africa",
+        "Priority is given to women and marginalized groups",
+        "Apply directly to a partner university or organization, not to the Foundation; eligibility and deadlines are set by each partner",
+        "Admission to a partner university does not guarantee a scholarship"
+      ],
+      "requirements": {
+        "essays": [],
+        "recommendations": 0,
+        "transcript": false,
+        "financial_documents": false,
+        "interview": false
+      },
+      "last_checked_on": "2026-10-02"
+    }
+  },
+  {
+    "row": 20,
+    "outcome": "record",
+    "skip_reason": null,
+    "notes": "NUS Important Dates page (nus.edu.sg/oam/admissions/important-dates), academic year 2027/2028: International Qualifications (except IB) application period 16 December 2026 to 17 February 2027. The page marks these periods '[Closed]' even though the dates are in the future; the dates are as stated. IB applicants and other qualifications have different windows (IB also to 17 Feb 2027 by column order; NUS High to 4 Jan, Polytechnic to 3 Feb 2027). Amounts in SGD, not converted: subsidised tuition plus S$5,800 annual living allowance, S$1,750 one-time computer allowance, S$5,000 annual accommodation allowance (from pass 1).",
+    "record": {
+      "name": "NUS International Undergraduate Scholarship",
+      "sponsor": "National University of Singapore",
+      "summary": "Scholarship for exceptional international freshmen at NUS covering subsidised tuition plus living, computer and accommodation allowances.",
+      "apply_url": "https://www.nus.edu.sg/oam/scholarships/scholarships-for-freshmen-international-students/nus-international-undergraduate-scholarship",
+      "source_url": "https://www.nus.edu.sg/oam/scholarships/scholarships-for-freshmen-international-students/nus-international-undergraduate-scholarship",
+      "logo_url": "",
+      "award": {
+        "kind": "varies",
+        "amount": null,
+        "min": null,
+        "max": null,
+        "renewable": true,
+        "years": null,
+        "awards_count": null
+      },
+      "deadline": {
+        "kind": "fixed",
+        "date": "2027-02-17",
+        "opens_on": "2026-12-16",
+        "recurs_annually": true
+      },
+      "basis": [
+        "merit"
+      ],
+      "fields": [],
+      "eligibility": [
+        {
+          "kind": "citizenship",
+          "any_of": [
+            "international"
+          ]
+        }
+      ],
+      "other_eligibility": [
+        "Citizens of all countries except Singapore",
+        "Must apply for admission to a full-time undergraduate degree programme at NUS; transfer applicants are not eligible",
+        "Considered through the admission application; no separate scholarship application",
+        "Renewed each semester with a GPA of at least 3.5 (or equivalent)",
+        "Scholars must take up the MOE Tuition Grant, which carries a 3-year work bond in Singapore",
+        "Other NUS awards exist for ASEAN citizens (ASEAN Undergraduate Scholarship) and others"
+      ],
+      "requirements": {
+        "interview": true
+      },
+      "last_checked_on": "2026-10-02"
+    }
+  },
+  {
+    "row": 21,
+    "outcome": "record",
+    "skip_reason": null,
+    "notes": "Oxford graduate course pages (2027-28 entry): DPhil Computer Science deadline 12:00 midday UK time Wednesday 2 December 2026; DPhil History Thursday 7 January 2027. Clarendon page says the relevant December or January deadline of the course applies. Used the earliest, 2026-12-02. Living grant at least GBP 20,780 in 2025-26 (not converted).",
+    "record": {
+      "name": "Clarendon Scholarship",
+      "sponsor": "University of Oxford (Clarendon Fund)",
+      "summary": "Over 200 fully funded graduate scholarships at Oxford each year, awarded automatically to applicants to master's and DPhil courses by the December or January deadline.",
+      "apply_url": "https://www.ox.ac.uk/admissions/graduate/fees-and-funding/funding/clarendon/applicants",
+      "source_url": "https://www.ox.ac.uk/admissions/graduate/fees-and-funding/funding/clarendon/applicants",
+      "logo_url": "",
+      "award": {
+        "kind": "full_ride",
+        "amount": null,
+        "min": null,
+        "max": null,
+        "renewable": false,
+        "years": null,
+        "awards_count": 200
+      },
+      "deadline": {
+        "kind": "fixed",
+        "date": "2026-12-02",
+        "opens_on": null,
+        "recurs_annually": true
+      },
+      "basis": [
+        "merit"
+      ],
+      "fields": [],
+      "eligibility": [],
+      "other_eligibility": [
+        "Graduate students only: new full-time or part-time master's or DPhil courses",
+        "No restriction by nationality, residence or field of study",
+        "No separate application: apply to your course by its December or January deadline and you are considered automatically",
+        "Not open to holders of deferred graduate offers or current students continuing the same degree"
+      ],
+      "requirements": {},
+      "last_checked_on": "2026-10-02"
+    }
+  },
+  {
+    "row": 30,
+    "outcome": "record",
+    "skip_reason": null,
+    "notes": "Rotary's own application announcement PDF (my.rotary.org/en/document/rotary-peace-fellowship-application-announcement) states applications are accepted each year from 1 February to 15 May; the program page says the 2027-28 round is closed and 2028-29 opens online February 2027. Next occurrence: 2027-05-15. The row also named Rotary Scholarships (local club/district awards), not recorded separately.",
+    "record": {
+      "name": "Rotary Peace Fellowships",
+      "sponsor": "Rotary Foundation",
+      "summary": "Fully funded master's or certificate study at a Rotary Peace Center for peace and development professionals.",
+      "apply_url": "https://www.rotary.org/get-involved/our-programs/peace-fellowships",
+      "source_url": "https://www.rotary.org/get-involved/our-programs/peace-fellowships",
+      "logo_url": "",
+      "award": {
+        "kind": "full_ride",
+        "amount": null,
+        "min": null,
+        "max": null,
+        "renewable": false,
+        "years": null,
+        "awards_count": 170
+      },
+      "deadline": {
+        "kind": "fixed",
+        "date": "2027-05-15",
+        "opens_on": "2027-02-01",
+        "recurs_annually": true
+      },
+      "basis": [
+        "merit"
+      ],
+      "fields": [],
+      "eligibility": [],
+      "other_eligibility": [
+        "Postgraduate: master's degree (up to 50 fellowships) or professional development certificate (up to 120 fellowships) at one of eight Rotary Peace Centers",
+        "For leaders with work experience in peace and development",
+        "Rotary also offers separate club and district scholarships; contact a local Rotary club for those"
+      ],
+      "requirements": {},
+      "last_checked_on": "2026-10-02"
+    }
+  },
+  {
+    "row": 37,
+    "outcome": "record",
+    "skip_reason": null,
+    "notes": "collegeadmissions.uchicago.edu/financial-support/financial-overview says Odyssey supports students from under-resourced families and/or first in their family to attend college, and all students who apply for need-based aid are automatically considered; no separate application. Aid application deadlines (applying-for-aid page): Nov 15, Jan 15, Feb 15 by admission round; admission deadlines Nov 2, 2026 and Jan 4, 2027. Used the earliest aid deadline, 2026-11-15 (page notes weekend/holiday dates move to next business day).",
+    "record": {
+      "name": "Odyssey Scholarship",
+      "sponsor": "University of Chicago",
+      "summary": "UChicago program of loan-free need-based aid and career support for students from under-resourced families or first in their family to attend college.",
+      "apply_url": "https://collegeadmissions.uchicago.edu/financial-support/applying-for-aid/",
+      "source_url": "https://collegeadmissions.uchicago.edu/financial-support/financial-overview/",
+      "logo_url": "",
+      "award": {
+        "kind": "varies",
+        "amount": null,
+        "min": null,
+        "max": null,
+        "renewable": false,
+        "years": null,
+        "awards_count": null
+      },
+      "deadline": {
+        "kind": "fixed",
+        "date": "2026-11-15",
+        "opens_on": null,
+        "recurs_annually": true
+      },
+      "basis": [
+        "need"
+      ],
+      "fields": [],
+      "eligibility": [],
+      "other_eligibility": [
+        "Students from under-resourced families and/or the first in their family to attend college",
+        "Must apply to and be admitted to the University of Chicago",
+        "Every student who applies for need-based aid is considered automatically; there is no separate application",
+        "Aid application deadlines by round: Nov 15, Jan 15, Feb 15",
+        "Also provides study-abroad support, paid internships and mentoring"
+      ],
+      "requirements": {
+        "essays": [],
+        "recommendations": 0,
+        "transcript": false,
+        "financial_documents": true,
+        "interview": false
+      },
+      "last_checked_on": "2026-10-02"
+    }
+  },
+  {
+    "row": 39,
+    "outcome": "record",
+    "skip_reason": null,
+    "notes": "Neither UTokyo's page nor studyinjapan.go.jp states a deadline; each Japanese embassy or consulate (and each graduate school for university recommendation) sets its own. Rolling with summary qualified.",
+    "record": {
+      "name": "MEXT (Japanese Government) Scholarship at the University of Tokyo",
+      "sponsor": "MEXT / University of Tokyo",
+      "summary": "Japanese government scholarship for undergraduate and graduate study at UTokyo. Deadlines vary by embassy or consulate and by graduate school.",
+      "apply_url": "https://www.u-tokyo.ac.jp/en/prospective-students/mext_scholarship.html",
+      "source_url": "https://www.u-tokyo.ac.jp/en/prospective-students/mext_scholarship.html",
+      "logo_url": "",
+      "award": {
+        "kind": "varies",
+        "amount": null,
+        "min": null,
+        "max": null,
+        "renewable": false,
+        "years": null,
+        "awards_count": null
+      },
+      "deadline": {
+        "kind": "rolling",
+        "date": null,
+        "opens_on": null,
+        "recurs_annually": true
+      },
+      "basis": [
+        "merit"
+      ],
+      "fields": [],
+      "eligibility": [],
+      "other_eligibility": [
+        "Undergraduate applicants complete a mandatory one-year preparatory course in Japanese before university entrance",
+        "MEXT decides placement; applicants may not be able to take UTokyo's entrance examinations",
+        "Also open to research students in Master's, Doctorate and Professional Degree programs (university recommendation)",
+        "Apply through the Japanese embassy or consulate in your country (embassy recommendation) - process varies by country",
+        "Non-Japanese nationals applying from outside Japan; confirm details in the MEXT application guidelines"
+      ],
+      "requirements": {
+        "essays": [],
+        "recommendations": 0,
+        "transcript": false,
+        "financial_documents": false,
+        "interview": false
+      },
+      "last_checked_on": "2026-10-02"
+    }
+  },
+  {
+    "row": 43,
+    "outcome": "record",
+    "skip_reason": null,
+    "notes": "Official IRE page says applications are currently closed, and the IRE 2026 announcement says the 2027 application will be available in September 2026. No deadline date is stated on the current pages (an older IRE page said 'due Oct. 14' without a year, not used). Recorded as rolling with summary qualified; reviewer may want to re-check after the round opens. Not a student scholarship.",
+    "record": {
+      "name": "Chauncey Bailey Journalist of Color Investigative Reporting Fellowship",
+      "sponsor": "Investigative Reporters and Editors (IRE)",
+      "summary": "Yearlong IRE fellowship for early-career journalists of color pursuing investigative reporting; the 2027 round opens September 2026, with no deadline posted yet.",
+      "apply_url": "https://www.ire.org/training/fellowships-and-scholarships/ire-journalist-of-color-investigative-reporting-fellowship/",
+      "source_url": "https://www.ire.org/training/fellowships-and-scholarships/ire-journalist-of-color-investigative-reporting-fellowship/",
+      "logo_url": "",
+      "award": {
+        "kind": "varies",
+        "amount": null,
+        "min": null,
+        "max": null,
+        "renewable": false,
+        "years": null,
+        "awards_count": null
+      },
+      "deadline": {
+        "kind": "rolling",
+        "date": null,
+        "opens_on": "2026-09-01",
+        "recurs_annually": true
+      },
+      "basis": [],
+      "fields": [],
+      "eligibility": [],
+      "other_eligibility": [
+        "Professional journalists, not students: journalists of color with at least three years of post-college work experience",
+        "U.S. journalists; journalists elsewhere may apply if their work is for a U.S. audience",
+        "Working with a supportive news organization or as an independent journalist; not a current student",
+        "Must propose an investigative project benefiting their community",
+        "Provides IRE trainings (Data Journalism Bootcamp, NICAR, IRE Conference), mentoring and data services"
+      ],
+      "requirements": {
+        "essays": [],
+        "recommendations": 1,
+        "transcript": false,
+        "financial_documents": false,
+        "interview": false
+      },
+      "last_checked_on": "2026-10-02"
+    }
+  },
+  {
+    "row": 55,
+    "outcome": "record",
+    "skip_reason": null,
+    "notes": "Read in a real browser on oah.org (2026-10-02): 'Submission Deadline: October 1, 2026'; entries published Jan 1 2025 - Dec 31 2026, postmarked by the deadline (bound page proofs: copy postmarked by Jan 7 2027). No prize amount is stated on the page (pass 1's $1,000 came from search text, dropped). Biennial; the cycle has just closed. Not a student scholarship.",
+    "record": {
+      "logo_url": "",
+      "basis": [
+        "merit"
+      ],
+      "fields": [],
+      "eligibility": [],
+      "other_eligibility": [
+        "Authors of a book on the history of native and/or settler peoples in frontier, border and borderland zones of intercultural contact",
+        "Books published Jan 1, 2025 - Dec 31, 2026",
+        "Awarded every two years; not a student scholarship",
+        "One copy mailed to each committee member, postmarked by the deadline"
+      ],
+      "last_checked_on": "2026-10-02",
+      "name": "Ray Allen Billington Prize",
+      "sponsor": "Organization of American Historians (OAH)",
+      "summary": "Biennial OAH prize for the best book on native and settler peoples in frontier, border and borderland zones of intercultural contact.",
+      "apply_url": "https://www.oah.org/awards/book-awards-and-prizes/ray-allen-billington-prize/",
+      "source_url": "https://www.oah.org/awards/book-awards-and-prizes/ray-allen-billington-prize/",
+      "award": {
+        "kind": "varies",
+        "amount": null,
+        "min": null,
+        "max": null,
+        "renewable": false,
+        "years": null,
+        "awards_count": 1
+      },
+      "deadline": {
+        "kind": "fixed",
+        "date": "2026-10-01",
+        "opens_on": null,
+        "recurs_annually": true
+      },
+      "requirements": {
+        "essays": [],
+        "recommendations": 0,
+        "transcript": false,
+        "financial_documents": false,
+        "interview": false
+      }
+    }
+  },
+  {
+    "row": 56,
+    "outcome": "record",
+    "skip_reason": null,
+    "notes": "Read in a real browser on oah.org (2026-10-02): 'Submission Deadline: October 1, 2027'; entries published, uploaded or installed Jan 1 2026 - Dec 31 2027. No prize amount is stated on the page (pass 1's $1,500 came from search text, dropped). Biennial. Not a student scholarship.",
+    "record": {
+      "logo_url": "",
+      "basis": [
+        "merit"
+      ],
+      "fields": [],
+      "eligibility": [],
+      "other_eligibility": [
+        "Full-time historians or federal contract historians in a U.S. government agency or museum for at least 5 years; not a student scholarship",
+        "Books, edited volumes, public history projects, exhibitions, podcasts, films or digital projects",
+        "Work published, uploaded or installed Jan 1, 2026 - Dec 31, 2027",
+        "Employment verification must accompany each entry",
+        "Awarded every two years"
+      ],
+      "last_checked_on": "2026-10-02",
+      "name": "Richard W. Leopold Prize",
+      "sponsor": "Organization of American Historians (OAH)",
+      "summary": "Biennial OAH prize for historical scholarship by U.S. government historians or federal contract historians.",
+      "apply_url": "https://www.oah.org/awards/book-awards-and-prizes/richard-w-leopold-prize/",
+      "source_url": "https://www.oah.org/awards/book-awards-and-prizes/richard-w-leopold-prize/",
+      "award": {
+        "kind": "varies",
+        "amount": null,
+        "min": null,
+        "max": null,
+        "renewable": false,
+        "years": null,
+        "awards_count": 1
+      },
+      "deadline": {
+        "kind": "fixed",
+        "date": "2027-10-01",
+        "opens_on": null,
+        "recurs_annually": true
+      },
+      "requirements": {
+        "essays": [],
+        "recommendations": 0,
+        "transcript": false,
+        "financial_documents": false,
+        "interview": false
+      }
+    }
+  },
+  {
+    "row": 78,
+    "outcome": "record",
+    "skip_reason": null,
+    "notes": "ctspacegrant.org pages read 2026-10-02: Fall 2026 applications open 9/1/2026-10/13/2026 but the Graduate Fellowship Grant is 'Not offered for Fall 2026'; Spring 2027 applications tentatively open January 2027, dates not announced. Listed 5 awards, up to $10,000. Used the Fall 2026 window close (2026-10-13) as the last stated date and said so in the summary. Eligibility: full-time grad students at a Consortium member institution, proof of US citizenship, two recommendations (one from research supervisor), transcript. Award recorded as varies (page gives only 'up to $10,000', no minimum).",
+    "record": {
+      "name": "NASA Connecticut Space Grant Consortium Graduate Fellowship Grant",
+      "sponsor": "Connecticut Space Grant Consortium (NASA)",
+      "summary": "Grant of up to $10,000 for graduate research aligned with NASA priorities. Not offered for Fall 2026; Spring 2027 round expected January 2027.",
+      "apply_url": "https://ctspacegrant.org/undergraduate-graduate",
+      "source_url": "https://ctspacegrant.org/undergraduate-graduate",
+      "logo_url": "",
+      "award": {
+        "kind": "varies",
+        "amount": null,
+        "min": null,
+        "max": null,
+        "renewable": false,
+        "years": null,
+        "awards_count": 5
+      },
+      "deadline": {
+        "kind": "fixed",
+        "date": "2026-10-13",
+        "opens_on": "2026-09-01",
+        "recurs_annually": true
+      },
+      "basis": [
+        "merit"
+      ],
+      "fields": [],
+      "eligibility": [
+        {
+          "kind": "citizenship",
+          "any_of": [
+            "us_citizen"
+          ]
+        }
+      ],
+      "other_eligibility": [
+        "Full-time graduate students at a Connecticut Space Grant Consortium member institution",
+        "Strong academic record; first-semester graduate students provide an undergraduate transcript",
+        "Independent, faculty-mentored research aligned with NASA Mission Directorates",
+        "Cannot hold other federal fellowships or traineeships during the award",
+        "Research must be conducted in person and on site"
+      ],
+      "requirements": {
+        "essays": [],
+        "recommendations": 2,
+        "transcript": true,
+        "financial_documents": false,
+        "interview": false
+      },
+      "last_checked_on": "2026-10-02"
+    }
+  }
+]

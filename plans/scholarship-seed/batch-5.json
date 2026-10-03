@@ -1,0 +1,872 @@
+[
+  {
+    "row": 61,
+    "outcome": "skip",
+    "skip_reason": "Official scholarships page redirects to a 'scholarships-paused' page (404); program appears paused and no official page could be read.",
+    "notes": "Official abc-med.com/scholarships URL 301-redirects to /scholarships-paused, which returns 404; the ABC Medical community-support page still lists the scholarships but links to the dead page. Search snippets (BigFuture, Triumph Foundation) describe $1,000 Spring/Fall awards, but no official page to read facts from, and the program appears paused.",
+    "record": null
+  },
+  {
+    "row": 62,
+    "outcome": "record",
+    "skip_reason": null,
+    "notes": "Read ahmpchicago.org program page plus the 2026 Scholarship Info PDF and application PDF (Rev. 08-2026). Cycle: 2026 (deadline Nov 1, 2026). One $2,000 undergraduate and one $2,000 graduate award. Financial need not considered. Application is emailed (no portal). Essays limited to two pages total across three questions. Requires a copy of Illinois REAL ID as proof of residency.",
+    "record": {
+      "name": "AHMP Chicago Environmental Scholarship",
+      "sponsor": "Alliance of Hazardous Materials Professionals - Chicago Chapter",
+      "summary": "Two $2,000 awards for Illinois undergraduate juniors/seniors and graduate students in environmental fields at northern Illinois colleges.",
+      "apply_url": "https://ahmpchicago.org/environmental-scholarship-program/",
+      "source_url": "https://ahmpchicago.org/environmental-scholarship-program/",
+      "logo_url": "",
+      "award": {
+        "kind": "fixed",
+        "amount": 2000,
+        "min": null,
+        "max": null,
+        "renewable": false,
+        "years": null,
+        "awards_count": 2
+      },
+      "deadline": {
+        "kind": "fixed",
+        "date": "2026-11-01",
+        "opens_on": null,
+        "recurs_annually": true
+      },
+      "basis": [
+        "merit"
+      ],
+      "fields": [
+        "Environmental science",
+        "Environmental engineering",
+        "Hazardous materials technologies",
+        "Energy conservation or management",
+        "Emergency management"
+      ],
+      "eligibility": [
+        {
+          "kind": "state",
+          "any_of": [
+            "IL"
+          ]
+        },
+        {
+          "kind": "gpa_min",
+          "value": 3.0
+        }
+      ],
+      "other_eligibility": [
+        "Undergraduate juniors or seniors, or graduate students (degree or certificate)",
+        "Attending a 4-year institution in northern Illinois (e.g. DePaul, UIC, IIT, NIU, North Central College, Northwestern, Elmhurst); SE Wisconsin and NW Indiana schools may be considered",
+        "Environmental-related degree or certificate program, including civil engineering or natural sciences with an environmental emphasis",
+        "Must not have previously won this scholarship",
+        "One award is for an undergraduate and one for a graduate student",
+        "Includes a one-year complimentary AHMP Chicago Chapter membership"
+      ],
+      "requirements": {
+        "essays": [
+          {
+            "prompt": "Why are you pursuing an environmental career, and which career areas interest you most? Describe your environmental work, volunteer and/or leadership experience and how it has prepared you. List honors, awards or previous (non-financial-need) scholarships. Two pages total for all answers.",
+            "words": null
+          }
+        ],
+        "recommendations": 2,
+        "transcript": true,
+        "financial_documents": false,
+        "interview": false
+      },
+      "last_checked_on": "2026-10-02"
+    }
+  },
+  {
+    "row": 63,
+    "outcome": "record",
+    "skip_reason": null,
+    "notes": "Cycle 2026-27 (opens 2026-09-01 3:00 p.m., closes 2026-10-02 3:00 p.m. - closes the same day as this research). Official page and Grant Guide (cycle year 2026) read. Amount is a maximum; HCAI may award full, partial or no funding. Application is via the HCAI Funding Portal; the guide lists a one-year cost of attendance document from the school; no essay/recommendation requirement found. Basis left empty: awards are scored on HCAI criteria (languages spoken, medically underserved experience, etc.), not stated as merit or need. Citizenship not stated. Previous awardees get priority. Max $8,000 for one year of school (can reapply each year).",
+    "record": {
+      "name": "HCAI Associate Degree Nursing Scholarship Program",
+      "sponsor": "California Department of Health Care Access and Information (HCAI)",
+      "summary": "Up to $8,000 for California students in an associate degree RN program who commit to one year of direct patient care in an underserved area.",
+      "apply_url": "https://funding.hcai.ca.gov/",
+      "source_url": "https://hcai.ca.gov/workforce/financial-assistance/scholarships/adnsp/",
+      "logo_url": "",
+      "award": {
+        "kind": "varies",
+        "amount": null,
+        "min": null,
+        "max": null,
+        "renewable": false,
+        "years": null,
+        "awards_count": null
+      },
+      "deadline": {
+        "kind": "fixed",
+        "date": "2026-10-02",
+        "opens_on": "2026-09-01",
+        "recurs_annually": true
+      },
+      "basis": [],
+      "fields": [
+        "Nursing"
+      ],
+      "eligibility": [
+        {
+          "kind": "state",
+          "any_of": [
+            "CA"
+          ]
+        },
+        {
+          "kind": "gpa_min",
+          "value": 2.0
+        }
+      ],
+      "other_eligibility": [
+        "Accepted or enrolled in an accredited associate degree nursing program leading to RN licensure",
+        "Must begin class or training program by October 1, 2026 and graduate after March 31, 2027",
+        "Must commit to a one-year service obligation of at least 32 hours per week of direct patient care in an underserved area or qualifying facility in California, starting within six months of graduation",
+        "Must not hold another service obligation, including with other HCAI programs",
+        "Enrolled in at least six semester units until program completion",
+        "Awardees who do not complete the service obligation may have to repay the award"
+      ],
+      "requirements": {
+        "essays": [],
+        "recommendations": 0,
+        "transcript": false,
+        "financial_documents": true,
+        "interview": false
+      },
+      "last_checked_on": "2026-10-02"
+    }
+  },
+  {
+    "row": 64,
+    "outcome": "record",
+    "skip_reason": null,
+    "notes": "Cycle 2026-27 (opens 2026-09-01 3:00 p.m., closes 2026-10-02 3:00 p.m. - closes the same day as this research). Official page and Grant Guide (cycle year 2026) read. Amount is a maximum; HCAI may award full, partial or no funding. Application is via the HCAI Funding Portal; the guide lists a one-year cost of attendance document from the school; no essay/recommendation requirement found. Basis left empty: awards are scored on HCAI criteria (languages spoken, medically underserved experience, etc.), not stated as merit or need. Citizenship not stated. Previous awardees get priority. Max $10,000 (guide: up to $10,000 for a one-year service obligation).",
+    "record": {
+      "name": "HCAI Bachelor of Science Nursing Scholarship Program",
+      "sponsor": "California Department of Health Care Access and Information (HCAI)",
+      "summary": "Up to $10,000 for California students in a BSN program who commit to one year of direct patient care in an underserved area.",
+      "apply_url": "https://funding.hcai.ca.gov/",
+      "source_url": "https://hcai.ca.gov/workforce/financial-assistance/scholarships/bsnsp/",
+      "logo_url": "",
+      "award": {
+        "kind": "varies",
+        "amount": null,
+        "min": null,
+        "max": null,
+        "renewable": false,
+        "years": null,
+        "awards_count": null
+      },
+      "deadline": {
+        "kind": "fixed",
+        "date": "2026-10-02",
+        "opens_on": "2026-09-01",
+        "recurs_annually": true
+      },
+      "basis": [],
+      "fields": [
+        "Nursing"
+      ],
+      "eligibility": [
+        {
+          "kind": "state",
+          "any_of": [
+            "CA"
+          ]
+        },
+        {
+          "kind": "gpa_min",
+          "value": 2.0
+        }
+      ],
+      "other_eligibility": [
+        "Accepted or enrolled in a bachelor's degree nursing program leading to RN licensure",
+        "Must begin class or training program by October 1, 2026 and graduate after March 31, 2027",
+        "Must commit to a one-year service obligation of at least 32 hours per week of direct patient care in an underserved area or qualifying facility in California, starting within six months of graduation",
+        "Must not hold another service obligation, including with other HCAI programs",
+        "Enrolled in at least six semester units until program completion",
+        "Awardees who do not complete the service obligation may have to repay the award"
+      ],
+      "requirements": {
+        "essays": [],
+        "recommendations": 0,
+        "transcript": false,
+        "financial_documents": true,
+        "interview": false
+      },
+      "last_checked_on": "2026-10-02"
+    }
+  },
+  {
+    "row": 65,
+    "outcome": "record",
+    "skip_reason": null,
+    "notes": "Cycle 2026-27 (opens 2026-09-01 3:00 p.m., closes 2026-10-02 3:00 p.m. - closes the same day as this research). Official page and Grant Guide (cycle year 2026) read. Amount is a maximum; HCAI may award full, partial or no funding. Application is via the HCAI Funding Portal; the guide lists a one-year cost of attendance document from the school; no essay/recommendation requirement found. Basis left empty: awards are scored on HCAI criteria (languages spoken, medically underserved experience, etc.), not stated as merit or need. Citizenship not stated. Previous awardees get priority. Max $8,000. California residency read in the BSNSP/ADNSP guides and in the LVN-to-ADN guide.",
+    "record": {
+      "name": "HCAI Licensed Vocational Nurse to Associate Degree Nursing Scholarship Program",
+      "sponsor": "California Department of Health Care Access and Information (HCAI)",
+      "summary": "Up to $8,000 for California licensed vocational nurses enrolled in an LVN-to-ADN program who commit to one year of direct patient care in an underserved area.",
+      "apply_url": "https://funding.hcai.ca.gov/",
+      "source_url": "https://hcai.ca.gov/workforce/financial-assistance/scholarships/lvnadnsp/",
+      "logo_url": "",
+      "award": {
+        "kind": "varies",
+        "amount": null,
+        "min": null,
+        "max": null,
+        "renewable": false,
+        "years": null,
+        "awards_count": null
+      },
+      "deadline": {
+        "kind": "fixed",
+        "date": "2026-10-02",
+        "opens_on": "2026-09-01",
+        "recurs_annually": true
+      },
+      "basis": [],
+      "fields": [
+        "Nursing"
+      ],
+      "eligibility": [
+        {
+          "kind": "state",
+          "any_of": [
+            "CA"
+          ]
+        },
+        {
+          "kind": "gpa_min",
+          "value": 2.0
+        }
+      ],
+      "other_eligibility": [
+        "Licensed vocational nurses accepted or enrolled in an LVN-to-ADN program leading to RN licensure",
+        "Must begin class or training program by October 1, 2026 and graduate after March 31, 2027",
+        "Must commit to a one-year service obligation of at least 32 hours per week of direct patient care in an underserved area or qualifying facility in California, starting within six months of graduation",
+        "Must not hold another service obligation, including with other HCAI programs",
+        "Enrolled in at least six semester units until program completion",
+        "Awardees who do not complete the service obligation may have to repay the award"
+      ],
+      "requirements": {
+        "essays": [],
+        "recommendations": 0,
+        "transcript": false,
+        "financial_documents": true,
+        "interview": false
+      },
+      "last_checked_on": "2026-10-02"
+    }
+  },
+  {
+    "row": 66,
+    "outcome": "record",
+    "skip_reason": null,
+    "notes": "Cycle 2027-28 awards: opens 2026-08-01, closes 2026-10-05. Read aist.org steel intern page and FAQ. Page lists amounts as $7,500 (Steel Intern) and $12,000 (Premier), with an NHIC-country amount of US$4,500/$7,200 in parentheses - US students get the larger figure. Minimum one recommendation letter (up to five). Not a pure cash award: includes a paid summer internship. Citizenship is US/Canada/Mexico so left unstructured (the app's 'international' value would be too broad). Up to 50 awards a year including the Premier.",
+    "record": {
+      "name": "AIST Foundation Steel Intern Scholarship",
+      "sponsor": "Association for Iron & Steel Technology (AIST) Foundation",
+      "summary": "A paid summer steel-industry internship followed by a $7,500 scholarship for the next academic year, for North American STEM undergraduates.",
+      "apply_url": "https://aist-scholarships.secure-platform.com/site",
+      "source_url": "https://www.aist.org/students-faculty/scholarships/steel-intern-scholarships",
+      "logo_url": "",
+      "award": {
+        "kind": "fixed",
+        "amount": 7500,
+        "min": null,
+        "max": null,
+        "renewable": false,
+        "years": null,
+        "awards_count": 50
+      },
+      "deadline": {
+        "kind": "fixed",
+        "date": "2026-10-05",
+        "opens_on": "2026-08-01",
+        "recurs_annually": true
+      },
+      "basis": [
+        "merit"
+      ],
+      "fields": [
+        "Engineering",
+        "Engineering technology",
+        "Computer science",
+        "Data science",
+        "Environmental science",
+        "Safety"
+      ],
+      "eligibility": [
+        {
+          "kind": "gpa_min",
+          "value": 2.5
+        }
+      ],
+      "other_eligibility": [
+        "Citizens of the United States, Canada or Mexico (USMCA countries)",
+        "Sophomores, juniors, or seniors entering graduate school; full-time (12 credits undergraduate, 8 graduate)",
+        "Must accept a paid summer internship at a North American steel-producing or steel-related company, and be willing to relocate",
+        "Majors: engineering, engineering technology, computer science, data science, environmental/sustainability science, safety/industrial safety"
+      ],
+      "requirements": {
+        "essays": [
+          {
+            "prompt": "Essay (not to exceed two pages) citing your professional goals and explaining why you are interested in a career in the steel industry.",
+            "words": null
+          }
+        ],
+        "recommendations": 1,
+        "transcript": true,
+        "financial_documents": false,
+        "interview": false
+      },
+      "last_checked_on": "2026-10-02"
+    }
+  },
+  {
+    "row": 67,
+    "outcome": "record",
+    "skip_reason": null,
+    "notes": "Cycle 2027-28 awards: opens 2026-08-01, closes 2026-10-05. Read aist.org steel intern page and FAQ. Page lists amounts as $7,500 (Steel Intern) and $12,000 (Premier), with an NHIC-country amount of US$4,500/$7,200 in parentheses - US students get the larger figure. Minimum one recommendation letter (up to five). Not a pure cash award: includes a paid summer internship. Citizenship is US/Canada/Mexico so left unstructured (the app's 'international' value would be too broad). Premier is awarded to the single highest-scoring applicant among the Steel Intern applicants (same application).",
+    "record": {
+      "name": "AIST Foundation Premier Steel Intern Scholarship",
+      "sponsor": "Association for Iron & Steel Technology (AIST) Foundation",
+      "summary": "A paid steel-industry internship plus a $12,000 scholarship for the single highest-scoring Steel Intern applicant.",
+      "apply_url": "https://aist-scholarships.secure-platform.com/site",
+      "source_url": "https://www.aist.org/students-faculty/scholarships/steel-intern-scholarships",
+      "logo_url": "",
+      "award": {
+        "kind": "fixed",
+        "amount": 12000,
+        "min": null,
+        "max": null,
+        "renewable": false,
+        "years": null,
+        "awards_count": 1
+      },
+      "deadline": {
+        "kind": "fixed",
+        "date": "2026-10-05",
+        "opens_on": "2026-08-01",
+        "recurs_annually": true
+      },
+      "basis": [
+        "merit"
+      ],
+      "fields": [
+        "Engineering",
+        "Engineering technology",
+        "Computer science",
+        "Data science",
+        "Environmental science",
+        "Safety"
+      ],
+      "eligibility": [
+        {
+          "kind": "gpa_min",
+          "value": 2.5
+        }
+      ],
+      "other_eligibility": [
+        "Citizens of the United States, Canada or Mexico (USMCA countries)",
+        "Sophomores, juniors, or seniors entering graduate school; full-time (12 credits undergraduate, 8 graduate)",
+        "Must accept a paid summer internship at a North American steel-producing or steel-related company, and be willing to relocate",
+        "Majors: engineering, engineering technology, computer science, data science, environmental/sustainability science, safety/industrial safety",
+        "Awarded to the highest-scoring applicant; no separate application"
+      ],
+      "requirements": {
+        "essays": [
+          {
+            "prompt": "Essay (not to exceed two pages) citing your professional goals and explaining why you are interested in a career in the steel industry.",
+            "words": null
+          }
+        ],
+        "recommendations": 1,
+        "transcript": true,
+        "financial_documents": false,
+        "interview": false
+      },
+      "last_checked_on": "2026-10-02"
+    }
+  },
+  {
+    "row": 68,
+    "outcome": "record",
+    "skip_reason": null,
+    "notes": "Cycle 2026: deadline 2026-10-06 11:59 PM PT; open date not stated. Three scholarships up to $10,000 each (paid to the residency program) for any ABPTRFE-accredited residency; plus one scholarship covering the full $42,250 cost of the HODS/AACE electrodiagnostic residency in New York (so 4 awards total). Applicants attest no AI was used and are auto-enrolled in Employer Connect programming. Read rizing-tide.com Surge page and its apply page.",
+    "record": {
+      "name": "Rizing Tide Surge Scholarship",
+      "sponsor": "Rizing Tide Foundation",
+      "summary": "Up to $10,000 toward a physical therapy residency for graduating DPT students of underrepresented racial or ethnic heritage.",
+      "apply_url": "https://rizing-tide.com/scholarships/surge/apply",
+      "source_url": "https://rizing-tide.com/scholarships/surge/",
+      "logo_url": "",
+      "award": {
+        "kind": "varies",
+        "amount": null,
+        "min": null,
+        "max": null,
+        "renewable": false,
+        "years": null,
+        "awards_count": 4
+      },
+      "deadline": {
+        "kind": "fixed",
+        "date": "2026-10-06",
+        "opens_on": null,
+        "recurs_annually": true
+      },
+      "basis": [
+        "merit"
+      ],
+      "fields": [
+        "Physical therapy"
+      ],
+      "eligibility": [
+        {
+          "kind": "citizenship",
+          "any_of": [
+            "us_citizen",
+            "daca"
+          ]
+        },
+        {
+          "kind": "gpa_min",
+          "value": 3.2
+        }
+      ],
+      "other_eligibility": [
+        "Graduate of a CAPTE-accredited physical therapy program (new graduates or licensed PTs)",
+        "Accepted into an ABPTRFE-accredited physical therapy residency program in the U.S.",
+        "Underrepresented racial and/or ethnic heritage in physical therapy",
+        "Must remain in good standing until the residency is completed",
+        "Paid directly to the residency program provider"
+      ],
+      "requirements": {
+        "essays": [
+          {
+            "prompt": "Essay 1: How have recent changes like direct access, telehealth and AI tools affected patient experience in physical therapy, and how will you navigate this evolving field?",
+            "words": 500
+          },
+          {
+            "prompt": "Essay 2: Explain how your cultural background and personal history enable you to address health disparities in underrepresented communities, using specific examples.",
+            "words": 500
+          },
+          {
+            "prompt": "Essay 3: When reimbursement pressures, productivity quotas and visit time constraints conflict with optimal patient care, describe your specific strategies to maintain care quality.",
+            "words": 500
+          }
+        ],
+        "recommendations": 2,
+        "transcript": true,
+        "financial_documents": false,
+        "interview": false
+      },
+      "last_checked_on": "2026-10-02"
+    }
+  },
+  {
+    "row": 69,
+    "outcome": "record",
+    "skip_reason": null,
+    "notes": "Cycle 2026: deadline Oct 10, 2026, 11:59 p.m. PT, read on couponbirds.com's application page. Prizes $1,500 / $1,000 / $500 (3 winners, $3,000 total) per the 2026 application page; the main scholarship page still says 'five' and 'typically early October' and the 2025 rules differ, so the application page was used. Video contest, no essay. Submission also needs a public social-media post. Proof of enrollment or transcript uploaded. Winners must reply within seven business days.",
+    "record": {
+      "name": "CouponBirds Help to Save Scholarship",
+      "sponsor": "CouponBirds",
+      "summary": "A video contest: high school and college students in the US or Canada share how they budget for big dreams, for prizes of $500 to $1,500.",
+      "apply_url": "https://www.couponbirds.com/scholarship-application-form",
+      "source_url": "https://www.couponbirds.com/scholarship-application-form",
+      "logo_url": "",
+      "award": {
+        "kind": "range",
+        "amount": null,
+        "min": 500,
+        "max": 1500,
+        "renewable": false,
+        "years": null,
+        "awards_count": 3
+      },
+      "deadline": {
+        "kind": "fixed",
+        "date": "2026-10-10",
+        "opens_on": null,
+        "recurs_annually": true
+      },
+      "basis": [],
+      "fields": [],
+      "eligibility": [],
+      "other_eligibility": [
+        "High school students at least 15 years old, or college students at least 18, studying in the US or Canada",
+        "Open to students of all nationalities",
+        "Proof of enrollment, acceptance letter or transcript required",
+        "Submit an English-language YouTube video of up to 5 minutes (theme: Budgeting for Big Dreams) and a public X/Facebook post sharing it",
+        "Judged on submission quality, creativity of ideas and engagement (views, likes, comments)",
+        "One application per person; original content only"
+      ],
+      "requirements": {
+        "essays": [],
+        "recommendations": 0,
+        "transcript": false,
+        "financial_documents": false,
+        "interview": false
+      },
+      "last_checked_on": "2026-10-02"
+    }
+  },
+  {
+    "row": 70,
+    "outcome": "record",
+    "skip_reason": null,
+    "notes": "Cycle 2026-27: opens 2026-08-14, closes 2026-10-19 (award announcement Oct 26 for the rocket competition, Dec 4 for aviation). Read the WSGC Aviation Scholarship profile page. $3,000 subject to funding availability, to attend the WAI conference or another aviation conference. Citizenship not stated on the page. Applications go through the NASA STEM Gateway and a WSGC account. Number of awards not stated. Transcript waived for incoming freshmen.",
+    "record": {
+      "name": "NASA WSGC Aviation Scholarship",
+      "sponsor": "Wisconsin Space Grant Consortium (NASA)",
+      "summary": "A $3,000 award for aviation-focused undergraduates at Wisconsin Space Grant member colleges, to attend an aviation conference.",
+      "apply_url": "https://spacegrant.carthage.edu/live/profiles/2005-aviation-scholarship",
+      "source_url": "https://spacegrant.carthage.edu/live/profiles/2005-aviation-scholarship",
+      "logo_url": "",
+      "award": {
+        "kind": "fixed",
+        "amount": 3000,
+        "min": null,
+        "max": null,
+        "renewable": false,
+        "years": null,
+        "awards_count": null
+      },
+      "deadline": {
+        "kind": "fixed",
+        "date": "2026-10-19",
+        "opens_on": "2026-08-14",
+        "recurs_annually": true
+      },
+      "basis": [
+        "merit"
+      ],
+      "fields": [
+        "Aviation"
+      ],
+      "eligibility": [
+        {
+          "kind": "gpa_min",
+          "value": 3.0
+        }
+      ],
+      "other_eligibility": [
+        "Undergraduates enrolled full-time at (or admitted to) a Wisconsin Space Grant Consortium member college or university",
+        "Aviation-related program of study",
+        "Applications below a 3.0 GPA are considered individually",
+        "Funded subject to availability; recipients attend the Wisconsin Space Conference"
+      ],
+      "requirements": {
+        "essays": [
+          {
+            "prompt": "Two-page statement addressing your interest in and experience with aviation, how the conference would benefit you, and your career plans.",
+            "words": null
+          }
+        ],
+        "recommendations": 2,
+        "transcript": true,
+        "financial_documents": false,
+        "interview": false
+      },
+      "last_checked_on": "2026-10-02"
+    }
+  },
+  {
+    "row": 71,
+    "outcome": "record",
+    "skip_reason": null,
+    "notes": "Cycle 2026-27: opens 2026-08-14, closes 2026-10-19 (award announcement Oct 26 for the rocket competition, Dec 4 for aviation). Prizes: Mission Grand Champion $3,000 + tour, 2nd $2,000, 3rd $1,000, plus up to $750 team funding for supplies; competition April 23-25, 2027. Team of 4-6 students with a faculty advisor and a Tripoli/NAR mentor. Citizenship not stated. Number of teams funded not stated. Award recorded as the prize range.",
+    "record": {
+      "name": "NASA WSGC Collegiate Rocket Competition",
+      "sponsor": "Wisconsin Space Grant Consortium (NASA)",
+      "summary": "A rocketry competition for teams at Wisconsin Space Grant member colleges, with prizes of $1,000 to $3,000 and up to $750 in team funding.",
+      "apply_url": "https://spacegrant.carthage.edu/live/profiles/2084-collegiate-rocket-competition",
+      "source_url": "https://spacegrant.carthage.edu/live/profiles/2084-collegiate-rocket-competition",
+      "logo_url": "",
+      "award": {
+        "kind": "range",
+        "amount": null,
+        "min": 1000,
+        "max": 3000,
+        "renewable": false,
+        "years": null,
+        "awards_count": 3
+      },
+      "deadline": {
+        "kind": "fixed",
+        "date": "2026-10-19",
+        "opens_on": "2026-08-14",
+        "recurs_annually": true
+      },
+      "basis": [
+        "merit"
+      ],
+      "fields": [],
+      "eligibility": [],
+      "other_eligibility": [
+        "Team competition: 4-6 student members, a team leader, a faculty advisor and an industry/NAR/Tripoli mentor",
+        "Members must be enrolled full-time at a Wisconsin Space Grant Consortium academic affiliate institution",
+        "Members must obtain Tripoli or NAR membership",
+        "Prizes: Grand Champion $3,000 plus tour, second place $2,000, third place $1,000; teams also receive up to $750 for supplies"
+      ],
+      "requirements": {
+        "essays": [],
+        "recommendations": 0,
+        "transcript": false,
+        "financial_documents": false,
+        "interview": false
+      },
+      "last_checked_on": "2026-10-02"
+    }
+  },
+  {
+    "row": 72,
+    "outcome": "record",
+    "skip_reason": null,
+    "notes": "Cycle Fall 2026: open 2026-09-01, closes 2026-10-13 (CTSGC lists a Spring cycle as well); recommendation due 7 days after close. Applications go through a Smartsheet form linked from ctspacegrant.org/student-funding-opportunities. Read the CTSGC student-funding and eligibility pages. U.S. citizenship required (proof to the campus director). Number of awards not stated. Up to $1,500, supplies and materials only (no travel, equipment or fees). Project leader must be a US citizen.",
+    "record": {
+      "name": "NASA Connecticut Space Grant Consortium Student Project Grant",
+      "sponsor": "Connecticut Space Grant Consortium (NASA)",
+      "summary": "Up to $1,500 in supplies and materials for undergraduate or graduate student design or build projects aligned with NASA's missions.",
+      "apply_url": "https://app.smartsheet.com/b/form/01971713899d79869bd7730bc5f6c3a4",
+      "source_url": "https://ctspacegrant.org/undergraduate-graduate",
+      "logo_url": "",
+      "award": {
+        "kind": "varies",
+        "amount": null,
+        "min": null,
+        "max": null,
+        "renewable": false,
+        "years": null,
+        "awards_count": null
+      },
+      "deadline": {
+        "kind": "fixed",
+        "date": "2026-10-13",
+        "opens_on": "2026-09-01",
+        "recurs_annually": true
+      },
+      "basis": [
+        "merit"
+      ],
+      "fields": [],
+      "eligibility": [
+        {
+          "kind": "citizenship",
+          "any_of": [
+            "us_citizen"
+          ]
+        }
+      ],
+      "other_eligibility": [
+        "Full-time student at a Connecticut Space Grant Consortium member institution, with at least one completed semester",
+        "Strong academic record",
+        "Funded through NASA; U.S. citizenship required",
+        "Undergraduate and graduate students; the project leader must be a U.S. citizen with a strong academic record",
+        "Funds cover supplies and materials only"
+      ],
+      "requirements": {
+        "essays": [
+          {
+            "prompt": "Project narrative (5 pages maximum) with a 100-word abstract, budget worksheet and budget narrative.",
+            "words": null
+          }
+        ],
+        "recommendations": 1,
+        "transcript": true,
+        "financial_documents": false,
+        "interview": false
+      },
+      "last_checked_on": "2026-10-02"
+    }
+  },
+  {
+    "row": 73,
+    "outcome": "record",
+    "skip_reason": null,
+    "notes": "Cycle Fall 2026: open 2026-09-01, closes 2026-10-13 (CTSGC lists a Spring cycle as well); recommendation due 7 days after close. Applications go through a Smartsheet form linked from ctspacegrant.org/student-funding-opportunities. Read the CTSGC student-funding and eligibility pages. U.S. citizenship required (proof to the campus director). Number of awards not stated. Up to $1,500; domestic travel only, no advances: NASA facility visits, conferences presenting Space Grant research, NASA workshops or competitions.",
+    "record": {
+      "name": "NASA Connecticut Space Grant Consortium Student Travel Award",
+      "sponsor": "Connecticut Space Grant Consortium (NASA)",
+      "summary": "Up to $1,500 for domestic travel to NASA facilities or to present Space Grant research, for Connecticut consortium students.",
+      "apply_url": "https://app.smartsheet.com/b/form/01971713899d79869bd7730bc5f6c3a4",
+      "source_url": "https://ctspacegrant.org/undergraduate-graduate",
+      "logo_url": "",
+      "award": {
+        "kind": "varies",
+        "amount": null,
+        "min": null,
+        "max": null,
+        "renewable": false,
+        "years": null,
+        "awards_count": null
+      },
+      "deadline": {
+        "kind": "fixed",
+        "date": "2026-10-13",
+        "opens_on": "2026-09-01",
+        "recurs_annually": true
+      },
+      "basis": [
+        "merit"
+      ],
+      "fields": [],
+      "eligibility": [
+        {
+          "kind": "citizenship",
+          "any_of": [
+            "us_citizen"
+          ]
+        }
+      ],
+      "other_eligibility": [
+        "Full-time student at a Connecticut Space Grant Consortium member institution, with at least one completed semester",
+        "Strong academic record",
+        "Funded through NASA; U.S. citizenship required",
+        "Undergraduate and graduate students",
+        "Domestic travel only; no travel advances"
+      ],
+      "requirements": {
+        "essays": [
+          {
+            "prompt": "Travel narrative (2 pages maximum) stating the travel purpose, with a 100-word abstract, budget worksheet, budget narrative and invitation if applicable.",
+            "words": null
+          }
+        ],
+        "recommendations": 1,
+        "transcript": true,
+        "financial_documents": false,
+        "interview": false
+      },
+      "last_checked_on": "2026-10-02"
+    }
+  },
+  {
+    "row": 74,
+    "outcome": "record",
+    "skip_reason": null,
+    "notes": "Cycle Fall 2026: open 2026-09-01, closes 2026-10-13 (CTSGC lists a Spring cycle as well); recommendation due 7 days after close. Applications go through a Smartsheet form linked from ctspacegrant.org/student-funding-opportunities. Read the CTSGC student-funding and eligibility pages. U.S. citizenship required (proof to the campus director). Number of awards not stated. Up to $6,000; budget includes a $2,000-$4,000 stipend and at least $2,000 for supplies. Two recommendations, one from the research supervisor. New applicants prioritized over recent awardees.",
+    "record": {
+      "name": "NASA Connecticut Space Grant Consortium Undergraduate Research Grant",
+      "sponsor": "Connecticut Space Grant Consortium (NASA)",
+      "summary": "Up to $6,000 for student-led undergraduate research under faculty mentorship, addressing NASA-related challenges.",
+      "apply_url": "https://app.smartsheet.com/b/form/01971713899d79869bd7730bc5f6c3a4",
+      "source_url": "https://ctspacegrant.org/undergraduate-graduate",
+      "logo_url": "",
+      "award": {
+        "kind": "varies",
+        "amount": null,
+        "min": null,
+        "max": null,
+        "renewable": false,
+        "years": null,
+        "awards_count": null
+      },
+      "deadline": {
+        "kind": "fixed",
+        "date": "2026-10-13",
+        "opens_on": "2026-09-01",
+        "recurs_annually": true
+      },
+      "basis": [
+        "merit"
+      ],
+      "fields": [],
+      "eligibility": [
+        {
+          "kind": "citizenship",
+          "any_of": [
+            "us_citizen"
+          ]
+        }
+      ],
+      "other_eligibility": [
+        "Full-time student at a Connecticut Space Grant Consortium member institution, with at least one completed semester",
+        "Strong academic record",
+        "Funded through NASA; U.S. citizenship required",
+        "Undergraduate students; must remain full-time during the entire project period",
+        "New applicants are prioritized over recent awardees"
+      ],
+      "requirements": {
+        "essays": [
+          {
+            "prompt": "Research narrative (5 pages maximum) with a 100-word abstract, budget worksheet and budget narrative.",
+            "words": null
+          }
+        ],
+        "recommendations": 2,
+        "transcript": true,
+        "financial_documents": false,
+        "interview": false
+      },
+      "last_checked_on": "2026-10-02"
+    }
+  },
+  {
+    "row": 75,
+    "outcome": "record",
+    "skip_reason": null,
+    "notes": "Cycle Fall 2026: open 2026-09-01, closes 2026-10-13 (CTSGC lists a Spring cycle as well); recommendation due 7 days after close. Applications go through a Smartsheet form linked from ctspacegrant.org/student-funding-opportunities. Read the CTSGC student-funding and eligibility pages. U.S. citizenship required (proof to the campus director). Number of awards not stated. $3,000. Students in their final semester are ineligible; awards cannot be applied retroactively. Four-year institutions only (the community-college scholarships are separate rows).",
+    "record": {
+      "name": "NASA Connecticut Space Grant Consortium Undergraduate Scholarship",
+      "sponsor": "Connecticut Space Grant Consortium (NASA)",
+      "summary": "A $3,000 scholarship for STEM undergraduates at four-year Connecticut Space Grant member institutions.",
+      "apply_url": "https://app.smartsheet.com/b/form/0198c843a3dd701ca226b5ad3337e02c",
+      "source_url": "https://ctspacegrant.org/undergraduate-graduate",
+      "logo_url": "",
+      "award": {
+        "kind": "fixed",
+        "amount": 3000,
+        "min": null,
+        "max": null,
+        "renewable": false,
+        "years": null,
+        "awards_count": null
+      },
+      "deadline": {
+        "kind": "fixed",
+        "date": "2026-10-13",
+        "opens_on": "2026-09-01",
+        "recurs_annually": true
+      },
+      "basis": [
+        "merit"
+      ],
+      "fields": [],
+      "eligibility": [
+        {
+          "kind": "citizenship",
+          "any_of": [
+            "us_citizen"
+          ]
+        }
+      ],
+      "other_eligibility": [
+        "Full-time student at a Connecticut Space Grant Consortium member institution, with at least one completed semester",
+        "Strong academic record",
+        "Funded through NASA; U.S. citizenship required",
+        "Undergraduates at four-year consortium member institutions; students in their final semester are not eligible",
+        "Awards cannot be applied retroactively",
+        "Academic excellence in STEM, with leadership and research involvement considered"
+      ],
+      "requirements": {
+        "essays": [
+          {
+            "prompt": "Narrative (3 pages maximum) with a one-page resume/CV.",
+            "words": null
+          }
+        ],
+        "recommendations": 1,
+        "transcript": true,
+        "financial_documents": false,
+        "interview": false
+      },
+      "last_checked_on": "2026-10-02"
+    }
+  }
+]

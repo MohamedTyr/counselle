@@ -1,0 +1,697 @@
+[
+  {
+    "row": 79,
+    "outcome": "record",
+    "skip_reason": null,
+    "notes": "No entry deadline published; student contacts local post/counselor or emailed Department HQ (emartin@nebraskalegion.net, 402-464-6338). State prizes: contest page lists 1st $1,500, 2nd $1,000, 3rd $800, 4th $500; scholarships page says $100-$1,500, so range used. National prizes up to $25,000 not included. PASS2: Official page states no entry or contest dates (contact Programs Director 402-464-6338); rolling used with summary qualifier.",
+    "record": {
+      "name": "American Legion Department of Nebraska High School Oratorical Contest",
+      "sponsor": "American Legion, Department of Nebraska",
+      "summary": "Memorized-speech contest on the US Constitution for Nebraska high school students, with state scholarships and a path to nationals. Entry dates are set by the local post and the Department.",
+      "apply_url": "https://nebraskalegion.net/oratorical-contest/",
+      "source_url": "https://nebraskalegion.net/oratorical-contest/",
+      "logo_url": "",
+      "award": {
+        "kind": "range",
+        "amount": null,
+        "min": 100,
+        "max": 1500,
+        "renewable": false,
+        "years": null,
+        "awards_count": 4
+      },
+      "deadline": {
+        "kind": "rolling",
+        "date": null,
+        "opens_on": null,
+        "recurs_annually": false
+      },
+      "basis": [],
+      "fields": [],
+      "eligibility": [
+        {
+          "kind": "citizenship",
+          "any_of": [
+            "us_citizen",
+            "permanent_resident"
+          ]
+        },
+        {
+          "kind": "state",
+          "any_of": [
+            "NE"
+          ]
+        },
+        {
+          "kind": "grade",
+          "any_of": [
+            "9",
+            "10",
+            "11",
+            "12"
+          ]
+        }
+      ],
+      "other_eligibility": [
+        "Under age 20 on the date of the national contest",
+        "Must live in Nebraska or attend school there",
+        "8-10 minute memorized speech on the US Constitution plus a 3-5 minute speech on an assigned topic",
+        "Starts at the local Legion post, then district, area and state finals (held each January)"
+      ],
+      "requirements": {
+        "essays": [],
+        "recommendations": 0,
+        "transcript": false,
+        "financial_documents": false,
+        "interview": false
+      },
+      "last_checked_on": "2026-10-02"
+    }
+  },
+  {
+    "row": 83,
+    "outcome": "record",
+    "skip_reason": null,
+    "notes": "Official page: up to $10,000, one award a year, deadline not stated (see AACN Grants Program Handbook). Stored as varies with date null. Amount is an upper limit so range was not used. PASS2: AACN page re-read 2026-10-02: no date; Sigma's own page 404s. An aggregator snippet gave Oct 25, 2025 for last cycle but not used (not official). Rolling + summary qualifier.",
+    "record": {
+      "name": "AACN-Sigma Theta Tau Critical Care Grant",
+      "sponsor": "American Association of Critical-Care Nurses",
+      "summary": "Research grant of up to $10,000 for experienced nurses studying high-acuity and critical care nursing practice. Deadline is in the AACN Grants Program Handbook.",
+      "apply_url": "https://www.aacn.org/nursing-excellence/grants/sigma-theta-tau-critical-care",
+      "source_url": "https://www.aacn.org/nursing-excellence/grants/sigma-theta-tau-critical-care",
+      "logo_url": "",
+      "award": {
+        "kind": "varies",
+        "amount": null,
+        "min": null,
+        "max": null,
+        "renewable": false,
+        "years": null,
+        "awards_count": 1
+      },
+      "deadline": {
+        "kind": "rolling",
+        "date": null,
+        "opens_on": null,
+        "recurs_annually": false
+      },
+      "basis": [
+        "merit"
+      ],
+      "fields": [
+        "Nursing"
+      ],
+      "eligibility": [],
+      "other_eligibility": [
+        "Nurses conducting research; not for high school students",
+        "Principal investigator must be a member of AACN or Sigma Theta Tau International",
+        "Must hold a master's degree or have completed candidacy in a BSN-to-PhD or DNP program",
+        "Research must address critical care nursing and an AACN research priority area"
+      ],
+      "requirements": {
+        "essays": [],
+        "recommendations": 0,
+        "transcript": false,
+        "financial_documents": false,
+        "interview": false
+      },
+      "last_checked_on": "2026-10-02"
+    }
+  },
+  {
+    "row": 98,
+    "outcome": "record",
+    "skip_reason": null,
+    "notes": "oah.org returned 403 to my fetch, so facts (deadline Nov 2, 2026, 10,000 words, grad students only) come from the search result text of the official OAH page; last_checked_on left null. One older listing said 7,000 words. Prize amount not seen. Reviewer should confirm. PASS2: oah.org is Cloudflare-blocked even in a real browser; still unread. Deadline 2026-11-02 comes from search snippet only, last_checked_on null. NOT publishable. Reviewer: oah.org blocks automated readers; read via Wayback snapshot 2025-11-28 of the official page. It states SUBMISSION DEADLINE: NOVEMBER 3, 2025 (body also says Nov 1, 2025) and essays up to 10,000 words incl. footnotes; the unverified 2026-11-02 date was dropped.",
+    "record": {
+      "name": "Louis Pelzer Memorial Award",
+      "sponsor": "Organization of American Historians",
+      "summary": "Award for the best essay in U.S. history by a graduate student, published in the Journal of American History.",
+      "apply_url": "https://www.oah.org/awards/awards-for-graduate-students-and-recent-graduates/louis-pelzer-memorial-award/",
+      "source_url": "https://www.oah.org/awards/awards-for-graduate-students-and-recent-graduates/louis-pelzer-memorial-award/",
+      "logo_url": "",
+      "award": {
+        "kind": "varies",
+        "amount": null,
+        "min": null,
+        "max": null,
+        "renewable": false,
+        "years": null,
+        "awards_count": null
+      },
+      "deadline": {
+        "kind": "fixed",
+        "date": "2025-11-03",
+        "opens_on": null,
+        "recurs_annually": true
+      },
+      "basis": [
+        "merit"
+      ],
+      "fields": [
+        "History"
+      ],
+      "eligibility": [
+        {
+          "kind": "major",
+          "any_of": [
+            "History"
+          ]
+        }
+      ],
+      "other_eligibility": [
+        "Graduate students only",
+        "Essay on any period or topic in U.S. history; winning essay is published in the Journal of American History",
+        "Essay up to 10,000 words including footnotes, with an abstract"
+      ],
+      "requirements": {
+        "essays": [],
+        "recommendations": 0,
+        "transcript": false,
+        "financial_documents": false,
+        "interview": false
+      },
+      "last_checked_on": "2026-10-02"
+    }
+  },
+  {
+    "row": 105,
+    "outcome": "record",
+    "skip_reason": null,
+    "notes": "Applications open each January; the page says 2026-27 applications are closed and gives no deadline date, so date is null. Third-party listings say up to $8,000 a year and that incoming first-years apply by invitation; the official page gives no amount. PASS2: Re-read: applications open each January, 2026-27 closed, no date given. Rolling + summary qualifier.",
+    "record": {
+      "name": "University of Cincinnati NEXT Innovation Scholars Program",
+      "sponsor": "University of Cincinnati",
+      "summary": "Cohort-based scholarship for current or incoming UC students with cross-disciplinary innovation programming. Applications open each January; no deadline date is published.",
+      "apply_url": "https://www.uc.edu/about/president/presidential-awards/next-innovation-scholars.html",
+      "source_url": "https://www.uc.edu/about/president/presidential-awards/next-innovation-scholars.html",
+      "logo_url": "",
+      "award": {
+        "kind": "varies",
+        "amount": null,
+        "min": null,
+        "max": null,
+        "renewable": true,
+        "years": 4,
+        "awards_count": null
+      },
+      "deadline": {
+        "kind": "rolling",
+        "date": null,
+        "opens_on": null,
+        "recurs_annually": true
+      },
+      "basis": [
+        "merit"
+      ],
+      "fields": [],
+      "eligibility": [],
+      "other_eligibility": [
+        "Current or incoming University of Cincinnati students with at least two years left in a full-time bachelor's degree",
+        "Must keep a 3.3 cumulative GPA and full-time enrollment",
+        "Commit 4-6 hours a week to program activities",
+        "Renewable up to eight full-time semesters"
+      ],
+      "requirements": {
+        "essays": [],
+        "recommendations": 0,
+        "transcript": false,
+        "financial_documents": false,
+        "interview": false
+      },
+      "last_checked_on": "2026-10-02"
+    }
+  },
+  {
+    "row": 110,
+    "outcome": "record",
+    "skip_reason": null,
+    "notes": "Official grants page gives no amounts, deadlines, or renewal terms; amount is need-based and set mainly from the CSS Profile. Admission deadlines are on the admission side and not stated on the aid pages, so date left null. Page also notes (via Rice aid site) 100 percent of demonstrated need is met for admitted undergraduates, including international students. PASS2: Rice admission page (admission.rice.edu/apply/first-year-domestic-applicants) lists Regular Decision application as 'JAN. 4' with no year; next occurrence 2027-01-04 used as the admission deadline the aid rides on. ED deadlines are earlier.",
+    "record": {
+      "name": "Rice University Institutional Grant",
+      "sponsor": "Rice University Office of Financial Aid",
+      "summary": "Need-based Rice grant aid that meets demonstrated need, set mainly from the CSS Profile. Aid is considered after admission.",
+      "apply_url": "https://financialaid.rice.edu/types-aid/grant",
+      "source_url": "https://financialaid.rice.edu/types-aid/grant",
+      "logo_url": "",
+      "award": {
+        "kind": "varies",
+        "amount": null,
+        "min": null,
+        "max": null,
+        "renewable": false,
+        "years": null,
+        "awards_count": null
+      },
+      "deadline": {
+        "kind": "fixed",
+        "date": "2027-01-04",
+        "opens_on": null,
+        "recurs_annually": true
+      },
+      "basis": [
+        "need"
+      ],
+      "fields": [],
+      "eligibility": [
+        {
+          "kind": "financial_need"
+        }
+      ],
+      "other_eligibility": [
+        "Must be admitted to and enrolled at Rice University",
+        "Requires a completed financial aid application and the CSS Profile",
+        "Must keep Satisfactory Academic Progress; eligibility is reviewed each year"
+      ],
+      "requirements": {
+        "essays": [],
+        "recommendations": 0,
+        "transcript": false,
+        "financial_documents": true,
+        "interview": false
+      },
+      "last_checked_on": "2026-10-02"
+    }
+  },
+  {
+    "row": 114,
+    "outcome": "record",
+    "skip_reason": null,
+    "notes": "SCHEV page blocked automated fetch (403), so facts come from SCHEV search-result text, not a page read: last_checked_on left null. Per that text: 2026-27 undergrad max $2,625 per semester; deadline Sept 15 before fall (Dec 1 if funds remain). Hampton University's aid page lists different 2026-27 figures ($12,750 in-person undergraduate), conflicting with SCHEV, so award set to varies. Deadline is the 2026 cycle (past). Applications go through the school's financial aid office. PASS2: SCHEV and a real browser both get 403; unread, last_checked_on null. NOT publishable. Reviewer: schev.edu blocks automated readers; read via Wayback snapshot 2026-09-28 of the official page, which states applications are due Sept 15 before the fall term (late ones to Dec 1 if funds remain).",
+    "record": {
+      "name": "Virginia Tuition Assistance Grant Program",
+      "sponsor": "State Council of Higher Education for Virginia (SCHEV)",
+      "summary": "State grant for Virginia residents enrolled full-time at an eligible private nonprofit college in Virginia, no need required.",
+      "apply_url": "https://www.schev.edu/financial-aid/financial-aid/federal-state-financial-aid/virginia-tuition-assistance-grant-program",
+      "source_url": "https://www.schev.edu/financial-aid/financial-aid/federal-state-financial-aid/virginia-tuition-assistance-grant-program",
+      "logo_url": "",
+      "award": {
+        "kind": "varies",
+        "amount": null,
+        "min": null,
+        "max": null,
+        "renewable": false,
+        "years": null,
+        "awards_count": null
+      },
+      "deadline": {
+        "kind": "fixed",
+        "date": "2026-09-15",
+        "opens_on": null,
+        "recurs_annually": true
+      },
+      "basis": [],
+      "fields": [],
+      "eligibility": [
+        {
+          "kind": "state",
+          "any_of": [
+            "VA"
+          ]
+        }
+      ],
+      "other_eligibility": [
+        "Virginia domiciliary resident (or meets military dependent or tuition equity provisions)",
+        "Enrolled full-time at an eligible private nonprofit Virginia college, in a degree not for religious training or theology",
+        "No financial need or FAFSA required",
+        "Apply through the college's financial aid office by Sept 15 (late applications by Dec 1 only if funds remain)"
+      ],
+      "requirements": {
+        "essays": [],
+        "recommendations": 0,
+        "transcript": false,
+        "financial_documents": false,
+        "interview": false
+      },
+      "last_checked_on": "2026-10-02"
+    }
+  },
+  {
+    "row": 115,
+    "outcome": "record",
+    "skip_reason": null,
+    "notes": "$2,000 per year, $8,000 over 4 years for first-year students ($4,000 over 2 years for transfers). Awards come from named endowments. Deadline not on the UCSC aid page (UC application cycle); could not confirm date, left null. apply_url is the UC application portal named on UC's site. PASS2: Automatic with the UC application; UC dates page shows the fall 2027 filing period Nov 1-30, 2026 (application opens Aug 1; page splits Oct/Nov in a way that reads Nov 1-30). opens_on set to null.",
+    "record": {
+      "name": "UC Santa Cruz Campus Merit Scholarships",
+      "sponsor": "University of California, Santa Cruz",
+      "summary": "Merit scholarships of $2,000 a year for four years, given automatically to admitted first-year students for high academic achievement.",
+      "apply_url": "https://apply.universityofcalifornia.edu",
+      "source_url": "https://financialaid.ucsc.edu/types-of-aid/scholarships/",
+      "logo_url": "",
+      "award": {
+        "kind": "fixed",
+        "amount": 2000,
+        "min": null,
+        "max": null,
+        "renewable": true,
+        "years": 4,
+        "awards_count": null
+      },
+      "deadline": {
+        "kind": "fixed",
+        "date": "2026-11-30",
+        "opens_on": null,
+        "recurs_annually": true
+      },
+      "basis": [
+        "merit"
+      ],
+      "fields": [],
+      "eligibility": [
+        {
+          "kind": "grade",
+          "any_of": [
+            "12"
+          ]
+        }
+      ],
+      "other_eligibility": [
+        "Automatic consideration through the UC application; no separate scholarship application",
+        "Awarded for high academic achievement",
+        "Open to international, non-resident and California residents, including AB540",
+        "Financial need not required",
+        "Renewable while Satisfactory Academic Progress is met (transfer students get a 2-year version)"
+      ],
+      "requirements": {
+        "essays": [],
+        "recommendations": 0,
+        "transcript": false,
+        "financial_documents": false,
+        "interview": false
+      },
+      "last_checked_on": "2026-10-02"
+    }
+  },
+  {
+    "row": 116,
+    "outcome": "record",
+    "skip_reason": null,
+    "notes": "$5,000 per year, $20,000 over 4 years for first-year students ($10,000 over 2 years for transfers). Includes priority enrollment and housing guarantee eligibility. Deadline not on the UCSC aid page; left null. PASS2: Automatic with the UC application; UC dates page shows the fall 2027 filing period Nov 1-30, 2026 (application opens Aug 1; page splits Oct/Nov in a way that reads Nov 1-30). opens_on set to null.",
+    "record": {
+      "name": "UC Santa Cruz Regents Scholarships",
+      "sponsor": "University of California, Santa Cruz",
+      "summary": "Merit scholarships of $5,000 a year for four years, given automatically to admitted first-year students for outstanding academic achievement.",
+      "apply_url": "https://apply.universityofcalifornia.edu",
+      "source_url": "https://financialaid.ucsc.edu/types-of-aid/scholarships/",
+      "logo_url": "",
+      "award": {
+        "kind": "fixed",
+        "amount": 5000,
+        "min": null,
+        "max": null,
+        "renewable": true,
+        "years": 4,
+        "awards_count": null
+      },
+      "deadline": {
+        "kind": "fixed",
+        "date": "2026-11-30",
+        "opens_on": null,
+        "recurs_annually": true
+      },
+      "basis": [
+        "merit"
+      ],
+      "fields": [],
+      "eligibility": [
+        {
+          "kind": "grade",
+          "any_of": [
+            "12"
+          ]
+        }
+      ],
+      "other_eligibility": [
+        "Automatic consideration through the UC application; no separate scholarship application",
+        "Based on a holistic review of the high school program, grades and other academic criteria",
+        "Open to international, non-resident and California residents, including AB540",
+        "Financial need not required",
+        "Renewable while Satisfactory Academic Progress is met (transfer students get a 2-year version)"
+      ],
+      "requirements": {
+        "essays": [],
+        "recommendations": 0,
+        "transcript": false,
+        "financial_documents": false,
+        "interview": false
+      },
+      "last_checked_on": "2026-10-02"
+    }
+  },
+  {
+    "row": 117,
+    "outcome": "record",
+    "skip_reason": null,
+    "notes": "Not for US students. Official page gives no application deadline: applications go to the chosen partner (Designated) institution, each with its own dates (East-West Center, for example, is one such partner). Age limit 35 (exceptions possible). Covers tuition, monthly subsistence allowance including housing, books, medical insurance, travel; modeled as full_ride. PASS2: Official ADB page re-read: no general deadline; each designated institution sets its own. Rolling + summary qualifier.",
+    "record": {
+      "name": "Asian Development Bank-Japan Scholarship Program",
+      "sponsor": "Asian Development Bank",
+      "summary": "Master's scholarship for nationals of ADB developing member countries, studying at designated institutions in Asia-Pacific. Deadlines vary by partner institution.",
+      "apply_url": "https://www.adb.org/work-with-us/careers/japan-scholarship-program",
+      "source_url": "https://www.adb.org/work-with-us/careers/japan-scholarship-program",
+      "logo_url": "",
+      "award": {
+        "kind": "full_ride",
+        "amount": null,
+        "min": null,
+        "max": null,
+        "renewable": false,
+        "years": null,
+        "awards_count": null
+      },
+      "deadline": {
+        "kind": "rolling",
+        "date": null,
+        "opens_on": null,
+        "recurs_annually": false
+      },
+      "basis": [
+        "merit"
+      ],
+      "fields": [],
+      "eligibility": [
+        {
+          "kind": "citizenship",
+          "any_of": [
+            "international"
+          ]
+        }
+      ],
+      "other_eligibility": [
+        "Master's level only; applicants need a bachelor's degree with a superior academic record",
+        "Citizens of one of 38 ADB developing member countries; no dual citizenship of a developed country",
+        "At least two years of full-time professional work experience after the degree",
+        "Generally not older than 35 (exceptions possible)",
+        "Must be admitted to an approved master's program at a designated institution",
+        "Must commit to return home for at least two years after studying",
+        "Not open to ADB staff or their close relatives",
+        "Apply to the partner institution, which forwards shortlisted candidates to ADB"
+      ],
+      "requirements": {
+        "essays": [],
+        "recommendations": 0,
+        "transcript": true,
+        "financial_documents": false,
+        "interview": false
+      },
+      "last_checked_on": "2026-10-02"
+    }
+  },
+  {
+    "row": 118,
+    "outcome": "record",
+    "skip_reason": null,
+    "notes": "Hoyt Fellowship: one per year; up to $2,500 plus fee-free housing. Deadline not stated on the official fellowships page (priority-funding wording there is for a past year), so left null. Award modeled as varies (housing plus up to the stated cash for travel and research).  PASS2: Re-read Collegeville pages 2026-10-02: fellowships page and 2027-28 Resident Scholars page give no deadline (first-quarter applications reviewed in December; application form forms.csbsju.edu/5JSF84DNSR). Rolling + summary qualifier.",
+    "record": {
+      "name": "Bishop Thomas Hoyt, Jr., Fellowship",
+      "sponsor": "Collegeville Institute",
+      "summary": "Fellowship for North American doctoral dissertation writers of color, with a residency in Minnesota. Deadlines vary.",
+      "apply_url": "https://collegevilleinstitute.org/residencies/available-fellowships/",
+      "source_url": "https://collegevilleinstitute.org/residencies/available-fellowships/",
+      "logo_url": "",
+      "award": {
+        "kind": "varies",
+        "amount": null,
+        "min": null,
+        "max": null,
+        "renewable": false,
+        "years": null,
+        "awards_count": 1
+      },
+      "deadline": {
+        "kind": "rolling",
+        "date": null,
+        "opens_on": null,
+        "recurs_annually": true
+      },
+      "basis": [
+        "merit"
+      ],
+      "fields": [],
+      "eligibility": [],
+      "other_eligibility": [
+        "North American persons of color writing a doctoral dissertation",
+        "Doctoral students writing a dissertation",
+        "Fee-free housing at the Collegeville Institute plus up to $2,500 for travel and research",
+        "Apply through the Short Term Residencies or Resident Scholars application and answer the fellowship's embedded questions",
+        "Not for high school or undergraduate students"
+      ],
+      "requirements": {
+        "essays": [],
+        "recommendations": 0,
+        "transcript": false,
+        "financial_documents": false,
+        "interview": false
+      },
+      "last_checked_on": "2026-10-02"
+    }
+  },
+  {
+    "row": 119,
+    "outcome": "record",
+    "skip_reason": null,
+    "notes": "McDonnell Fellowship: up to $2,000 plus fee-free housing; 'a limited number' on the official page. Deadline not stated on the official fellowships page (priority-funding wording there is for a past year), so left null. Award modeled as varies (housing plus up to the stated cash for travel and research).  PASS2: Re-read Collegeville pages 2026-10-02: fellowships page and 2027-28 Resident Scholars page give no deadline (first-quarter applications reviewed in December; application form forms.csbsju.edu/5JSF84DNSR). Rolling + summary qualifier.",
+    "record": {
+      "name": "Kilian McDonnell Fellowship in Faith and Culture",
+      "sponsor": "Collegeville Institute",
+      "summary": "Fellowship for scholars and writers on religion and culture who seek a broad readership, with a residency in Minnesota. Deadlines vary.",
+      "apply_url": "https://collegevilleinstitute.org/residencies/available-fellowships/",
+      "source_url": "https://collegevilleinstitute.org/residencies/available-fellowships/",
+      "logo_url": "",
+      "award": {
+        "kind": "varies",
+        "amount": null,
+        "min": null,
+        "max": null,
+        "renewable": false,
+        "years": null,
+        "awards_count": null
+      },
+      "deadline": {
+        "kind": "rolling",
+        "date": null,
+        "opens_on": null,
+        "recurs_annually": true
+      },
+      "basis": [
+        "merit"
+      ],
+      "fields": [],
+      "eligibility": [],
+      "other_eligibility": [
+        "Applicants to a Collegeville residency whose research addresses the relationship between religion and culture in contemporary society",
+        "Writers who wish to reach a broad audience",
+        "Fee-free housing at the Collegeville Institute plus up to $2,000 for travel and research",
+        "Apply through the Short Term Residencies or Resident Scholars application and answer the fellowship's embedded questions",
+        "Not for high school or undergraduate students"
+      ],
+      "requirements": {
+        "essays": [],
+        "recommendations": 0,
+        "transcript": false,
+        "financial_documents": false,
+        "interview": false
+      },
+      "last_checked_on": "2026-10-02"
+    }
+  },
+  {
+    "row": 120,
+    "outcome": "record",
+    "skip_reason": null,
+    "notes": "Pastoral Fellowship: up to $2,000 plus fee-free housing; residency of at least three weeks in fall or spring. Deadline not stated on the official fellowships page (priority-funding wording there is for a past year), so left null. Award modeled as varies (housing plus up to the stated cash for travel and research).  PASS2: Re-read Collegeville pages 2026-10-02: fellowships page and 2027-28 Resident Scholars page give no deadline (first-quarter applications reviewed in December; application form forms.csbsju.edu/5JSF84DNSR). Rolling + summary qualifier.",
+    "record": {
+      "name": "Collegeville Institute Pastoral Fellowship",
+      "sponsor": "Collegeville Institute",
+      "summary": "Fellowship for pastors and religious leaders writing to enrich religious life, with a residency in Minnesota. Deadlines vary.",
+      "apply_url": "https://collegevilleinstitute.org/residencies/available-fellowships/",
+      "source_url": "https://collegevilleinstitute.org/residencies/available-fellowships/",
+      "logo_url": "",
+      "award": {
+        "kind": "varies",
+        "amount": null,
+        "min": null,
+        "max": null,
+        "renewable": false,
+        "years": null,
+        "awards_count": null
+      },
+      "deadline": {
+        "kind": "rolling",
+        "date": null,
+        "opens_on": null,
+        "recurs_annually": true
+      },
+      "basis": [
+        "merit"
+      ],
+      "fields": [],
+      "eligibility": [],
+      "other_eligibility": [
+        "Pastors and other religious leaders serving in parishes or other ministry settings",
+        "Writing project intended to enrich religious life and serve the church",
+        "Residency of at least three weeks",
+        "Fee-free housing at the Collegeville Institute plus up to $2,000 for travel and research",
+        "Apply through the Short Term Residencies or Resident Scholars application and answer the fellowship's embedded questions",
+        "Not for high school or undergraduate students"
+      ],
+      "requirements": {
+        "essays": [],
+        "recommendations": 0,
+        "transcript": false,
+        "financial_documents": false,
+        "interview": false
+      },
+      "last_checked_on": "2026-10-02"
+    }
+  },
+  {
+    "row": 121,
+    "outcome": "record",
+    "skip_reason": null,
+    "notes": "Ottenhoff Fellowship: up to $2,000 plus fee-free housing; 'a limited number' available. Deadline not stated on the official fellowships page (priority-funding wording there is for a past year), so left null. Award modeled as varies (housing plus up to the stated cash for travel and research).  PASS2: Re-read Collegeville pages 2026-10-02: fellowships page and 2027-28 Resident Scholars page give no deadline (first-quarter applications reviewed in December; application form forms.csbsju.edu/5JSF84DNSR). Rolling + summary qualifier.",
+    "record": {
+      "name": "Donald Ottenhoff Fellowship",
+      "sponsor": "Collegeville Institute",
+      "summary": "Fellowship for residency applicants whose projects explore art and religion, social issues, or nature and religion. Deadlines vary.",
+      "apply_url": "https://collegevilleinstitute.org/residencies/available-fellowships/",
+      "source_url": "https://collegevilleinstitute.org/residencies/available-fellowships/",
+      "logo_url": "",
+      "award": {
+        "kind": "varies",
+        "amount": null,
+        "min": null,
+        "max": null,
+        "renewable": false,
+        "years": null,
+        "awards_count": null
+      },
+      "deadline": {
+        "kind": "rolling",
+        "date": null,
+        "opens_on": null,
+        "recurs_annually": true
+      },
+      "basis": [
+        "merit"
+      ],
+      "fields": [],
+      "eligibility": [],
+      "other_eligibility": [
+        "Applicants to a Collegeville residency whose project explores art and lived religion, theological resources for current social, political or cultural issues, or the natural world and religious thought",
+        "Applicants from outside the United States, especially developing countries, get special consideration",
+        "Fee-free housing at the Collegeville Institute plus up to $2,000 for travel and research",
+        "Apply through the Short Term Residencies or Resident Scholars application and answer the fellowship's embedded questions",
+        "Not for high school or undergraduate students"
+      ],
+      "requirements": {
+        "essays": [],
+        "recommendations": 0,
+        "transcript": false,
+        "financial_documents": false,
+        "interview": false
+      },
+      "last_checked_on": "2026-10-02"
+    }
+  }
+]
