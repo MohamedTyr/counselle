@@ -1813,9 +1813,9 @@ Never both at once. Never a card inside a card.
 **Scholarship catalog:** independent award cards sit directly on the quiet Beams
 canvas, without an enclosing panel or trough, and take the Explore school card's
 anatomy so the two catalogs read as one product: the sponsor logo in a raised chip
-with the fit pill and Save pill beside it, the name with an icon meta line (sponsor,
-essays, recommendations), a two-line summary, then two 26px figures split by a
-hairline, the award and the deadline. Each card is washed in its sponsor logo's
+with the fit pill and Save pill beside it, the name and sponsor, then two 26px
+figures split by a hairline, the award and the deadline. Nothing else: the
+description, essays and eligibility are one click away in the detail sheet. Each card is washed in its sponsor logo's
 colour, derived offline by `scripts/build_scholarship_colours.py` into
 `sponsor-colours.json` exactly as school colours are, and that hue's 5.2:1 text
 shade inks the award as a school's inks its admit rate: the same 10% wash, 18px

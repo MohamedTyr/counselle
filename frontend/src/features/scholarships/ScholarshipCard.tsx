@@ -1,6 +1,5 @@
-import { Bookmark, FileText, Landmark, Users } from "lucide-react";
-import type { LucideIcon } from "lucide-react";
-import type { CSSProperties, ReactNode } from "react";
+import { Bookmark } from "lucide-react";
+import type { CSSProperties } from "react";
 
 import type { ScholarshipView } from "@/api/scholarships/types";
 import { cn } from "@/lib/utils";
@@ -20,8 +19,9 @@ import {
 /*
  * One scholarship, drawn on the Explore school card's anatomy so the two
  * catalogs read as one product: logo chip and actions on top, the name and
- * an icon meta line, then two figures split by a hairline. The figures are
- * the two a student decides on first, how much and by when. A missing date
+ * sponsor, then two figures split by a hairline. The card carries only what a
+ * student decides on first, how much and by when; essays, eligibility and the
+ * description are one click away in the detail sheet. A missing date
  * still takes its slot and says "not available"; a blank would read as open.
  */
 
@@ -67,28 +67,6 @@ function deadlineFigure(deadline: ScholarshipView["deadline"]) {
   return { value, label: `due ${relativeDays(daysUntil(deadline.date))}` };
 }
 
-/** One fact on the meta line: an icon names the kind, so no separators. */
-function MetaItem({
-  icon: Icon,
-  children,
-  className,
-}: {
-  icon: LucideIcon;
-  children: ReactNode;
-  className?: string;
-}) {
-  return (
-    <span className={cn("flex min-w-0 items-center gap-1", className)}>
-      <Icon aria-hidden="true" />
-      <span className="truncate">{children}</span>
-    </span>
-  );
-}
-
-function plural(count: number, one: string, many: string) {
-  return `${count} ${count === 1 ? one : many}`;
-}
-
 function FitPill({ fit }: { fit: Fit }) {
   if (fit.kind === "check") return null;
   const fits = fit.kind === "fits";
@@ -119,9 +97,6 @@ export function ScholarshipCard({
   onSelect: (opener: HTMLButtonElement) => void;
   onToggleSave: () => void;
 }) {
-  const { requirements } = scholarship;
-  const essays = requirements.essays.length;
-  const recommendations = requirements.recommendations;
   const deadline = deadlineFigure(scholarship.deadline);
   const colour = sponsorColour(scholarship);
   return (
@@ -175,20 +150,7 @@ export function ScholarshipCard({
             {scholarship.name}
           </button>
         </h3>
-        <p className="scholarship-card-meta">
-          <MetaItem icon={Landmark}>{scholarship.sponsor}</MetaItem>
-          <MetaItem className="shrink-0" icon={FileText}>
-            {essays ? plural(essays, "essay", "essays") : "No essay"}
-          </MetaItem>
-          {recommendations ? (
-            <MetaItem className="shrink-0" icon={Users}>
-              {plural(recommendations, "rec", "recs")}
-            </MetaItem>
-          ) : null}
-        </p>
-        {scholarship.summary ? (
-          <p className="scholarship-card-summary">{scholarship.summary}</p>
-        ) : null}
+        <p className="scholarship-card-sponsor">{scholarship.sponsor}</p>
       </div>
 
       <div className="scholarship-card-figures">
