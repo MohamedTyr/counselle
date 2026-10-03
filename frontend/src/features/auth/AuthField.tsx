@@ -1,44 +1,33 @@
-import type React from "react";
-
-import { cn } from "@/lib/utils";
-
-type AuthFieldProps = {
-  id: string;
-  label: string;
-  error?: string;
-  description?: string;
-  children: React.ReactNode;
-};
-
+import type { ReactNode } from "react";
+import {
+  Field,
+  FieldDescription,
+  FieldError,
+  FieldLabel,
+} from "@/components/ui/field";
 export function AuthField({
   id,
   label,
   error,
   description,
   children,
-}: AuthFieldProps) {
-  const descriptionId = description ? `${id}-description` : undefined;
-  const errorId = error ? `${id}-error` : undefined;
-
+}: {
+  id: string;
+  label: string;
+  error?: string;
+  description?: string;
+  children: ReactNode;
+}) {
   return (
-    <div
-      className="flex flex-col gap-1.5"
-      data-invalid={error ? "" : undefined}
-    >
-      <label className="text-sm font-medium text-foreground" htmlFor={id}>
-        {label}
-      </label>
+    <Field data-invalid={Boolean(error)}>
+      <FieldLabel htmlFor={id}>{label}</FieldLabel>
       {children}
       {description && (
-        <p className="text-sm text-muted-foreground" id={descriptionId}>
+        <FieldDescription id={`${id}-description`}>
           {description}
-        </p>
+        </FieldDescription>
       )}
-      {error && (
-        <p className={cn("text-sm text-destructive")} id={errorId} role="alert">
-          {error}
-        </p>
-      )}
-    </div>
+      {error && <FieldError id={`${id}-error`}>{error}</FieldError>}
+    </Field>
   );
 }

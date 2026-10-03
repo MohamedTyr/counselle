@@ -20,16 +20,17 @@ from api.context import install_middleware
 from api.ratelimit import _RATE_LIMITER_ATTR, SlidingWindowLimiter
 from api.routes import onboarding
 from app.onboarding import OnboardingProgress, OnboardingStateError
+from config.settings import get_settings
 from tests.api.conftest import TEST_USER_ID, _test_user
 
 
 def _app(*, authed: bool = True, workspace_writes_per_minute: int = 240) -> FastAPI:
     app = FastAPI()
-    settings = SimpleNamespace(
-        cors_origins=["*"],
-        sse_keepalive_s=15,
-        workspace_writes_per_minute=workspace_writes_per_minute,
-    )
+    settings = get_settings().model_copy(update={
+        "cors_origins": ["*"],
+        "sse_keepalive_s": 15,
+        "workspace_writes_per_minute": workspace_writes_per_minute,
+    })
     install_middleware(app, settings)
     app.include_router(onboarding.router, prefix="/v1")
     app.state.settings = settings

@@ -1,3 +1,4 @@
+import { accountBoundFetch } from "@/api/http/account-binding";
 import { jsonRequestInit, requestJson, requestVoid } from "@/api/http/client";
 import { BASE } from "@/api/http/constants";
 import { errorFromResponse, TransportError } from "@/api/http/errors";
@@ -30,7 +31,7 @@ export function updateEssay(essayId: string, patch: EssayPatch) {
 export async function updateEssayKeepalive(essayId: string, patch: EssayPatch) {
   let response: Response;
   try {
-    response = await fetch(`${BASE}/essays/${essayId}`, {
+    response = await accountBoundFetch(`${BASE}/essays/${essayId}`, {
       ...jsonRequestInit("PATCH", patch),
       credentials: "same-origin",
       keepalive: true,

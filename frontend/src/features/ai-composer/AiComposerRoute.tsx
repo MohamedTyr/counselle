@@ -14,6 +14,7 @@ import {
   findCounselingMode,
   mergeModeAndTaskSkills,
 } from "@/features/ai-composer/counseling-mode";
+import { useComposerDraft } from "@/features/ai-chat/useComposerDraft";
 import { parseDraftPromptState } from "@/features/ai-composer/draft-prompt";
 import { useComposerStartTurn } from "@/features/ai-composer/useComposerStartTurn";
 
@@ -35,11 +36,10 @@ export function AiComposerRoute() {
   const location = useLocation();
   const configQuery = useChatConfig();
   const startTurn = useComposerStartTurn();
-  // Hydrate from an onboarding-handoff draft prompt (plan §20.7) via the
-  // lazy `useState` initializer, not an effect: it only needs to run once,
-  // reading `location.state` as it existed at mount.
-  const [value, setValue] = useState(
-    () => parseDraftPromptState(location.state) ?? "",
+  const [value, setValue] = useComposerDraft(
+    user?.id,
+    "new",
+    parseDraftPromptState(location.state) ?? "",
   );
   const [sourceConfigOverride, setSourceConfigOverride] =
     useState<SourceConfig | null>(null);

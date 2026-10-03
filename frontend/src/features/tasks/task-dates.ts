@@ -191,3 +191,15 @@ export function formatPageSubtitle(
       return `${count} done this week`;
   }
 }
+
+/**
+ * Whether `value` is a real `YYYY-MM-DD` calendar date. `parseDateOnly` never
+ * throws — it rolls `2026-02-31` over to Mar 3 and turns junk into NaN — so a
+ * key is valid only when it survives the round trip unchanged.
+ */
+export function isValidDateKey(value: string): boolean {
+  return (
+    /^\d{4}-\d{2}-\d{2}$/.test(value) &&
+    getDateKey(parseDateOnly(value)) === value
+  );
+}

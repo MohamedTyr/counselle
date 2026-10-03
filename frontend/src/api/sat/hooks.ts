@@ -1,4 +1,5 @@
-import { keepPreviousData, useMutation, useQuery } from "@tanstack/react-query";
+import { usePrivateMutation } from "@/app/private-mutations";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 
 import { toastSatError } from "@/api/sat/errors";
 import { satKeys } from "@/api/sat/keys";
@@ -73,7 +74,7 @@ export function useSatStats(today: string) {
  * `useSatSession` (plan §5.3) — these mutations only make the call and, on
  * settle, invalidate `counts` so the dashboard's bookmark tallies catch up. */
 export function usePutBookmark() {
-  return useMutation({
+  return usePrivateMutation({
     mutationFn: putBookmark,
     onError: (error, _id, _onMutateResult, context) => {
       toastSatError(error, { client: context.client });
@@ -87,7 +88,7 @@ export function usePutBookmark() {
 }
 
 export function useDeleteBookmark() {
-  return useMutation({
+  return usePrivateMutation({
     mutationFn: deleteBookmark,
     onError: (error, _id, _onMutateResult, context) => {
       toastSatError(error, { client: context.client });
@@ -104,7 +105,7 @@ export function useDeleteBookmark() {
  * invalidates `satKeys.all` so no stale session, counts, or stats can
  * survive a wholesale replace. */
 export function useImportProgress() {
-  return useMutation({
+  return usePrivateMutation({
     mutationFn: ({ today, file }: { today: string; file: File }) =>
       importProgress(today, file),
     onError: (error, _vars, _onMutateResult, context) => {
@@ -124,7 +125,7 @@ export function useImportProgress() {
 
 /** Reset: attempts + bookmarks only (plan §4.2, A14). */
 export function useResetProgress() {
-  return useMutation({
+  return usePrivateMutation({
     mutationFn: resetProgress,
     onError: (error, _vars, _onMutateResult, context) => {
       toastSatError(error, { client: context.client });

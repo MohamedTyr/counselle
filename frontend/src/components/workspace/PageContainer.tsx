@@ -45,6 +45,15 @@ type PageContainerProps = {
   children: ReactNode;
   /** Extra classes for the scrolling body column. */
   className?: string;
+  /** Let the header actions drop under the title when they do not fit beside
+   * it, instead of squeezing the title. */
+  wrapHeader?: boolean;
+  /**
+   * The body column takes the height left under the header instead of its
+   * content's height, so a surface like the calendar grid can stretch its
+   * rows to fill the viewport.
+   */
+  fill?: boolean;
   /** Replaces the title block in the header bar — see PageHeader. */
   heading?: ReactNode;
   /** Identifying mark left of the title — see PageHeader. */
@@ -64,6 +73,7 @@ export function PageContainer({
   actions,
   children,
   className,
+  fill = false,
   heading,
   leading,
   overlay,
@@ -71,6 +81,7 @@ export function PageContainer({
   subtitle,
   title,
   width = "full",
+  wrapHeader = false,
 }: PageContainerProps) {
   const column = COLUMN_CLASS[width];
 
@@ -82,7 +93,7 @@ export function PageContainer({
       >
         <PageHeader
           actions={actions}
-          columnClassName={column}
+          columnClassName={cn(column, wrapHeader && "md:flex-wrap md:gap-y-2")}
           heading={heading}
           leading={leading}
           subtitle={subtitle}
@@ -96,7 +107,14 @@ export function PageContainer({
          * tall page (a school's About tab) sat flush against the window edge
          * however much bottom padding the scroller had.
          */}
-        <div className={cn("flex shrink-0 flex-col gap-6", column, className)}>
+        <div
+          className={cn(
+            "flex flex-col gap-6",
+            fill ? "min-h-0 flex-1" : "shrink-0",
+            column,
+            className,
+          )}
+        >
           {children}
         </div>
       </div>

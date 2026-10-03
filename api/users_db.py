@@ -71,6 +71,7 @@ class UserDB:
     name: str | None = None
     settings: dict[str, Any] = field(default_factory=dict)
     oauth_accounts: list[OAuthAccountDB] = field(default_factory=list)
+    credential_revision: int = 0
 
 
 def _user_from_row(row: asyncpg.Record, oauth: list[OAuthAccountDB]) -> UserDB:
@@ -84,6 +85,7 @@ def _user_from_row(row: asyncpg.Record, oauth: list[OAuthAccountDB]) -> UserDB:
         name=row["name"],
         settings=row["settings"] or {},
         oauth_accounts=oauth,
+        credential_revision=row["credential_revision"],
     )
 
 
@@ -113,9 +115,7 @@ class AsyncpgUserDatabase(BaseUserDatabase[UserDB, uuid.UUID]):  # type: ignore[
 
     async def get(self, id: uuid.UUID) -> UserDB | None:
         async with self._pool.acquire() as conn:
-            row = await conn.fetchrow(
-                "SELECT * FROM counselle.users WHERE id = $1", id
-            )
+            row = await conn.fetchrow("SELECT * FROM counselle.users WHERE id = $1", id)
             if row is None:
                 return None
             return _user_from_row(row, await self._load_oauth(conn, id))
@@ -187,11 +187,16 @@ class AsyncpgUserDatabase(BaseUserDatabase[UserDB, uuid.UUID]):  # type: ignore[
         return created
 
     async def update(self, user: UserDB, update_dict: dict[str, Any]) -> UserDB:
+        from api.auth_sessions import revoke_user_sessions
+
         cols = [key for key in update_dict if key in _USER_COLS]
         if cols:
             assignments = ", ".join(f"{col} = ${i + 2}" for i, col in enumerate(cols))
+            credentials_changed = bool({"email", "hashed_password"}.intersection(cols))
+            if credentials_changed:
+                assignments += ", credential_revision = credential_revision + 1"
             args = [update_dict[col] for col in cols]
-            async with self._pool.acquire() as conn:
+            async with self._pool.acquire() as conn, conn.transaction():
                 await conn.execute(
                     # `assignments` interpolates ONLY column names drawn from the
                     # fixed _USER_COLS allowlist (never user input); all values
@@ -200,10 +205,77 @@ class AsyncpgUserDatabase(BaseUserDatabase[UserDB, uuid.UUID]):  # type: ignore[
                     user.id,
                     *args,
                 )
+                if credentials_changed:
+                    await revoke_user_sessions(conn, user.id)
+                    await conn.execute(
+                        "DELETE FROM counselle.auth_action_tokens WHERE user_id = $1", user.id
+                    )
         refreshed = await self.get(user.id)
         if refreshed is None:
             raise RuntimeError(f"user {user.id} missing immediately after update")
         return refreshed
+
+    async def verify_email(self, user: UserDB) -> UserDB | None:
+        async with self._pool.acquire() as conn:
+            row = await conn.fetchrow(
+                """UPDATE counselle.users SET is_verified = true
+                   WHERE id = $1 AND email = $2 AND is_verified = false AND is_active = true
+                   RETURNING *""",
+                user.id,
+                user.email,
+            )
+            return _user_from_row(row, await self._load_oauth(conn, user.id)) if row else None
+
+    async def upgrade_password_hash(self, user: UserDB, hashed_password: str) -> UserDB | None:
+        """Rehash only the credential that was actually authenticated."""
+        async with self._pool.acquire() as conn:
+            row = await conn.fetchrow(
+                """UPDATE counselle.users SET hashed_password=$2
+                   WHERE id=$1 AND hashed_password=$3 AND email=$4 AND is_active=true
+                     AND credential_revision=$5
+                   RETURNING *""",
+                user.id,
+                hashed_password,
+                user.hashed_password,
+                user.email,
+                user.credential_revision,
+            )
+            return _user_from_row(row, await self._load_oauth(conn, user.id)) if row else None
+
+    async def replace_password(
+        self,
+        user: UserDB,
+        hashed_password: str,
+        *,
+        session_hash: str | None = None,
+        recent_seconds: int | None = None,
+    ) -> UserDB | None:
+        """Consume the old credential and invalidate every session atomically."""
+        from api.auth_account_security import lock_account_session
+        from api.auth_sessions import revoke_user_sessions
+
+        async with self._pool.acquire() as conn, conn.transaction():
+            if session_hash is not None:
+                await lock_account_session(conn, user, session_hash, recent_seconds)
+            row = await conn.fetchrow(
+                """UPDATE counselle.users SET hashed_password = $2,
+                     credential_revision = credential_revision + 1
+                   WHERE id = $1 AND hashed_password IS NOT DISTINCT FROM $3
+                     AND email = $4 AND is_active = true AND credential_revision = $5
+                   RETURNING *""",
+                user.id,
+                hashed_password,
+                user.hashed_password,
+                user.email,
+                user.credential_revision,
+            )
+            if row is None:
+                return None
+            await revoke_user_sessions(conn, user.id)
+            await conn.execute(
+                "DELETE FROM counselle.auth_action_tokens WHERE user_id = $1", user.id
+            )
+            return _user_from_row(row, await self._load_oauth(conn, user.id))
 
     async def delete(self, user: UserDB) -> None:
         async with self._pool.acquire() as conn:
@@ -211,9 +283,7 @@ class AsyncpgUserDatabase(BaseUserDatabase[UserDB, uuid.UUID]):  # type: ignore[
 
     # -- oauth accounts -------------------------------------------------------
 
-    async def add_oauth_account(
-        self, user: UserDB, create_dict: dict[str, Any]
-    ) -> UserDB:
+    async def add_oauth_account(self, user: UserDB, create_dict: dict[str, Any]) -> UserDB:
         async with self._pool.acquire() as conn:
             await conn.execute(
                 """

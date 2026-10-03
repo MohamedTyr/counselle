@@ -64,6 +64,23 @@ describe("useSatSession", () => {
     await waitFor(() => expect(result.current.status).toBe("error"));
   });
 
+  it("treats a 404 for a deep-linked question as an empty ready session", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() =>
+        jsonResponse({ detail: "That question was not found." }, { status: 404 }),
+      ),
+    );
+
+    const { result } = renderHook(
+      () => useSatSession({ kind: "question", questionId: "nope" }),
+      { wrapper },
+    );
+
+    await waitFor(() => expect(result.current.status).toBe("ready"));
+    expect(result.current.rows).toHaveLength(0);
+  });
+
   it("does not treat its own cleanup abort as an error (StrictMode double-mount)", async () => {
     // Simulate an aborted fetch whose signal is the caller's own combined
     // controller — safeFetch/getSession would normally throw a rejected

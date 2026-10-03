@@ -1,6 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
+import { capturePrivateMutationOwnership } from "@/app/private-mutations";
 import { updateEssay, updateEssayKeepalive } from "@/api/workspace/essays";
 import { workspaceKeys } from "@/api/workspace/keys";
 import { replaceById } from "@/api/workspace/optimistic";
@@ -119,6 +120,11 @@ function contentPatch(
 
 export function useEssayAutosave(essayId: string, savedDraft?: SavedDraft) {
   const queryClient = useQueryClient();
+  // Drafts and unmount flushes belong to this editor's account, including work
+  // still queued when a new account causes the editor subtree to unmount.
+  const [ownership] = useState(() =>
+    capturePrivateMutationOwnership(queryClient),
+  );
   const [dirty, setDirty] = useState(false);
   const [saveState, setSaveState] = useState<EssaySaveState>("saved");
   const savedDraftKey = useMemo(
@@ -214,6 +220,7 @@ export function useEssayAutosave(essayId: string, savedDraft?: SavedDraft) {
 
   const syncEssayCache = useCallback(
     (essay: Essay) => {
+      if (!ownership.isCurrent()) return;
       latestSavedEssayRef.current = essay;
       queryClient.setQueryData<Essay>(
         workspaceKeys.essays.detail(essay.id),
@@ -224,11 +231,12 @@ export function useEssayAutosave(essayId: string, savedDraft?: SavedDraft) {
         (current) => replaceById(current, essay.id, essay),
       );
     },
-    [queryClient],
+    [queryClient, ownership],
   );
 
   const syncDraftCache = useCallback(
     (draft: Draft) => {
+      if (!ownership.isCurrent()) return;
       queryClient.setQueryData<Essay>(
         workspaceKeys.essays.detail(essayId),
         (current) =>
@@ -250,7 +258,7 @@ export function useEssayAutosave(essayId: string, savedDraft?: SavedDraft) {
           ),
       );
     },
-    [essayId, queryClient],
+    [essayId, queryClient, ownership],
   );
 
   const syncLatestSavedCache = useCallback(() => {
@@ -294,6 +302,7 @@ export function useEssayAutosave(essayId: string, savedDraft?: SavedDraft) {
   }, [hasConflictingInFlight, syncLatestSavedCache]);
 
   const markSaveFailed = useCallback(() => {
+    if (!ownership.isCurrent()) return;
     /* Refetch, then adopt whatever version the server actually holds.
      *
      * A save can now fail because someone else moved the essay under us — most
@@ -309,6 +318,7 @@ export function useEssayAutosave(essayId: string, savedDraft?: SavedDraft) {
     void queryClient
       .invalidateQueries({ queryKey: workspaceKeys.essays.detail(essayId) })
       .then(() => {
+        if (!ownership.isCurrent()) return;
         const refreshed = queryClient.getQueryData<Essay>(
           workspaceKeys.essays.detail(essayId),
         );
@@ -322,7 +332,7 @@ export function useEssayAutosave(essayId: string, savedDraft?: SavedDraft) {
     void queryClient.invalidateQueries({
       queryKey: workspaceKeys.essays.list(),
     });
-  }, [essayId, queryClient]);
+  }, [essayId, queryClient, ownership]);
 
   const clearQueuedDirectDraft = useCallback((draft: Draft) => {
     if (queuedDirectDraftRef.current?.key === draft.key) {
@@ -332,6 +342,7 @@ export function useEssayAutosave(essayId: string, savedDraft?: SavedDraft) {
 
   const handleSaveSuccess = useCallback(
     (draft: Draft, essay: Essay) => {
+      if (!ownership.isCurrent()) return;
       inFlightDraftKeysRef.current.delete(draft.key);
       /* Unconditional, and deliberately not inside `syncEssayCache`: the
        * server's version advanced whether or not this response is the one we
@@ -362,11 +373,12 @@ export function useEssayAutosave(essayId: string, savedDraft?: SavedDraft) {
       }
       settlePendingSavedDraft();
     },
-    [settlePendingSavedDraft, syncEssayCache, syncLatestSavedCache],
+    [settlePendingSavedDraft, syncEssayCache, syncLatestSavedCache, ownership],
   );
 
   const handleSaveError = useCallback(
     (draft: Draft) => {
+      if (!ownership.isCurrent()) return;
       inFlightDraftKeysRef.current.delete(draft.key);
 
       if (pendingDraftRef.current?.key === draft.key) {
@@ -381,7 +393,7 @@ export function useEssayAutosave(essayId: string, savedDraft?: SavedDraft) {
       syncLatestSavedCache();
       settlePendingSavedDraft();
     },
-    [markSaveFailed, settlePendingSavedDraft, syncLatestSavedCache],
+    [markSaveFailed, settlePendingSavedDraft, syncLatestSavedCache, ownership],
   );
 
   /* Returns a promise that settles only once the request it stands for — and
@@ -392,6 +404,7 @@ export function useEssayAutosave(essayId: string, savedDraft?: SavedDraft) {
    * and `saveState` already carries the answer to "did it work". */
   const saveDraft = useCallback(
     (draft: Draft, options: SaveOptions = {}): Promise<void> => {
+      if (!ownership.isCurrent()) return Promise.resolve();
       if (inFlightDraftKeysRef.current.has(draft.key)) {
         if (directInFlightDraftKeyRef.current === draft.key) {
           queuedDirectDraftRef.current = null;
@@ -429,6 +442,7 @@ export function useEssayAutosave(essayId: string, savedDraft?: SavedDraft) {
       // Returning the queued save from the continuation is what makes the
       // outer promise cover the whole cascade rather than just the first hop.
       function drainQueue() {
+        if (!ownership.isCurrent()) return;
         const queuedDraft = queuedDirectDraftRef.current;
         if (!queuedDraft) {
           return;
@@ -455,7 +469,13 @@ export function useEssayAutosave(essayId: string, savedDraft?: SavedDraft) {
       inFlightSaveRef.current = save;
       return save;
     },
-    [essayId, handleSaveError, handleSaveSuccess, hasConflictingInFlight],
+    [
+      essayId,
+      handleSaveError,
+      handleSaveSuccess,
+      hasConflictingInFlight,
+      ownership,
+    ],
   );
 
   useEffect(() => {
@@ -464,6 +484,7 @@ export function useEssayAutosave(essayId: string, savedDraft?: SavedDraft) {
 
   const saveDraftKeepalive = useCallback(
     (draft: Draft, options: SaveOptions = {}) => {
+      if (!ownership.isCurrent()) return;
       if (inFlightDraftKeysRef.current.has(draft.key)) {
         return;
       }
@@ -508,6 +529,7 @@ export function useEssayAutosave(essayId: string, savedDraft?: SavedDraft) {
       handleSaveError,
       handleSaveSuccess,
       hasConflictingInFlight,
+      ownership,
     ],
   );
 
@@ -553,6 +575,7 @@ export function useEssayAutosave(essayId: string, savedDraft?: SavedDraft) {
 
   const queueSave = useCallback(
     (content: TiptapContent, wordCount: number) => {
+      if (!ownership.isCurrent()) return;
       const draft = {
         content,
         key: draftKey(content, wordCount),
@@ -590,7 +613,7 @@ export function useEssayAutosave(essayId: string, savedDraft?: SavedDraft) {
         AUTOSAVE_DELAY_MS,
       );
     },
-    [hasConflictingInFlight, saveDraft],
+    [hasConflictingInFlight, saveDraft, ownership],
   );
 
   const retry = useCallback(() => {

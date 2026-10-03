@@ -4,8 +4,16 @@ import { AdminGate } from "@/app/auth/AdminGate";
 import { GuestOnly } from "@/app/auth/GuestOnly";
 import { OnboardingGate } from "@/app/auth/OnboardingGate";
 import { RequireAuth } from "@/app/auth/RequireAuth";
+import { RequireVerified } from "@/app/auth/RequireVerified";
+import { ForgotPasswordRoute } from "@/features/auth/ForgotPasswordRoute";
+import { ResetPasswordRoute } from "@/features/auth/ResetPasswordRoute";
+import { VerifyEmailRoute } from "@/features/auth/VerifyEmailRoute";
+import { ConfirmEmailRoute } from "@/features/auth/ConfirmEmailRoute";
+import { GoogleCallbackRoute } from "@/features/auth/GoogleCallbackRoute";
+import { ReauthenticateRoute } from "@/features/auth/ReauthenticateRoute";
+import { AccountRoute } from "@/features/account/AccountRoute";
 import { WorkspaceShell } from "@/app/shell/WorkspaceShell";
-import { RouteSurface } from "@/app/routes/RouteSurface";
+import { CalendarPage } from "@/pages/calendar-page";
 import { LoginRoute } from "@/features/auth/LoginRoute";
 import { OnboardingRoute } from "@/features/onboarding/OnboardingRoute";
 import { RegisterRoute } from "@/features/auth/RegisterRoute";
@@ -85,6 +93,12 @@ export function createAppRouter() {
 
   return createBrowserRouter([
     ...devRoutes,
+    { path: "/forgot-password", element: <ForgotPasswordRoute /> },
+    { path: "/reset-password", element: <ResetPasswordRoute /> },
+    { path: "/verify-email", element: <VerifyEmailRoute /> },
+    { path: "/reauthenticate", element: <ReauthenticateRoute /> },
+    { path: "/confirm-email", element: <ConfirmEmailRoute /> },
+    { path: "/auth/callback", element: <GoogleCallbackRoute /> },
     {
       path: "/",
       element: <GuestOnly />,
@@ -109,140 +123,149 @@ export function createAppRouter() {
     {
       element: <RequireAuth />,
       children: [
+        { path: "/account", element: <AccountRoute /> },
         {
-          element: <OnboardingGate />,
+          element: <RequireVerified />,
           children: [
             {
-              path: "/app",
-              Component: WorkspaceShell,
+              element: <OnboardingGate />,
               children: [
                 {
-                  index: true,
-                  element: <Navigate replace to="/app/ai" />,
-                },
-                {
-                  path: "ai",
-                  element: <AiPage />,
-                },
-                {
-                  path: "ai/:sessionId",
-                  element: <AiChatRoute />,
-                },
-                {
-                  path: "tasks",
-                  element: <TasksPage />,
+                  path: "/app",
+                  Component: WorkspaceShell,
                   children: [
-                    { index: true, element: <Navigate replace to="today" /> },
-                    { path: "today", element: <TodayView /> },
-                    { path: "upcoming", element: <UpcomingView /> },
-                    { path: "anytime", element: <AnytimeView /> },
-                    { path: "logbook", element: <LogbookView /> },
+                    {
+                      index: true,
+                      element: <Navigate replace to="/app/ai" />,
+                    },
+                    {
+                      path: "ai",
+                      element: <AiPage />,
+                    },
+                    {
+                      path: "ai/:sessionId",
+                      element: <AiChatRoute />,
+                    },
+                    {
+                      path: "tasks",
+                      element: <TasksPage />,
+                      children: [
+                        {
+                          index: true,
+                          element: <Navigate replace to="today" />,
+                        },
+                        { path: "today", element: <TodayView /> },
+                        { path: "upcoming", element: <UpcomingView /> },
+                        { path: "anytime", element: <AnytimeView /> },
+                        { path: "logbook", element: <LogbookView /> },
+                      ],
+                    },
+                    {
+                      path: "profile",
+                      element: <ProfilePage />,
+                    },
+                    {
+                      path: "calendar",
+                      element: <CalendarPage />,
+                    },
+                    {
+                      path: "schools",
+                      element: <SchoolsPage />,
+                    },
+                    {
+                      /*
+                       * Keyed by unitid. An application id still resolves here
+                       * and redirects to the canonical school URL, so every
+                       * existing link in essays and tasks keeps working.
+                       */
+                      path: "schools/:schoolKey",
+                      element: <SchoolDetailPage />,
+                    },
+                    {
+                      path: "activities",
+                      element: <ActivitiesPage />,
+                    },
+                    {
+                      path: "scholarships",
+                      element: <ScholarshipsRoute />,
+                    },
+                    {
+                      path: "sat",
+                      lazy: satDashboard,
+                      HydrateFallback: SatDashboardSkeleton,
+                    },
+                    {
+                      path: "essays",
+                      element: <EssaysPage />,
+                    },
+                    {
+                      path: "essays/:essayId",
+                      element: <EssayEditorPage />,
+                    },
+                    {
+                      /*
+                       * The school-data admin dashboard (plan §5.5, D12) that
+                       * replaces the parked CDS admin screens (ADR 0038,
+                       * PARKED.md) — superuser-gated the same way the CDS admin
+                       * routes were.
+                       */
+                      path: "admin/facts",
+                      element: (
+                        <AdminGate>
+                          <AdminFactsPage />
+                        </AdminGate>
+                      ),
+                    },
+                    {
+                      path: "admin/scholarships",
+                      element: (
+                        <AdminGate>
+                          <AdminScholarshipsPage />
+                        </AdminGate>
+                      ),
+                    },
+                    {
+                      /* `new` opens an empty draft; anything else is a record id. */
+                      path: "admin/scholarships/:scholarshipId",
+                      element: (
+                        <AdminGate>
+                          <ScholarshipEditorPage />
+                        </AdminGate>
+                      ),
+                    },
+                    {
+                      /*
+                       * The CDS admin screens are parked (not deleted, ADR
+                       * 0038/PARKED.md) — this redirect exists only for a stale
+                       * `/app/admin/cds/*` bookmark or link, now that
+                       * `/app/admin/facts` (above) exists.
+                       */
+                      path: "admin/cds/*",
+                      element: <Navigate replace to="/app/admin/facts" />,
+                    },
+                    {
+                      path: "*",
+                      element: <Navigate replace to="/app/tasks" />,
+                    },
                   ],
                 },
                 {
-                  path: "profile",
-                  element: <ProfilePage />,
-                },
-                {
-                  path: "calendar",
-                  element: <RouteSurface title="Calendar" />,
-                },
-                {
-                  path: "schools",
-                  element: <SchoolsPage />,
-                },
-                {
                   /*
-                   * Keyed by unitid. An application id still resolves here
-                   * and redirects to the canonical school URL, so every
-                   * existing link in essays and tasks keeps working.
+                   * A sibling of `/app`, not a child of `WorkspaceShell` (plan
+                   * §5.1, D4): the Bluebook frame is a full-viewport focus
+                   * environment, outside the workspace shell's sidebar/shell
+                   * chrome. The four-segment static path ranks above `/app/*`'s
+                   * splat, so this never loses to the shell's catch-all.
                    */
-                  path: "schools/:schoolKey",
-                  element: <SchoolDetailPage />,
+                  path: "/app/sat/practice/:questionId?",
+                  lazy: satPractice,
+                  HydrateFallback: SatPracticeSkeleton,
                 },
                 {
-                  path: "activities",
-                  element: <ActivitiesPage />,
-                },
-                {
-                  path: "scholarships",
-                  element: <ScholarshipsRoute />,
-                },
-                {
-                  path: "sat",
-                  lazy: satDashboard,
-                  HydrateFallback: SatDashboardSkeleton,
-                },
-                {
-                  path: "essays",
-                  element: <EssaysPage />,
-                },
-                {
-                  path: "essays/:essayId",
-                  element: <EssayEditorPage />,
-                },
-                {
-                  /*
-                   * The school-data admin dashboard (plan §5.5, D12) that
-                   * replaces the parked CDS admin screens (ADR 0038,
-                   * PARKED.md) — superuser-gated the same way the CDS admin
-                   * routes were.
-                   */
-                  path: "admin/facts",
-                  element: (
-                    <AdminGate>
-                      <AdminFactsPage />
-                    </AdminGate>
-                  ),
-                },
-                {
-                  path: "admin/scholarships",
-                  element: (
-                    <AdminGate>
-                      <AdminScholarshipsPage />
-                    </AdminGate>
-                  ),
-                },
-                {
-                  /* `new` opens an empty draft; anything else is a record id. */
-                  path: "admin/scholarships/:scholarshipId",
-                  element: (
-                    <AdminGate>
-                      <ScholarshipEditorPage />
-                    </AdminGate>
-                  ),
-                },
-                {
-                  /*
-                   * The CDS admin screens are parked (not deleted, ADR
-                   * 0038/PARKED.md) — this redirect exists only for a stale
-                   * `/app/admin/cds/*` bookmark or link, now that
-                   * `/app/admin/facts` (above) exists.
-                   */
-                  path: "admin/cds/*",
-                  element: <Navigate replace to="/app/admin/facts" />,
-                },
-                {
-                  path: "*",
-                  element: <Navigate replace to="/app/tasks" />,
+                  path: "/onboarding",
+                  element: <OnboardingRoute />,
                 },
               ],
-            },
-            {
-              /*
-               * A sibling of `/app`, not a child of `WorkspaceShell` (plan
-               * §5.1, D4): the Bluebook frame is a full-viewport focus
-               * environment, outside the workspace shell's sidebar/shell
-               * chrome. The four-segment static path ranks above `/app/*`'s
-               * splat, so this never loses to the shell's catch-all.
-               */
-              path: "/app/sat/practice/:questionId?",
-              lazy: satPractice,
-              HydrateFallback: SatPracticeSkeleton,
-            },
-            {
-              path: "/onboarding",
-              element: <OnboardingRoute />,
             },
           ],
         },

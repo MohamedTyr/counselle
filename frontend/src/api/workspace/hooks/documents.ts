@@ -1,4 +1,5 @@
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { usePrivateMutation } from "@/app/private-mutations";
+import { useQuery } from "@tanstack/react-query";
 
 import { handleMutationError } from "@/api/workspace/hook-utils";
 import {
@@ -16,7 +17,7 @@ export function useDocuments() {
 }
 
 export function useUploadDocument() {
-  return useMutation({
+  return usePrivateMutation({
     mutationFn: uploadDocument,
     onError: (error, _input, _snapshot, context) => {
       handleMutationError(error, context);
@@ -30,7 +31,7 @@ export function useUploadDocument() {
 }
 
 export function useArchiveDocument() {
-  return useMutation({
+  return usePrivateMutation({
     mutationFn: archiveDocument,
     onError: (error, _id, _snapshot, context) => {
       handleMutationError(error, context);

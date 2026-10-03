@@ -1,3 +1,4 @@
+import { accountBoundFetch } from "@/api/http/account-binding";
 import { DEFAULT_REQUEST_TIMEOUT_MS } from "@/config";
 import { BASE } from "@/api/http/constants";
 import { errorFromResponse, TransportError } from "@/api/http/errors";
@@ -19,7 +20,7 @@ export async function safeFetch(
   timeoutMs: number = DEFAULT_REQUEST_TIMEOUT_MS,
 ): Promise<Response> {
   try {
-    return await fetch(withBase(path), {
+    return await accountBoundFetch(withBase(path), {
       ...init,
       credentials: "same-origin",
       signal: init.signal ?? AbortSignal.timeout(timeoutMs),

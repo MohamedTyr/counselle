@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Create/update the Render Free web service and verify the staging app.
+"""Create/update the Render web service and verify the staging app.
 
 The script consumes the Supabase runtime DSNs printed by
 ``finish_supabase_staging.py`` plus the existing model/search keys. It uses the
@@ -9,8 +9,10 @@ Render API token from ``RENDER_API_KEY`` or the logged-in Render CLI config.
 from __future__ import annotations
 
 import argparse
+import ipaddress
 import json
 import os
+import re
 import secrets
 import subprocess
 import sys
@@ -107,8 +109,8 @@ def _request(
         with urllib.request.urlopen(request, timeout=60) as response:
             payload = response.read()
     except urllib.error.HTTPError as exc:
-        message = exc.read().decode("utf-8", errors="replace")
-        raise RuntimeError(f"Render API {method} {path} failed: {exc.code} {message}") from exc
+        # Provider error bodies can echo submitted environment secrets.
+        raise RuntimeError(f"Render API {method} {path} failed: HTTP {exc.code}") from None
     if not payload:
         return None
     return json.loads(payload.decode("utf-8"))
@@ -168,8 +170,22 @@ def _find_service(token: str, *, owner_id: str, name: str) -> dict[str, Any] | N
 
 
 def _get_env_vars(token: str, service_id: str) -> list[dict[str, Any]]:
-    results = _request("GET", f"/services/{service_id}/env-vars", token=token)
-    return [item.get("envVar", item) for item in results or []]
+    values: list[dict[str, Any]] = []
+    cursor: str | None = None
+    while True:
+        query = {"limit": "100"}
+        if cursor:
+            query["cursor"] = cursor
+        page = _request("GET", f"/services/{service_id}/env-vars", token=token, query=query)
+        if not page:
+            return values
+        values.extend(item.get("envVar", item) for item in page)
+        next_cursor = page[-1].get("cursor")
+        if not next_cursor:
+            return values
+        if next_cursor == cursor:
+            raise RuntimeError("Render env-var pagination did not advance")
+        cursor = next_cursor
 
 
 def _put_env_vars(token: str, service_id: str, env_vars: list[dict[str, Any]]) -> None:
@@ -238,11 +254,97 @@ def _wait_for_url(base_url: str, path: str, timeout_s: int) -> None:
     raise TimeoutError(f"{url} did not return 200; last status {last_status}")
 
 
-def _required_env(dotenv: dict[str, str]) -> list[dict[str, Any]]:
+def _remote_auth_origin(value: str | None) -> str:
+    import ipaddress
+
+    if not value:
+        raise RuntimeError(
+            "--auth-public-url is required when the remote service has no auth origin"
+        )
+    try:
+        parts = urlparse(value)
+        host = (parts.hostname or "").rstrip(".").lower()
+        _ = parts.port
+    except ValueError:
+        raise RuntimeError(
+            "--auth-public-url must be a public HTTPS origin without a path"
+        ) from None
+    try:
+        private_ip = not ipaddress.ip_address(host).is_global
+    except ValueError:
+        private_ip = bool(host) and all(character in "0123456789." for character in host)
+    if (
+        parts.scheme != "https"
+        or any(character.isspace() for character in value)
+        or not host
+        or parts.username
+        or parts.password
+        or parts.path not in {"", "/"}
+        or parts.params
+        or parts.query
+        or parts.fragment
+        or host in {"localhost", "0.0.0.0"}
+        or host.endswith((".localhost", ".local"))
+        or private_ip
+    ):
+        raise RuntimeError("--auth-public-url must be a public HTTPS origin without a path")
+    return value.rstrip("/")
+
+
+def _auth_env(
+    dotenv: dict[str, str], remote: dict[str, str], *, auth_public_url: str | None
+) -> dict[str, str]:
+    """Preserve remote auth configuration; local dev URLs never enter deployments."""
+    origin = _remote_auth_origin(auth_public_url or remote.get("COUNSELLE_AUTH_PUBLIC_URL"))
+
+    def configured(key: str, default: str = "") -> str:
+        return os.environ.get(key) or remote.get(key) or dotenv.get(key) or default
+
+    values = {
+        "COUNSELLE_AUTH_PUBLIC_URL": origin,
+        "COUNSELLE_EMAIL_PROVIDER": "resend",
+        "COUNSELLE_EMAIL_FROM": configured(
+            "COUNSELLE_EMAIL_FROM", "Acceptra <accounts@mail.acceptra.ai>"
+        ),
+        "COUNSELLE_EMAIL_REPLY_TO": configured("COUNSELLE_EMAIL_REPLY_TO", "support@acceptra.ai"),
+        "COUNSELLE_SUPPORT_EMAIL": configured("COUNSELLE_SUPPORT_EMAIL", "support@acceptra.ai"),
+        "COUNSELLE_RESEND_API_KEY": configured("COUNSELLE_RESEND_API_KEY"),
+        "COUNSELLE_JWT_SECRET": configured("COUNSELLE_JWT_SECRET") or secrets.token_urlsafe(48),
+        "COUNSELLE_OAUTH_STATE_SECRET": configured("COUNSELLE_OAUTH_STATE_SECRET")
+        or secrets.token_urlsafe(48),
+    }
+    if not values["COUNSELLE_RESEND_API_KEY"].strip():
+        raise RuntimeError("COUNSELLE_RESEND_API_KEY is required for deployed authentication")
+    if values["COUNSELLE_JWT_SECRET"] == values["COUNSELLE_OAUTH_STATE_SECRET"]:
+        raise RuntimeError("COUNSELLE_OAUTH_STATE_SECRET must differ from COUNSELLE_JWT_SECRET")
+    # Never replace intentionally closed staging gates with a developer's .env.
+    for key in ("COUNSELLE_AUTH_SELF_SIGNUP_ENABLED", "COUNSELLE_PASSWORD_RESET_ENABLED"):
+        values[key] = os.environ.get(key) or remote.get(key) or "true"
+    google = {
+        key: configured(key)
+        for key in ("COUNSELLE_GOOGLE_OAUTH_CLIENT_ID", "COUNSELLE_GOOGLE_OAUTH_CLIENT_SECRET")
+    }
+    if any(google.values()) and not all(google.values()):
+        raise RuntimeError("Google OAuth requires both client ID and client secret")
+    values.update({key: value for key, value in google.items() if value})
+    return values
+
+
+def _required_env(
+    dotenv: dict[str, str],
+    *,
+    remote_env: dict[str, str] | None = None,
+    auth_public_url: str | None = None,
+) -> list[dict[str, Any]]:
     tavily = _env_value("COUNSELLE_TAVILY_API_KEY", dotenv) or _env_value("TAVILY_API_KEY", dotenv)
     required = {
         "COUNSELLE_DB_RO_DSN": _env_value("COUNSELLE_DB_RO_DSN", dotenv),
         "COUNSELLE_DB_APP_DSN": _env_value("COUNSELLE_DB_APP_DSN", dotenv),
+        # The entrypoint seeds roles/schema before migrations on every boot.
+        # Keep a remotely rotated admin credential ahead of the local .env.
+        "COUNSELLE_DB_ADMIN_DSN": os.environ.get("COUNSELLE_DB_ADMIN_DSN")
+        or (remote_env or {}).get("COUNSELLE_DB_ADMIN_DSN")
+        or dotenv.get("COUNSELLE_DB_ADMIN_DSN"),
         # Required at boot under v3, not just for the facts crawler:
         # scripts/entrypoint.sh's required_env list hard-fails with exit 1
         # if this is empty (the crosswalk-sync step needs it). Enforcing it
@@ -270,8 +372,6 @@ def _required_env(dotenv: dict[str, str]) -> list[dict[str, Any]]:
     fixed = {
         "COUNSELLE_ENVIRONMENT": "staging",
         "COUNSELLE_COOKIE_SECURE": "true",
-        "COUNSELLE_AUTH_SELF_SIGNUP_ENABLED": "false",
-        "COUNSELLE_PASSWORD_RESET_ENABLED": "false",
         "COUNSELLE_CHECKPOINTER": "postgres",
         "COUNSELLE_SERVE_SPA": "true",
         "COUNSELLE_SPA_DIST_DIR": "/app/frontend/dist",
@@ -291,21 +391,43 @@ def _required_env(dotenv: dict[str, str]) -> list[dict[str, Any]]:
         "COUNSELLE_FACTS_WORKER_ENABLED": _env_value(
             "COUNSELLE_FACTS_WORKER_ENABLED", dotenv, fallback="false"
         ),
-        "COUNSELLE_JWT_SECRET": _env_value("COUNSELLE_JWT_SECRET", dotenv)
-        or secrets.token_urlsafe(48),
         **required,
+        **_runtime_env(dotenv, remote_env or {}),
+        **_auth_env(dotenv, remote_env or {}, auth_public_url=auth_public_url),
     }
-    # Optional secrets this script does not require but must not clobber
-    # once set: pass them through when already present in the environment
-    # or .env, otherwise leave them for the merge in _put_env_vars (or the
-    # Render Blueprint's `sync: false` prompt on first create) to supply.
-    # (COUNSELLE_DB_PIPELINE_DSN is required now -- it's already in `fixed`
-    # via `**required` above -- so only COUNSELLE_DB_ADMIN_DSN passes through here.)
-    for key in ("COUNSELLE_DB_ADMIN_DSN",):
-        value = _env_value(key, dotenv)
-        if value:
-            fixed[key] = value
     return [{"key": key, "value": value} for key, value in fixed.items()]
+
+
+def _runtime_env(dotenv: dict[str, str], remote: dict[str, str]) -> dict[str, str]:
+    """Validate operator-supplied boot requirements before any provider write."""
+    keys = (
+        "COUNSELLE_TRUSTED_PROXY_CIDR",
+        "COUNSELLE_FACTS_CRAWL_USER_AGENT",
+        "COUNSELLE_SAT_FETCH_USER_AGENT",
+    )
+    values = {
+        key: (os.environ.get(key) or remote.get(key) or dotenv.get(key) or "").strip()
+        for key in keys
+    }
+    missing = [key for key, value in values.items() if not value]
+    if missing:
+        raise RuntimeError(
+            "missing required deployment env vars: "
+            + ", ".join(missing)
+            + ". Set the platform's trusted proxy CIDR and each crawler's real contact URL."
+        )
+    try:
+        networks = [ipaddress.ip_network(part.strip()) for part in values[keys[0]].split(",")]
+    except ValueError:
+        raise RuntimeError(
+            "COUNSELLE_TRUSTED_PROXY_CIDR must contain platform proxy IPs or network-aligned CIDRs"
+        ) from None
+    if any(network.prefixlen == 0 for network in networks):
+        raise RuntimeError("COUNSELLE_TRUSTED_PROXY_CIDR must not trust the entire internet")
+    for key in keys[1:]:
+        if "<domain>" in values[key] or not re.search(r"https?://\S+", values[key]):
+            raise RuntimeError(f"{key} must identify your real contact URL, without placeholders")
+    return values
 
 
 def _parse_args() -> argparse.Namespace:
@@ -315,6 +437,10 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--repo", default=DEFAULT_REPO)
     parser.add_argument("--branch", default=DEFAULT_BRANCH)
     parser.add_argument("--region", default="oregon")
+    parser.add_argument(
+        "--auth-public-url",
+        help="Exact HTTPS app origin. Required on first create; otherwise retains remote value.",
+    )
     parser.add_argument(
         "--plan",
         default="0.5c-512mb",
@@ -342,8 +468,16 @@ def main() -> int:
         print("RENDER_API_KEY or logged-in Render CLI config is required", file=sys.stderr)
         return 2
 
+    service = _find_service(token, owner_id=args.owner_id, name=args.service_name)
+    remote_env = (
+        {item["key"]: item.get("value", "") for item in _get_env_vars(token, service["id"])}
+        if service
+        else {}
+    )
     try:
-        env_vars = _required_env(dotenv)
+        env_vars = _required_env(
+            dotenv, remote_env=remote_env, auth_public_url=args.auth_public_url
+        )
     except RuntimeError as exc:
         print(str(exc), file=sys.stderr)
         return 2
@@ -357,7 +491,6 @@ def main() -> int:
         print(f"would set {len(env_vars)} env vars")
         return 0
 
-    service = _find_service(token, owner_id=args.owner_id, name=args.service_name)
     if service is None:
         print(f"creating Render service {args.service_name}")
         created = _request(

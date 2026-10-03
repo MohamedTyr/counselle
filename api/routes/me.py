@@ -15,6 +15,7 @@ we never report a full deletion while a student's conversation checkpoints survi
 from __future__ import annotations
 
 import json
+from datetime import UTC, datetime
 from typing import Any
 
 import structlog
@@ -22,12 +23,15 @@ from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel, Field
 
-from api.auth import current_active_user
+from api.auth import auth_backend, current_active_user
+from api.auth_account_security import lock_account_session
+from api.auth_security import auth_origin_protect
+from api.auth_sessions import get_request_session, require_recent_auth
 from api.deps import EnvelopeError, require_json
 from api.users_db import UserDB
 from app.chat_deletion import cancel_and_drop_threads
 
-router = APIRouter(tags=["me"])
+router = APIRouter(tags=["me"], dependencies=[Depends(auth_origin_protect)])
 logger = structlog.get_logger(__name__)
 
 _GOOGLE = "google"
@@ -70,8 +74,21 @@ async def _user_session_ids(pool: Any, user_id: str) -> list[str]:
 
 
 @router.get("/me")
-async def get_me(user: UserDB = Depends(current_active_user)) -> JSONResponse:
+async def get_me(request: Request, user: UserDB = Depends(current_active_user)) -> JSONResponse:
     """The authed user's profile, settings, and credential posture."""
+    session = await get_request_session(request, user)
+    recent = bool(
+        session
+        and session.authenticated_at
+        and 0
+        <= (datetime.now(UTC) - session.authenticated_at).total_seconds()
+        <= request.app.state.settings.auth_recent_seconds
+    )
+    pending = await request.app.state.runtime.app_pool.fetchval(
+        """SELECT email FROM counselle.auth_action_tokens
+           WHERE user_id=$1 AND purpose='email_change' AND expires_at > now()""",
+        user.id,
+    )
     return JSONResponse(
         content={
             "id": str(user.id),
@@ -81,6 +98,9 @@ async def get_me(user: UserDB = Depends(current_active_user)) -> JSONResponse:
             "google_connected": _google_connected(user),
             "settings": user.settings,
             "is_superuser": user.is_superuser,
+            "is_verified": user.is_verified,
+            "pending_email": pending,
+            "reauthentication_required": not recent,
         }
     )
 
@@ -154,28 +174,34 @@ async def patch_me(
 
 
 @router.delete("/me", status_code=204)
-async def delete_me(
-    request: Request, user: UserDB = Depends(current_active_user)
-) -> Response:
+async def delete_me(request: Request, user: UserDB = Depends(current_active_user)) -> Response:
     """Delete the account: cancel turns, drop threads, then the user row (FK cascade).
 
     If any checkpoint thread fails to drop we abort (500) and leave the rows — a
     half-deletion must never report success; a retry re-enumerates and re-attempts.
     """
+    session = await require_recent_auth(request, user)
     pool = request.app.state.runtime.app_pool
-    session_ids = await _user_session_ids(pool, str(user.id))
-    failed = await cancel_and_drop_threads(
-        request.app.state.turn_registry,
-        request.app.state.runtime.checkpointer,
-        session_ids,
-    )
-    if failed:
-        logger.error("account delete aborted — checkpoint threads survived", failed=failed)
-        raise EnvelopeError(500, "Account deletion didn't fully complete — please try again.")
-    async with pool.acquire() as conn:
-        # FK cascade removes the user's sessions + oauth_accounts.
-        await conn.execute("DELETE FROM counselle.users WHERE id = $1", user.id)
-    return Response(status_code=204)
+    async with pool.acquire() as conn, conn.transaction():
+        await lock_account_session(
+            conn, user, session.token_hash, request.app.state.settings.auth_recent_seconds
+        )
+        rows = await conn.fetch(
+            "SELECT session_id FROM counselle.sessions WHERE user_id=$1",
+            user.id,
+        )
+        failed = await cancel_and_drop_threads(
+            request.app.state.turn_registry,
+            request.app.state.runtime.checkpointer,
+            [str(row["session_id"]) for row in rows],
+        )
+        if failed:
+            logger.error("account delete aborted — checkpoint threads survived", failed=failed)
+            raise EnvelopeError(500, "Account deletion didn't fully complete — please try again.")
+        # Documents' original bytes and extracted text live in Postgres and
+        # cascade with the workspace, auth sessions, and linked identities.
+        await conn.execute("DELETE FROM counselle.users WHERE id=$1", user.id)
+    return await auth_backend.transport.get_logout_response()
 
 
 @router.delete("/me/chats", status_code=204)

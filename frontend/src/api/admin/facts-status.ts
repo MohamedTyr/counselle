@@ -1,3 +1,4 @@
+import { usePrivateMutation } from "@/app/private-mutations";
 /**
  * Typed client + React Query hooks for the school-data admin dashboard
  * (`/app/admin/facts`, plan §5.5, D12): `GET /v1/admin/facts/status`,
@@ -9,12 +10,7 @@
  * one-screen admin feature, not a multi-file API module like `cds-admin`.
  */
 
-import {
-  useMutation,
-  useQuery,
-  useQueryClient,
-  type Query,
-} from "@tanstack/react-query";
+import { useQuery, useQueryClient, type Query } from "@tanstack/react-query";
 
 import { requestJson, requestVoid } from "@/api/http/client";
 
@@ -26,7 +22,8 @@ export type TabName =
   | "campus-life"
   | "students";
 
-export type CrawlStatus = "running" | "succeeded" | "partial" | "failed" | "aborted";
+export type CrawlStatus =
+  "running" | "succeeded" | "partial" | "failed" | "aborted";
 
 export type CrawlRunSummary = {
   id: number;
@@ -104,7 +101,8 @@ export function enqueueFactsPass() {
 export const adminFactsKeys = {
   all: ["admin-facts"] as const,
   status: () => [...adminFactsKeys.all, "status"] as const,
-  unmapped: (page: number) => [...adminFactsKeys.all, "unmapped", page] as const,
+  unmapped: (page: number) =>
+    [...adminFactsKeys.all, "unmapped", page] as const,
 };
 
 /** Polls only while the last-seen run is `running` (DESIGN.md §1.8's
@@ -112,8 +110,12 @@ export const adminFactsKeys = {
  * business polling every 30s forever once a pass has settled. */
 const FACTS_STATUS_POLL_MS = 30_000;
 
-function pollWhileRunning(query: Query<FactsStatus, unknown, FactsStatus>): number | false {
-  return query.state.data?.last_run?.status === "running" ? FACTS_STATUS_POLL_MS : false;
+function pollWhileRunning(
+  query: Query<FactsStatus, unknown, FactsStatus>,
+): number | false {
+  return query.state.data?.last_run?.status === "running"
+    ? FACTS_STATUS_POLL_MS
+    : false;
 }
 
 export function useFactsStatus() {
@@ -135,7 +137,7 @@ export function useUnmappedLabels(page: number, enabled: boolean) {
 
 export function useEnqueueFactsPass() {
   const queryClient = useQueryClient();
-  return useMutation({
+  return usePrivateMutation({
     mutationFn: enqueueFactsPass,
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: adminFactsKeys.status() });

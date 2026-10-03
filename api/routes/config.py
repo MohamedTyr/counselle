@@ -125,4 +125,15 @@ async def get_public_config(request: Request) -> JSONResponse:
     """
     settings = request.app.state.settings
     date = settings.db_reset_notice_date
-    return JSONResponse(content={"db_reset_notice_date": date.isoformat() if date else None})
+    return JSONResponse(
+        content={
+            "db_reset_notice_date": date.isoformat() if date else None,
+            "auth": {
+                "google_enabled": settings.google_oauth_configured,
+                "signup_enabled": settings.auth_self_signup_enabled,
+                "password_reset_enabled": settings.password_reset_enabled,
+                "password_min_length": settings.password_min_length,
+                "support_email": settings.support_email,
+            },
+        }
+    )

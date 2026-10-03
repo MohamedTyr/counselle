@@ -74,7 +74,7 @@ shortcut. Imported in this order by `frontend/src/index.css`:
 |---|---|---|---|
 | **1 — Primitives** | `styles/primitives.css` | Raw OKLCH literals. Named by scale position, never by usage. **The only file in the codebase allowed a colour literal.** | nothing |
 | **2 — Semantic** | `styles/semantic.css`, `styles/elevation.css` | Role tokens. Every value is a `var()` onto a primitive, or a `color-mix()` of two such vars. | tier 1 only |
-| **3 — Families** | `styles/shell.css`, `workspace.css`, `task.css`, `essay.css`, `activity.css`, `profile.css`, `schools.css`, `onboarding.css`, `shadcn.css`, `sat.css` | Per-feature alias blocks. | tier 2, or a sibling token in the same tier |
+| **3 — Families** | `styles/shell.css`, `workspace.css`, `task.css`, `essay.css`, `activity.css`, `profile.css`, `schools.css`, `onboarding.css`, `shadcn.css`, `sat.css`, `calendar.css` | Per-feature alias blocks. | tier 2, or a sibling token in the same tier |
 | **4 — Theme** | `styles/theme.css` | The Tailwind v4 `@theme inline` binding that turns tokens into utility classes (`bg-primary`, `border-border`). | tiers 2–3 |
 
 Custom-property resolution is lazy, so this order is for human readability, not
@@ -112,7 +112,7 @@ use them anywhere.
 | neutral | everything else, **including every in-progress state** |
 
 **One documented exception: the SAT practice highlighter (`--sat-highlight`, aliased to
-`--warning-surface`).** A student's own passage/stem highlight is drawn in yellow because a
+`--warning-border`, the amber step dark enough to stay visible under body text).** A student's own passage/stem highlight is drawn in yellow because a
 highlighter is yellow by universal convention, not because anything under it is `warning` —
 no warning state is ever drawn there, the mark sits only under body text in one feature's
 reading surface, and the choice is recorded in `sat.css` beside its token. This is the one
@@ -154,11 +154,18 @@ Corollaries:
 - **An inset surface never draws a rim.** A recessed fill that also has a border reads
   as embossed. The fill step is the entire signal.
 - **Interaction states are one rule, not a value per component** (§11.1).
-- **`--chrome` is chrome by function, not only by location.** The SAT practice screen's
-  top and bottom bars sit on `--chrome`, the same token as the sidebar rail, because they
-  are a fixed control strip framing a focus surface — not an object carrying content — even
-  though they render at the top/bottom of a full-viewport route rather than down the side.
-  The role follows what the surface *does*.
+- **`--chrome` is chrome by function, not only by location.** The SAT practice screen is a
+  full-viewport focus route with no sidebar, so it carries its own frame
+  (`SatPracticeFrame`): the shell's quiet beams (`BeamsBackground quiet`, shared with
+  `WorkspaceShell`) behind it, the question and passage on raised sheets (`satSheetClass`,
+  the same `--surface-raised` + hairline + `--elevation-1` the Tasks and Profile sheets use),
+  and the top and bottom bars as light toolbars *on the beams* — a quiet pill track for the
+  tools, a raised outline pill for the timer — not a filled strip. Every practice state
+  (loading, error, empty, the question) renders inside that frame so none falls back to a
+  flat page. The calculator opens docked in the left sheet slot from 1280px wide (it covers nothing
+  there) and floats in the bottom-right corner below that; content scrolling under a sheet's
+  edge dissolves over the pane's padding (`satScrollFadeClass`) instead of being sliced by
+  the border.
 
 ### 2.3 Naming
 
@@ -176,20 +183,23 @@ Corollaries:
 - **New feature area with its own recurring colours?** Give it a family file, prefixed
   by the feature, resolving only through `semantic.css` / `workspace.css`. SAT practice's
   `sat.css` is the worked example: a `--sat-*` tier-3 family (highlight, a five-step heat
-  scale for the streak calendar, and the prose sizing/line-height/max-width/math-image
+  scale for the activity calendar, and the prose sizing/line-height/max-width/math-image
   tokens `.sat-content` renders College Board's sanitised HTML through), resolving only
-  through tier 2 — `--sat-highlight` aliases `--warning-surface`, the heat scale
-  `color-mix()`es `--brand-scale-3` against `--surface-inset`.
+  through tier 2 — `--sat-highlight` aliases `--warning-border`; the heat scale is no fill
+  at all for an empty day (a hairline-ringed swatch in the legend, so the calendar reads
+  as dates with activity filled in, never as a grid of grey blocks), two light tints
+  `color-mix()`ed from `--brand-scale-1` over `--surface-inset`, and two solid brand steps
+  (`--brand-scale-2`, `--brand-scale-3`) that carry white numerals.
 - **Extending an existing family?** Add to that family's file; keep its naming pattern.
 - Split a family file once it passes ~300 lines.
 - **Two tier-2 roles were added for SAT practice, both reusable beyond it:**
   `--image-outline` (`semantic.css`) — a faint hairline drawn around any inline image
   sitting directly on a surface with no card chrome of its own, first needed for the
   bank's own figures and base64 math images; and `--on-ink` (`semantic.css`, `--gray-0`,
-  16.6:1 on `--ink`) — ink meant to sit on a fill of `--ink` itself, first needed for the
-  practice screen's question-number badge (a filled `--ink` pill carrying the number).
-  Both are semantic roles, not SAT-specific tokens, so they live in tier 2 rather than
-  `sat.css`.
+  16.6:1 on `--ink`) — ink meant to sit on a fill of `--ink` itself. The practice screen's
+  question-number badge is now a quiet `--control-quiet-surface` chip, so `--on-ink` has no
+  SAT consumer today; it stays as a general role. Both are semantic roles, not SAT-specific
+  tokens, so they live in tier 2 rather than `sat.css`.
 
 ---
 
@@ -613,12 +623,13 @@ rule behind the split. *(Four literal widths still exist outside the vocabulary:
 `max-w-3xl` in the chat transcript, `max-w-md` in error panels. The chat and essay
 widths are justified by measure, not layout — see §6.5.)*
 
-**Three more literal widths, added for SAT practice**, a full-viewport route outside
-`PageContainer` (§9.4) where neither `full` nor `wide` applies: `max-w-[860px]` for the
-practice screen's centered reading column when a question has no passage (Math, or R&W
-with no stimulus) — an upstream constant, kept because it is also the breakpoint below
-which the layout drops to one column; `max-w-[480px]` for the question-info dialog; and
-`max-w-[400px]` for the question navigator popover. None of these are `PageContainer`
+**Four more literal widths, added for SAT practice**, a full-viewport route outside
+`PageContainer` (§9.4) where neither `full` nor `wide` applies: `max-w-[920px]` for the
+practice screen's single sheet when a question has no passage and no docked calculator
+(Math, or R&W with no stimulus), whose content column is `max-w-[760px]`, and
+`max-w-[1400px]` for the two-sheet layout; `max-w-[480px]` for the question-info dialog;
+and `w-[460px]` for the question navigator popover. The 860px breakpoint below which the
+two sheets stack into one column is an upstream constant. None of these are `PageContainer`
 surfaces, so they are not folded into `full`/`wide`/`panel` — they are the same kind of
 justified-by-content literal as the four above, not a fourth vocabulary tier.
 
@@ -631,19 +642,22 @@ justified-by-content literal as the four above, not a fourth vocabulary tier.
 ```
 main.tsx → App → AppProviders (QueryClient, TooltipProvider, Toaster)
   RouterProvider
+    Public auth flows    → recovery, verification, email confirmation, OAuth callback
     GuestOnly            → /login, /register
     RequireAuth
-      OnboardingGate
-        WorkspaceShell    ← /app
-          SidebarProvider  (--sidebar-width from useResizableSidebar)
-            div.relative.flex.h-dvh.w-full
-              AppSidebar            → <Sidebar collapsible="icon">
-              SidebarResizer        (desktop only)
-              SidebarInset          → <main>, flex column, overflow-hidden
-                header.h-14.md:hidden   ← mobile-only top bar
-                WorkspaceOutlet
-                  motion.div.absolute.inset-0   ← route transition
-                    <route element>
+      /account           ← available before verification and onboarding
+      RequireVerified
+        OnboardingGate
+          WorkspaceShell    ← /app
+            SidebarProvider  (--sidebar-width from useResizableSidebar)
+              div.relative.flex.h-dvh.w-full
+                AppSidebar            → <Sidebar collapsible="icon">
+                SidebarResizer        (desktop only)
+                SidebarInset          → <main>, flex column, overflow-hidden
+                  header.h-14.md:hidden   ← mobile-only top bar
+                  WorkspaceOutlet
+                    motion.div.absolute.inset-0   ← route transition
+                      <route element>
 ```
 
 `h-dvh` pins the shell to the dynamic viewport. **The shell never scrolls.** Every page
@@ -795,7 +809,12 @@ under it, so the tools stay attached to the thing they edit.
 | Path | Renders | Gate |
 |---|---|---|
 | `/login`, `/register` | auth routes | `GuestOnly` |
-| `/app` → `/app/ai` | redirect | auth + onboarding |
+| `/forgot-password`, `/reset-password` | request a reset; choose a new password | public |
+| `/verify-email`, `/confirm-email` | verify signup email; confirm a pending address change | public |
+| `/reauthenticate` | confirm the emailed identity challenge | public page; confirmation requires the initiating signed-in session |
+| `/auth/callback` | complete Google login/linking/reauthentication and preserve the local destination | public |
+| `/account` | profile, sign-in methods, email/password changes, sign-out and deletion | auth; before verification and onboarding |
+| `/app` → `/app/ai` | redirect | auth + verified email + onboarding |
 | `/app/ai` | composer landing | ” |
 | `/app/ai/:sessionId` | chat | ” |
 | `/app/tasks` | task board / table | ” |
@@ -805,11 +824,20 @@ under it, so the tools stay attached to the thing they edit.
 | `/app/scholarships` | scholarship list with a detail panel (a sheet below 1280px); view, filters, sort and selection live in the URL | ” |
 | `/app/admin/scholarships`, `/app/admin/scholarships/:id` | scholarship admin list; editor (`new` for a new draft) | ” + `AdminGate` |
 | `/app/profile` | profile | ” |
-| `/app/calendar` | stub | ” |
-| `/app/sat` | SAT practice dashboard (inside the shell) | ” |
-| `/app/sat/practice/:questionId?` | SAT practice screen — **full-viewport, outside the shell**: no sidebar, no `PageContainer`. The optional id segment supports a deep link into one question; the launched filter otherwise lives in the URL's query string, not the path | auth + onboarding (a sibling of `/app`, not a `WorkspaceShell` child) |
-| `/onboarding` | wizard (outside the shell) | auth |
+| `/app/calendar` | calendar — month, week, schedule views with task, due, school, and all-schools deadline items | “ |
+| `/app/sat` | SAT practice dashboard (inside the shell) | “ |
+| `/app/sat/practice/:questionId?` | SAT practice screen — **full-viewport, outside the shell**: no sidebar, no `PageContainer`, but framed by `SatPracticeFrame` (the shell's `BeamsBackground`, quiet, behind raised sheets). The optional id segment supports a deep link into one question; the launched filter otherwise lives in the URL's query string, not the path | auth + verified email + onboarding (a sibling of `/app`, not a `WorkspaceShell` child) |
+| `/onboarding` | wizard (outside the shell) | auth + verified email |
 | `/dev/*` | galleries | dev builds only |
+
+Auth pages share the Acceptra `AuthLayout` and existing form controls. Public
+recovery/verification routes sit outside `GuestOnly` so an email link still works
+when a student is already signed in. `/account` stays reachable before
+verification so a mistyped address can be corrected. Expired or used links offer
+a new request; identity confirmation explains its same-browser requirement.
+Sensitive actions require confirmation in the account surface, and account
+deletion has a separate explicit confirmation. Return destinations use `next`
+and must remain local paths.
 
 ### 9.5 Route transitions
 
@@ -1438,15 +1466,23 @@ reported GPA buckets and SAT/ACT ranges.
 - An unrecognised spec version renders "This visualization requires a newer client."
   inside the normal frame, so it reads as forward-compatibility rather than breakage.
 
-**SAT practice analytics is the app's second sanctioned Recharts surface**, under the
+**SAT practice analytics is the app's second sanctioned charting surface** (Recharts for the
+radar and the score-bands chart; the pace matrix is plain positioned elements over a measured
+box, so its axis is exactly 0-100%, its markers are fixed-size and nudged apart, and its
+labels sit where they are placed), under the
 same rules School Compare (§15.5.1) established as the deliberate exception to "no
 charting library": every plot is wrapped in the accessible `ChartFigure` shell
 (`aria-hidden` on the plot itself, an sr-only `figcaption` carrying a generated summary
 sentence built from the same data the chart renders), every value it shows is also
 present as text in an adjacent legend, list, or table, and no series or category is told
 apart by decorative colour alone — shape, stroke style, and position carry that instead.
-A radar, a pace scatter plot, a score-bands composed chart, and a donut all follow this
-contract; see `plans/sat-practice/ui-spec.md` §7 for the per-chart encoding.
+A radar, the pace matrix, a score-bands chart, and the standing bar all follow this
+contract; see `plans/sat-practice/ui-spec.md` §7 for the per-chart encoding. The pace
+matrix draws Reading and Writing as a circle in `--brand-scale-2` and Math as a rounded
+square in `--brand-scale-3` (one `PaceMarker` for the plot, the legend and the key), splits
+fast from slow at the labelled test-day pace line (82 s: 134 minutes for 98 questions)
+and accuracy at 50%, and moves coincident points apart in `sat-pace-layout.ts` — the
+tooltip and key always report the true values.
 
 ### 15.5.1 School Compare
 
@@ -1888,6 +1924,11 @@ Native HTML5 DnD everywhere. No dnd-kit, no react-beautiful-dnd. Drags are **arm
 pointerdown on a grip handle only**, so clicking a row never starts one. Drag-over
 **live-reorders in real time** with a preview committed on drop or discarded on Escape.
 
+**Exception: Calendar task-reschedule chips.** See §17.7 for the whole-chip drag source
+on the calendar grid, with no grip required.
+
+
+
 **One named exception: the SAT practice tool windows (calculator, reference sheet).**
 Moving and resizing a floating tool window is **pointer-driven** — `setPointerCapture`
 on the window's header at `pointerdown`, geometry written as `transform`/size on every
@@ -1903,6 +1944,56 @@ targeted at the header regardless of what the pointer is currently over.
 
 Resizable columns via pointer drag or arrow keys (±16px, ±32px with Shift). Default
 widths live in the feature's `*-config.ts`. Below `md:`, tables become card stacks.
+
+### 17.7 Calendar
+
+`/app/calendar` (`features/calendar/`, tokens in `styles/calendar.css`). Every item
+is single-day and date-only, so there is no hours grid, no spans and no lane packing.
+Four kinds share one chip anatomy — `--calendar-chip-height` (20px; 32px on coarse
+pointers), `rounded-md`, a 14px glyph box, `text-xs`, one truncating line with a
+`title`, no shadow — and are told apart by **form, never hue**. Week view's taller
+chips are the one variation: the name gets two lines and the round moves down beside
+the subtitle (`Boston University` / `ED · Tomorrow`), so a narrow column never splits
+a word to fit the suffix.
+
+| Kind | Rest | Weight | Glyph | Label |
+|---|---|---|---|---|
+| My school | `--calendar-school-fill` / `--calendar-school-ink` | medium | favicon (`SchoolFavicon`) | `Stanford · REA`; the round never truncates |
+| All schools, aggregate | no fill, 1px dashed `--calendar-aggregate-edge` | medium, tabular | `Building2` | `94 · RD`; opens the Day panel |
+| All schools, one school | as aggregate | medium | favicon | `Reed College · EA`; opens the deadline card |
+| Task | transparent; hover `--calendar-task-hover` | normal | 12px hollow circle (the done control) | title, trailing flag |
+| Due (task or essay) | per state | medium | `CalendarClock` / `CircleAlert` | title |
+
+Hue appears only as state, in the Tasks page's `DeadlineChip` forms via
+`getDeadlineState`: overdue `--danger-*`, due within two days `--warning-*`, done
+`--calendar-done-ink` struck through. A round-deadline chip whose application is
+Submitted or later reads `Submitted` with a trailing check; one past and not submitted
+reads `Passed` in faint ink. Every chip's accessible name leads with its state word.
+
+**Cell.** A 28px date band (`--calendar-date-row`); today is an ink pill
+(`--calendar-today-fill`), the selected day a quiet pill (`--calendar-selected-date`)
+on the number — the cell itself is never filled. Weekends take `--calendar-weekend`,
+gridlines are `--calendar-gridline` between cells only. Overflow is measured from
+rendered heights, not tokens; past it, `N more` opens a day popover, and the day's first
+aggregate is pinned to the last visible slot.
+
+**Width budget.** One `ResizeObserver` on the calendar body (`useCalendarLayout`)
+decides three things: the rail shows at ≥960px and no open panel (otherwise its content
+moves into the header's `Calendars` popover); an open panel reserves room beside the
+grid only while seven columns keep ≥88px; and below 7 × 88px the month becomes a
+compact grid of dates — one dot per day, a second, red one when something is overdue —
+with the selected day listed underneath, on phones and in a narrow window alike.
+
+**Motion.** Paging with a pointer slides cell contents 8px with opacity over 200ms
+`--calendar-ease-out` (the app shell's `--as-ease-out` curve); paging from the keyboard
+is instant; reduced motion keeps a 150ms fade. No page-load choreography. The header's
+chevrons, view tabs and `+ Task` add `active:scale-[0.97]` to their press state — a
+calendar is paged in bursts, and the press has to read under a fast finger.
+
+**Drag (exception to §17.5).** Chips are 20px tall with no room for a grip, so on
+`(pointer: fine)` the whole task or task-due chip is the native HTML5 drag source; the
+keyboard equivalent is `⌥←`/`⌥→` on a focused chip. School and essay chips never drag —
+a deadline is a fact. Every move goes through `useTaskRowActions` and its undo.
 
 ---
 

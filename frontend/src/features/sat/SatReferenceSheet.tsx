@@ -1,17 +1,17 @@
 import type React from "react";
+import { useState } from "react";
 
 import { SatToolWindow } from "@/features/sat/SatToolWindow";
-import { useToolWindow } from "@/features/sat/use-tool-window";
+import { computeSpawnPosition, useToolWindow } from "@/features/sat/use-tool-window";
 
 export interface SatReferenceSheetProps {
   onClose: () => void;
 }
 
-const DEFAULT_SIZE = { width: 880, height: 600 };
+const DEFAULT_SIZE = { width: 880, height: 460 };
 const MIN_SIZE = { width: 0, height: 380 };
 const MAX_VIEWPORT_FRACTION = { width: 0.95, height: 0.9 };
-const START_POSITION = { x: 40, y: 50 };
-const MIN_Y = 50;
+const MIN_Y = 64;
 
 const ROW_ONE = [1, 2, 3, 4];
 const ROW_TWO = [5, 6, 7, 8, 9, 10, 11];
@@ -28,8 +28,9 @@ const FACT_LINES = [
  * calculator.
  */
 export function SatReferenceSheet({ onClose }: SatReferenceSheetProps): React.ReactElement {
+  const [spawn] = useState(() => computeSpawnPosition(DEFAULT_SIZE, MIN_Y));
   const toolWindow = useToolWindow({
-    defaultPosition: START_POSITION,
+    defaultPosition: spawn,
     defaultSize: DEFAULT_SIZE,
     sizeBounds: { min: MIN_SIZE, maxViewportFraction: MAX_VIEWPORT_FRACTION },
     minY: MIN_Y,
@@ -38,7 +39,7 @@ export function SatReferenceSheet({ onClose }: SatReferenceSheetProps): React.Re
   return (
     <SatToolWindow onClose={onClose} title="Reference sheet" window={toolWindow}>
       <div className="h-full overflow-y-auto p-4">
-        <div className="grid grid-cols-5 gap-3">
+        <div className="grid grid-cols-2 gap-3 min-[640px]:grid-cols-5">
           {ROW_ONE.map((n) => (
             <img
               alt={`Reference figure ${n}`}
@@ -55,7 +56,7 @@ export function SatReferenceSheet({ onClose }: SatReferenceSheetProps): React.Re
             src="/sat/reference/special-triangles.png"
           />
         </div>
-        <div className="mt-3 grid grid-cols-7 gap-3">
+        <div className="mt-3 grid grid-cols-2 gap-3 min-[640px]:grid-cols-7">
           {ROW_TWO.map((n) => (
             <img
               alt={`Reference figure ${n}`}

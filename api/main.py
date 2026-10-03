@@ -27,7 +27,7 @@ from pathlib import Path
 from typing import Any
 
 import structlog
-from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic_ai_harness.experimental import HarnessExperimentalWarning
@@ -40,12 +40,11 @@ warnings.filterwarnings("ignore", category=HarnessExperimentalWarning)
 from api.auth import (
     UserCreate,
     UserRead,
-    UserUpdate,
     auth_backend,
+    current_active_user,
     fastapi_users,
-    google_oauth_client,
-    oauth_backend,
 )
+from api.auth_reset_response import clear_cookie_after_password_reset
 from api.auth_security import auth_origin_protect
 from api.context import install_middleware
 from api.ratelimit import _RATE_LIMITER_ATTR, SlidingWindowLimiter, auth_rate_limit
@@ -53,6 +52,7 @@ from api.routes import (
     activities,
     admin_facts,
     applications,
+    calendar,
     documents,
     essays,
     me,
@@ -130,23 +130,25 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 
 def _install_auth_routers(app: FastAPI, settings: Any) -> None:
-    """Mount the fastapi-users routers under ``/v1/auth`` (B3, ADR 0021).
-
-    register (custom UserCreate carrying ``name``), login (form-encoded) +
-    logout, forgot/reset (always 202), the users router (email/password change
-    — story 49), and — when Google creds are set — the OAuth router whose
-    callback sets the cookie and 302s the SPA.
-    """
+    """Mount native login/token routes and guarded account credential routes."""
     auth_post_dependencies = [Depends(auth_origin_protect), Depends(auth_rate_limit)]
     # B4/B8: per-IP rate limit on every auth state-changing surface. Login/reset
     # are brute-forceable or spam-worthy; register also needs abuse protection
     # before the cookie-backed auth UI ships. The origin guard blocks login CSRF.
-    app.include_router(
-        fastapi_users.get_auth_router(auth_backend),
-        prefix="/v1/auth",
-        tags=["auth"],
-        dependencies=auth_post_dependencies,
-    )
+    for route in fastapi_users.get_auth_router(auth_backend).routes:
+        # The native logout handler has its own authentication dependency;
+        # apply our owner binding there while leaving native login public.
+        owner_dependencies = (
+            [Depends(current_active_user)]
+            if getattr(route, "name", None) == f"auth:{auth_backend.name}.logout"
+            else []
+        )
+        app.include_router(
+            APIRouter(routes=[route]),
+            prefix="/v1/auth",
+            tags=["auth"],
+            dependencies=[*auth_post_dependencies, *owner_dependencies],
+        )
     if settings.auth_self_signup_enabled:
         app.include_router(
             fastapi_users.get_register_router(UserRead, UserCreate),
@@ -159,9 +161,10 @@ def _install_auth_routers(app: FastAPI, settings: Any) -> None:
             fastapi_users.get_reset_password_router(),
             prefix="/v1/auth",
             tags=["auth"],
-            dependencies=auth_post_dependencies,
+            dependencies=[*auth_post_dependencies, Depends(clear_cookie_after_password_reset)],
         )
     else:
+
         async def _disabled_password_reset() -> None:
             raise HTTPException(status_code=404)
 
@@ -178,32 +181,19 @@ def _install_auth_routers(app: FastAPI, settings: Any) -> None:
             include_in_schema=False,
         )
     app.include_router(
-        fastapi_users.get_users_router(UserRead, UserUpdate), prefix="/v1/auth", tags=["auth"]
+        fastapi_users.get_verify_router(UserRead),
+        prefix="/v1/auth",
+        dependencies=auth_post_dependencies,
     )
-    google_client = google_oauth_client()
-    if google_client is not None:
-        app.include_router(
-            fastapi_users.get_oauth_router(
-                google_client,
-                oauth_backend,
-                settings.effective_oauth_state_secret,
-                redirect_url=None,
-                # DS-04 (PRE-DEPLOY SECURITY ITEM — blocks B6): associate-by-email
-                # without email verification is an account-takeover surface (a
-                # password account on an email links with a later Google sign-in
-                # for that email, and vice-versa). A documented MVP tradeoff
-                # (ADR 0021, PRD decision 6) — NOT changed in this hardening pass
-                # (flipping it changes login UX, a product decision). Before any
-                # non-trivial user base, do option (1) require email verification
-                # before login, (2) only associate when the existing account is
-                # verified, or (3) gate current_active_user on is_verified for
-                # password accounts — see plans/audit/phase-6-configurability.md
-                # DS-04 and TODOS.md.
-                associate_by_email=True,
-            ),
-            prefix="/v1/auth/google",
-            tags=["auth"],
-        )
+    from api.auth_google import install_google_auth
+    from api.routes.auth_account import router as account_router
+    from api.routes.auth_reauthenticate import router as reauthenticate_router
+
+    app.include_router(account_router, prefix="/v1/auth", dependencies=auth_post_dependencies)
+    app.include_router(
+        reauthenticate_router, prefix="/v1/auth", dependencies=auth_post_dependencies
+    )
+    install_google_auth(app, settings)
 
 
 def _install_spa_routes(app: FastAPI, settings: Any) -> None:
@@ -223,8 +213,7 @@ def _install_spa_routes(app: FastAPI, settings: Any) -> None:
     ]
     if missing:
         raise RuntimeError(
-            "COUNSELLE_SERVE_SPA=true but the built frontend is incomplete: "
-            + ", ".join(missing)
+            "COUNSELLE_SERVE_SPA=true but the built frontend is incomplete: " + ", ".join(missing)
         )
 
     app.mount("/assets", StaticFiles(directory=assets_dir), name="spa-assets")
@@ -266,6 +255,7 @@ def create_app() -> FastAPI:
     app.include_router(config_routes.router, prefix="/v1")
     app.include_router(applications.router, prefix="/v1")
     app.include_router(schools_facts.router, prefix="/v1")
+    app.include_router(calendar.router, prefix="/v1")
     app.include_router(tasks.router, prefix="/v1")
     app.include_router(essays.router, prefix="/v1")
     app.include_router(activities.router, prefix="/v1")

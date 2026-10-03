@@ -5,18 +5,21 @@
  * (plan §5.3's "kept apart by lifetime" table).
  */
 import { ChartColumn } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useNavigation, useSearchParams } from "react-router";
 
 import { Button } from "@/components/ui/button";
 import { ErrorCard } from "@/components/ui/error-card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PageContainer } from "@/components/workspace/PageContainer";
-import { cn } from "@/lib/utils";
 
 import { useSatCounts, useSatStats, useSatTaxonomy } from "@/api/sat/hooks";
-import type { SatSolvedStatus } from "@/api/sat/types";
-import { SAT_DASHBOARD_COPY, SAT_GREETINGS } from "@/features/sat/sat-copy";
+import type {
+  SatCounts,
+  SatSolvedStatus,
+  SatStatsResponse,
+} from "@/api/sat/types";
+import { SAT_DASHBOARD_COPY } from "@/features/sat/sat-copy";
 import {
   filterStateToSearchParams,
   loadSavedFilterState,
@@ -27,12 +30,48 @@ import {
   SatActivityRail,
   toLocalDateKey,
 } from "@/features/sat/SatActivityRail";
-import { isSatAnalyticsTab, SatAnalytics, type SatAnalyticsTab } from "@/features/sat/SatAnalytics";
-import { SatFilterRail, SatStartSessionButton } from "@/features/sat/SatFilterRail";
-import { collapseIfFull, toggledSet, withMembership } from "@/features/sat/sat-dashboard-selection";
-import { SatTopicTree } from "@/features/sat/SatTopicTree";
+import {
+  isSatAnalyticsTab,
+  SatAnalytics,
+  type SatAnalyticsTab,
+} from "@/features/sat/SatAnalytics";
+import { formatStreak } from "@/features/sat/sat-format";
+import {
+  SatSessionSheet,
+  SatStartBar,
+  SatStatusToolbar,
+} from "@/features/sat/SatFilterRail";
+import {
+  collapseIfFull,
+  toggledSet,
+  withMembership,
+} from "@/features/sat/sat-dashboard-selection";
+import {
+  SatTopicTree,
+  SatTopicTreeSkeleton,
+} from "@/features/sat/SatTopicTree";
 
 const ANALYTICS_PARAM = "analytics";
+
+function sumCounts(counts: SatCounts | undefined): number | undefined {
+  return counts
+    ? Object.values(counts).reduce((sum, count) => sum + count, 0)
+    : undefined;
+}
+
+/** The header's one stable line: where the student stands, not a greeting. */
+function buildStatLine(
+  stats: SatStatsResponse | undefined,
+): string | undefined {
+  if (!stats || stats.totalAttemptsCount === 0) return undefined;
+  const parts = [
+    `${stats.today.ebrwSolved + stats.today.mathSolved} solved today`,
+  ];
+  if (stats.currentStreakDays > 0)
+    parts.push(formatStreak(stats.currentStreakDays));
+  parts.push(`${Math.round(stats.firstTryOverallAccuracyPct)}% first try`);
+  return parts.join(" · ");
+}
 
 export function SatDashboard() {
   const navigate = useNavigate();
@@ -40,9 +79,6 @@ export function SatDashboard() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { data: taxonomy, isError: taxonomyError } = useSatTaxonomy();
 
-  const [greeting] = useState(
-    () => SAT_GREETINGS[Math.floor(Math.random() * SAT_GREETINGS.length)],
-  );
   const [today] = useState(() => new Date());
   const todayKey = useMemo(() => toLocalDateKey(today), [today]);
 
@@ -132,11 +168,23 @@ export function SatDashboard() {
     saveFilterState(filterState);
   }, [hasLoadedSaved, filterState]);
 
-  const countsQuery = useSatCounts({
-    bands: filterState?.bands ?? [],
-    status,
-    excludeBluebook,
-  });
+  // One /counts query per status tab so each tab can show its own total; the
+  // active one also feeds the topic rows, and the others stay cached for when
+  // the student switches.
+  const countsFilter = { bands: filterState?.bands ?? [], excludeBluebook };
+  const countsByStatus = {
+    all: useSatCounts({ ...countsFilter, status: "all" }),
+    unsolved: useSatCounts({ ...countsFilter, status: "unsolved" }),
+    incorrect: useSatCounts({ ...countsFilter, status: "incorrect" }),
+    bookmarked: useSatCounts({ ...countsFilter, status: "bookmarked" }),
+  };
+  const countsQuery = countsByStatus[status];
+  const statusTotals = {
+    all: sumCounts(countsByStatus.all.data),
+    unsolved: sumCounts(countsByStatus.unsolved.data),
+    incorrect: sumCounts(countsByStatus.incorrect.data),
+    bookmarked: sumCounts(countsByStatus.bookmarked.data),
+  };
 
   const statsQuery = useSatStats(todayKey);
 
@@ -144,12 +192,24 @@ export function SatDashboard() {
     navigation.state === "loading" &&
     (navigation.location?.pathname.startsWith("/app/sat/practice") ?? false);
 
+  // What the session would draw from: the selected skills' questions under the
+  // current status / difficulty / Bluebook filters. `null` until counts load.
+  const questionCount =
+    selectedSkills && countsQuery.data
+      ? Array.from(selectedSkills).reduce(
+          (sum, code) => sum + (countsQuery.data?.[code] ?? 0),
+          0,
+        )
+      : null;
+
   const startDisabledReason =
     selectedSkills && selectedSkills.size === 0
       ? SAT_DASHBOARD_COPY.startDisabledNoSkill
       : selectedBands && selectedBands.size === 0
         ? SAT_DASHBOARD_COPY.startDisabledNoBand
-        : null;
+        : questionCount === 0
+          ? SAT_DASHBOARD_COPY.startDisabledNoMatch
+          : null;
 
   function handleStart() {
     if (!filterState || startDisabledReason) {
@@ -182,7 +242,10 @@ export function SatDashboard() {
       (prev) => {
         const params = new URLSearchParams(prev);
         if (next) {
-          params.set(ANALYTICS_PARAM, params.get(ANALYTICS_PARAM) ?? "overview");
+          params.set(
+            ANALYTICS_PARAM,
+            params.get(ANALYTICS_PARAM) ?? "overview",
+          );
         } else {
           params.delete(ANALYTICS_PARAM);
         }
@@ -222,10 +285,28 @@ export function SatDashboard() {
     taxonomy && selectedSkills && selectedBands,
   );
 
+  // The floating start bar only appears once the session sheet has scrolled
+  // out of view; until then the sheet is the one Start.
+  const sessionRef = useRef<HTMLDivElement>(null);
+  const [sessionInView, setSessionInView] = useState(true);
+  useEffect(() => {
+    const node = sessionRef.current;
+    if (!node) return;
+    const observer = new IntersectionObserver(([entry]) =>
+      setSessionInView(entry.isIntersecting),
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [topicsAndFiltersReady, taxonomyError]);
+
+  const isRefetching = countsQuery.isFetching && Boolean(countsQuery.data);
+  const selectedSkillCount = selectedSkills?.size ?? 0;
+
   return (
     <PageContainer
       actions={
         <Button
+          className="self-start transition-[background-color,border-color,box-shadow,color,scale] active:scale-[0.97] motion-reduce:transition-none sm:self-auto"
           loading={statsQuery.isLoading}
           onClick={() => handleAnalyticsOpenChange(true)}
           variant="outline"
@@ -234,8 +315,9 @@ export function SatDashboard() {
           {SAT_DASHBOARD_COPY.analyticsAction}
         </Button>
       }
-      subtitle={`${greeting.main} — ${greeting.sub}`}
+      subtitle={buildStatLine(statsQuery.data)}
       title={SAT_DASHBOARD_COPY.title}
+      width="panel"
     >
       {taxonomyError ? (
         <ErrorCard
@@ -247,79 +329,47 @@ export function SatDashboard() {
           title={SAT_DASHBOARD_COPY.countsError.title}
         />
       ) : (
-        <div className="@container/sat-dash">
-          <div
-            className={cn(
-              "flex flex-col gap-6",
-              "@[640px]/sat-dash:grid @[640px]/sat-dash:grid-cols-2",
-              "@[640px]/sat-dash:[grid-template-areas:'filters_activity'_'topics_topics']",
-              "@[936px]/sat-dash:grid-cols-[1fr_272px]",
-              "@[936px]/sat-dash:[grid-template-areas:'topics_filters'_'topics_activity']",
-              "@[1496px]/sat-dash:grid-cols-[252px_1fr_252px]",
-              "@[1496px]/sat-dash:[grid-template-areas:'activity_topics_filters']",
-            )}
-          >
-            <div className="min-w-0 [grid-area:filters]">
-              {topicsAndFiltersReady && selectedBands ? (
-                <SatFilterRail
-                  bandTiers={bandTiers}
-                  excludeBluebook={excludeBluebook}
-                  isStarting={isStarting}
-                  onExcludeBluebookChange={setExcludeBluebook}
-                  onStart={handleStart}
-                  onStatusChange={setStatus}
-                  onToggleBand={(band) =>
-                    setSelectedBands((prev) =>
-                      toggledSet(prev ?? new Set(), band),
+        <div className="@container/sat-dash flex flex-col gap-6">
+          <SatStatusToolbar
+            excludeBluebook={excludeBluebook}
+            onExcludeBluebookChange={setExcludeBluebook}
+            onStatusChange={setStatus}
+            status={status}
+            statusTotals={statusTotals}
+          />
+
+          {/* Below 880 cw one column — session, topics, activity — and the
+           * rail's wrapper melts away (`contents`) so its two sheets can be
+           * ordered around the topics. From 880 it is a real column, kept in
+           * view while the long topic list scrolls past. */}
+          <div className="flex flex-col gap-8 @[880px]/sat-dash:grid @[880px]/sat-dash:grid-cols-[minmax(0,1fr)_320px] @[880px]/sat-dash:items-start">
+            <div className="order-2 min-w-0 @[880px]/sat-dash:order-none">
+              {topicsAndFiltersReady ? (
+                <SatTopicTree
+                  counts={countsQuery.data}
+                  isInitialLoading={countsQuery.isLoading && !countsQuery.data}
+                  isRefetching={isRefetching}
+                  modules={modules}
+                  onModuleSelectAll={(codes, next) =>
+                    setSelectedSkills((prev) =>
+                      withMembership(prev ?? new Set(), codes, next),
                     )
                   }
-                  onToggleTier={(bands, next) =>
-                    setSelectedBands((prev) =>
-                      withMembership(prev ?? new Set(), bands, next),
+                  onToggleDomain={(codes, next) =>
+                    setSelectedSkills((prev) =>
+                      withMembership(prev ?? new Set(), codes, next),
                     )
                   }
-                  selectedBands={selectedBands}
-                  startDisabledReason={startDisabledReason}
-                  status={status}
+                  onToggleSkill={(code) =>
+                    setSelectedSkills((prev) =>
+                      toggledSet(prev ?? new Set(), code),
+                    )
+                  }
+                  selectedSkills={selectedSkills ?? new Set()}
                 />
               ) : (
-                <div className="flex flex-col gap-4">
-                  <Skeleton className="h-4 w-16" />
-                  <Skeleton className="h-9 w-full" />
-                  <Skeleton className="h-24 w-full" />
-                  <Skeleton className="h-10 w-full" />
-                </div>
+                <SatTopicTreeSkeleton />
               )}
-            </div>
-
-            <div className="min-w-0 [grid-area:topics]">
-              <SatTopicTree
-                counts={countsQuery.data}
-                isInitialLoading={
-                  !topicsAndFiltersReady ||
-                  (countsQuery.isLoading && !countsQuery.data)
-                }
-                isRefetching={
-                  countsQuery.isFetching && Boolean(countsQuery.data)
-                }
-                modules={modules}
-                onModuleSelectAll={(codes, next) =>
-                  setSelectedSkills((prev) =>
-                    withMembership(prev ?? new Set(), codes, next),
-                  )
-                }
-                onToggleDomain={(codes, next) =>
-                  setSelectedSkills((prev) =>
-                    withMembership(prev ?? new Set(), codes, next),
-                  )
-                }
-                onToggleSkill={(code) =>
-                  setSelectedSkills((prev) =>
-                    toggledSet(prev ?? new Set(), code),
-                  )
-                }
-                selectedSkills={selectedSkills ?? new Set()}
-              />
               {countsQuery.isError && (
                 <div className="mt-4">
                   <ErrorCard
@@ -332,31 +382,59 @@ export function SatDashboard() {
               )}
             </div>
 
-            <div className="min-w-0 [grid-area:activity]">
-              <SatActivityRail
-                isError={statsQuery.isError}
-                isLoading={statsQuery.isLoading}
-                onRetry={() => statsQuery.refetch()}
-                stats={statsQuery.data}
-                today={today}
-              />
+            <div className="contents @[880px]/sat-dash:order-none @[880px]/sat-dash:flex @[880px]/sat-dash:flex-col @[880px]/sat-dash:gap-8 [@media(min-height:780px)]:@[880px]/sat-dash:sticky [@media(min-height:780px)]:@[880px]/sat-dash:top-6">
+              <div
+                className="order-1 min-w-0 @[880px]/sat-dash:order-none"
+                ref={sessionRef}
+              >
+                {topicsAndFiltersReady && selectedBands ? (
+                  <SatSessionSheet
+                    bandTiers={bandTiers}
+                    isRefetching={isRefetching}
+                    isStarting={isStarting}
+                    onStart={handleStart}
+                    onToggleBand={(band) =>
+                      setSelectedBands((prev) =>
+                        toggledSet(prev ?? new Set(), band),
+                      )
+                    }
+                    onToggleTier={(bands, next) =>
+                      setSelectedBands((prev) =>
+                        withMembership(prev ?? new Set(), bands, next),
+                      )
+                    }
+                    questionCount={questionCount}
+                    selectedBands={selectedBands}
+                    selectedSkillCount={selectedSkillCount}
+                    startDisabledReason={startDisabledReason}
+                  />
+                ) : (
+                  <div aria-busy="true" className="flex flex-col gap-2">
+                    <Skeleton className="h-7 w-20" />
+                    <Skeleton className="h-64 w-full rounded-xl" />
+                  </div>
+                )}
+              </div>
+              <div className="order-3 min-w-0 @[880px]/sat-dash:order-none">
+                <SatActivityRail
+                  isError={statsQuery.isError}
+                  isLoading={statsQuery.isLoading}
+                  onRetry={() => statsQuery.refetch()}
+                  stats={statsQuery.data}
+                  today={today}
+                />
+              </div>
             </div>
           </div>
 
-          {/* ui-spec §3.1's F18 addition, phone only: a trailing sibling of
-           * the grid above (not nested inside Filters, which is too short
-           * to keep it stuck once Topics/Activity scroll past) so its
-           * containing block spans the whole dashboard — `sticky bottom-0`
-           * then pins it to the bottom of `PageContainer`'s own scroll
-           * viewport for the rest of the scroll, over the topic list.
-           * Hidden at 640 cw and up, where `SatFilterRail`'s own in-flow
-           * copy takes over. */}
           {topicsAndFiltersReady && selectedBands && (
-            <SatStartSessionButton
-              className="sticky bottom-0 -mx-6 border-t border-[var(--edge)] bg-[var(--surface-raised)] px-6 py-4 @[640px]/sat-dash:hidden"
+            <SatStartBar
               isStarting={isStarting}
               onStart={handleStart}
+              questionCount={questionCount}
+              selectedSkillCount={selectedSkillCount}
               startDisabledReason={startDisabledReason}
+              visible={!sessionInView}
             />
           )}
         </div>

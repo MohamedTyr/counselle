@@ -32,6 +32,7 @@ export function validateLogin(
 
 export function validateRegister(
   values: RegisterFormState,
+  minimumPasswordLength = 8,
 ): FormErrors<RegisterFormState> {
   const errors: FormErrors<RegisterFormState> = {};
   const name = values.name.trim();
@@ -53,8 +54,8 @@ export function validateRegister(
 
   if (!values.password) {
     errors.password = "Password is required.";
-  } else if (values.password.length < 8) {
-    errors.password = "Password must be at least 8 characters.";
+  } else if (values.password.length < minimumPasswordLength) {
+    errors.password = `Password must be at least ${minimumPasswordLength} characters.`;
   } else if (values.password.length > 128) {
     errors.password = "Password must be 128 characters or fewer.";
   }

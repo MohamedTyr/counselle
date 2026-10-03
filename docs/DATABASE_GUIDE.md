@@ -55,6 +55,33 @@ workspace, feedback, and checkpointer); it has zero grants on `cds_library` and 
 never be used to bridge to it. Never substitute one DSN for another, or import
 facts-store adapter code to bridge them.
 
+### Application authentication state
+
+Migration `0022_auth_launch` adds `counselle.auth_sessions` and
+`counselle.auth_action_tokens` through the application DSN. Login sessions store
+only a token digest, user ID, creation/expiry and recent-authentication time;
+they are separate from conversation rows in `counselle.sessions`. Action tokens
+store a digest, purpose, target email and expiry; email reauthentication also
+binds the initiating login session. Both tables cascade on user deletion.
+Credential updates and session revocation share a transaction. These are
+application tables and add no facts-store grants. See
+[ADR 0045](adr/0045-auth-launch-lifecycle.md) for the lifecycle and trust rules.
+
+Migration `0023_auth_credential_revision` adds the internal, nonnegative bigint
+`counselle.users.credential_revision`, initially zero. Password replacement and
+confirmed email changes increment it atomically with session revocation. Reset
+tokens and session issuance compare the revision they observed, preventing an
+old reset link or in-flight login from becoming valid again after email A → B → A.
+Both `0022_auth_launch` and `0023_auth_credential_revision` are applied locally;
+production migration remains pending.
+
+Before private reads or writes reach these stores, the shared authentication
+dependencies check an optional `X-Expected-User-Id` against the cookie owner.
+The browser supplies its displayed account; a mismatch returns
+`409 ACCOUNT_CHANGED`. Workspace EventSource uses `expected_user_id` in its URL
+for the same check. This adds no database column or grant and does not replace
+per-resource ownership checks; see the browser contract in Architecture §28.
+
 ### The Explore card's admit-rate band
 
 Explore's card category is a code-owned planning band, not an individual admission
@@ -402,6 +429,27 @@ a normalized taxonomy:
 ```sql
 SELECT name FROM cds_library.school_explore WHERE majors @> ARRAY[$1]
 ```
+
+### All-schools deadline aggregates
+
+The calendar's all-schools layer queries every school's published round deadlines
+for the current admissions cycle, applying the `inherited_date` rule (honesty for
+recency and cycle-match) and the `OFFERED_KEY_FOR_DEADLINE` not-offered rule (§1):
+
+```sql
+SELECT school_id, fact_key, value_date, value_bool, reported_period, observed_at
+FROM cds_library.current_school_facts
+WHERE fact_key = ANY($1::text[])
+```
+
+where `$1` = the five round keys (`deadlines.early_decision`, `deadlines.early_decision_2`,
+`deadlines.early_action`, `deadlines.early_action_2`, `deadlines.regular`) plus the
+distinct values of `OFFERED_KEY_FOR_DEADLINE` (one per round). For each row: (1) drop if
+its round's not-offered flag is `False`, (2) pass `fact` and `cycle_year` to
+`inherited_date(...)` and drop on `None`, (3) resolve `name = catalog.school_name(id)`
+and drop on `None`. Items are sorted by (date, school name); the client groups them
+per (day, round). The response carries the coverage denominator (`schools_with_dates`,
+`schools_total = catalog.school_count`) and is cached `private, max-age=3600`.
 
 ### What never to select
 

@@ -74,8 +74,7 @@ function aiFetchHandler(
     });
   }
   if (url.endsWith("/v1/sessions") && init?.method === "POST") {
-    const body =
-      init.body === undefined ? null : JSON.parse(String(init.body));
+    const body = init.body === undefined ? null : JSON.parse(String(init.body));
     return jsonResponse(
       {
         session_id: "60000000-0000-4000-8000-000000000001",
@@ -163,6 +162,7 @@ const greetingPattern = /^Good (morning|afternoon|evening), Student$/;
 
 describe("AiComposerRoute", () => {
   beforeEach(() => {
+    window.sessionStorage.clear();
     window.history.replaceState(null, "", "/");
     window.innerWidth = 1280;
   });
@@ -353,7 +353,9 @@ describe("AiComposerRoute", () => {
       name: "Start an AI conversation",
     });
 
-    fireEvent.click(within(form).getByRole("button", { name: /^Run settings/ }));
+    fireEvent.click(
+      within(form).getByRole("button", { name: /^Run settings/ }),
+    );
 
     const menu = screen.getByRole("dialog");
     expect(
@@ -464,7 +466,8 @@ describe("AiComposerRoute", () => {
       state: { draftPrompt: "Help me plan my timeline." },
       fetchHandler: (input, init) => {
         const url = String(input);
-        if (init?.body) requests.push({ url, body: JSON.parse(String(init.body)) });
+        if (init?.body)
+          requests.push({ url, body: JSON.parse(String(init.body)) });
         return aiFetchHandler(input, init);
       },
     });
@@ -472,16 +475,24 @@ describe("AiComposerRoute", () => {
     const textarea = await screen.findByRole("combobox", {
       name: "Message Counselle",
     });
-    await waitFor(() => expect(textarea).toHaveValue("Help me plan my timeline."));
+    await waitFor(() =>
+      expect(textarea).toHaveValue("Help me plan my timeline."),
+    );
 
     // No session/message call happened just from loading with a prefilled
     // draft — only an explicit Send creates a turn (plan §20.7).
-    expect(requests.find((request) => request.url.endsWith("/sessions"))).toBeUndefined();
-    expect(requests.find((request) => request.url.endsWith("/messages"))).toBeUndefined();
+    expect(
+      requests.find((request) => request.url.endsWith("/sessions")),
+    ).toBeUndefined();
+    expect(
+      requests.find((request) => request.url.endsWith("/messages")),
+    ).toBeUndefined();
 
     // The composer stays editable: the student can change the prefilled text.
     await userEvent.setup().type(textarea, " Also mention my budget.");
-    expect(textarea).toHaveValue("Help me plan my timeline. Also mention my budget.");
+    expect(textarea).toHaveValue(
+      "Help me plan my timeline. Also mention my budget.",
+    );
   });
 
   it("clears the draftPrompt router state after hydrating so it isn't reapplied on refresh", async () => {
@@ -493,7 +504,9 @@ describe("AiComposerRoute", () => {
     const textarea = await screen.findByRole("combobox", {
       name: "Message Counselle",
     });
-    await waitFor(() => expect(textarea).toHaveValue("Help me plan my timeline."));
+    await waitFor(() =>
+      expect(textarea).toHaveValue("Help me plan my timeline."),
+    );
 
     await waitFor(() => expect(window.history.state?.usr ?? null).toBeNull());
   });

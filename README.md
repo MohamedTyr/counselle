@@ -81,13 +81,14 @@ cp .env.example .env
 #   COUNSELLE_FIREWORKS_API_KEY — every live model call goes to Fireworks
 #                             (required outside development; in development
 #                             the first model call fails without it)
-#   COUNSELLE_JWT_SECRET    — JWT cookie signing secret, ≥32 bytes
+#   COUNSELLE_JWT_SECRET    — verification/reset signing secret, ≥32 bytes
 #                             generate: python -c "import secrets; print(secrets.token_urlsafe(48))"
 # Required only when an external source is enabled:
 #   COUNSELLE_TAVILY_API_KEY
 # Optional (Google login mounts only when both are set):
 #   COUNSELLE_GOOGLE_OAUTH_CLIENT_ID / _SECRET
-#     redirect URI to register: http://localhost:8000/v1/auth/google/callback
+#     register login/association/reauth callbacks; see docs/DEPLOY.md
+#   COUNSELLE_AUTH_PUBLIC_URL=http://localhost:5173 — trusted email-link origin
 # See .env.example for every knob and its default.
 ```
 
@@ -110,8 +111,10 @@ their live logs, and shuts down the entire stack on `Ctrl+C`.
 Run `./scripts/dev.py --help` for port overrides, check-only mode, and other options.
 Automatic migrations are limited to local databases unless explicitly authorized
 with `--allow-remote-migrations`.
-If Google OAuth is enabled and the launcher selects a non-default API port, register
-the callback URL using the displayed API port instead of `8000`.
+If Google OAuth is enabled, register its three callback paths under the actual
+browser-facing origin: normally the Vite proxy at `http://localhost:5173`, or the
+displayed API origin for direct API tests. Update `COUNSELLE_AUTH_PUBLIC_URL` if
+the frontend port changes. See [auth setup](docs/DEPLOY.md#auth-launch-setup-and-acceptance).
 
 The backend serves the `/v1` API; the frontend runs on Vite and proxies `/v1` to it.
 To run them separately instead:
@@ -134,7 +137,22 @@ cross-origin from the browser, keep `COUNSELLE_CORS_ORIGINS=["http://localhost:5
 For production same-origin serving, set `COUNSELLE_COOKIE_SECURE=true` and leave
 `COUNSELLE_CORS_ORIGINS` empty unless you intentionally split the frontend origin.
 
-> Note: serving the built SPA same-origin from the backend (one deployable, ADR 0023) is **planned but not yet built** — that is part of the deferred deploy phase. In local dev the two run side by side as above.
+> The backend has Settings-gated same-origin SPA serving (`api/main.py`, ADR 0023), but the application is not deployed at `acceptra.ai`. Local development runs the API and Vite side by side as above; see `docs/DEPLOY.md` for deployment status and requirements.
+
+## Account access
+
+The auth-launch implementation adds email verification/recovery, Google login and
+explicit linking, account settings, and revocable login sessions. Verification is
+required before AI use. Local development uses console email links; production
+uses Resend. Google and email credentials are server-side only. See
+[deployment setup and live acceptance](docs/DEPLOY.md#auth-launch-setup-and-acceptance)
+and [ADR 0045](docs/adr/0045-auth-launch-lifecycle.md).
+
+Real Google login and delivered verification/reset flows have been exercised
+locally. Remaining journey checks and production acceptance are pending; the
+public `acceptra.ai` Cloudflare Pages site still serves the landing page without
+the app API. Applying `0022_auth_launch` preserves accounts/workspaces but replaces JWT
+login cookies, so existing users must sign in again.
 
 ## Tests
 

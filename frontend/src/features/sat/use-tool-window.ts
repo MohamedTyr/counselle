@@ -58,11 +58,82 @@ export interface UseToolWindowApi {
   headerHandlers: ToolWindowPointerHandlers;
   /** The 16px corner resize handle, outside the iframe (plan §6.4). */
   resizeHandleHandlers: ToolWindowPointerHandlers;
+  /** Jumps to `position` (clamped to the viewport) — used to spawn the
+   * window once the layout it must avoid has been measured. */
+  placeAt: (position: ToolWindowPosition) => void;
   /** Keyboard: arrows move ±16px (ui-spec §4.1). */
   moveBy: (dx: number, dy: number) => void;
   /** Keyboard: Shift+arrows resize ±16px (ui-spec §4.1). */
   resizeBy: (dw: number, dh: number) => void;
   reset: () => void;
+}
+
+/** The practice top bar's side gutter. */
+const SPAWN_EDGE = 24;
+/** Clears the practice screen's bottom bar (64px) with a gap. */
+const SPAWN_BOTTOM = 84;
+/** Offset between stacked windows. */
+const SPAWN_CASCADE = 24;
+
+interface SpawnRect {
+  left: number;
+  top: number;
+  right: number;
+  bottom: number;
+}
+
+function overlaps(a: SpawnRect, b: SpawnRect): boolean {
+  return a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
+}
+
+/** Where a tool window first opens, so it covers as little as it can and
+ * never lands on another open window: over the docked side when the
+ * calculator is docked, otherwise in the empty margin right of the question
+ * sheet when the window fits there, otherwise bottom-right. A floating
+ * window already in that spot is stepped around (left of it, else cascaded).
+ * A mounted window passes its own title so it never avoids itself. */
+export function computeSpawnPosition(
+  size: ToolWindowSize,
+  minY: number,
+  ownTitle?: string,
+): ToolWindowPosition {
+  const windows = Array.from(document.querySelectorAll<HTMLElement>(".sat-window"))
+    .filter((el) => el.dataset.hidden === undefined && el.dataset.satWindow !== ownTitle)
+    .map((el) => ({ docked: el.dataset.docked !== undefined, rect: el.getBoundingClientRect() }))
+    .filter(({ rect }) => rect.width > 0 && rect.width < window.innerWidth);
+  const dockedRect = windows.find((w) => w.docked)?.rect;
+  const floating = windows.filter((w) => !w.docked).map((w) => w.rect);
+
+  const sheet = document.querySelector("[data-sat-question-sheet]");
+  const sheetRight = sheet?.getBoundingClientRect().right ?? window.innerWidth;
+  const fitsInMargin = window.innerWidth - sheetRight - 2 * SPAWN_EDGE >= size.width;
+  const rightX = Math.max(SPAWN_EDGE, window.innerWidth - size.width - SPAWN_EDGE);
+
+  let pos: ToolWindowPosition;
+  if (dockedRect) {
+    pos = { x: dockedRect.left + SPAWN_EDGE, y: Math.max(minY, dockedRect.top + SPAWN_EDGE) };
+  } else if (fitsInMargin) {
+    pos = { x: rightX, y: minY };
+  } else {
+    pos = { x: rightX, y: Math.max(minY, window.innerHeight - size.height - SPAWN_BOTTOM) };
+  }
+
+  const at = (p: ToolWindowPosition): SpawnRect => ({
+    left: p.x,
+    top: p.y,
+    right: p.x + size.width,
+    bottom: p.y + size.height,
+  });
+  const hit = floating.find((r) => overlaps(at(pos), r));
+  if (!hit) return pos;
+  const leftOf = hit.left - size.width - SPAWN_EDGE;
+  if (leftOf >= SPAWN_EDGE && !floating.some((r) => overlaps(at({ x: leftOf, y: pos.y }), r))) {
+    return { x: leftOf, y: pos.y };
+  }
+  return {
+    x: clampNum(hit.left + SPAWN_CASCADE, SPAWN_EDGE, window.innerWidth - size.width - SPAWN_EDGE),
+    y: clampNum(hit.top + SPAWN_CASCADE, minY, window.innerHeight - size.height - SPAWN_EDGE),
+  };
 }
 
 function clampNum(value: number, min: number, max: number): number {
@@ -238,6 +309,15 @@ export function useToolWindow({
     [clampPosition],
   );
 
+  const placeAt = useCallback(
+    (target: ToolWindowPosition) => {
+      const next = clampPosition(target, sizeRef.current);
+      positionRef.current = next;
+      setPosition(next);
+    },
+    [clampPosition],
+  );
+
   const resizeBy = useCallback(
     (dw: number, dh: number) => {
       const nextSize = clampSize({
@@ -280,6 +360,7 @@ export function useToolWindow({
       onPointerUp: endResize,
       onPointerCancel: endResize,
     },
+    placeAt,
     moveBy,
     resizeBy,
     reset,

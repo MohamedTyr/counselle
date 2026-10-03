@@ -11,6 +11,8 @@ from fastapi import APIRouter, Depends, Request
 from sse_starlette import EventSourceResponse, ServerSentEvent
 
 from api.auth import current_active_user
+from api.auth_expected_user import require_expected_user_id
+from api.auth_sessions import stream_with_session
 from api.deps import EnvelopeError
 from api.sse import SSE_HEADERS
 from api.users_db import UserDB
@@ -84,9 +86,7 @@ async def workspace_event_stream(
                 if row_count == 0:
                     break
                 for change in replayed:
-                    if _should_emit_change(
-                        change, after_id=after_id, delivered_ids=delivered_ids
-                    ):
+                    if _should_emit_change(change, after_id=after_id, delivered_ids=delivered_ids):
                         yield encode_workspace_sse(change)
                 if row_count < _WORKSPACE_REPLAY_LIMIT:
                     break
@@ -96,18 +96,14 @@ async def workspace_event_stream(
                 change = queue.get_nowait()
             except asyncio.QueueEmpty:
                 break
-            if _should_emit_change(
-                change, after_id=after_id, delivered_ids=delivered_ids
-            ):
+            if _should_emit_change(change, after_id=after_id, delivered_ids=delivered_ids):
                 yield encode_workspace_sse(change)
 
         while True:
             if await request.is_disconnected():
                 break
             change = await queue.get()
-            if _should_emit_change(
-                change, after_id=after_id, delivered_ids=delivered_ids
-            ):
+            if _should_emit_change(change, after_id=after_id, delivered_ids=delivered_ids):
                 yield encode_workspace_sse(change)
 
 
@@ -116,13 +112,15 @@ async def workspace_events_route(
     request: Request,
     user: UserDB = Depends(current_active_user),
 ) -> EventSourceResponse:
+    # Native EventSource cannot supply the private-request owner header.
+    require_expected_user_id(request.query_params.get("expected_user_id"), user)
     settings = request.app.state.settings
     bus = request.app.state.runtime.deps.workspace_events
     if bus is None:
         raise EnvelopeError(500, "Workspace events are not available.")
     after_id = parse_last_change_id(request.headers.get("last-event-id"))
     return EventSourceResponse(
-        workspace_event_stream(request, user, bus, after_id),
+        stream_with_session(request, workspace_event_stream(request, user, bus, after_id)),
         ping=settings.sse_keepalive_s,
         headers=SSE_HEADERS,
     )

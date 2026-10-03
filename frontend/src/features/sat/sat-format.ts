@@ -19,7 +19,7 @@ export function formatPrepTime(totalSeconds: number): string {
   const clamped = Math.max(0, Math.trunc(totalSeconds));
   const minutes = Math.floor(clamped / 60);
   const seconds = clamped % 60;
-  return `${minutes}m ${seconds}s`;
+  return minutes === 0 ? `${seconds}s` : `${minutes}m ${seconds}s`;
 }
 
 /** A single attempt's recorded time, as shown in the reveal panel's
@@ -91,7 +91,7 @@ export function formatHeatmapTooltip(date: Date, count: number): string {
   return `${label}: ${count} question${count === 1 ? "" : "s"}`;
 }
 
-/** The activity streak line's count: `"12 day streak"` (F16). */
+/** The activity streak line's count: `"1 day streak"`, `"12 day streak"`. */
 export function formatStreak(days: number): string {
-  return `${days} day${days === 1 ? "" : "s"} streak`;
+  return `${days} day streak`;
 }

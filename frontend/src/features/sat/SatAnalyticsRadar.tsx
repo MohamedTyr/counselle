@@ -5,21 +5,15 @@
  * axis with no data reads "no data", never a measured low score).
  */
 import type React from "react";
-import {
-  PolarAngleAxis,
-  PolarGrid,
-  PolarRadiusAxis,
-  Radar,
-  RadarChart,
-  Tooltip,
-} from "recharts";
-
+import { useEffect, useRef, useState } from "react";
 import type { SatStatsResponse } from "@/api/sat/types";
-import { ChartContainer } from "@/components/ui/chart";
-import { Meter, MeterIndicator, MeterTrack } from "@/components/ui/meter";
 import { ChartFigure } from "@/components/workspace/chart-figure";
-import { radarAxisRatio, summarizeRadar } from "@/features/sat/sat-analytics";
-import { SAT_ANALYTICS_COPY } from "@/features/sat/sat-copy";
+import { AnalyticsMeter } from "@/features/sat/SatAnalyticsMeter";
+import { analyticsGroupLabelClass, analyticsSheetClass } from "@/features/sat/sat-analytics-styles";
+import { cn } from "@/lib/utils";
+import { canDrawWeb, skipMissingVertices, summarizeRadar } from "@/features/sat/sat-analytics";
+import { SAT_ANALYTICS_COPY } from "@/features/sat/sat-analytics-copy";
+import { type RadarRow, SatAnalyticsRadarChart } from "@/features/sat/SatAnalyticsRadarChart";
 
 /** The eight short axis/tooltip forms upstream uses (A7). Not in
  * `sat-copy.ts` — this file owns the one place they're needed and that
@@ -30,22 +24,22 @@ const DOMAIN_SHORT_LABEL: Record<string, string> = {
   H: "Algebra",
   INI: "Info & Ideas",
   P: "Adv Math",
-  Q: "Data & Problem",
+  Q: "Data & Stats",
   S: "Geom & Trig",
   SEC: "Std English",
 };
 
-interface RadarRow {
-  code: string;
-  label: string;
-  fullName: string;
-  firstTry: number;
-  overall: number;
-  hasFirst: boolean;
-  hasOverall: boolean;
-  uniqueQuestions: number;
-  avgTimeSeconds: number;
-  firstTryAccuracyPct: number;
+function useContainerWidth(): [React.RefObject<HTMLDivElement | null>, number] {
+  const ref = useRef<HTMLDivElement>(null);
+  const [width, setWidth] = useState(0);
+  useEffect(() => {
+    const element = ref.current;
+    if (!element || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(([entry]) => setWidth(entry.contentRect.width));
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
+  return [ref, width];
 }
 
 export function SatAnalyticsRadar({ stats }: { stats: SatStatsResponse }): React.ReactElement {
@@ -68,24 +62,36 @@ export function SatAnalyticsRadar({ stats }: { stats: SatStatsResponse }): React
     { code: "S", name: "Geometry and Trigonometry" },
   ];
 
-  const rows: RadarRow[] = domains.map((domain) => {
+  const measured = domains.map((domain) => {
     const perf = stats.domainStats[domain.code];
     const hasFirst = (perf?.uniqueQuestions ?? 0) > 0;
     const hasOverall = (perf?.totalAttempts ?? 0) > 0;
     return {
       avgTimeSeconds: perf?.avgTimeSeconds ?? 0,
       code: domain.code,
-      firstTry: radarAxisRatio(perf?.firstTryAccuracyPct ?? 0, hasFirst) * 100,
+      firstTryRaw: hasFirst ? (perf?.firstTryAccuracyPct ?? 0) : null,
       firstTryAccuracyPct: perf?.firstTryAccuracyPct ?? 0,
       fullName: perf?.name ?? domain.name,
       hasFirst,
       hasOverall,
       label: DOMAIN_SHORT_LABEL[domain.code] ?? domain.code,
-      overall: radarAxisRatio(perf?.overallAccuracyPct ?? 0, hasOverall) * 100,
+      overallRaw: hasOverall ? (perf?.overallAccuracyPct ?? 0) : null,
+      overallPct: perf?.overallAccuracyPct ?? 0,
       uniqueQuestions: perf?.uniqueQuestions ?? 0,
     };
   });
 
+  const firstTryPlot = skipMissingVertices(measured.map((row) => row.firstTryRaw));
+  const overallPlot = skipMissingVertices(measured.map((row) => row.overallRaw));
+  const rows: RadarRow[] = measured.map((row, index) => ({
+    ...row,
+    firstTry: firstTryPlot[index] ?? null,
+    overall: overallPlot[index] ?? null,
+  }));
+  const drawFirstWeb = canDrawWeb(firstTryPlot, measured.filter((row) => row.hasFirst).length);
+  const drawOverallWeb = canDrawWeb(overallPlot, measured.filter((row) => row.hasOverall).length);
+
+  const [chartRef, containerWidth] = useContainerWidth();
   const summary = summarizeRadar(
     rows.map((row) => ({
       firstTryAccuracyPct: row.firstTryAccuracyPct,
@@ -95,68 +101,64 @@ export function SatAnalyticsRadar({ stats }: { stats: SatStatsResponse }): React
   );
 
   return (
-    <div className="grid grid-cols-1 gap-6 @[960px]/sat-analytics:grid-cols-[1fr_320px]">
-      <ChartFigure summary={summary}>
-        <ChartContainer className="mx-auto aspect-square max-h-[420px]" config={{}}>
-          <RadarChart data={rows}>
-            <PolarGrid stroke="var(--edge)" />
-            <PolarAngleAxis dataKey="label" tick={{ fill: "var(--ink-secondary)", fontSize: 12 }} />
-            <PolarRadiusAxis domain={[0, 100]} tick={false} axisLine={false} />
-            <Radar
-              dataKey="firstTry"
-              fill="var(--brand-scale-2)"
-              fillOpacity={0.25}
-              isAnimationActive={false}
-              stroke="var(--brand-scale-2)"
-              strokeWidth={2}
+    <div className="grid grid-cols-1 gap-8 @[900px]/sat-analytics:grid-cols-[minmax(0,1fr)_340px]">
+      <div className="flex flex-col gap-2">
+        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
+          <h3 className={analyticsGroupLabelClass}>{copy.chartHeading}</h3>
+          <ul className="flex items-center gap-4 text-xs text-[var(--ink-secondary)]">
+            <li className="flex items-center gap-1.5">
+              <span aria-hidden="true" className="size-2.5 rounded-full bg-[var(--brand-scale-2)]" />
+              {copy.legendFirstTry}
+            </li>
+            <li className="flex items-center gap-1.5">
+              <svg aria-hidden="true" height="2" width="16">
+                <line stroke="var(--ink-secondary)" strokeDasharray="4 3" strokeWidth="2" x1="0" x2="16" y1="1" y2="1" />
+              </svg>
+              {copy.legendOverall}
+            </li>
+          </ul>
+        </div>
+        <div
+          className={cn(analyticsSheetClass, "flex flex-col justify-center p-2 @[900px]/sat-analytics:flex-1 @[560px]/sat-analytics:p-4")}
+          ref={chartRef}
+        >
+          <ChartFigure summary={summary}>
+            <SatAnalyticsRadarChart
+              drawFirstWeb={drawFirstWeb}
+              drawOverallWeb={drawOverallWeb}
+              rows={rows}
+              width={containerWidth}
             />
-            <Radar
-              dataKey="overall"
-              fill="none"
-              isAnimationActive={false}
-              stroke="var(--ink)"
-              strokeDasharray="4 3"
-              strokeWidth={2}
-            />
-            <Tooltip
-              content={({ payload }) => {
-                const row = payload?.[0]?.payload as RadarRow | undefined;
-                if (!row) return null;
-                return (
-                  <div className="rounded-lg border bg-popover p-2 text-xs shadow-md">
-                    <p className="font-medium">{row.fullName}</p>
-                    <p>
-                      {copy.tooltip.firstTry(row.hasFirst ? `${row.firstTryAccuracyPct}%` : copy.noData)}
-                    </p>
-                    <p>
-                      {copy.tooltip.overall(row.hasOverall ? `${Math.round(row.overall)}%` : copy.noData)}
-                    </p>
-                  </div>
-                );
-              }}
-            />
-          </RadarChart>
-        </ChartContainer>
-      </ChartFigure>
+          </ChartFigure>
+        </div>
+      </div>
 
-      <div className="flex max-h-[360px] flex-col gap-3 overflow-y-auto">
-        <h3 className="text-sm font-semibold">{copy.domainSummary}</h3>
-        {rows.map((row) => (
-          <div className="flex flex-col gap-1" key={row.code}>
-            <div className="flex items-center justify-between gap-2 text-sm">
-              <span>{row.fullName}</span>
-              <span className="tabular-nums">{row.hasFirst ? `${row.firstTryAccuracyPct}%` : copy.noData}</span>
-            </div>
-            <Meter max={100} min={0} value={row.hasFirst ? row.firstTryAccuracyPct : 0}>
-              <MeterTrack>
-                <MeterIndicator variant="neutral" />
-              </MeterTrack>
-            </Meter>
-            <span className="text-xs text-[var(--ink-secondary)]">
-              {copy.questionsAndPace(row.uniqueQuestions, row.avgTimeSeconds)}
-            </span>
-          </div>
-        ))}
+      <div className="flex flex-col gap-2">
+        <h3 className={analyticsGroupLabelClass}>{copy.domainSummary}</h3>
+        <ul className={cn(analyticsSheetClass, "flex flex-col px-5")}>
+          {rows.map((row) => (
+            <li
+              className="flex flex-col gap-1.5 border-b border-[var(--hairline)] py-3 last:border-b-0"
+              key={row.code}
+            >
+              <div className="flex items-baseline justify-between gap-2 text-sm">
+                <span className="min-w-0 font-medium">{row.fullName}</span>
+                <span
+                  className={cn(
+                    "shrink-0 whitespace-nowrap tabular-nums",
+                    row.hasFirst ? "font-medium" : "text-xs text-[var(--ink-faint)]",
+                  )}
+                >
+                  {row.hasFirst ? `${row.firstTryAccuracyPct}%` : copy.noData}
+                </span>
+              </div>
+              <AnalyticsMeter
+                label={`${row.fullName} first try`}
+                value={row.hasFirst ? row.firstTryAccuracyPct : null}
+              />
+            </li>
+          ))}
+        </ul>
       </div>
     </div>
   );

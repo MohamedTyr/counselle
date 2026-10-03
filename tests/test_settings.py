@@ -1,11 +1,13 @@
 """Tests for the Settings surface and asset loaders (config/settings.py, ADR 0018)."""
 
 import os
+import traceback
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Any, cast
 
 import pytest
+from pydantic import SecretStr, ValidationError
 from pydantic_settings import SettingsConfigDict
 
 from config.settings import (
@@ -64,6 +66,24 @@ def dsn_env(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 class TestFailFast:
+    @pytest.mark.parametrize("loader", [get_settings, Settings])
+    def test_invalid_config_traceback_does_not_expose_input_secrets(
+        self,
+        clean_env: None,
+        monkeypatch: pytest.MonkeyPatch,
+        loader: Any,
+    ) -> None:
+        monkeypatch.setenv("COUNSELLE_SETTINGS_NO_ENV_FILE", "1")
+        monkeypatch.setenv("COUNSELLE_RESEND_API_KEY", "fake-private-resend-key")
+        with pytest.raises((RuntimeError, ValidationError)) as excinfo:
+            loader()
+        rendered = "".join(traceback.format_exception(excinfo.value))
+        assert "Field required" in rendered
+        assert "fake-private-resend-key" not in rendered
+        assert "ro-s3cret-pw" not in rendered
+        assert "app-s3cret-pw" not in rendered
+        assert JWT_SECRET not in rendered
+
     def test_missing_dsns_raise_one_aggregated_error_naming_both(
         self,
         clean_env: None,
@@ -133,9 +153,7 @@ class TestDefaults:
             "COUNSELLE_SUPPORTED_PACKET_EXTRACTOR_VERSIONS", "extractor-a, extractor-b"
         )
 
-        settings = EnvFileFreeSettings(
-            db_ro_dsn=RO_DSN, db_app_dsn=APP_DSN, jwt_secret=JWT_SECRET
-        )
+        settings = EnvFileFreeSettings(db_ro_dsn=RO_DSN, db_app_dsn=APP_DSN, jwt_secret=JWT_SECRET)
 
         assert settings.data_catalog_refresh_seconds == 45
         assert settings.query_database_max_bytes == 4096
@@ -161,10 +179,7 @@ class TestDefaults:
         monkeypatch.setenv(name, value)
 
         with pytest.raises(ValueError):
-            EnvFileFreeSettings(
-                db_ro_dsn=RO_DSN, db_app_dsn=APP_DSN, jwt_secret=JWT_SECRET
-            )
-
+            EnvFileFreeSettings(db_ro_dsn=RO_DSN, db_app_dsn=APP_DSN, jwt_secret=JWT_SECRET)
 
     def test_viz_and_source_caps_load_from_the_settings_environment(
         self, clean_env: None, monkeypatch: pytest.MonkeyPatch
@@ -213,9 +228,7 @@ class TestDefaults:
         self, clean_env: None, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         monkeypatch.setenv("COUNSELLE_THINKING_STREAM", "true")
-        settings = EnvFileFreeSettings(
-            db_ro_dsn=RO_DSN, db_app_dsn=APP_DSN, jwt_secret=JWT_SECRET
-        )
+        settings = EnvFileFreeSettings(db_ro_dsn=RO_DSN, db_app_dsn=APP_DSN, jwt_secret=JWT_SECRET)
 
         assert settings.thinking_stream is True
 
@@ -351,6 +364,9 @@ class TestFactsCrawlSettings:
         identification mitigation."""
         monkeypatch.setenv("COUNSELLE_ENVIRONMENT", "staging")
         monkeypatch.setenv("COUNSELLE_COOKIE_SECURE", "true")
+        monkeypatch.setenv("COUNSELLE_AUTH_PUBLIC_URL", "https://acceptra.ai")
+        monkeypatch.setenv("COUNSELLE_EMAIL_PROVIDER", "resend")
+        monkeypatch.setenv("COUNSELLE_RESEND_API_KEY", "test-key")
         monkeypatch.setenv("COUNSELLE_PASSWORD_RESET_ENABLED", "false")
 
         with pytest.raises(ValueError, match="placeholder"):
@@ -361,6 +377,9 @@ class TestFactsCrawlSettings:
     ) -> None:
         monkeypatch.setenv("COUNSELLE_ENVIRONMENT", "staging")
         monkeypatch.setenv("COUNSELLE_COOKIE_SECURE", "true")
+        monkeypatch.setenv("COUNSELLE_AUTH_PUBLIC_URL", "https://acceptra.ai")
+        monkeypatch.setenv("COUNSELLE_EMAIL_PROVIDER", "resend")
+        monkeypatch.setenv("COUNSELLE_RESEND_API_KEY", "test-key")
         monkeypatch.setenv("COUNSELLE_PASSWORD_RESET_ENABLED", "false")
         monkeypatch.setenv(
             "COUNSELLE_FACTS_CRAWL_USER_AGENT", "CounselleBot/1.0 (+https://counselle.ai/bot)"
@@ -379,6 +398,9 @@ class TestFactsCrawlSettings:
     ) -> None:
         monkeypatch.setenv("COUNSELLE_ENVIRONMENT", "staging")
         monkeypatch.setenv("COUNSELLE_COOKIE_SECURE", "true")
+        monkeypatch.setenv("COUNSELLE_AUTH_PUBLIC_URL", "https://acceptra.ai")
+        monkeypatch.setenv("COUNSELLE_EMAIL_PROVIDER", "resend")
+        monkeypatch.setenv("COUNSELLE_RESEND_API_KEY", "test-key")
         monkeypatch.setenv("COUNSELLE_PASSWORD_RESET_ENABLED", "false")
         monkeypatch.setenv(
             "COUNSELLE_FACTS_CRAWL_USER_AGENT", "CounselleBot/1.0 (+https://counselle.ai/bot)"
@@ -432,6 +454,9 @@ class TestSatFetchSettings:
     ) -> None:
         monkeypatch.setenv("COUNSELLE_ENVIRONMENT", "staging")
         monkeypatch.setenv("COUNSELLE_COOKIE_SECURE", "true")
+        monkeypatch.setenv("COUNSELLE_AUTH_PUBLIC_URL", "https://acceptra.ai")
+        monkeypatch.setenv("COUNSELLE_EMAIL_PROVIDER", "resend")
+        monkeypatch.setenv("COUNSELLE_RESEND_API_KEY", "test-key")
         monkeypatch.setenv("COUNSELLE_PASSWORD_RESET_ENABLED", "false")
         monkeypatch.setenv(
             "COUNSELLE_FACTS_CRAWL_USER_AGENT", "CounselleBot/1.0 (+https://counselle.ai/bot)"
@@ -445,6 +470,9 @@ class TestSatFetchSettings:
     ) -> None:
         monkeypatch.setenv("COUNSELLE_ENVIRONMENT", "staging")
         monkeypatch.setenv("COUNSELLE_COOKIE_SECURE", "true")
+        monkeypatch.setenv("COUNSELLE_AUTH_PUBLIC_URL", "https://acceptra.ai")
+        monkeypatch.setenv("COUNSELLE_EMAIL_PROVIDER", "resend")
+        monkeypatch.setenv("COUNSELLE_RESEND_API_KEY", "test-key")
         monkeypatch.setenv("COUNSELLE_PASSWORD_RESET_ENABLED", "false")
         monkeypatch.setenv(
             "COUNSELLE_FACTS_CRAWL_USER_AGENT", "CounselleBot/1.0 (+https://counselle.ai/bot)"
@@ -467,9 +495,7 @@ class TestTavilyKeyAlias:
         field via the validation alias — no .env-file hand-parser needed."""
         monkeypatch.delenv("TAVILY_API_KEY", raising=False)
         monkeypatch.setenv("TAVILY_API_KEY", "tvly-bare-env-key")
-        settings = EnvFileFreeSettings(
-            db_ro_dsn=RO_DSN, db_app_dsn=APP_DSN, jwt_secret=JWT_SECRET
-        )
+        settings = EnvFileFreeSettings(db_ro_dsn=RO_DSN, db_app_dsn=APP_DSN, jwt_secret=JWT_SECRET)
         assert settings.tavily_api_key == "tvly-bare-env-key"
 
     def test_settings_reads_prefixed_tavily_env(
@@ -478,9 +504,7 @@ class TestTavilyKeyAlias:
         """The prefixed COUNSELLE_TAVILY_API_KEY still works via the alias."""
         monkeypatch.delenv("TAVILY_API_KEY", raising=False)
         monkeypatch.setenv("COUNSELLE_TAVILY_API_KEY", "tvly-prefixed-key")
-        settings = EnvFileFreeSettings(
-            db_ro_dsn=RO_DSN, db_app_dsn=APP_DSN, jwt_secret=JWT_SECRET
-        )
+        settings = EnvFileFreeSettings(db_ro_dsn=RO_DSN, db_app_dsn=APP_DSN, jwt_secret=JWT_SECRET)
         assert settings.tavily_api_key == "tvly-prefixed-key"
 
 
@@ -593,3 +617,38 @@ class TestConfigCacheReset:
         # The coupled reset clears get_settings too, so assets_dir is re-read.
         reset_config_caches()
         assert load_prompt("greeting") == "from-B"
+
+
+@pytest.mark.parametrize(
+    "url", ["https://acceptra.ai/reset", "https://evil@acceptra.ai", "javascript:alert(1)"]
+)
+def test_auth_email_origin_rejects_paths_and_credentials(clean_env: None, url: str) -> None:
+    with pytest.raises(ValueError, match="auth_public_url"):
+        EnvFileFreeSettings(
+            db_ro_dsn=RO_DSN, db_app_dsn=APP_DSN, jwt_secret=JWT_SECRET, auth_public_url=url
+        )
+
+
+def test_console_email_cannot_launch_even_with_password_recovery_disabled(clean_env: None) -> None:
+    with pytest.raises(ValueError, match="console email provider"):
+        EnvFileFreeSettings(
+            db_ro_dsn=RO_DSN,
+            db_app_dsn=APP_DSN,
+            jwt_secret=JWT_SECRET,
+            environment="staging",
+            cookie_secure=True,
+            auth_public_url="https://acceptra.ai",
+            password_reset_enabled=False,
+        )
+
+
+@pytest.mark.parametrize("key", [None, "", "  "])
+def test_resend_requires_nonempty_secret(clean_env: None, key: str | None) -> None:
+    with pytest.raises(ValueError, match="resend_api_key"):
+        EnvFileFreeSettings(
+            db_ro_dsn=RO_DSN,
+            db_app_dsn=APP_DSN,
+            jwt_secret=JWT_SECRET,
+            email_provider="resend",
+            resend_api_key=SecretStr(key) if key is not None else None,
+        )

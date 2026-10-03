@@ -1,4 +1,4 @@
-import { useEffect, useState, type KeyboardEvent, type ReactNode } from "react";
+import { useState, type KeyboardEvent, type ReactNode } from "react";
 import { Flag, Trash2, X } from "lucide-react";
 
 import type { ApplicationView, EssaySummary } from "@/api/workspace/types";
@@ -12,8 +12,8 @@ import {
   CommandList,
 } from "@/components/ui/command";
 import { Popover, PopoverPopup, PopoverTrigger } from "@/components/ui/popover";
-import { Sheet, SheetPopup, SheetTitle } from "@/components/ui/sheet";
 import { Textarea } from "@/components/ui/textarea";
+import { DockedPanel } from "@/components/workspace/DockedPanel";
 import type { Task } from "@/domain/task";
 import { SchedulerPopover } from "@/features/tasks/SchedulerPopover";
 import { parseDateOnly } from "@/features/tasks/task-dates";
@@ -28,91 +28,6 @@ export type TaskDetailPanelProps = {
   onDelete: (taskId: string) => void;
   onOpenChange: (open: boolean) => void;
 };
-
-/*
- * design doc §7.1 shell breakpoint. Distinct from `useIsMobile` (768px,
- * `hooks/use-mobile.ts`) — the detail panel switches at `lg` (1024px), not
- * `md`, so it gets its own small hook rather than repurposing that one.
- */
-const DESKTOP_BREAKPOINT = 1024;
-
-function useIsDesktop(): boolean {
-  const [isDesktop, setIsDesktop] = useState(
-    () => window.innerWidth >= DESKTOP_BREAKPOINT,
-  );
-
-  useEffect(() => {
-    const mql = window.matchMedia(`(min-width: ${DESKTOP_BREAKPOINT}px)`);
-    const onChange = () => setIsDesktop(window.innerWidth >= DESKTOP_BREAKPOINT);
-    mql.addEventListener("change", onChange);
-    return () => mql.removeEventListener("change", onChange);
-  }, []);
-
-  return isDesktop;
-}
-
-function prefersReducedMotion(): boolean {
-  return (
-    typeof window !== "undefined" &&
-    window.matchMedia("(prefers-reduced-motion: reduce)").matches
-  );
-}
-
-/** design doc §7.1 — the aside's own exit duration; entry rides the default
- * 200ms transition below. Keeps the aside mounted for the exit so the
- * `translate`/`opacity` transition can play instead of the panel vanishing
- * mid-slide. */
-const EXIT_MS = 150;
-
-/**
- * Two-phase presence for the docked aside, which is a plain `<aside>` and so
- * has no built-in presence management the way the mobile `Sheet` does.
- *
- * `mounted` keeps the element in the tree across the exit so the transition
- * can play. `entered` is what the enter transition needs: the element must
- * first paint at its *from* state (`translate-x-4 opacity-0`) and only then
- * flip to its *to* state, or the browser has nothing to interpolate from and
- * the panel simply appears. That is why `entered` is set from an effect after
- * a frame rather than adjusted during render — a render-phase flip lands both
- * states in the same paint and animates nothing.
- */
-function useDelayedUnmount(open: boolean): { mounted: boolean; entered: boolean } {
-  const [mounted, setMounted] = useState(open);
-  const [entered, setEntered] = useState(open);
-  const [wasOpen, setWasOpen] = useState(open);
-
-  // Mounting on open has to happen before paint — the element must already
-  // be in the tree, at its from-state, for the enter transition to have
-  // something to interpolate from. Unmounting is deferred to the effect
-  // below so the exit transition can play out first.
-  if (open !== wasOpen) {
-    setWasOpen(open);
-    if (open) {
-      setMounted(true);
-    } else {
-      setEntered(false);
-    }
-  }
-
-  useEffect(() => {
-    if (!open) {
-      const timeout = window.setTimeout(
-        () => setMounted(false),
-        prefersReducedMotion() ? 0 : EXIT_MS,
-      );
-      return () => window.clearTimeout(timeout);
-    }
-
-    // One frame at the from-state, then transition to the to-state.
-    const frame = window.requestAnimationFrame(() => setEntered(true));
-    return () => window.cancelAnimationFrame(frame);
-  }, [open]);
-
-  // An open panel is always mounted. Opening a task from a row used to leave
-  // the aside unmounted: the closed state's unmount timer could still land
-  // after the open, and nothing ever mounted it again.
-  return { mounted: mounted || open, entered };
-}
 
 /** "Jan 1" (+ year, only when it differs from `referenceDate`'s). Used for
  * the deadline row, the deadline-inheritance display, and the footer's
@@ -256,7 +171,10 @@ function LinkField({
   task: Task;
   applications: ApplicationView[];
   essays: EssaySummary[];
-  onLink: (patch: { application_id: string | null; essay_id: string | null }) => void;
+  onLink: (patch: {
+    application_id: string | null;
+    essay_id: string | null;
+  }) => void;
 }) {
   const [open, setOpen] = useState(false);
   const application = task.application_id
@@ -280,7 +198,10 @@ function LinkField({
               <span className="text-[var(--ink)]">
                 {application?.school_name ?? essay.school_name}
               </span>
-              <span className="text-[var(--ink-secondary)]"> · {essay.title} essay</span>
+              <span className="text-[var(--ink-secondary)]">
+                {" "}
+                · {essay.title} essay
+              </span>
             </>
           ) : (
             <span className="text-[var(--ink)]">{essay.title} essay</span>
@@ -301,7 +222,10 @@ function LinkField({
                 <CommandItem
                   key={option.id}
                   onSelect={() => {
-                    onLink({ application_id: option.id, essay_id: task.essay_id ?? null });
+                    onLink({
+                      application_id: option.id,
+                      essay_id: task.essay_id ?? null,
+                    });
                     setOpen(false);
                   }}
                   value={option.school_name}
@@ -382,17 +306,23 @@ function PanelBody({
     scheduleTask.mutate({ id: task.id, field: "deadline_on", value });
   }
 
-  function setLink(patch: { application_id: string | null; essay_id: string | null }) {
+  function setLink(patch: {
+    application_id: string | null;
+    essay_id: string | null;
+  }) {
     updateTask.mutate({ id: task.id, patch });
   }
 
-  const actorLabel = task.created_by_actor === "counselle" ? "Counselle" : "You";
+  const actorLabel =
+    task.created_by_actor === "counselle" ? "Counselle" : "You";
 
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex h-8 items-center justify-between">
         <button
-          aria-label={task.flagged ? `Unflag "${task.title}"` : `Flag "${task.title}"`}
+          aria-label={
+            task.flagged ? `Unflag "${task.title}"` : `Flag "${task.title}"`
+          }
           aria-pressed={task.flagged}
           className={cn(
             "flex size-8 items-center justify-center rounded-md outline-none transition-[background-color] duration-150 ease-out",
@@ -426,7 +356,10 @@ function PanelBody({
             onClick={() => onDelete(task.id)}
             type="button"
           >
-            <Trash2 aria-hidden="true" className="size-4 text-[var(--ink-faint)]" />
+            <Trash2
+              aria-hidden="true"
+              className="size-4 text-[var(--ink-faint)]"
+            />
           </button>
           <button
             aria-label="Close"
@@ -455,7 +388,11 @@ function PanelBody({
 
       <dl className="flex flex-col gap-3">
         <FieldRow label="When">
-          <SchedulerPopover field="when_on" onChange={scheduleWhen} value={task.when_on}>
+          <SchedulerPopover
+            field="when_on"
+            onChange={scheduleWhen}
+            value={task.when_on}
+          >
             <button
               aria-label={`Change when for "${task.title}"`}
               className={editableRegionClass}
@@ -486,7 +423,10 @@ function PanelBody({
               ) : inheritedDeadline ? (
                 <>
                   <span className="text-[var(--ink-secondary)]">
-                    {formatMonthDay(parseDateOnly(inheritedDeadline), referenceDate)}
+                    {formatMonthDay(
+                      parseDateOnly(inheritedDeadline),
+                      referenceDate,
+                    )}
                   </span>
                   <span className="text-xs text-[var(--ink-faint)]">
                     {" "}
@@ -494,7 +434,9 @@ function PanelBody({
                   </span>
                 </>
               ) : (
-                <span className="text-[var(--ink-placeholder)]">No deadline</span>
+                <span className="text-[var(--ink-placeholder)]">
+                  No deadline
+                </span>
               )}
             </button>
           </SchedulerPopover>
@@ -535,64 +477,23 @@ export function TaskDetailPanel({
   onDelete,
   onOpenChange,
 }: TaskDetailPanelProps) {
-  const isDesktop = useIsDesktop();
-  // Only the aside needs manual delayed-unmount: it's a plain element with a
-  // hand-rolled transition, not a dialog. The mobile `Sheet` (Base UI) owns
-  // its own presence/exit animation once `open` goes false — wrapping it in
-  // this too would cut that animation off early instead of complementing it.
-  const { mounted: asideMounted, entered: asideEntered } = useDelayedUnmount(
-    open && Boolean(task),
-  );
-
-  if (!isDesktop) {
-    return (
-      <Sheet onOpenChange={onOpenChange} open={open && Boolean(task)}>
-        <SheetPopup
-          className="max-h-[85dvh] rounded-t-2xl p-6"
-          showCloseButton={false}
-          side="bottom"
-        >
-          {task ? (
-            <>
-              <SheetTitle className="sr-only">{task.title}</SheetTitle>
-              <PanelBody
-                applicationsById={applicationsById}
-                essaysById={essaysById}
-                key={task.id}
-                onClose={() => onOpenChange(false)}
-                onDelete={onDelete}
-                task={task}
-              />
-            </>
-          ) : null}
-        </SheetPopup>
-      </Sheet>
-    );
-  }
-
-  if (!task || !asideMounted) {
-    return null;
-  }
-
   return (
-    <aside
-      aria-label={`Task details for "${task.title}"`}
-      className={cn(
-        "fixed inset-y-2 end-2 z-[var(--z-sticky)] hidden w-[26rem] flex-col rounded-2xl border border-[var(--hairline)] bg-[var(--surface-raised)] p-6 shadow-[var(--elevation-2)] lg:flex",
-        "transition-[opacity,translate] ease-out motion-reduce:transition-[opacity]",
-        asideEntered
-          ? "translate-x-0 opacity-100 duration-200"
-          : "translate-x-4 opacity-0 duration-150",
-      )}
+    <DockedPanel
+      label={task ? `Task details for "${task.title}"` : "Task details"}
+      onOpenChange={onOpenChange}
+      open={open && Boolean(task)}
+      title={task?.title ?? "Task details"}
     >
-      <PanelBody
-        applicationsById={applicationsById}
-        essaysById={essaysById}
-        key={task.id}
-        onClose={() => onOpenChange(false)}
-        onDelete={onDelete}
-        task={task}
-      />
-    </aside>
+      {task ? (
+        <PanelBody
+          applicationsById={applicationsById}
+          essaysById={essaysById}
+          key={task.id}
+          onClose={() => onOpenChange(false)}
+          onDelete={onDelete}
+          task={task}
+        />
+      ) : null}
+    </DockedPanel>
   );
 }

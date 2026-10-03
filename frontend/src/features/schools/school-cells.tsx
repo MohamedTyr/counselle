@@ -1,4 +1,5 @@
-import { ExternalLink } from "lucide-react";
+import { useState } from "react";
+import { Building2, ExternalLink } from "lucide-react";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -76,6 +77,52 @@ export function SchoolAvatar({
         {getSchoolInitials(name)}
       </AvatarFallback>
     </Avatar>
+  );
+}
+
+/**
+ * A school's favicon at glyph size (14–16px), for dense surfaces like the
+ * calendar. Not `SchoolAvatar`: that wraps Radix Avatar, which preloads
+ * through `new Image()` — so a calendar month of logos would all load at once
+ * — and its initials fallback cannot fit at this size. A plain lazy `<img>`
+ * falls back to a building glyph instead.
+ */
+export function SchoolFavicon({
+  className,
+  size = 14,
+  websiteUrl,
+}: {
+  className?: string;
+  size?: number;
+  websiteUrl: string | null;
+}) {
+  const src = faviconUrlFromWebsite(websiteUrl);
+  const [failedSrc, setFailedSrc] = useState<string | null>(null);
+
+  if (!src || failedSrc === src) {
+    return (
+      <Building2
+        aria-hidden="true"
+        className={cn("shrink-0", className)}
+        style={{ height: size, width: size }}
+      />
+    );
+  }
+
+  return (
+    <img
+      alt=""
+      className={cn(
+        "shrink-0 rounded-[3px] bg-[var(--surface-raised)] outline outline-1 -outline-offset-1 outline-[var(--image-outline)]",
+        className,
+      )}
+      decoding="async"
+      height={size}
+      loading="lazy"
+      onError={() => setFailedSrc(src)}
+      src={src}
+      width={size}
+    />
   );
 }
 

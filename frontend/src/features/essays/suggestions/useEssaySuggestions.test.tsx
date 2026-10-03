@@ -1,3 +1,4 @@
+import { authQueryKey, discardPrivateQueryData } from "@/app/auth";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
@@ -128,6 +129,7 @@ function renderController(
 ) {
   const flush = vi.fn(() => Promise.resolve());
   const queryClient = createTestQueryClient();
+  queryClient.setQueryData(authQueryKey, { id: "A" });
   const view = renderHook(
     () =>
       useEssaySuggestions({
@@ -268,9 +270,7 @@ describe("accept applies only what the server returned", () => {
     expect(editor.runCount).toBe(1);
     expect(editor.metaCalls[0].key).toBe(SuggestionPluginKey);
     expect(editor.metaCalls[0].value).toEqual({
-      suggestions: [
-        expect.objectContaining({ id: "b", oldTextPlain: "old" }),
-      ],
+      suggestions: [expect.objectContaining({ id: "b", oldTextPlain: "old" })],
     });
   });
 
@@ -342,7 +342,9 @@ describe("accept applies only what the server returned", () => {
     queryClient.setQueryData(workspaceKeys.essays.detail(ESSAY_ID), saved);
 
     await act(async () => {
-      pending.resolve(serverEssay([suggestionRow("b")], "2026-09-05T10:00:00Z"));
+      pending.resolve(
+        serverEssay([suggestionRow("b")], "2026-09-05T10:00:00Z"),
+      );
       await pending.promise;
     });
     await waitFor(() => expect(view.result.current.isResolving).toBe(false));
@@ -484,6 +486,45 @@ describe("accept applies only what the server returned", () => {
     });
     await waitFor(() => expect(reject).toHaveBeenCalledTimes(1));
 
+    expect(editor.setContentCalls).toHaveLength(0);
+  });
+  test("a late resolve cannot adopt A's essay into B's cache or editor", async () => {
+    const pending = deferred<unknown>();
+    accept.mockReturnValue(pending.promise);
+    const editor = fakeEditor();
+    const { queryClient, view } = renderController(editor);
+    act(() => view.result.current.acceptOne("a"));
+    await waitFor(() => expect(accept).toHaveBeenCalledOnce());
+    view.unmount();
+    await discardPrivateQueryData(queryClient);
+    queryClient.setQueryData(authQueryKey, { id: "B" });
+    const b = { ...serverEssay(), title: "B private" };
+    queryClient.setQueryData(workspaceKeys.essays.detail(ESSAY_ID), b);
+    const invalidate = vi.spyOn(queryClient, "invalidateQueries");
+    await act(async () => {
+      pending.resolve(serverEssay());
+      await pending.promise;
+    });
+    expect(
+      queryClient.getQueryData(workspaceKeys.essays.detail(ESSAY_ID)),
+    ).toEqual(b);
+    expect(editor.setContentCalls).toHaveLength(0);
+    expect(invalidate).not.toHaveBeenCalled();
+  });
+
+  test("changing account during autosave flush prevents the resolve request", async () => {
+    const pending = deferred<void>();
+    const editor = fakeEditor();
+    const { flush, queryClient, view } = renderController(editor);
+    flush.mockReturnValue(pending.promise);
+    act(() => view.result.current.acceptOne("a"));
+    await discardPrivateQueryData(queryClient);
+    queryClient.setQueryData(authQueryKey, { id: "B" });
+    await act(async () => {
+      pending.resolve();
+      await pending.promise;
+    });
+    expect(accept).not.toHaveBeenCalled();
     expect(editor.setContentCalls).toHaveLength(0);
   });
 });

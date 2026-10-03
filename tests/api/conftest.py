@@ -25,7 +25,9 @@ from __future__ import annotations
 import uuid
 from collections.abc import AsyncIterator
 from dataclasses import replace
+from types import SimpleNamespace
 from typing import Any
+from unittest.mock import AsyncMock
 
 import pytest
 import pytest_asyncio
@@ -65,6 +67,23 @@ def _test_user() -> UserDB:
         is_superuser=False,
         is_verified=True,
     )
+
+
+@pytest.fixture
+def protocol_stream_auth(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Supply session identity only for suites that test streaming protocol.
+
+    Authentication and revocation suites do not request this fixture and use
+    the actual session lookup. Keep this seam in tests, never in the app.
+    """
+    import api.auth_sessions
+
+    monkeypatch.setattr(
+        api.auth_sessions,
+        "get_request_session",
+        AsyncMock(return_value=SimpleNamespace(user_id=TEST_USER_ID)),
+    )
+
 
 # ---------------------------------------------------------------------------
 # Hermetic fixtures (same as test_run_turn.py)
@@ -290,7 +309,7 @@ async def test_runtime() -> AsyncIterator[Runtime]:
 
 
 @pytest_asyncio.fixture(scope="function")
-async def live_app(test_runtime: Runtime) -> AsyncIterator[FastAPI]:
+async def live_app(test_runtime: Runtime, protocol_stream_auth: None) -> AsyncIterator[FastAPI]:
     """A FastAPI app with the test runtime injected (no lifespan needed)."""
     yield _build_live_app(test_runtime)
 

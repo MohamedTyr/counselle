@@ -24,6 +24,7 @@ from app.workspace.models import (
     Profile,
     WorkspaceNotFoundError,
 )
+from config.settings import get_settings
 from tests.api.conftest import TEST_USER_ID, _test_user
 
 _UNKNOWN_UUID = "00000000-0000-4000-8000-000000000001"
@@ -38,12 +39,12 @@ def _await_kwargs(mock: AsyncMock) -> Any:
 
 def _app(*, authed: bool = True, workspace_writes_per_minute: int = 240) -> FastAPI:
     app = FastAPI()
-    settings = SimpleNamespace(
-        cors_origins=["*"],
-        sse_keepalive_s=15,
-        workspace_writes_per_minute=workspace_writes_per_minute,
-        document_extraction_timeout_s=8.0,
-    )
+    settings = get_settings().model_copy(update={
+        "cors_origins": ["*"],
+        "sse_keepalive_s": 15,
+        "workspace_writes_per_minute": workspace_writes_per_minute,
+        "document_extraction_timeout_s": 8.0,
+    })
     install_middleware(app, settings)
     app.include_router(profile.router, prefix="/v1")
     app.include_router(documents.router, prefix="/v1")

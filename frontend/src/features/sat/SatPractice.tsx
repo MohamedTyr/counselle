@@ -5,8 +5,15 @@ import { useNavigate, useParams, useSearchParams } from "react-router";
 import { ErrorCard } from "@/components/ui/error-card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Empty, EmptyContent, EmptyDescription, EmptyTitle } from "@/components/ui/empty";
-import { ChevronDown, ChevronUp } from "lucide-react";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
+import { ChevronsUpDown, SearchX } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 import { useSatAttempts, useSatQuestion, useSatTaxonomy } from "@/api/sat/hooks";
@@ -14,15 +21,18 @@ import type { SatFilterQuery } from "@/api/sat/types";
 import { useChatConfig } from "@/api/chat/config";
 import { SAT_PRACTICE_COPY } from "@/features/sat/sat-copy";
 import { filterStateFromSearchParams } from "@/features/sat/sat-filters";
+import { satPageBottomFadeClass, satSheetClass, satToolItemClass } from "@/features/sat/sat-chrome-styles";
 import { SatCalculator } from "@/features/sat/SatCalculator";
 import { SatNavigator } from "@/features/sat/SatNavigator";
 import { SatPassagePane } from "@/features/sat/SatPassagePane";
 import { SatPracticeBottomBar, SatPracticeTopBar } from "@/features/sat/SatPracticeBars";
+import { SatPracticeFrame } from "@/features/sat/SatPracticeFrame";
 import { SatPracticeSkeleton } from "@/features/sat/SatPracticeSkeleton";
 import { SatQuestionInfo } from "@/features/sat/SatQuestionInfo";
 import { SatQuestionPane } from "@/features/sat/SatQuestionPane";
 import { SatReferenceSheet } from "@/features/sat/SatReferenceSheet";
 import { TOOL_WINDOW_FULLSCREEN_BREAKPOINT } from "@/features/sat/use-tool-window";
+import { useIsViewportAtMost } from "@/features/sat/use-viewport-width";
 import { useQuestionTimer } from "@/features/sat/use-question-timer";
 import { useSatHighlighter } from "@/features/sat/use-sat-highlighter";
 import { useSatSession, type SatSessionSource } from "@/features/sat/use-sat-session";
@@ -41,19 +51,26 @@ function resolveDeepLinkId(
   return null;
 }
 
-function useIsToolFullscreenBreakpoint(): boolean {
-  const [isNarrow, setIsNarrow] = useState(
-    () => window.innerWidth <= TOOL_WINDOW_FULLSCREEN_BREAKPOINT,
-  );
-  useEffect(() => {
-    function onResize() {
-      setIsNarrow(window.innerWidth <= TOOL_WINDOW_FULLSCREEN_BREAKPOINT);
-    }
-    window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
-  }, []);
-  return isNarrow;
-}
+/** The dashed sheet an empty state rests on (the Activities page's). */
+const emptySheetClass =
+  "max-w-md flex-none rounded-xl border border-dashed border-[var(--edge)] bg-[var(--surface-raised)] py-12";
+
+/** Controls that handle Enter themselves. */
+const OWN_ENTER_SELECTOR = 'button, a[href], input, select, summary, [role="button"], [role="tab"]';
+
+/** The viewport width from which the calculator opens docked. */
+const CALCULATOR_DOCK_MIN_WIDTH = 1280;
+
+/** Each sheet scrolls its own pane beside a passage; stacked on a phone the
+ * page scrolls instead, so a pane never nests a second scroller. The
+ * gutter is always reserved so the column doesn't shift when a reveal makes
+ * the pane scrollable. */
+const sheetScrollClass =
+  "[&>*]:[scrollbar-gutter:stable] max-[860px]:[&>*]:h-auto! max-[860px]:[&>*]:overflow-visible!";
+
+/** Stacked on a phone the passage keeps its own scroller, capped in its pane,
+ * so the question under it is always partly in view. */
+const passageSheetScrollClass = "[&>*]:[scrollbar-gutter:stable]";
 
 /** `/app/sat/practice/:questionId?` — the full-viewport Bluebook frame
  * (plan §5.1, §5.2, §5.4; ui-spec §4). */
@@ -82,10 +99,14 @@ export function SatPractice(): React.ReactElement {
   const taxonomy = useSatTaxonomy();
   const appConfig = useChatConfig();
 
-  const [eliminateMode, setEliminateMode] = useState(true);
+  const [eliminateMode, setEliminateMode] = useState(false);
   const [highlightActive, setHighlightActive] = useState(false);
   const [calculatorOpen, setCalculatorOpen] = useState(false);
-  const [calculatorDocked, setCalculatorDocked] = useState(false);
+  // On a wide screen the calculator opens beside the question, where it
+  // covers nothing; a narrower window floats it instead.
+  const [calculatorDocked, setCalculatorDocked] = useState(
+    () => window.innerWidth >= CALCULATOR_DOCK_MIN_WIDTH,
+  );
   const [referenceOpen, setReferenceOpen] = useState(false);
   const [infoOpen, setInfoOpen] = useState(false);
   // The Info toolbar button lives in SatPracticeBars, rendered as a plain
@@ -97,7 +118,7 @@ export function SatPractice(): React.ReactElement {
   const [navigatorOpen, setNavigatorOpen] = useState(false);
   const [lastModule, setLastModule] = useState<"reading" | "math">("reading");
 
-  const isToolFullscreenBreakpoint = useIsToolFullscreenBreakpoint();
+  const isToolFullscreenBreakpoint = useIsViewportAtMost(TOOL_WINDOW_FULLSCREEN_BREAKPOINT);
   const toolFullscreen =
     isToolFullscreenBreakpoint && (calculatorOpen || referenceOpen);
 
@@ -120,6 +141,10 @@ export function SatPractice(): React.ReactElement {
     // effect must not also clobber the preference itself.
   }, [body.data]);
 
+  // The module of the question on screen. `lastModule` bridges the moment a
+  // new body is loading, so the toolbar doesn't flicker between sections.
+  const currentModule = body.data?.module ?? lastModule;
+
   const stemRef = useRef<HTMLDivElement>(null);
   const passageRef = useRef<HTMLDivElement>(null);
   const dockSlotRef = useRef<HTMLDivElement>(null);
@@ -140,11 +165,15 @@ export function SatPractice(): React.ReactElement {
 
   useSatHighlighter({
     questionId: session.current?.id ?? "",
-    active: highlightActive && lastModule === "reading",
+    active: highlightActive && currentModule === "reading",
     fields: highlightFields,
   });
 
-  // Window-level Enter handler (plan §5.5, Q10, Q10a).
+  // Window-level Enter handler (plan §5.5, Q10, Q10a). Enter belongs to
+  // whatever control has focus: a toolbar pill, Mark for review, a strike
+  // toggle or a link activates normally. The answer choices and the
+  // student-produced response field are the exception — Enter there checks
+  // the answer.
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
       if (event.key !== "Enter") return;
@@ -152,6 +181,9 @@ export function SatPractice(): React.ReactElement {
       const active = document.activeElement;
       const tag = active?.tagName;
       if (tag === "TEXTAREA" || (active as HTMLElement | null)?.isContentEditable) return;
+      if (active?.closest(OWN_ENTER_SELECTOR) && !active.closest("[data-sat-enter-submit]")) {
+        return;
+      }
       const inRoot =
         active === null ||
         active === document.body ||
@@ -186,34 +218,42 @@ export function SatPractice(): React.ReactElement {
 
   if (session.status === "error") {
     return (
-      <div className="flex h-dvh items-center justify-center bg-[var(--canvas)] p-6">
+      <SatPracticeFrame className="items-center justify-center p-6">
         <ErrorCard
           message={SAT_PRACTICE_COPY.sessionLoadFailed.description}
           onRetry={session.reload}
           retryLabel={SAT_PRACTICE_COPY.sessionLoadFailed.retry}
+          secondaryAction={
+            <Button onClick={() => navigate("/app/sat")} variant="outline">
+              {SAT_PRACTICE_COPY.unknownQuestion.backToPractice}
+            </Button>
+          }
           title={SAT_PRACTICE_COPY.sessionLoadFailed.title}
         />
-      </div>
+      </SatPracticeFrame>
     );
   }
 
   if (session.rows.length === 0) {
     const isUnknownQuestion = source.kind === "question";
     return (
-      <div className="flex h-dvh items-center justify-center bg-[var(--canvas)]">
-        <Empty>
-          <EmptyTitle>
-            {isUnknownQuestion
-              ? SAT_PRACTICE_COPY.unknownQuestion.title
-              : SAT_PRACTICE_COPY.filteredToZero.title}
-          </EmptyTitle>
-          <EmptyDescription>
-            {isUnknownQuestion
-              ? SAT_PRACTICE_COPY.unknownQuestion.description(
-                  source.kind === "question" ? source.questionId : "",
-                )
-              : SAT_PRACTICE_COPY.filteredToZero.allZero}
-          </EmptyDescription>
+      <SatPracticeFrame className="items-center justify-center p-4 min-[861px]:p-6">
+        <Empty className={emptySheetClass}>
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <SearchX aria-hidden="true" />
+            </EmptyMedia>
+            <EmptyTitle>
+              {isUnknownQuestion
+                ? SAT_PRACTICE_COPY.unknownQuestion.title
+                : SAT_PRACTICE_COPY.filteredToZero.title}
+            </EmptyTitle>
+            <EmptyDescription>
+              {isUnknownQuestion
+                ? SAT_PRACTICE_COPY.unknownQuestion.description
+                : SAT_PRACTICE_COPY.filteredToZero.allZero}
+            </EmptyDescription>
+          </EmptyHeader>
           <EmptyContent>
             <Button onClick={() => navigate("/app/sat")}>
               {isUnknownQuestion
@@ -222,7 +262,7 @@ export function SatPractice(): React.ReactElement {
             </Button>
           </EmptyContent>
         </Empty>
-      </div>
+      </SatPracticeFrame>
     );
   }
 
@@ -235,27 +275,42 @@ export function SatPractice(): React.ReactElement {
     : SAT_PRACTICE_COPY.next;
   const currentAnswer = session.getAnswer(current.id);
   const inFlight = session.isInFlight(current.id);
-  // Two equal columns only when there's a passage to show — a Math (or
-  // stimulus-less R&W) question is one centred column, max 860px (Q12).
-  const hasLeftColumn =
-    (calculatorDocked && lastModule === "math") || Boolean(question?.stimulus);
+  // The docked calculator takes the left column only while it is open: a
+  // closed or full-screen one leaves nothing to dock into.
+  const calculatorAvailable = Boolean(appConfig.data?.sat_desmos_embed_url);
+  const dockVisible =
+    calculatorAvailable &&
+    calculatorDocked &&
+    calculatorOpen &&
+    currentModule === "math" &&
+    !isToolFullscreenBreakpoint;
+  // Two equal columns only when there's a passage or a docked calculator to
+  // show — a Math (or stimulus-less R&W) question is one centred column (Q12).
+  const hasLeftColumn = dockVisible || Boolean(question?.stimulus);
 
+  const counter = SAT_PRACTICE_COPY.questionCounter(session.index + 1, session.rows.length);
   const navigatorTrigger = (
-    <Button variant="outline">
-      {SAT_PRACTICE_COPY.questionCounter(session.index + 1, session.rows.length)}
-      <ChevronUp aria-hidden="true" className="size-4" />
-      <ChevronDown aria-hidden="true" className="size-4" />
+    <Button
+      aria-label={counter}
+      className={cn(satToolItemClass(), "h-10 border-[var(--edge-button)] bg-[var(--surface-raised)] px-4 text-sm shadow-[var(--elevation-1)] hover:bg-[var(--surface-button-hover)] sm:h-9")}
+      variant="outline"
+    >
+      <span className="tabular-nums max-[520px]:hidden">{counter}</span>
+      <span aria-hidden="true" className="tabular-nums min-[521px]:hidden">
+        {(session.index + 1).toLocaleString("en-US")} / {session.rows.length.toLocaleString("en-US")}
+      </span>
+      <ChevronsUpDown aria-hidden="true" className="size-4" />
     </Button>
   );
 
   return (
-    <div className="flex h-dvh flex-col bg-[var(--canvas)]" ref={rootRef}>
+    <SatPracticeFrame ref={rootRef}>
       <SatPracticeTopBar
         calculatorActive={calculatorOpen}
         highlightActive={highlightActive}
         highlightSupported={typeof CSS !== "undefined" && "highlights" in CSS}
         isRunning={timer.isRunning}
-        module={lastModule}
+        module={currentModule}
         onExit={() => navigate("/app/sat")}
         onOpenInfo={() => {
           infoTriggerRef.current = document.activeElement as HTMLElement | null;
@@ -269,59 +324,74 @@ export function SatPractice(): React.ReactElement {
         seconds={timer.seconds}
       />
 
-      <div
+      <main
         className={cn(
-          "grid min-h-0 flex-1 divide-x divide-[var(--hairline)] max-[860px]:flex max-[860px]:flex-col max-[860px]:overflow-y-auto",
-          hasLeftColumn ? "grid-cols-1 md:grid-cols-2" : "grid-cols-1",
+          "min-h-0 flex-1 px-4 pb-2 min-[861px]:px-6",
+          "max-[860px]:overflow-y-auto max-[860px]:[scrollbar-gutter:stable]",
+          satPageBottomFadeClass,
         )}
       >
-        {calculatorDocked && lastModule === "math" ? (
-          <div className="h-full" ref={dockSlotRef} />
-        ) : question?.stimulus ? (
-          <SatPassagePane
-            contentSha={question.content_sha256}
-            key={`passage-${current.id}`}
-            ref={passageRef}
-            stimulus={question.stimulus}
-          />
-        ) : null}
+        <div
+          className={cn(
+            "mx-auto grid h-full w-full gap-3 min-[861px]:grid-rows-[minmax(0,1fr)]",
+            "max-[860px]:flex max-[860px]:h-auto max-[860px]:flex-col max-[860px]:pb-8",
+            hasLeftColumn
+              ? "max-w-[1400px] min-[861px]:grid-cols-2"
+              : "max-w-[920px] grid-cols-1",
+          )}
+        >
+          {dockVisible ? (
+            <div className="min-h-0 max-[860px]:hidden" ref={dockSlotRef} />
+          ) : question?.stimulus ? (
+            <div className={cn(satSheetClass, passageSheetScrollClass)}>
+              <SatPassagePane
+                contentSha={question.content_sha256}
+                key={`passage-${current.id}`}
+                ref={passageRef}
+                stimulus={question.stimulus}
+              />
+            </div>
+          ) : null}
 
-        {body.isError ? (
-          <div className="flex h-full items-center justify-center p-6">
-            <ErrorCard
-              message={SAT_PRACTICE_COPY.bodyLoadFailed.description(session.index + 1)}
-              onRetry={() => void body.refetch()}
-              retryLabel={SAT_PRACTICE_COPY.bodyLoadFailed.retry}
-              title={SAT_PRACTICE_COPY.bodyLoadFailed.title}
-            />
+          <div className={cn(satSheetClass, sheetScrollClass)} data-sat-question-sheet="">
+            {body.isError ? (
+              <div className="flex h-full items-center justify-center p-6">
+                <ErrorCard
+                  message={SAT_PRACTICE_COPY.bodyLoadFailed.description(session.index + 1)}
+                  onRetry={() => void body.refetch()}
+                  retryLabel={SAT_PRACTICE_COPY.bodyLoadFailed.retry}
+                  title={SAT_PRACTICE_COPY.bodyLoadFailed.title}
+                />
+              </div>
+            ) : !question ? (
+              <div aria-busy="true" className="flex h-full flex-col gap-3 p-4 min-[861px]:p-8">
+                <Skeleton className="h-5 w-3/4" />
+                <Skeleton className="h-12 w-full rounded-lg" />
+                <Skeleton className="h-12 w-full rounded-lg" />
+                <Skeleton className="h-12 w-full rounded-lg" />
+                <Skeleton className="h-12 w-full rounded-lg" />
+              </div>
+            ) : (
+              <SatQuestionPane
+                answer={currentAnswer}
+                attempts={attempts.data ?? []}
+                bookmarked={current.bookmarked}
+                eliminateMode={eliminateMode}
+                eliminations={session.getEliminations(current.id)}
+                key={`question-${current.id}`}
+                onAnswer={session.answer}
+                onToggleBookmark={() => void session.toggleBookmark()}
+                onToggleEliminate={session.toggleEliminate}
+                onToggleEliminateMode={() => setEliminateMode((mode) => !mode)}
+                question={question}
+                questionNumber={session.index + 1}
+                reveal={reveal}
+                stemRef={stemRef}
+              />
+            )}
           </div>
-        ) : !question ? (
-          <div aria-busy="true" className="flex h-full flex-col gap-3 p-10">
-            <Skeleton className="h-5 w-3/4" />
-            <Skeleton className="h-12 w-full rounded-lg" />
-            <Skeleton className="h-12 w-full rounded-lg" />
-            <Skeleton className="h-12 w-full rounded-lg" />
-            <Skeleton className="h-12 w-full rounded-lg" />
-          </div>
-        ) : (
-          <SatQuestionPane
-            answer={currentAnswer}
-            attempts={attempts.data ?? []}
-            bookmarked={current.bookmarked}
-            eliminateMode={eliminateMode}
-            eliminations={session.getEliminations(current.id)}
-            key={`question-${current.id}`}
-            onAnswer={session.answer}
-            onToggleBookmark={() => void session.toggleBookmark()}
-            onToggleEliminate={session.toggleEliminate}
-            onToggleEliminateMode={() => setEliminateMode((mode) => !mode)}
-            question={question}
-            questionNumber={session.index + 1}
-            reveal={reveal}
-            stemRef={stemRef}
-          />
-        )}
-      </div>
+        </div>
+      </main>
 
       <SatPracticeBottomBar
         index={session.index}
@@ -338,6 +408,7 @@ export function SatPractice(): React.ReactElement {
             rows={session.rows}
           />
         }
+        onPrevious={() => session.goTo(session.index - 1)}
         onPrimaryAction={() => {
           if (!reveal) {
             void session.submit(timer.readElapsed());
@@ -365,16 +436,16 @@ export function SatPractice(): React.ReactElement {
       )}
 
       <SatCalculator
-        docked={calculatorDocked}
+        docked={dockVisible}
         dockSlotRef={dockSlotRef}
         embedUrl={appConfig.data?.sat_desmos_embed_url}
         onClose={() => setCalculatorOpen(false)}
         onDock={() => setCalculatorDocked(true)}
         onFloat={() => setCalculatorDocked(false)}
-        visible={calculatorOpen && lastModule === "math"}
+        visible={calculatorOpen && currentModule === "math"}
       />
 
       {referenceOpen && <SatReferenceSheet onClose={() => setReferenceOpen(false)} />}
-    </div>
+    </SatPracticeFrame>
   );
 }

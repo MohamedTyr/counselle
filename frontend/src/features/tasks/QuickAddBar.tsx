@@ -38,6 +38,8 @@ export type QuickAddDefaults = {
   essay_id?: string | null;
   requirement_kind?: string | null;
   when_on?: string | null;
+  /** The calendar's "Add a task" on a school deadline pre-sets the deadline. */
+  deadline_on?: string | null;
 };
 
 export type QuickAddBarProps = {
@@ -45,6 +47,10 @@ export type QuickAddBarProps = {
   applications: QuickAddApplication[];
   essays: QuickAddEssay[];
   defaults?: QuickAddDefaults;
+  /** Focus the input on mount — for a bar that opens inside a popover. */
+  autoFocus?: boolean;
+  /** Called once a create has gone through, so a popover host can close. */
+  onSubmitted?: () => void;
 };
 
 /** Auto-retry twice with backoff before giving up (design doc §5.4 / spec §4.4). */
@@ -151,6 +157,8 @@ export function QuickAddBar({
   applications,
   essays,
   defaults,
+  autoFocus = false,
+  onSubmitted,
 }: QuickAddBarProps) {
   const [value, setValue] = useState("");
   const [ignoredRanges, setIgnoredRanges] = useState<IgnoredRanges>(
@@ -236,7 +244,7 @@ export function QuickAddBar({
     return {
       title,
       when_on: whenOn,
-      deadline_on: parsed.deadline_on,
+      deadline_on: parsed.deadline_on ?? defaults?.deadline_on ?? undefined,
       flagged: parsed.flagged,
       application_id:
         parsed.application_id ?? defaults?.application_id ?? undefined,
@@ -289,6 +297,7 @@ export function QuickAddBar({
       // a fully-exhausted retry leaves the input as the student typed it.
       if (!createTask.isError) {
         handleCreateSettled();
+        onSubmitted?.();
       }
     });
   }
@@ -360,6 +369,7 @@ export function QuickAddBar({
             onKeyDown={handleKeyDown}
             onScroll={handleScroll}
             placeholder="Add a task…"
+            autoFocus={autoFocus}
             ref={inputRef}
             style={{ color: "transparent", caretColor: "var(--ink)" }}
             type="text"

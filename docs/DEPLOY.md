@@ -98,10 +98,28 @@ This is the small staging/demo target. The web service must be an **always-on pa
    export COUNSELLE_DB_RO_DSN="postgresql://counselle_ro..."
    export COUNSELLE_DB_APP_DSN="postgresql://counselle_app..."
    export COUNSELLE_DB_PIPELINE_DSN="postgresql://cds_library_app..."
-   uv run python scripts/finish_render_staging.py --wait
+   uv run python scripts/finish_render_staging.py --auth-public-url https://YOUR-APP-HOST --wait
    ```
 
    The helper uses the logged-in Render CLI API key, the Docker `Containerfile`, and the model/search keys from the environment or `.env`. Re-running it **merges** onto the service's existing env vars rather than replacing them wholesale (a bare PUT of Render's env-vars endpoint drops anything the script doesn't know about — the fix reads the current set first) — so a secret set once by hand in the Render dashboard (a rotated `COUNSELLE_DB_ADMIN_DSN`, say) survives a later re-run. For Render-to-Supabase traffic, use Supabase's session-pooler connection strings when direct database connections are unavailable from IPv4-only networks. The pooler username form is role-qualified, for example `counselle_app.<project-ref>`, `counselle_ro.<project-ref>`, and `cds_library_app.<project-ref>`.
+   On first creation, `--auth-public-url` must be the intended public HTTPS app
+   origin (use `https://acceptra.ai` only when that host will serve the app).
+   Later runs retain the remote `COUNSELLE_AUTH_PUBLIC_URL` unless the CLI flag
+   overrides it. Neither local `.env` nor process `COUNSELLE_AUTH_PUBLIC_URL`
+   can silently copy a development URL into the deployment. The helper reads
+   existing remote variables before validation, including in `--dry-run`; dry
+   run makes read requests only and performs no API writes.
+
+   Other auth settings/secrets resolve in this order: explicit process
+   environment, existing remote value, `.env`, default. Resend is required;
+   Google remains optional but its client ID and secret must appear together.
+   Existing signing/state secrets are retained, or generated independently if
+   absent. Signup/reset gates use process environment, then remote values, then
+   `true`; local `.env` cannot reopen deliberately closed staging access.
+   `render.yaml` prompts for the public origin and provider credentials. These
+   helper changes have automated checks; no Render deployment was executed as
+   part of local auth verification.
+
 6. For a small Supabase plan, keep `COUNSELLE_DB_POOL_MIN=1` and `COUNSELLE_DB_POOL_MAX=5` unless measured traffic says otherwise. Counselle opens separate app/read pools plus, when configured, the pipeline pool, so idle connection count matters on small databases.
 
 ### An operational fact, not a to-do: the free Supabase Postgres expires 2026-09-18
@@ -203,15 +221,80 @@ A first deploy easily forgets the agent-core half. The complete set:
 **Sources**
 - `COUNSELLE_TAVILY_API_KEY` (required when any external source is enabled)
 
-**Auth (ADR 0021)**
-- `COUNSELLE_JWT_SECRET` — a **stable** ≥32-byte secret (rotating it logs everyone out)
-- `COUNSELLE_OAUTH_STATE_SECRET` (DS-09) — **required and DISTINCT in prod** (do not reuse the JWT secret). The dev fallback to `COUNSELLE_JWT_SECRET` is **dev-only**: reusing one secret for two crypto purposes (session JWTs + OAuth CSRF state) couples their blast radius. Generate with `python -c "import secrets; print(secrets.token_urlsafe(48))"`.
-- `COUNSELLE_COOKIE_SECURE=true` (HTTPS only in prod)
-- `COUNSELLE_GOOGLE_OAUTH_CLIENT_ID` / `_SECRET`, with the **production** redirect URI registered: `https://<domain>/v1/auth/google/callback`
-- Public staging allows email/password self-signup:
-  `COUNSELLE_AUTH_SELF_SIGNUP_ENABLED=true`. Password reset can stay disabled
-  with `COUNSELLE_PASSWORD_RESET_ENABLED=false` until real email delivery is
-  configured.
+**Auth ([ADR 0045](adr/0045-auth-launch-lifecycle.md))**
+- `COUNSELLE_JWT_SECRET` — stable secret of at least 32 bytes for verification/reset tokens. Rotating it invalidates those tokens; opaque login sessions must be revoked in Postgres.
+- `COUNSELLE_OAUTH_STATE_SECRET` — required and distinct in production; development may fall back to the action-token signing secret.
+- `COUNSELLE_COOKIE_SECURE=true`; `COUNSELLE_AUTH_PUBLIC_URL=https://acceptra.ai`. The latter is the trusted frontend origin for email links and OAuth completion, with no path or query.
+- `COUNSELLE_GOOGLE_OAUTH_CLIENT_ID` / `_SECRET` — configure a web client and an external audience for student accounts. Register all three callbacks listed below; publishing the consent configuration and testing it are separate from saving credentials.
+- `COUNSELLE_AUTH_SELF_SIGNUP_ENABLED=true`, `COUNSELLE_PASSWORD_RESET_ENABLED=true` for launch. Disabled signup still permits existing Google identities to return.
+- `COUNSELLE_AUTH_RECENT_SECONDS=600` (sensitive-action proof); `COUNSELLE_AUTH_ACTION_LIFETIME_SECONDS=3600` (pending email change). Session lifetime retains the existing `COUNSELLE_JWT_LIFETIME_SECONDS` setting, default 30 days.
+- `COUNSELLE_EMAIL_PROVIDER=resend`; `COUNSELLE_RESEND_API_KEY` is a deployment secret, never a frontend variable. Use `COUNSELLE_EMAIL_FROM=Acceptra <accounts@mail.acceptra.ai>` and `COUNSELLE_EMAIL_REPLY_TO=support@acceptra.ai`; `COUNSELLE_SUPPORT_EMAIL=support@acceptra.ai` controls the public support link. `COUNSELLE_EMAIL_TIMEOUT_SECONDS` defaults to 10.
+
+### Auth launch setup and acceptance
+
+**Status verified locally, 2026-10-02:** `acceptra.ai` still serves the Cloudflare
+Pages landing site, with no application API deployed there. Google Cloud project
+`acceptra-auth` has the web OAuth client **Acceptra web**, with an External audience
+and publishing status **In production**. Homepage, privacy and terms URLs are
+saved. All three callback paths below are registered for `https://acceptra.ai`,
+`http://localhost:8000` and `http://localhost:5173`.
+
+Resend verified `mail.acceptra.ai`. Its sending-only, domain-scoped API key is
+stored in the ignored local `.env` with mode `600`; no credential value belongs
+in this runbook. DNS records are `resend._domainkey.mail` (TXT),
+`rsend.mail → rsend.forge.rmta.net` (CNAME), and
+`send.mail → send.forge.rmta.net` (CNAME). The CNAMEs are DNS-only; root-domain
+Google Workspace MX records were untouched. `support@acceptra.ai` is the support
+Google Group.
+
+Real verification and reset messages were delivered and their explicit
+confirmation flows exercised locally. A real Google login produced a verified,
+Google-connected account with no password. Only migration `0022_auth_launch`
+was applied to the local application database on port `5434`; this does not
+establish production migration or deployment. Full production-browser acceptance
+and owner sign-off remain open.
+
+Configured production Google redirect URLs:
+
+- `https://acceptra.ai/v1/auth/google/callback`
+- `https://acceptra.ai/v1/auth/google/associate/callback`
+- `https://acceptra.ai/v1/auth/google/reauth/callback`
+
+For local testing register the same paths under the actual browser-facing origin.
+With the Vite proxy this is normally `http://localhost:5173`; a direct API flow
+uses `http://localhost:8000`. Register whichever local origins you exercise, and
+use the same hostname throughout so OAuth state and login cookies are present.
+The frontend completion URL is `/auth/callback`, not a provider callback.
+
+Google's `auth_time` claim must be enabled in its client settings if used for
+recent authentication. The app requests that claim, but does not assume it will
+be returned or that choosing an account re-enters a password. The verified-email
+confirmation path lets a signed-in student complete a sensitive action when the
+provider cannot prove recent authentication; its link must open in the browser
+session that requested it.
+
+Verify `mail.acceptra.ai` in Resend using the exact DNS records the provider
+supplies. Preserve the existing Google Workspace mail records at `acceptra.ai`.
+Use a sending-only key restricted to this domain where supported, disable email
+link tracking, and keep secrets in the deployment's secret settings. Confirm
+real delivery of verification, reset and account-change messages, including the
+`support@acceptra.ai` Reply-To, before opening student signup. Console delivery is
+for local development; disabling password reset does not make console-only email
+sufficient for public signup and verification.
+
+Apply additive migration `0022_auth_launch` to the application schema through the
+normal migration process. Old JWT cookies stop working and users must sign in
+again. This auth migration does **not** require the destructive D9 schema reset
+elsewhere in this historical runbook.
+
+Before acceptance, exercise email signup/verification, Google signup and return,
+same-email linking, Google-only recovery/add-password, expired/reused links,
+cross-device email change, single/all-device logout with an open stream, and
+account deletion. Verify real cookies, origin checks and unbuffered streams
+behind the production proxy. Verify the new auth pages exclude analytics replay
+of password fields and URL action tokens before placing them on the landing
+site's domain; the public landing's recording settings must not automatically
+carry into account pages.
 
 **API**
 - `COUNSELLE_CORS_ORIGINS` — the default is now **empty** (06-L1; the fail-safe under same-origin serving, ADR 0023). Leave it empty in prod; the split-origin **dev** setup sets `["http://localhost:5173"]`.
@@ -224,11 +307,20 @@ A first deploy easily forgets the agent-core half. The complete set:
 
 ## Open security items (must close before public traffic)
 
-- **DS-04 — OAuth `associate_by_email=True` + no email verification.** Email-based account linking without proof of email ownership is an account-takeover surface (a password account on an email links with a later Google sign-in for that email, and vice-versa). A documented MVP tradeoff (ADR 0021, PRD decision 6), **NOT shipped fixed in the hardening pass**. Before any non-trivial user base, do one of: (1) require email verification before login, (2) only associate-by-email when the existing account is verified, or (3) gate `current_active_user` on `is_verified` for password accounts. See `plans/audit/phase-6-configurability.md` DS-04 and `TODOS.md`. **Blocks B6.**
-- **DS-09 — distinct `COUNSELLE_OAUTH_STATE_SECRET`** in prod (see the env matrix above).
-
-DS-04 blocks public OAuth launch. It does not block the five-user staging slice
-when Google OAuth is unconfigured and public signup/password reset are disabled.
+- **DS-04 — unsafe email-based Google linking:** the ADR 0045 implementation
+  removes automatic association and adds verification. Its closure still needs
+  the real Google collision/linking journeys above; do not mark production
+  acceptance from mocked tests alone.
+- **DS-09 — distinct `COUNSELLE_OAUTH_STATE_SECRET`** in production, plus the
+  real secure-cookie/proxy checks.
+- Auth routes use the existing per-IP limiter. Account email delivery also has
+  a mailbox limit of five messages per 15 minutes (`AUTH_EMAIL_ATTEMPTS_PER_WINDOW`
+  and `AUTH_EMAIL_WINDOW_SECONDS`, with the `COUNSELLE_` prefix). Both limits are
+  process-local; deployment process/instance count must match that assumption.
+- Uvicorn access logging filters sensitive authentication query values. Configure
+  equivalent redaction or omit query strings in reverse-proxy/CDN/request logs
+  for OAuth callbacks and emailed token pages. The application filter cannot
+  sanitize logs recorded before requests reach it.
 
 ## Entrypoint & the one flag that breaks first
 
@@ -249,7 +341,7 @@ exec uvicorn api.main:create_app --factory --host 0.0.0.0 --port "${PORT:-8000}"
 - [ ] Scholarships: production starts with no records (admins enter them by hand). Grant scholarship-admin access only with `scripts/promote_admin.py --email …`; never run `scripts/seed_scholarships.py` there (it refuses without `--dev` and against a non-local DSN)
 - [ ] Migrations ran on boot; `/v1/health` returns HTTP 200 with `"status": "ok"` (there is no separate `/v1/ready` route — `/v1/health` is the one liveness/readiness endpoint the app exposes, `api/routes/system.py`)
 - [ ] SSE un-buffered end-to-end (the TLS terminator must not buffer the stream)
-- [ ] Cookies set under TLS; **Google OAuth works on the prod domain** (the forwarded-proto proof)
+- [ ] Cookies set under TLS; Google login/linking and delivered verification/reset messages pass the auth acceptance journeys above on the production domain
 - [ ] One cold-boot run measured (first-turn latency; there is no MCP child to spawn under v3 — the agent's facts tools are in-process)
 - [ ] If the facts crawl worker is turned on: the web instance is on the always-on paid plan (§ Render Starter path), `/v1/health`'s `facts_worker` field is `"ok"` or `"disabled"`, never silently `"stale"`
 - [ ] Playwright smoke passes against production: invite login → ask a known school question → stream with timeline → reload mid-stream → full-fidelity transcript (there is no committed automated release-gate script; do this by hand or write one before relying on it)

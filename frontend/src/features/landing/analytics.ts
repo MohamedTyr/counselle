@@ -68,6 +68,29 @@ function withRefSource(event: CaptureResult | null): CaptureResult | null {
   return event;
 }
 
+/** The standalone landing entry may be served by a deployment fallback. Never
+ * start recording on an account route or a URL carrying an authentication token. */
+function isPublicLandingLocation(): boolean {
+  if (
+    location.hostname !== SITE_HOST ||
+    !["/", "/index.html", "/landing.html"].includes(location.pathname)
+  )
+    return false;
+  const sensitiveKeys = new Set([
+    "token",
+    "code",
+    "state",
+    "password",
+    "access_token",
+    "id_token",
+    "reset_token",
+  ]);
+  const params = new URLSearchParams(location.search);
+  if ([...params.keys()].some((key) => sensitiveKeys.has(key.toLowerCase())))
+    return false;
+  return !/(?:token|code|password)=/i.test(location.hash);
+}
+
 /**
  * Only the production host reports, so previews, local builds and the dev
  * server never skew the funnel. Everything else is on: a first-party cookie
@@ -76,10 +99,13 @@ function withRefSource(event: CaptureResult | null): CaptureResult | null {
  * privacy policy says so; keep the two in step.
  */
 export function initAnalytics(): void {
-  if (client || location.hostname !== SITE_HOST) return;
+  if (client || !isPublicLandingLocation()) return;
   client = afterLoadAndIdle()
     .then(() => import("posthog-js"))
     .then(({ default: posthog }) => {
+      // Navigation can occur while the SDK waits for idle or downloads.
+      if (!isPublicLandingLocation())
+        throw new Error("Analytics location changed");
       posthog.init(KEY, {
         api_host: HOST,
         ui_host: "https://us.posthog.com",

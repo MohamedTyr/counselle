@@ -1,12 +1,13 @@
 import { useState } from "react";
 import { useNavigate } from "react-router";
-import { LogOutIcon } from "lucide-react";
+import { SettingsIcon, LogOutIcon } from "lucide-react";
 
 import { useAuthUser, useLogout } from "@/app/auth";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuGroup,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useSidebar } from "@/components/ui/sidebar";
@@ -69,14 +70,24 @@ export function AccountMenu() {
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="w-56" side="top">
-          <DropdownMenuItem
-            disabled={logoutMutation.isPending}
-            onSelect={() => void handleLogout()}
-            variant="destructive"
-          >
-            <LogOutIcon />
-            {logoutMutation.isPending ? "Logging out…" : "Log out"}
-          </DropdownMenuItem>
+          <DropdownMenuGroup>
+            <DropdownMenuItem
+              onSelect={() => {
+                setOpenMobile(false);
+                navigate("/account");
+              }}
+            >
+              <SettingsIcon /> Account and security
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              disabled={logoutMutation.isPending}
+              onSelect={() => void handleLogout()}
+              variant="destructive"
+            >
+              <LogOutIcon />
+              {logoutMutation.isPending ? "Logging out…" : "Log out"}
+            </DropdownMenuItem>
+          </DropdownMenuGroup>
         </DropdownMenuContent>
       </DropdownMenu>
     </div>

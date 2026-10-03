@@ -1,0 +1,98 @@
+/*
+ * Calendar — the `--calendar-*` family (tier 3, see styles/README.md): every
+ * colour here is an alias onto semantic.css. No primitives, no literals; the
+ * one cubic-bezier is a curve, not a colour.
+ *
+ * Four kinds of item share one chip anatomy and are told apart by form —
+ * fill, a dashed outline, weight and a glyph — never by hue, because each
+ * hue already carries one meaning (DESIGN.md §2.2 Law 2). Hue appears on a
+ * chip only as state (overdue, due soon, done), exactly as on a task row.
+ */
+
+:root {
+  /* ---- dimensions ---- */
+  --calendar-rail-width: 232px;
+  /* The task panel's width plus its inset, kept beside the grid while a
+   * panel is open on a desktop wide enough to spare it. */
+  --calendar-panel-reserve: calc(var(--task-panel-width) + --spacing(4));
+  --calendar-row-min: --spacing(24);
+  --calendar-date-row: --spacing(7);
+  --calendar-chip-height: --spacing(5);
+  --calendar-chip-height-touch: --spacing(8);
+  --calendar-chip-gap: --spacing(0.5);
+  --calendar-glyph-box: --spacing(3.5);
+  --calendar-today-size: --spacing(5.5);
+  --calendar-dot-size: --spacing(1);
+  /* The app shell's own ease-out (`--as-ease-out`). */
+  --calendar-ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+
+  /* ---- grid ---- */
+  --calendar-gridline: var(--hairline);
+  --calendar-weekend: color-mix(
+    in oklab,
+    var(--surface-inset) 35%,
+    var(--task-sheet-surface)
+  );
+  --calendar-today-fill: var(--brand);
+  --calendar-today-ink: var(--on-brand);
+  --calendar-selected-date: var(--surface-inset);
+  --calendar-outside-ink: var(--ink-faint);
+  --calendar-drop-target: var(--canvas-active);
+
+  /* ---- chips ---- */
+  --calendar-school-fill: var(--label-surface);
+  --calendar-school-ink: var(--label-ink);
+  /* `--edge-strong` measures 1.88:1 on the sheet; this is the first edge
+   * token that clears the 3:1 non-text floor (3.45:1). */
+  --calendar-aggregate-edge: var(--edge-control-strong);
+  --calendar-task-hover: var(--canvas-hover);
+  --calendar-done-ink: var(--ink-faint);
+  /* The ink "On list" pill Explore uses, not green: green means done. */
+  --calendar-onlist-surface: var(--brand);
+  --calendar-onlist-ink: var(--on-brand);
+  --calendar-onlist-icon: var(--progress-fill);
+  /* A filled chip's hover deepens its own fill rather than swapping it, so
+   * a due-soon chip stays amber under the pointer. in oklab: the operands
+   * are barely chromatic (DESIGN.md §3.2). */
+  --calendar-school-hover: color-mix(in oklab, var(--calendar-school-fill), var(--ink) 4%);
+  --calendar-warning-hover: color-mix(in oklab, var(--warning-surface), var(--ink) 4%);
+  --calendar-danger-hover: color-mix(in oklab, var(--danger-surface), var(--ink) 4%);
+}
+
+/*
+ * Paging with a pointer slides each cell's contents in from the side it came
+ * from; the gridlines stay put. A cell's contents are keyed by date, so a new
+ * range inserts new elements and `@starting-style` gives them a from-state.
+ * Paging from the keyboard sets no direction and swaps instantly, because a
+ * shortcut pressed many times a minute should never wait on motion.
+ */
+[data-range-motion] .calendar-cell-content {
+  transition-property: opacity, translate;
+  transition-duration: 200ms;
+  transition-timing-function: var(--calendar-ease-out);
+}
+
+[data-range-motion="next"] .calendar-cell-content {
+  @starting-style {
+    opacity: 0;
+    translate: --spacing(2) 0;
+  }
+}
+
+[data-range-motion="prev"] .calendar-cell-content {
+  @starting-style {
+    opacity: 0;
+    translate: calc(--spacing(2) * -1) 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-range-motion] .calendar-cell-content {
+    transition-property: opacity;
+    transition-duration: 150ms;
+
+    @starting-style {
+      translate: 0 0;
+    }
+  }
+}

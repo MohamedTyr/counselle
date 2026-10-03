@@ -1,11 +1,11 @@
-import { Minimize2, X } from "lucide-react";
+import { ArrowLeft, PanelLeft, PictureInPicture2, X } from "lucide-react";
 import type React from "react";
 import { useEffect, useRef } from "react";
 
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
+import { satIconItemClass } from "@/features/sat/sat-chrome-styles";
 import type { UseToolWindowApi } from "@/features/sat/use-tool-window";
 
 export interface SatToolWindowProps {
@@ -26,6 +26,14 @@ export interface SatToolWindowProps {
 }
 
 const ARROW_STEP = 16;
+
+function moveOrResize(event: React.KeyboardEvent, toolWindow: UseToolWindowApi): void {
+  const dx = event.key === "ArrowRight" ? ARROW_STEP : event.key === "ArrowLeft" ? -ARROW_STEP : 0;
+  const dy = event.key === "ArrowDown" ? ARROW_STEP : event.key === "ArrowUp" ? -ARROW_STEP : 0;
+  if (dx === 0 && dy === 0) return;
+  if (event.shiftKey) toolWindow.resizeBy(dx, dy);
+  else toolWindow.moveBy(dx, dy);
+}
 
 /**
  * The window shell for the calculator and reference sheet (ui-spec §4.1,
@@ -53,7 +61,7 @@ export function SatToolWindow({
 
   useEffect(() => {
     if (!hidden && !docked) {
-      headerRef.current?.focus();
+      headerRef.current?.focus({ preventScroll: true });
     }
   }, [hidden, docked]);
 
@@ -81,70 +89,105 @@ export function SatToolWindow({
     <div
       aria-label={title}
       className={cn(
-        "z-[var(--z-floating-panel)] flex flex-col overflow-hidden rounded-xl bg-[var(--surface-raised)] shadow-[var(--elevation-3)]",
-        fullscreen && "fixed inset-0 z-[var(--z-modal)] rounded-none",
-        docked && "rounded-none border-l border-[var(--hairline)] shadow-none",
-        hidden && "invisible",
+        "sat-window z-[var(--z-floating-panel)] flex flex-col overflow-hidden rounded-2xl border border-[var(--hairline)] bg-[var(--surface-raised)] shadow-[var(--elevation-2)]",
+        docked && "shadow-[var(--elevation-1)]",
+        fullscreen && "fixed inset-0 z-[var(--z-modal)] rounded-none border-0 shadow-none",
         className,
       )}
+      data-docked={docked || undefined}
+      data-sat-window={title}
+      data-hidden={hidden || undefined}
       role="dialog"
       style={style}
     >
       <div
-        className="flex h-10 shrink-0 cursor-grab select-none items-center gap-2 border-b border-[var(--hairline)] px-2 active:cursor-grabbing"
+        aria-label={`${title} window. Arrow keys move it; Shift and arrow keys resize it.`}
+        className={cn(
+          "flex h-11 shrink-0 select-none items-center gap-2 border-b border-[var(--hairline)] pr-1.5 pl-3.5 outline-none",
+          "focus-visible:bg-[var(--canvas-hover)] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--focus-ring)]",
+          !fullscreen && !docked && "cursor-grab active:cursor-grabbing",
+          fullscreen && "pl-1.5",
+        )}
         onKeyDown={(event) => {
           if (event.key === "Escape") {
             onClose();
             return;
           }
-          const step = ARROW_STEP;
-          if (event.shiftKey) {
-            if (event.key === "ArrowRight") toolWindow.resizeBy(step, 0);
-            if (event.key === "ArrowLeft") toolWindow.resizeBy(-step, 0);
-            if (event.key === "ArrowDown") toolWindow.resizeBy(0, step);
-            if (event.key === "ArrowUp") toolWindow.resizeBy(0, -step);
-            return;
-          }
-          if (event.key === "ArrowRight") toolWindow.moveBy(step, 0);
-          if (event.key === "ArrowLeft") toolWindow.moveBy(-step, 0);
-          if (event.key === "ArrowDown") toolWindow.moveBy(0, step);
-          if (event.key === "ArrowUp") toolWindow.moveBy(0, -step);
+          // Arrows on the Dock/Close buttons are theirs, not the window's.
+          if (event.target !== event.currentTarget) return;
+          if (!fullscreen && !docked) moveOrResize(event, toolWindow);
         }}
         ref={headerRef}
+        role="group"
         tabIndex={0}
         {...(!fullscreen && !docked ? toolWindow.headerHandlers : {})}
       >
         {fullscreen ? (
-          <Button onClick={onClose} size="sm" variant="ghost">
+          <Button
+            className="active:scale-[0.97]"
+            onClick={onClose}
+            size="sm"
+            variant="ghost"
+          >
+            <ArrowLeft aria-hidden="true" />
             Back to question
           </Button>
         ) : (
           <>
-            <span className="text-sm font-medium">{title}</span>
-            {badge && <Badge variant="secondary">{badge}</Badge>}
-            {docked && onFloat && (
-              <Button className="ml-auto" onClick={onFloat} size="icon-sm" variant="ghost">
-                <Minimize2 aria-hidden="true" className="size-4" />
-              </Button>
+            <span className="text-[13px] font-semibold text-[var(--ink)]">{title}</span>
+            {badge && (
+              <span className="inline-flex h-5 items-center rounded-full bg-[var(--control-quiet-surface)] px-2 text-xs text-[var(--ink-faint)]">
+                {badge}
+              </span>
             )}
-            {!docked && onDock && (
-              <Button className="ml-auto" onClick={onDock} size="icon-sm" variant="ghost">
-                <Minimize2 aria-hidden="true" className="size-4" />
+            <div className="ml-auto flex items-center gap-0.5">
+              {docked && onFloat && (
+                <Button
+                  aria-label={`Float ${title.toLowerCase()}`}
+                  className={satIconItemClass}
+                  onClick={onFloat}
+                  size="icon-sm"
+                  title={`Float ${title.toLowerCase()}`}
+                  variant="ghost"
+                >
+                  <PictureInPicture2 aria-hidden="true" className="size-4" />
+                </Button>
+              )}
+              {!docked && onDock && (
+                <Button
+                  aria-label={`Dock ${title.toLowerCase()} beside the question`}
+                  className={satIconItemClass}
+                  onClick={onDock}
+                  size="icon-sm"
+                  title={`Dock ${title.toLowerCase()} beside the question`}
+                  variant="ghost"
+                >
+                  <PanelLeft aria-hidden="true" className="size-4" />
+                </Button>
+              )}
+              <Button
+                aria-label={`Close ${title.toLowerCase()}`}
+                className={satIconItemClass}
+                onClick={onClose}
+                size="icon-sm"
+                title={`Close ${title.toLowerCase()}`}
+                variant="ghost"
+              >
+                <X aria-hidden="true" className="size-4" />
               </Button>
-            )}
-            <Button onClick={onClose} size="icon-sm" variant="ghost">
-              <X aria-hidden="true" className="size-4" />
-            </Button>
+            </div>
           </>
         )}
       </div>
-      <div className="min-h-0 flex-1 rounded-lg">{children}</div>
+      <div className="min-h-0 flex-1">{children}</div>
       {!fullscreen && !docked && (
         <div
           aria-hidden="true"
-          className="absolute right-0 bottom-0 size-4 cursor-nwse-resize"
+          className="absolute right-0 bottom-0 size-5 cursor-nwse-resize"
           {...toolWindow.resizeHandleHandlers}
-        />
+        >
+          <span className="absolute right-1.5 bottom-1.5 size-2 rounded-br-[3px] border-r-2 border-b-2 border-[var(--edge-strong)]" />
+        </div>
       )}
     </div>
   );

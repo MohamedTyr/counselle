@@ -54,5 +54,5 @@ export function RequireAuth() {
     );
   }
 
-  return <Outlet />;
+  return <Outlet key={me.data?.id} />;
 }

@@ -1,10 +1,9 @@
-import { useQuery } from "@tanstack/react-query";
 import { XIcon } from "lucide-react";
 import type { PropsWithChildren } from "react";
 import { useState } from "react";
 import { Link } from "react-router";
 
-import { requestJson } from "@/api/http/client";
+import { useAuthConfig } from "@/features/auth/use-auth-config";
 import { useGuestAuthCheck } from "@/app/auth/use-guest-auth-check";
 import { Button } from "@/components/ui/button";
 import {
@@ -18,10 +17,6 @@ type AuthLayoutProps = PropsWithChildren<{
   title: string;
   description: string;
 }>;
-
-type PublicConfig = {
-  db_reset_notice_date?: string | null;
-};
 
 const DB_RESET_NOTICE_DISMISSED_KEY_PREFIX =
   "counselle:db-reset-notice-dismissed:";
@@ -79,9 +74,9 @@ function DbResetNotice({ date }: { date: string }) {
       <p>
         Counselle&rsquo;s database was rebuilt on {formatNoticeDate(date)}.
         Nothing from before then was carried over — accounts, chats, college
-        lists, essays, tasks, activities, honors, student profiles and
-        uploaded documents are all gone. If you had an account before then,
-        please sign up again.
+        lists, essays, tasks, activities, honors, student profiles and uploaded
+        documents are all gone. If you had an account before then, please sign
+        up again.
       </p>
       <Button
         aria-label="Dismiss"
@@ -101,11 +96,7 @@ export function AuthLayout({ title, description, children }: AuthLayoutProps) {
   const { hasAuthCheckError, retryAuthCheck } = useGuestAuthCheck();
   // Unauthenticated by design (plan §5.6): this notice's whole audience has
   // no account any more, so it can never ride the authed `/config`.
-  const publicConfig = useQuery({
-    queryKey: ["config", "public"],
-    queryFn: () => requestJson<PublicConfig>("/config/public"),
-    staleTime: Infinity,
-  });
+  const publicConfig = useAuthConfig();
   const dbResetNoticeDate = publicConfig.data?.db_reset_notice_date;
 
   return (
@@ -116,7 +107,7 @@ export function AuthLayout({ title, description, children }: AuthLayoutProps) {
             className="mb-3 text-sm font-semibold text-foreground"
             to="/login"
           >
-            Counselle
+            Acceptra
           </Link>
           <CardTitle render={<h1 />}>{title}</CardTitle>
           <CardDescription>{description}</CardDescription>
@@ -137,6 +128,15 @@ export function AuthLayout({ title, description, children }: AuthLayoutProps) {
           </div>
         )}
         {children}
+        <p className="px-6 pb-6 text-center text-sm text-muted-foreground">
+          Need help?{" "}
+          <a
+            className="underline underline-offset-4"
+            href={`mailto:${publicConfig.data?.auth?.support_email ?? "support@acceptra.ai"}`}
+          >
+            Contact support
+          </a>
+        </p>
       </Card>
     </main>
   );

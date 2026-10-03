@@ -29,6 +29,7 @@ from pydantic import (
     BaseModel,
     ConfigDict,
     Field,
+    SecretStr,
     ValidationError,
     field_validator,
     model_validator,
@@ -64,6 +65,7 @@ _UA_CONTACT_URL_RE = re.compile(r"https?://\S+")
 def _user_agent_has_contact_url(value: str) -> bool:
     """True if `value` carries a real `http(s)://` contact URL."""
     return bool(_UA_CONTACT_URL_RE.search(value))
+
 
 #: The only provider prefix a live model setting may carry (ADR 0043).
 #: `app/llm.py::build_model` constructs these; the validator below rejects
@@ -103,6 +105,7 @@ _SECRET_FIELDS = frozenset(
         "jwt_secret",
         "google_oauth_client_secret",
         "oauth_state_secret",
+        "resend_api_key",
     }
 )
 
@@ -161,7 +164,9 @@ class ModelPriceTier(BaseModel):
 class Settings(BaseSettings):
     """Every deploy- or cost-relevant knob, in one place (ADR 0018, ARCHITECTURE §18)."""
 
-    model_config = SettingsConfigDict(env_file=".env", env_prefix=_ENV_PREFIX, extra="ignore")
+    model_config = SettingsConfigDict(
+        env_file=".env", env_prefix=_ENV_PREFIX, extra="ignore", hide_input_in_errors=True
+    )
 
     def __init__(self, **values: Any) -> None:
         # Tests that build Settings from explicit env vars need to opt out of
@@ -663,7 +668,7 @@ class Settings(BaseSettings):
     # link (plan §5.6, Q38) — SAT questions have no feedback-route home
     # (FeedbackBody is bound to a chat message_id), so this is a plain
     # mailto with the question id in the subject.
-    support_email: str = "support@counselle.app"
+    support_email: str = "support@acceptra.ai"
 
     # --- CDS admin pipeline (parked, ADR 0036/0038 — D8) ---
     # In-process asyncio poller kill switch — all queue state lives in
@@ -700,6 +705,11 @@ class Settings(BaseSettings):
     # doesn't also compromise OAuth CSRF state (key-reuse coupling).
     oauth_state_secret: str | None = None
     oauth_redirect_url: str = "/"  # where the OAuth callback 302s the SPA
+    auth_public_url: str = "http://localhost:5173"
+    auth_recent_seconds: int = Field(default=600, gt=0)
+    auth_action_lifetime_seconds: int = Field(default=3600, gt=0)
+    auth_email_attempts_per_window: int = Field(default=5, gt=0)
+    auth_email_window_seconds: int = Field(default=900, gt=0)
     password_min_length: int = 8  # the password-policy floor (CFG-03; security knob)
     auth_self_signup_enabled: bool = True
     password_reset_enabled: bool = True
@@ -711,17 +721,42 @@ class Settings(BaseSettings):
     user_settings_max_bytes: int = Field(default=64_000, gt=0)
 
     # --- Email (B3) ---
-    email_provider: Literal["console"] = "console"
-    email_from: str = "noreply@counselle.app"
+    email_provider: Literal["console", "resend"] = "console"
+    email_from: str = "Acceptra <accounts@mail.acceptra.ai>"
+    email_reply_to: str = "support@acceptra.ai"
+    resend_api_key: SecretStr | None = None
+    email_timeout_seconds: float = Field(default=10, gt=0)
+
+    @field_validator("auth_public_url")
+    @classmethod
+    def _auth_public_origin(cls, value: str) -> str:
+        parts = urlsplit(value)
+        if (
+            parts.scheme not in {"http", "https"}
+            or not parts.hostname
+            or parts.username
+            or parts.password
+            or parts.query
+            or parts.fragment
+            or parts.path not in {"", "/"}
+        ):
+            raise ValueError("auth_public_url must be an HTTP(S) origin without a path")
+        return value.rstrip("/")
 
     @model_validator(mode="after")
     def _validate_deploy_auth_posture(self) -> Settings:
+        if self.email_provider == "resend" and (
+            not self.resend_api_key or not self.resend_api_key.get_secret_value().strip()
+        ):
+            raise ValueError("resend_api_key is required for the resend email provider")
         if self.environment != "development":
-            if self.password_reset_enabled and self.email_provider == "console":
+            if self.email_provider == "console":
                 raise ValueError(
-                    "password_reset_enabled cannot use the console email provider "
+                    "Authentication cannot use the console email provider "
                     "outside development"
                 )
+            if not self.auth_public_url.startswith("https://"):
+                raise ValueError("auth_public_url must use HTTPS outside development")
             if not self.cookie_secure:
                 raise ValueError("cookie_secure must be true outside development")
             if _FACTS_CRAWL_UA_PLACEHOLDER_MARKER in self.facts_crawl_user_agent:
@@ -902,11 +937,11 @@ def get_settings() -> Settings:
         return Settings()
     except ValidationError as exc:
         lines = ["Invalid Counselle configuration — fix the following and restart:"]
-        for error in exc.errors():
+        for error in exc.errors(include_input=False):
             field = ".".join(str(part) for part in error["loc"])
             env_var = f"{_ENV_PREFIX}{field.upper()}"
             lines.append(f"  - {env_var}: {error['msg']}")
-        raise RuntimeError("\n".join(lines)) from exc
+        raise RuntimeError("\n".join(lines)) from None
 
 
 # NOTE: get_asset_settings/load_prompt/load_yaml_asset caches are coupled — the

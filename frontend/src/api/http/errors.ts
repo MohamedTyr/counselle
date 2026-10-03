@@ -1,4 +1,8 @@
+export const ACCOUNT_CHANGED_MESSAGE =
+  "Your signed-in account changed in another tab. Review the account details before trying again.";
+
 export type TransportErrorKind =
+  | "account_changed"
   | "unauthorized"
   | "conflict"
   | "rate_limited"
@@ -62,6 +66,13 @@ async function readEnvelope(response: Response): Promise<unknown> {
 }
 
 function envelopeMessage(body: unknown): string | undefined {
+  if (
+    body &&
+    typeof body === "object" &&
+    "detail" in body &&
+    body.detail === "ACCOUNT_CHANGED"
+  )
+    return ACCOUNT_CHANGED_MESSAGE;
   const message = (body as { error?: { message?: unknown } } | null | undefined)?.error?.message;
   return typeof message === "string" && message.trim() ? message : undefined;
 }
@@ -81,7 +92,7 @@ export async function errorFromResponse(
   }
   if (status === 409) {
     return new TransportError(
-      "conflict",
+      detail === ACCOUNT_CHANGED_MESSAGE ? "account_changed" : "conflict",
       detail ?? "A request is already in progress.",
       { status, body },
     );

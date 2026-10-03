@@ -1,0 +1,10 @@
+Acceptra
+
+$title
+
+$body
+
+$action
+$note
+
+Need help? Reply to this email or contact $reply_to.

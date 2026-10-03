@@ -1,4 +1,4 @@
-import { screen } from "@testing-library/react";
+import { act, screen } from "@testing-library/react";
 import { describe, expect, test, vi } from "vitest";
 
 import { renderApp } from "@/test/render-app";
@@ -92,6 +92,11 @@ describe("SchoolChancesGalleryPage", () => {
     const fetchHandler = vi.fn(() => new Response(null, { status: 500 }));
 
     renderApp("/dev/school-chances", { fetchHandler });
+    // This route boots through React Router’s dynamic import. Finish that boot
+    // before starting the normal DOM-query timeout.
+    await act(async () => {
+      await vi.dynamicImportSettled();
+    });
 
     expect(
       await screen.findByRole("heading", { name: "School chances gallery" }),

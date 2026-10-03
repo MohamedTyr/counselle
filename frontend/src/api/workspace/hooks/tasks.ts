@@ -1,4 +1,5 @@
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { usePrivateMutation } from "@/app/private-mutations";
+import { useQuery } from "@tanstack/react-query";
 
 import { handleMutationError, tempTask } from "@/api/workspace/hook-utils";
 import {
@@ -37,12 +38,13 @@ export function useTasks() {
 }
 
 export function useCreateTask() {
-  return useMutation({
+  return usePrivateMutation({
     mutationFn: createTask,
     onMutate: async (input, context): Promise<TempSnapshot<Task[]>> => {
       await context.client.cancelQueries({
         queryKey: workspaceKeys.tasks.list(),
       });
+      context.assertCurrent();
       const previous = context.client.getQueryData<Task[]>(
         workspaceKeys.tasks.list(),
       );
@@ -82,13 +84,14 @@ export function useCreateTask() {
 }
 
 export function useUpdateTask() {
-  return useMutation({
+  return usePrivateMutation({
     mutationFn: ({ id, patch }: { id: string; patch: TaskPatch }) =>
       updateTask(id, patch),
     onMutate: async ({ id, patch }, context): Promise<TaskListSnapshot> => {
       await context.client.cancelQueries({
         queryKey: workspaceKeys.tasks.list(),
       });
+      context.assertCurrent();
       const previous = context.client.getQueryData<Task[]>(
         workspaceKeys.tasks.list(),
       );
@@ -196,20 +199,20 @@ export function useToggleFlag() {
   });
   return {
     ...rest,
-    mutate: (vars: { id: string; flagged: boolean }) =>
-      mutate(buildVars(vars)),
+    mutate: (vars: { id: string; flagged: boolean }) => mutate(buildVars(vars)),
     mutateAsync: (vars: { id: string; flagged: boolean }) =>
       mutateAsync(buildVars(vars)),
   };
 }
 
 export function useArchiveTask() {
-  return useMutation({
+  return usePrivateMutation({
     mutationFn: archiveTask,
     onMutate: async (id, context): Promise<TaskListSnapshot> => {
       await context.client.cancelQueries({
         queryKey: workspaceKeys.tasks.list(),
       });
+      context.assertCurrent();
       const previous = context.client.getQueryData<Task[]>(
         workspaceKeys.tasks.list(),
       );
@@ -243,7 +246,7 @@ export function useArchiveTask() {
 }
 
 export function useRestoreTask() {
-  return useMutation({
+  return usePrivateMutation({
     mutationFn: restoreTask,
     onSuccess: (task, _id, _snapshot, context) => {
       context.client.setQueryData<Task[]>(

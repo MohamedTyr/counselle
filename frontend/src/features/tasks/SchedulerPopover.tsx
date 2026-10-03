@@ -24,7 +24,11 @@ type SchedulerPopoverProps = {
   value: string | undefined;
   field: SchedulerField;
   onChange: (value: string | null) => void;
-  children: ReactNode;
+  /** The trigger. Left out, `anchor` places the popover instead. */
+  children?: ReactNode;
+  /** Pins the popover to an element it does not own — the calendar opens a
+   * task chip's deadline picker from its context menu this way. */
+  anchor?: HTMLElement | null;
   /**
    * Optional controlled open state, for the one caller that opens this from
    * somewhere other than its own trigger — the row's `Deadline…` menu item,
@@ -68,6 +72,7 @@ export function SchedulerPopover({
   field,
   onChange,
   children,
+  anchor,
   open: controlledOpen,
   onOpenChange,
 }: SchedulerPopoverProps) {
@@ -166,16 +171,20 @@ export function SchedulerPopover({
   // picker's anchor (TaskRow) is a zero-size `<span>` with no tab stop by
   // design — telling Base UI it isn't a native button avoids the "expected a
   // native <button>" warning without changing that anchor's semantics.
-  const isNativeButtonChild = (children as ReactElement).type === "button";
+  const isNativeButtonChild =
+    Boolean(children) && (children as ReactElement).type === "button";
 
   return (
     <Popover onOpenChange={handleOpenChange} open={open}>
-      <PopoverTrigger
-        nativeButton={isNativeButtonChild}
-        render={children as ReactElement}
-      />
+      {children ? (
+        <PopoverTrigger
+          nativeButton={isNativeButtonChild}
+          render={children as ReactElement}
+        />
+      ) : null}
       <PopoverPopup
         align="start"
+        anchor={anchor}
         className={cn(
           "w-[280px] rounded-lg border-0 bg-[var(--surface-overlay)] p-0 shadow-[var(--elevation-2)]",
           "!duration-150 !ease-out data-ending-style:!duration-100",

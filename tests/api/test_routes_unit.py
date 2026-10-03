@@ -35,6 +35,8 @@ from app.turns import TurnRegistry
 from domain.surface import Surface
 from tests.api.conftest import TEST_USER_ID, _test_user
 
+pytestmark = pytest.mark.usefixtures("protocol_stream_auth")
+
 # Fake session rows in these unit tests are owned by the override's test user.
 _OWNER_ID = str(TEST_USER_ID)
 

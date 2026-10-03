@@ -1,8 +1,8 @@
 import type React from "react";
-import { useEffect, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 
 import { SatToolWindow } from "@/features/sat/SatToolWindow";
-import { useToolWindow } from "@/features/sat/use-tool-window";
+import { computeSpawnPosition, useToolWindow } from "@/features/sat/use-tool-window";
 
 export interface SatCalculatorProps {
   /** `Settings.sat_desmos_embed_url`, served through `/v1/config` (plan
@@ -20,11 +20,13 @@ export interface SatCalculatorProps {
   onClose: () => void;
 }
 
-const DEFAULT_SIZE = { width: 580, height: 480 };
+const DEFAULT_SIZE = { width: 440, height: 380 };
 const MIN_SIZE = { width: 320, height: 280 };
 const MAX_VIEWPORT_FRACTION = { width: 0.9, height: 0.85 };
-const START_POSITION = { x: 30, y: 70 };
-const MIN_Y = 60;
+const MIN_Y = 64;
+const CALCULATOR_TITLE = "Calculator";
+
+const SPAWN_FALLBACK = { x: 16, y: MIN_Y };
 
 interface Rect {
   top: string;
@@ -49,14 +51,31 @@ export function SatCalculator({
   onClose,
 }: SatCalculatorProps): React.ReactElement | null {
   const toolWindow = useToolWindow({
-    defaultPosition: START_POSITION,
+    defaultPosition: SPAWN_FALLBACK,
     defaultSize: DEFAULT_SIZE,
     sizeBounds: { min: MIN_SIZE, maxViewportFraction: MAX_VIEWPORT_FRACTION },
     minY: MIN_Y,
   });
   const [dockedRect, setDockedRect] = useState<Rect | null>(null);
+  const { placeAt } = toolWindow;
 
-  useEffect(() => {
+  // The window mounts with the page, before the question sheet it must avoid
+  // exists, so it is placed the first time it floats into view and not again:
+  // after that its position is the student's.
+  const placedRef = useRef(false);
+  useLayoutEffect(() => {
+    if (docked) {
+      placedRef.current = false;
+      return;
+    }
+    if (!visible || placedRef.current) return;
+    placedRef.current = true;
+    placeAt(computeSpawnPosition(DEFAULT_SIZE, MIN_Y, CALCULATOR_TITLE));
+  }, [visible, docked, placeAt]);
+
+  // Layout effect: the first docked frame must already have the slot's
+  // rectangle, not a zero-size placeholder.
+  useLayoutEffect(() => {
     if (!docked) {
       setDockedRect(null);
       return;
@@ -97,7 +116,7 @@ export function SatCalculator({
       onClose={onClose}
       onDock={onDock}
       onFloat={onFloat}
-      title="Calculator"
+      title={CALCULATOR_TITLE}
       window={toolWindow}
     >
       <iframe

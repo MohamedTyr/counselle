@@ -6,7 +6,7 @@ import type React from "react";
 
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { SAT_ANALYTICS_COPY } from "@/features/sat/sat-copy";
+import { SAT_ANALYTICS_COPY } from "@/features/sat/sat-analytics-copy";
 import { ConfirmDialogContent } from "@/features/sat/SatAnalyticsConfirmDialog";
 
 export interface SatResetConfirmDialogProps {

@@ -3,6 +3,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
 
+import { capturePrivateMutationOwnership } from "@/app/private-mutations";
+
 import {
   acceptAllSuggestions,
   acceptSuggestion,
@@ -104,6 +106,9 @@ export function useEssaySuggestions({
   hasUnsavedChanges,
 }: UseEssaySuggestionsOptions): EssaySuggestionsController {
   const queryClient = useQueryClient();
+  const [ownership] = useState(() =>
+    capturePrivateMutationOwnership(queryClient),
+  );
   const [resolving, setResolving] = useState<ResolvingTarget | null>(null);
   /* The lock itself. State drives the UI; this ref is what actually holds the
    * door shut, because a second key press in the same tick would read stale
@@ -168,7 +173,7 @@ export function useEssaySuggestions({
       request: () => Promise<Essay | SuggestionBatchResult>,
       failureMessage: string,
     ) => {
-      if (resolvingRef.current !== null) {
+      if (!ownership.isCurrent() || resolvingRef.current !== null) {
         return;
       }
       resolvingRef.current = target;
@@ -179,6 +184,7 @@ export function useEssaySuggestions({
           /* The student's unsaved typing has to reach the server first, or the
            * edit is applied to text the server has never seen. */
           await flush();
+          if (!ownership.isCurrent()) return;
           if (hasUnsavedChanges()) {
             toast.error(
               "Your latest edits haven't saved yet. Save them, then try again.",
@@ -187,6 +193,7 @@ export function useEssaySuggestions({
           }
 
           const result = await request();
+          if (!ownership.isCurrent()) return;
           const essay = "essay" in result ? result.essay : result;
 
           /* `essay.content` is a whole document the server built BEFORE it
@@ -269,6 +276,7 @@ export function useEssaySuggestions({
             );
           }
         } catch {
+          if (!ownership.isCurrent()) return;
           /* Nothing to roll back: no local edit was ever applied, so the
            * document and the suggestion list are exactly as they were. */
           toast.error(failureMessage);
@@ -278,7 +286,7 @@ export function useEssaySuggestions({
         }
       })();
     },
-    [applyToEditor, essayId, flush, hasUnsavedChanges, queryClient],
+    [applyToEditor, essayId, flush, hasUnsavedChanges, queryClient, ownership],
   );
 
   const acceptOne = useCallback(

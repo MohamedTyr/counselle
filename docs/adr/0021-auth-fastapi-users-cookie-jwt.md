@@ -1,6 +1,6 @@
 # ADR 0021 — Auth: fastapi-users with cookie JWT + Google OAuth, same-origin
 
-**Status:** Accepted
+**Status:** Accepted; session transport, logout, Google association and verification decisions are superseded by [ADR 0045](0045-auth-launch-lifecycle.md) in the auth-launch implementation. Its live acceptance is pending.
 
 ## Context
 The full-stack app adds accounts (see `specs/mvp2/PRD.md` stories 1–5): email + password, Google sign-in, password reset — explicitly minimal (no email-verification ceremony, no 2FA, no profile wizard; PRD decision 6). ADR 0016 reserved an optional principal in the request context; ADR 0019 reserved a nullable `sessions.user_id`. The protocol streams over SSE, and `EventSource` cannot set an `Authorization` header. The SPA is served same-origin from the service (ADR 0023).

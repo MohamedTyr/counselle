@@ -56,7 +56,15 @@ def _app(*, auth: str = "superuser") -> FastAPI:
     """`auth` is "superuser", "user" (403 on admin routes) or "none"."""
     app = FastAPI()
     settings = SimpleNamespace(
-        cors_origins=[ORIGIN], cookie_secure=False, workspace_writes_per_minute=240
+        cors_origins=[ORIGIN],
+        cookie_secure=False,
+        workspace_writes_per_minute=240,
+        jwt_secret="test-secret-" * 4,
+        jwt_lifetime_seconds=3600,
+        cookie_name="counselle_auth",
+        password_min_length=8,
+        email_provider="console",
+        email_from="accounts@mail.acceptra.ai",
     )
     install_middleware(app, settings)
     app.include_router(scholarships.router, prefix="/v1")

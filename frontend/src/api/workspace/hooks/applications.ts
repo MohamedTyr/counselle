@@ -1,4 +1,5 @@
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { usePrivateMutation } from "@/app/private-mutations";
+import { useQuery } from "@tanstack/react-query";
 
 import {
   addApplication,
@@ -34,7 +35,7 @@ type ApplicationUpdateSnapshot = Snapshot<ApplicationView[]> & {
   previousDetail: ApplicationDetail | undefined;
 };
 
-type AddApplicationVariables = ApplicationCreate & {
+export type AddApplicationVariables = ApplicationCreate & {
   optimisticSchool?: SchoolSearchResult;
 };
 
@@ -62,7 +63,7 @@ export function useApplication(applicationId: string | null) {
 }
 
 export function useAddApplication() {
-  return useMutation({
+  return usePrivateMutation({
     mutationFn: (variables: AddApplicationVariables) => {
       const { optimisticSchool, ...input } = variables;
       void optimisticSchool;
@@ -75,6 +76,7 @@ export function useAddApplication() {
       await context.client.cancelQueries({
         queryKey: workspaceKeys.applications.list(),
       });
+      context.assertCurrent();
       const previous = context.client.getQueryData<ApplicationView[]>(
         workspaceKeys.applications.list(),
       );
@@ -140,7 +142,7 @@ export function useAddApplication() {
 }
 
 export function useUpdateApplication() {
-  return useMutation({
+  return usePrivateMutation({
     mutationFn: ({ id, patch }: { id: string; patch: ApplicationPatch }) =>
       updateApplication(id, patch),
     onMutate: async (
@@ -150,9 +152,11 @@ export function useUpdateApplication() {
       await context.client.cancelQueries({
         queryKey: workspaceKeys.applications.list(),
       });
+      context.assertCurrent();
       await context.client.cancelQueries({
         queryKey: workspaceKeys.applications.detail(id),
       });
+      context.assertCurrent();
       const previous = context.client.getQueryData<ApplicationView[]>(
         workspaceKeys.applications.list(),
       );
@@ -233,12 +237,13 @@ export function useUpdateApplication() {
 }
 
 export function useArchiveApplication() {
-  return useMutation({
+  return usePrivateMutation({
     mutationFn: archiveApplication,
     onMutate: async (id, context): Promise<Snapshot<ApplicationView[]>> => {
       await context.client.cancelQueries({
         queryKey: workspaceKeys.applications.list(),
       });
+      context.assertCurrent();
       const previous = context.client.getQueryData<ApplicationView[]>(
         workspaceKeys.applications.list(),
       );
@@ -279,7 +284,7 @@ export function useArchiveApplication() {
 }
 
 export function useRestoreApplication() {
-  return useMutation({
+  return usePrivateMutation({
     mutationFn: restoreApplication,
     onError: (error, _id, _snapshot, context) => {
       handleMutationError(error, context);

@@ -32,6 +32,7 @@ from counselle_db.catalog import FactsSection as CatalogSection
 from counselle_db.models import FactValueRow
 from counselle_db.service import get_facts as _get_facts
 from domain.facts import state as state_module
+from domain.facts.inherit import OFFERED_KEY_FOR_DEADLINE
 from domain.facts.models import NOT_FETCHED_STATUSES, FactState, NormalizedValue, PageStatus
 from domain.facts.state import fact_state, is_stale, section_state
 
@@ -40,12 +41,6 @@ __all__ = ["absence_display", "get_school_facts"]
 _DEADLINES_SECTION_ID = "applying"
 _DEADLINES_GROUP_ID = "deadlines"
 _ROLLING_KEY = "admissions.regular_deadline_is_rolling"
-_OFFERED_KEY_FOR_DEADLINE = {
-    "deadlines.early_decision": "admissions.early_decision_offered",
-    "deadlines.early_decision_2": "admissions.early_decision_offered",
-    "deadlines.early_action": "admissions.early_action_offered",
-    "deadlines.early_action_2": "admissions.early_action_offered",
-}
 
 # Known test-score band families: fact_key stem -> (scale_min, scale_max).
 _BAND_SCALES: dict[str, tuple[int, int]] = {
@@ -380,7 +375,7 @@ def _build_deadlines(
         if spec.key == _ROLLING_KEY:
             continue
         page_status = cast(PageStatus, tabs.get(spec.tab, "never_fetched"))
-        offered_key = _OFFERED_KEY_FOR_DEADLINE.get(spec.key)
+        offered_key = OFFERED_KEY_FOR_DEADLINE.get(spec.key)
         offered_row = facts_by_key.get(offered_key) if offered_key else None
         if offered_row is not None and offered_row.value_bool is False:
             rows.append(

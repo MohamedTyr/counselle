@@ -5,7 +5,13 @@
 // flag, hover-revealed affordances, row states, responsive) and §4 (the
 // completion motion) exactly. Every colour used below is on the §9.1
 // permitted list.
-import { useEffect, useRef, useState, type DragEvent } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type DragEvent,
+  type ReactNode,
+} from "react";
 import { motion, useReducedMotion } from "motion/react";
 import {
   CalendarPlus,
@@ -61,6 +67,16 @@ export type TaskRowProps = {
    * and Upcoming's "Deadlines without a plan" (plan P6.2).
    */
   scheduleAffordanceAtRest?: boolean;
+  /**
+   * Keep the row in place when it is checked or unchecked. The views drop a
+   * finished row, so the row fades itself out before telling them; a surface
+   * that keeps finished rows (the calendar's Schedule with Show completed on)
+   * would otherwise see it fade out and pop straight back in as done.
+   */
+  persistOnComplete?: boolean;
+  /** A word in front of the title saying why the row is here — the
+   * calendar's Schedule marks a row listed on its deadline day with `Due`. */
+  prefix?: ReactNode;
 } & TaskRowActions;
 
 // ---- §4.1 / §4.2 timeline constants, in milliseconds. Every value is from
@@ -189,6 +205,8 @@ export function TaskRow({
   isSelected,
   reorder,
   scheduleAffordanceAtRest = false,
+  persistOnComplete = false,
+  prefix,
   onOpen,
   onComplete,
   onSchedule,
@@ -267,12 +285,20 @@ export function TaskRow({
     if (nextChecked) {
       const exitMs = shouldReduceMotion ? ROW_EXIT_MS_REDUCED : ROW_EXIT_MS;
       setExitDurationMs(exitMs);
+      if (persistOnComplete) {
+        schedule(() => onComplete(task.id, true), COMPLETE_DWELL_MS);
+        return;
+      }
       schedule(() => setIsRowExiting(true), COMPLETE_DWELL_MS);
       schedule(() => onComplete(task.id, true), COMPLETE_DWELL_MS + exitMs);
     } else {
       // §4.2 — un-checking mirrors completion but faster, with no spring on
       // re-entry ("the student is not looking at it").
       setExitDurationMs(UNCHECK_EXIT_MS);
+      if (persistOnComplete) {
+        schedule(() => onComplete(task.id, false), UNCHECK_DWELL_MS);
+        return;
+      }
       schedule(() => setIsRowExiting(true), UNCHECK_DWELL_MS);
       schedule(
         () => onComplete(task.id, false),
@@ -390,6 +416,7 @@ export function TaskRow({
         </span>
 
         <div className="flex min-w-0 flex-1 items-center gap-1.5">
+          {prefix}
           <div
             className="flex min-w-0 shrink cursor-pointer items-center gap-1.5 rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--canvas)]"
             onClick={(event) => {
