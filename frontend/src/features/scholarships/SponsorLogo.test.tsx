@@ -1,7 +1,11 @@
 import { fireEvent, render } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { SponsorLogo } from "./SponsorLogo";
+
+vi.mock("@/features/scholarships/sponsor-colours", () => ({
+  hasServiceFavicon: (hostname: string) => hostname !== "nofavicon.test",
+}));
 
 const scholarship = {
   name: "Scholarship",
@@ -12,13 +16,30 @@ const scholarship = {
 };
 
 describe("SponsorLogo", () => {
-  it("shows a successfully loaded 16px favicon", () => {
+  it("shows a site's own 16px favicon", () => {
     const { container } = render(<SponsorLogo scholarship={scholarship} />);
+    fireEvent.error(container.querySelector("img")!);
     const image = container.querySelector("img")!;
+    expect(image).toHaveAttribute("src", "https://sponsor.test/favicon.ico");
     Object.defineProperty(image, "naturalWidth", { value: 16 });
     fireEvent.load(image);
     expect(image).toHaveClass("opacity-100");
     expect(container.firstChild).toHaveClass("text-transparent");
+  });
+
+  it("skips the favicon service for a site it has no icon for", () => {
+    const { container } = render(
+      <SponsorLogo
+        scholarship={{ ...scholarship, source_url: "https://nofavicon.test/" }}
+      />,
+    );
+    const image = container.querySelector("img")!;
+    expect(image).toHaveAttribute("src", "https://nofavicon.test/favicon.ico");
+    fireEvent.error(image);
+    expect(container.querySelector("img")).toHaveAttribute(
+      "src",
+      "https://www.google.com/s2/favicons?domain=apply.test&sz=128",
+    );
   });
 
   it("tries the sponsor and application favicons after a custom logo fails", () => {

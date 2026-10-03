@@ -1,15 +1,19 @@
 import { useState } from "react";
 
 import type { ScholarshipView } from "@/api/scholarships/types";
+import { hasServiceFavicon } from "@/features/scholarships/sponsor-colours";
 import { cn } from "@/lib/utils";
 
 /*
  * Try the admin-set logo, then cached and direct favicons for the sponsor
  * and application sites. Any successfully loaded size is usable; initials
- * remain only when every available source fails.
+ * remain only when every available source fails. The cached favicon is
+ * skipped for a site the service has none for, because its stand-in globe
+ * loads like a real logo and would never fall through.
  */
 
 const FAVICON_PX = 128;
+const FAVICON_SERVICE = "https://www.google.com/s2/favicons";
 
 const SIZE_CLASS = {
   sm: "size-7 rounded-md text-[0.625rem]",
@@ -22,10 +26,9 @@ function faviconsFor(url: string): string[] {
     const site = new URL(url);
     if (site.protocol !== "https:" && site.protocol !== "http:") return [];
     site.protocol = "https:";
-    return [
-      `https://www.google.com/s2/favicons?domain=${encodeURIComponent(site.hostname)}&sz=${FAVICON_PX}`,
-      `${site.origin}/favicon.ico`,
-    ];
+    const service = `${FAVICON_SERVICE}?domain=${encodeURIComponent(site.hostname)}&sz=${FAVICON_PX}`;
+    const own = `${site.origin}/favicon.ico`;
+    return hasServiceFavicon(site.hostname) ? [service, own] : [own];
   } catch {
     return [];
   }

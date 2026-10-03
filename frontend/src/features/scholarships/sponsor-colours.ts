@@ -10,7 +10,18 @@ import table from "@/features/scholarships/sponsor-colours.json";
  * `SponsorLogo` tries). A logo with no dominant colour is absent and its card
  * renders in neutral grey.
  */
-const COLOURS: Record<string, string[] | undefined> = table;
+const COLOURS: Record<string, string[] | undefined> = table.colours;
+
+/*
+ * Hostnames the favicon service has no icon for. It answers them with a 404
+ * that still carries a generic globe, which the browser loads as a logo, so
+ * SponsorLogo skips the service for these and tries the site's own favicon.
+ */
+const NO_SERVICE_FAVICON = new Set<string>(table.noFavicon);
+
+export function hasServiceFavicon(hostname: string): boolean {
+  return !NO_SERVICE_FAVICON.has(hostname);
+}
 
 export type SponsorColour = { fill: string; ink: string };
 
