@@ -1810,6 +1810,18 @@ ink pill.
 
 Never both at once. Never a card inside a card.
 
+**Scholarship catalog:** independent award cards sit directly on the quiet Beams
+canvas, without an enclosing panel or trough. The owner selected this layout from
+the scholarship variations. The grid has two columns when its container is at
+least 42rem wide, otherwise one. A card uses the existing raised fill, 12px radius
+and edge; no decorative shadow or hover lift. Sponsor, title, short description,
+award/deadline and requirements are separate reading levels. Saving is a sibling
+button with a 40px target (44px on touch), never nested in the details button.
+Opening details uses the existing Sheet at every viewport; it does not reserve a
+permanent column or automatically select the first award. Card navigation moves
+focus; Enter/Space opens details. Keyboard focus and reduced-motion rules apply
+to the portaled sheet as well as the grid.
+
 ### 17.3 The editing model
 
 **Autosave on blur. No Save/Cancel buttons.** Local draft state, commit on blur or on

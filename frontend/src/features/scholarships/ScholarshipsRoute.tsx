@@ -22,10 +22,20 @@ import { ErrorCard } from "@/components/ui/error-card";
 import { Sheet, SheetPopup, SheetTitle } from "@/components/ui/sheet";
 import { Tabs, TabsList, TabsTab } from "@/components/ui/tabs";
 import { PageContainer } from "@/components/workspace/PageContainer";
-import { evaluateCriteria, readProfileFacts } from "@/features/scholarships/eligibility";
+import {
+  evaluateCriteria,
+  readProfileFacts,
+} from "@/features/scholarships/eligibility";
 import { ProfileMatchBar } from "@/features/scholarships/ProfileMatchBar";
-import { ScholarshipDetail, type DetailActions } from "@/features/scholarships/ScholarshipDetail";
-import { FilteredEmpty, NothingPublishedEmpty, SavedEmpty } from "@/features/scholarships/ScholarshipEmpty";
+import {
+  ScholarshipDetail,
+  type DetailActions,
+} from "@/features/scholarships/ScholarshipDetail";
+import {
+  FilteredEmpty,
+  NothingPublishedEmpty,
+  SavedEmpty,
+} from "@/features/scholarships/ScholarshipEmpty";
 import {
   applyFilters,
   clearAllFilters,
@@ -38,28 +48,27 @@ import {
   type ScholarshipSort,
   type ScholarshipTab,
 } from "@/features/scholarships/scholarship-filters";
-import { ScholarshipList, ScholarshipListSkeleton } from "@/features/scholarships/ScholarshipList";
-import { ScholarshipFilterBar, ScholarshipSearchField } from "@/features/scholarships/ScholarshipsToolbar";
-import { useScholarshipKeys } from "@/features/scholarships/use-scholarship-keys";
+import {
+  ScholarshipList,
+  ScholarshipListSkeleton,
+} from "@/features/scholarships/ScholarshipList";
+import {
+  ScholarshipFilterBar,
+  ScholarshipSearchField,
+} from "@/features/scholarships/ScholarshipsToolbar";
 
-const SPLIT_QUERY = "(min-width: 1280px)";
 const SELECTED_PARAM = "s";
-
-function useSplitLayout(): boolean {
-  const [matches, setMatches] = useState(() => window.matchMedia(SPLIT_QUERY).matches);
-  useEffect(() => {
-    const media = window.matchMedia(SPLIT_QUERY);
-    const onChange = () => setMatches(media.matches);
-    media.addEventListener("change", onChange);
-    return () => media.removeEventListener("change", onChange);
-  }, []);
-  return matches;
-}
 
 const SORT_CHIP =
   "inline-flex h-8 shrink-0 cursor-pointer items-center gap-1.5 rounded-full border border-[var(--school-filter-chip-border)] bg-[var(--school-filter-chip-surface)] px-3 text-sm font-medium text-[var(--ink-secondary)] shadow-[var(--school-filter-chip-shadow)] transition-colors outline-none hover:border-[var(--school-filter-chip-border-hover)] focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] pointer-coarse:min-h-11";
 
-function SortMenu({ value, onChange }: { value: ScholarshipSort; onChange: (sort: ScholarshipSort) => void }) {
+function SortMenu({
+  value,
+  onChange,
+}: {
+  value: ScholarshipSort;
+  onChange: (sort: ScholarshipSort) => void;
+}) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger className={SORT_CHIP}>
@@ -69,10 +78,17 @@ function SortMenu({ value, onChange }: { value: ScholarshipSort; onChange: (sort
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-48">
         <DropdownMenuLabel>Sort by</DropdownMenuLabel>
-        <DropdownMenuRadioGroup onValueChange={(next) => onChange(next as ScholarshipSort)} value={value}>
+        <DropdownMenuRadioGroup
+          onValueChange={(next) => onChange(next as ScholarshipSort)}
+          value={value}
+        >
           {(Object.keys(SORT_LABELS) as ScholarshipSort[]).map((sort) => (
             <DropdownMenuRadioItem key={sort} value={sort}>
-              {sort === "deadline" ? "Deadline, soonest first" : sort === "amount" ? "Amount, highest first" : "Recently added"}
+              {sort === "deadline"
+                ? "Deadline, soonest first"
+                : sort === "amount"
+                  ? "Amount, highest first"
+                  : "Recently added"}
             </DropdownMenuRadioItem>
           ))}
         </DropdownMenuRadioGroup>
@@ -81,7 +97,10 @@ function SortMenu({ value, onChange }: { value: ScholarshipSort; onChange: (sort
   );
 }
 
-function useDetailActions(selected: ScholarshipPublic | null, savedIds: readonly string[]): DetailActions | undefined {
+function useDetailActions(
+  selected: ScholarshipPublic | null,
+  savedIds: readonly string[],
+): DetailActions | undefined {
   const navigate = useNavigate();
   const toggleSaved = useToggleSavedScholarship();
   const createTask = useCreateTask();
@@ -92,11 +111,18 @@ function useDetailActions(selected: ScholarshipPublic | null, savedIds: readonly
     isAddingToTasks: createTask.isPending,
     onAddToTasks: () =>
       createTask.mutate(
-        { title: `Apply for ${selected.name}`, deadline_on: selected.deadline.date, notes: selected.apply_url || null },
+        {
+          title: `Apply for ${selected.name}`,
+          deadline_on: selected.deadline.date,
+          notes: selected.apply_url || null,
+        },
         {
           onSuccess: () =>
             toast.success("Deadline added to Tasks", {
-              action: { label: "View", onClick: () => void navigate("/app/tasks/upcoming") },
+              action: {
+                label: "View",
+                onClick: () => void navigate("/app/tasks/upcoming"),
+              },
             }),
         },
       ),
@@ -113,8 +139,10 @@ export function ScholarshipsRoute() {
   const [params, setParams] = useSearchParams();
   const filters = useMemo(() => parseFilters(params), [params]);
   const selectedParam = params.get(SELECTED_PARAM);
-  const split = useSplitLayout();
-  const [animateRows] = useState(true);
+  const resultsRef = useRef<HTMLDivElement>(null);
+  const openerRef = useRef<HTMLElement | null>(null);
+  const saveFocusRef = useRef<HTMLElement | null>(null);
+  const [keyboardOpen, setKeyboardOpen] = useState(false);
 
   const scholarships = useScholarships();
   const profile = useProfile();
@@ -124,18 +152,25 @@ export function ScholarshipsRoute() {
   const facts = useMemo(() => readProfileFacts(profile.data), [profile.data]);
   const items = useMemo(() => scholarships.data ?? [], [scholarships.data]);
 
-  const result = useMemo(() => applyFilters(items, filters, { facts, savedIds }), [items, filters, facts, savedIds]);
-  const visibleIds = useMemo(() => result.open.map((row) => row.item.id), [result.open]);
-  const selectedId = selectedParam ?? (split ? (visibleIds[0] ?? null) : null);
+  const result = useMemo(
+    () => applyFilters(items, filters, { facts, savedIds }),
+    [items, filters, facts, savedIds],
+  );
+  const selectedId = selectedParam;
   const selected = items.find((item) => item.id === selectedId) ?? null;
   const actions = useDetailActions(selected, savedIds);
 
   const update = useCallback(
-    (next: ScholarshipFilters) => setParams((current) => writeFilters(current, next), { replace: true }),
+    (next: ScholarshipFilters) =>
+      setParams((current) => writeFilters(current, next), { replace: true }),
     [setParams],
   );
   const select = useCallback(
-    (id: string | null) =>
+    (id: string | null, opener?: HTMLButtonElement) => {
+      if (id) {
+        openerRef.current = opener ?? null;
+        setKeyboardOpen(opener?.matches(":focus-visible") ?? false);
+      }
       setParams(
         (current) => {
           const next = new URLSearchParams(current);
@@ -144,7 +179,8 @@ export function ScholarshipsRoute() {
           return next;
         },
         { replace: true },
-      ),
+      );
+    },
     [setParams],
   );
 
@@ -159,38 +195,56 @@ export function ScholarshipsRoute() {
       ?.scrollIntoView({ block: "center" });
   }, [selectedParam, scholarships.isPending]);
 
+  // Query updates can settle before React removes a card from Saved. Restore
+  // focus after that DOM commit, only if the user hasn't moved somewhere else.
+  useEffect(() => {
+    const focused = saveFocusRef.current;
+    saveFocusRef.current = null;
+    if (
+      focused &&
+      !focused.isConnected &&
+      document.activeElement === document.body
+    )
+      resultsRef.current?.focus();
+  }, [savedIds]);
+
+  const toggleSave = (id: string) => {
+    saveFocusRef.current =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
+    toggleSaved.toggle(id);
+  };
+
   // A deep link to a record that's no longer listed: clear it, but only once
   // the list has actually loaded, never while loading or after a failure.
   useEffect(() => {
     if (!scholarships.isSuccess || !selectedParam) return;
     if (items.some((item) => item.id === selectedParam)) return;
-    select(null);
+    setParams(
+      (current) => {
+        const next = new URLSearchParams(current);
+        next.delete(SELECTED_PARAM);
+        return next;
+      },
+      { replace: true },
+    );
     toast.error("That scholarship isn't available any more.");
-  }, [items, scholarships.isSuccess, select, selectedParam]);
+  }, [items, scholarships.isSuccess, setParams, selectedParam]);
 
   // Without saved ids the list still works; say so rather than showing "no saves".
   useEffect(() => {
     if (saved.isError) toast.error("Couldn't load your saved scholarships.");
   }, [saved.isError, saved.errorUpdatedAt]);
 
-  useScholarshipKeys({ ids: visibleIds, selectedId, onSelect: select, onToggleSave: (id) => toggleSaved.toggle(id) });
-
   const setView = (view: ScholarshipTab) => update({ ...filters, view });
   const toggleIgnored = (kind: EligibilityKind) =>
     update({
       ...filters,
-      ignored: filters.ignored.includes(kind) ? filters.ignored.filter((k) => k !== kind) : [...filters.ignored, kind],
+      ignored: filters.ignored.includes(kind)
+        ? filters.ignored.filter((k) => k !== kind)
+        : [...filters.ignored, kind],
     });
-
-  const detail = selected ? (
-    <ScholarshipDetail
-      actions={actions}
-      className="scholarship-detail-enter"
-      criteria={evaluateCriteria(selected, facts)}
-      key={selected.id}
-      scholarship={selected}
-    />
-  ) : null;
 
   const isEmpty = result.open.length === 0 && result.closed.length === 0;
   let body;
@@ -221,10 +275,11 @@ export function ScholarshipsRoute() {
   } else {
     body = (
       <ScholarshipList
-        animate={animateRows}
         closed={result.closed}
         hiddenIneligible={result.hiddenIneligible}
         onSelect={select}
+        onToggleSave={toggleSave}
+        showFit={filters.view === "foryou"}
         onShowAll={() => setView("all")}
         open={result.open}
         savedIds={savedIds}
@@ -234,69 +289,110 @@ export function ScholarshipsRoute() {
     );
   }
 
-  const showDetailColumn = split && detail !== null && !isEmpty;
-
   return (
-    <PageContainer title="Scholarships">
+    <PageContainer
+      title="Scholarships"
+      width="panel"
+      className="scholarship-page"
+    >
       <div className="flex flex-col gap-3">
         <div className="flex flex-wrap items-center gap-3">
-          <Tabs aria-label="Scholarship views" onValueChange={(value) => setView(value as ScholarshipTab)} value={filters.view}>
-            <TabsList className="justify-start">
-              <TabsTab className="grow-0 sm:h-7 sm:px-2.5 sm:text-xs" value="foryou">
+          <Tabs
+            aria-label="Scholarship views"
+            onValueChange={(value) => setView(value as ScholarshipTab)}
+            value={filters.view}
+          >
+            <TabsList
+              variant="pill"
+              className="justify-start"
+              aria-label="Scholarship views"
+            >
+              <TabsTab className="grow-0" value="foryou">
                 For you
               </TabsTab>
-              <TabsTab className="grow-0 sm:h-7 sm:px-2.5 sm:text-xs" value="all">
+              <TabsTab className="grow-0" value="all">
                 All
               </TabsTab>
-              <TabsTab className="grow-0 sm:h-7 sm:px-2.5 sm:text-xs" value="saved">
+              <TabsTab className="grow-0" value="saved">
                 <span>Saved</span>
-                <span className="text-xs text-muted-foreground tabular-nums">{savedIds.length}</span>
+                <span className="text-xs text-muted-foreground tabular-nums">
+                  {savedIds.length}
+                </span>
               </TabsTab>
             </TabsList>
           </Tabs>
-          <div className="order-last w-full md:order-none md:w-auto md:flex-1">
-            <ScholarshipSearchField onChange={(q) => update({ ...filters, q })} value={filters.q} />
+          <div className="order-last w-full md:order-none md:ms-auto md:w-80">
+            <ScholarshipSearchField
+              onChange={(q) => update({ ...filters, q })}
+              value={filters.q}
+            />
           </div>
           <div className="ms-auto md:ms-0">
-            <SortMenu onChange={(sort) => update({ ...filters, sort })} value={filters.sort} />
+            <SortMenu
+              onChange={(sort) => update({ ...filters, sort })}
+              value={filters.sort}
+            />
           </div>
         </div>
-        <ScholarshipFilterBar fieldOptions={fieldOptions(items)} filters={filters} onChange={update} />
+        <ScholarshipFilterBar
+          fieldOptions={fieldOptions(items)}
+          filters={filters}
+          onChange={update}
+        />
         {filters.view === "foryou" && !profile.isPending ? (
-          <ProfileMatchBar facts={facts} ignored={filters.ignored} onToggleIgnored={toggleIgnored} />
+          <ProfileMatchBar
+            facts={facts}
+            ignored={filters.ignored}
+            onToggleIgnored={toggleIgnored}
+          />
         ) : null}
       </div>
 
       <div
-        className={
-          showDetailColumn
-            ? "grid grid-cols-[minmax(0,1fr)_var(--scholarship-detail-width)] items-start gap-5"
-            : undefined
-        }
+        ref={resultsRef}
+        tabIndex={-1}
+        className="scholarship-results"
+        role="status"
+        aria-live="polite"
       >
-        {body}
-        {showDetailColumn ? (
-          <div className="sticky top-4 max-h-[calc(100dvh-7rem)] overflow-y-auto rounded-xl [scrollbar-width:thin]">
-            {detail}
-          </div>
-        ) : null}
+        {scholarships.isPending
+          ? "Loading scholarships…"
+          : scholarships.isError
+            ? "Scholarships unavailable"
+            : `${result.open.length} ${result.open.length === 1 ? "scholarship" : "scholarships"}${result.closed.length ? ` · ${result.closed.length} closed this cycle` : ""}`}
       </div>
+      {body}
 
-      {split ? null : (
-        <Sheet onOpenChange={(open) => (open ? null : select(null))} open={selected !== null}>
-          <SheetPopup className="w-full max-w-lg overflow-y-auto pt-8" side="right">
-            <SheetTitle className="sr-only">{selected?.name ?? "Scholarship"}</SheetTitle>
-            {selected ? (
-              <ScholarshipDetail
-                actions={actions}
-                className="rounded-none border-0 shadow-none"
-                criteria={evaluateCriteria(selected, facts)}
-                scholarship={selected}
-              />
-            ) : null}
-          </SheetPopup>
-        </Sheet>
-      )}
+      <Sheet
+        onOpenChange={(open) => (open ? null : select(null))}
+        open={selected !== null}
+      >
+        <SheetPopup
+          className="scholarship-detail-sheet w-full max-w-lg overflow-y-auto overscroll-contain pt-8"
+          side="right"
+          data-keyboard={keyboardOpen || undefined}
+          onKeyDown={(event) => {
+            if (event.key === "Escape") setKeyboardOpen(true);
+          }}
+          finalFocus={() =>
+            openerRef.current?.isConnected
+              ? openerRef.current
+              : resultsRef.current
+          }
+        >
+          <SheetTitle className="sr-only">
+            {selected?.name ?? "Scholarship"}
+          </SheetTitle>
+          {selected ? (
+            <ScholarshipDetail
+              actions={actions}
+              className="rounded-none border-0 shadow-none"
+              criteria={evaluateCriteria(selected, facts)}
+              scholarship={selected}
+            />
+          ) : null}
+        </SheetPopup>
+      </Sheet>
     </PageContainer>
   );
 }

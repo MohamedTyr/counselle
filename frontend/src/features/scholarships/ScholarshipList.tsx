@@ -1,64 +1,57 @@
 import { ChevronRight } from "lucide-react";
-import { useState } from "react";
+import { useId, useState } from "react";
 
 import { Skeleton } from "@/components/ui/skeleton";
-import type { Listed, ScholarshipSort } from "@/features/scholarships/scholarship-filters";
-import { deadlineGroup } from "@/features/scholarships/scholarship-format";
-import { ScholarshipRow } from "@/features/scholarships/ScholarshipRow";
-import { cn } from "@/lib/utils";
+import type { Listed, ScholarshipSort } from "./scholarship-filters";
+import { deadlineGroup } from "./scholarship-format";
+import { ScholarshipCard } from "./ScholarshipCard";
+import { useScholarshipKeys } from "./use-scholarship-keys";
 
-const STAGGER_CAP = 8;
-const STAGGER_STEP_MS = 30;
-
-type Group = { label: string | null; rows: Listed[] };
-
-function groupRows(rows: Listed[], sort: ScholarshipSort): Group[] {
-  if (sort !== "deadline") return [{ label: null, rows }];
-  const groups: Group[] = [];
-  for (const row of rows) {
-    const label = deadlineGroup(row.item.deadline);
-    const last = groups[groups.length - 1];
-    if (last && last.label === label) last.rows.push(row);
-    else groups.push({ label, rows: [row] });
-  }
-  return groups;
-}
-
-type RowProps = {
+type CardProps = {
   selectedId: string | null;
   savedIds: readonly string[];
-  onSelect: (id: string) => void;
-  animate: boolean;
+  onSelect: (id: string, opener: HTMLButtonElement) => void;
+  onToggleSave: (id: string) => void;
+  showFit: boolean;
 };
 
-function Rows({ rows, offset, selectedId, savedIds, onSelect, animate }: RowProps & { rows: Listed[]; offset: number }) {
+function Cards({
+  rows,
+  selectedId,
+  savedIds,
+  onSelect,
+  onToggleSave,
+  showFit,
+}: CardProps & { rows: Listed[] }) {
   return (
-    <ul className="flex flex-col gap-px">
-      {rows.map((row, index) => {
-        const position = offset + index;
-        return (
-          <ScholarshipRow
-            enterDelayMs={animate && position < STAGGER_CAP ? position * STAGGER_STEP_MS : null}
-            fit={row.fit}
-            isSaved={savedIds.includes(row.item.id)}
-            isSelected={row.item.id === selectedId}
-            key={row.item.id}
-            onSelect={() => onSelect(row.item.id)}
-            scholarship={row.item}
-          />
-        );
-      })}
+    <ul className="scholarship-card-grid">
+      {rows.map(({ item, fit }) => (
+        <ScholarshipCard
+          key={item.id}
+          scholarship={item}
+          fit={showFit ? fit : undefined}
+          isSaved={savedIds.includes(item.id)}
+          isSelected={selectedId === item.id}
+          onSelect={(opener) => onSelect(item.id, opener)}
+          onToggleSave={() => onToggleSave(item.id)}
+        />
+      ))}
     </ul>
   );
 }
 
-function GroupHeading({ label, count }: { label: string; count: number }) {
-  return (
-    <h3 className="sticky top-0 z-[var(--z-sticky)] flex items-baseline gap-2 bg-[var(--surface-raised)] px-3 pt-4 pb-1.5 text-xs font-medium text-[var(--scholarship-group-ink)]">
-      <span>{label}</span>
-      <span className="tabular-nums text-[var(--ink-faint)]">{count}</span>
-    </h3>
-  );
+function groupRows(rows: Listed[], sort: ScholarshipSort) {
+  if (sort !== "deadline") return [{ label: "Scholarships", rows }];
+  return rows.reduce<{ label: string; rows: Listed[] }[]>((groups, row) => {
+    const label = deadlineGroup(row.item.deadline);
+    return groups.some((group) => group.label === label)
+      ? groups.map((group) =>
+          group.label === label
+            ? { ...group, rows: [...group.rows, row] }
+            : group,
+        )
+      : [...groups, { label, rows: [row] }];
+  }, []);
 }
 
 export function ScholarshipList({
@@ -67,8 +60,8 @@ export function ScholarshipList({
   sort,
   hiddenIneligible,
   onShowAll,
-  ...rowProps
-}: RowProps & {
+  ...cardProps
+}: CardProps & {
   open: Listed[];
   closed: Listed[];
   sort: ScholarshipSort;
@@ -76,51 +69,57 @@ export function ScholarshipList({
   onShowAll: () => void;
 }) {
   const [showClosed, setShowClosed] = useState(false);
-  const groups = groupRows(open, sort);
-  const starts = groups.map((_, index) =>
-    groups.slice(0, index).reduce((sum, group) => sum + group.rows.length, 0),
-  );
-
+  const closedId = useId();
+  const onKeyDown = useScholarshipKeys({
+    onToggleSave: cardProps.onToggleSave,
+  });
   return (
-    <div className="rounded-xl border border-[var(--edge)] bg-[var(--surface-raised)] p-1.5 pb-2 shadow-[var(--elevation-1)]">
-      {groups.map((group, index) => {
-        const start = starts[index];
-        return (
-          <section aria-label={group.label ?? "Scholarships"} key={group.label ?? "all"}>
-            {group.label ? <GroupHeading count={group.rows.length} label={group.label} /> : null}
-            <Rows {...rowProps} offset={start} rows={group.rows} />
+    <div className="scholarship-collection" onKeyDown={onKeyDown}>
+      {groupRows(open, sort)
+        .filter((group) => group.rows.length)
+        .map((group) => (
+          <section key={group.label} aria-label={group.label}>
+            <div className="scholarship-group-heading">
+              <h2>{group.label}</h2>
+              <span>
+                {group.rows.length}{" "}
+                {group.rows.length === 1 ? "opportunity" : "opportunities"}
+              </span>
+            </div>
+            <Cards {...cardProps} rows={group.rows} />
           </section>
-        );
-      })}
-
-      {closed.length > 0 ? (
-        <section className="mt-2 border-t border-[var(--hairline)] pt-1.5">
-          <button
-            aria-expanded={showClosed}
-            className="flex w-full cursor-pointer items-center gap-1.5 rounded-lg px-3 py-2 text-left text-xs font-medium text-[var(--ink-muted)] outline-none transition-colors hover:bg-[var(--scholarship-row-hover)] hover:text-[var(--ink-secondary)] focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
-            onClick={() => setShowClosed((value) => !value)}
-            type="button"
-          >
-            <ChevronRight
-              aria-hidden="true"
-              className={cn("size-3.5 transition-transform duration-200", showClosed && "rotate-90")}
-            />
-            Closed this cycle
-            <span className="tabular-nums text-[var(--ink-faint)]">{closed.length}</span>
-          </button>
-          {showClosed ? <Rows {...rowProps} animate={false} offset={0} rows={closed} /> : null}
+        ))}
+      {closed.length ? (
+        <section>
+          <h2>
+            <button
+              className="scholarship-closed-toggle"
+              type="button"
+              aria-expanded={showClosed}
+              aria-controls={closedId}
+              onClick={() => setShowClosed(!showClosed)}
+            >
+              <ChevronRight
+                aria-hidden="true"
+                size={16}
+                className={showClosed ? "rotate-90" : undefined}
+              />
+              Closed this cycle <span>{closed.length}</span>
+            </button>
+          </h2>
+          <div id={closedId} hidden={!showClosed}>
+            {showClosed ? <Cards {...cardProps} rows={closed} /> : null}
+          </div>
         </section>
       ) : null}
-
       {hiddenIneligible > 0 ? (
-        <p className="mt-2 border-t border-[var(--hairline)] px-3 pt-3 pb-1 text-xs text-[var(--ink-muted)]">
-          {hiddenIneligible === 1 ? "1 more scholarship" : `${hiddenIneligible} more scholarships`} you
-          don't fit, based on your profile.{" "}
-          <button
-            className="cursor-pointer font-medium text-[var(--ink-secondary)] underline decoration-[var(--edge-strong)] underline-offset-2 outline-none hover:text-[var(--ink)] focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
-            onClick={onShowAll}
-            type="button"
-          >
+        <p className="scholarship-hidden-note">
+          {hiddenIneligible} more{" "}
+          {hiddenIneligible === 1
+            ? "scholarship doesn't"
+            : "scholarships don't"}{" "}
+          fit your profile.{" "}
+          <button type="button" onClick={onShowAll}>
             Show all scholarships
           </button>
         </p>
@@ -131,19 +130,33 @@ export function ScholarshipList({
 
 export function ScholarshipListSkeleton() {
   return (
-    <div className="flex flex-col gap-1 rounded-xl border border-[var(--edge)] bg-[var(--surface-raised)] p-3 shadow-[var(--elevation-1)]">
-      <Skeleton className="mb-2 h-3 w-28" />
-      {Array.from({ length: 7 }, (_, index) => (
-        <div className="grid grid-cols-[auto_minmax(0,1fr)_7rem_5.5rem] items-center gap-4 py-2.5" key={index}>
-          <Skeleton className="size-9 rounded-lg" />
-          <div className="flex flex-col gap-1.5">
-            <Skeleton className="h-3.5 w-3/5" />
-            <Skeleton className="h-3 w-2/5" />
+    <div
+      className="scholarship-collection"
+      role="status"
+      aria-label="Loading scholarships"
+    >
+      <Skeleton className="h-4 w-32" />
+      <div className="scholarship-card-grid" aria-hidden="true">
+        {Array.from({ length: 6 }, (_, index) => (
+          <div
+            className="scholarship-card scholarship-card-skeleton"
+            key={index}
+          >
+            <div className="flex items-center gap-3">
+              <Skeleton className="size-11 rounded-[10px]" />
+              <Skeleton className="h-3 w-1/2" />
+            </div>
+            <Skeleton className="mt-5 h-5 w-4/5" />
+            <Skeleton className="mt-3 h-3 w-full" />
+            <Skeleton className="mt-2 h-3 w-3/5" />
+            <div className="mt-8 flex justify-between">
+              <Skeleton className="h-7 w-24" />
+              <Skeleton className="h-6 w-16" />
+            </div>
+            <Skeleton className="mt-6 h-3 w-2/3" />
           </div>
-          <Skeleton className="ml-auto h-4 w-16" />
-          <Skeleton className="ml-auto h-3.5 w-12" />
-        </div>
-      ))}
+        ))}
+      </div>
     </div>
   );
 }

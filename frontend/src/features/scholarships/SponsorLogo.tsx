@@ -4,14 +4,11 @@ import type { ScholarshipView } from "@/api/scholarships/types";
 import { cn } from "@/lib/utils";
 
 /*
- * The sponsor's mark: the admin-set logo, else the icon of the sponsor's
- * site, else initials. Google's favicon service answers an unknown site with
- * a 16px globe and some sites only publish a 16px icon, so anything under
- * MIN_ICON_PX is treated as no logo rather than upscaled into a blur. A logo
- * fills its tile edge to edge.
+ * Try the admin-set logo, then cached and direct favicons for the sponsor
+ * and application sites. Any successfully loaded size is usable; initials
+ * remain only when every available source fails.
  */
 
-const MIN_ICON_PX = 32;
 const FAVICON_PX = 128;
 
 const SIZE_CLASS = {
@@ -20,12 +17,17 @@ const SIZE_CLASS = {
   lg: "size-11 rounded-[10px] text-sm",
 } as const;
 
-function faviconFor(url: string): string | null {
+function faviconsFor(url: string): string[] {
   try {
-    const { hostname } = new URL(url);
-    return `https://www.google.com/s2/favicons?domain=${hostname}&sz=${FAVICON_PX}`;
+    const site = new URL(url);
+    if (site.protocol !== "https:" && site.protocol !== "http:") return [];
+    site.protocol = "https:";
+    return [
+      `https://www.google.com/s2/favicons?domain=${encodeURIComponent(site.hostname)}&sz=${FAVICON_PX}`,
+      `${site.origin}/favicon.ico`,
+    ];
   } catch {
-    return null;
+    return [];
   }
 }
 
@@ -34,32 +36,54 @@ function initials(name: string): string {
     .split(/\s+/)
     .map((word) => word.replace(/[^A-Za-z0-9]/g, ""))
     .filter((word) => word && !/^(the|of|and|for)$/i.test(word));
-  return words.length ? words.slice(0, 2).map((word) => word[0]).join("").toUpperCase() : "?";
+  return words.length
+    ? words
+        .slice(0, 2)
+        .map((word) => word[0])
+        .join("")
+        .toUpperCase()
+    : "?";
 }
 
-function logoSource(scholarship: Pick<ScholarshipView, "logo_url" | "source_url" | "apply_url">): string | null {
-  if (scholarship.logo_url.trim()) return scholarship.logo_url.trim();
-  return faviconFor(scholarship.source_url) ?? faviconFor(scholarship.apply_url);
+function logoSources(
+  scholarship: Pick<ScholarshipView, "logo_url" | "source_url" | "apply_url">,
+): string[] {
+  return [
+    ...new Set(
+      [
+        scholarship.logo_url.trim(),
+        ...faviconsFor(scholarship.source_url),
+        ...faviconsFor(scholarship.apply_url),
+      ].filter(Boolean),
+    ),
+  ];
 }
 
-export function SponsorLogo({
+type SponsorLogoProps = {
+  scholarship: Pick<
+    ScholarshipView,
+    "logo_url" | "source_url" | "apply_url" | "sponsor" | "name"
+  >;
+  size?: keyof typeof SIZE_CLASS;
+  className?: string;
+};
+
+export function SponsorLogo(props: SponsorLogoProps) {
+  const sources = logoSources(props.scholarship);
+  return (
+    <SponsorMark {...props} key={JSON.stringify(sources)} sources={sources} />
+  );
+}
+
+function SponsorMark({
   scholarship,
   size = "md",
   className,
-}: {
-  scholarship: Pick<ScholarshipView, "logo_url" | "source_url" | "apply_url" | "sponsor" | "name">;
-  size?: keyof typeof SIZE_CLASS;
-  className?: string;
-}) {
-  const src = logoSource(scholarship);
-  // Keyed by src, so typing a new URL in the editor starts over cleanly.
-  const [state, setState] = useState<{ src: string | null; status: "loading" | "ok" | "failed" }>({
-    src,
-    status: "loading",
-  });
-  const status = state.src === src ? state.status : "loading";
-  if (state.src !== src) setState({ src, status: "loading" });
-  const showImage = src !== null && status === "ok";
+  sources,
+}: SponsorLogoProps & { sources: string[] }) {
+  const [state, setState] = useState({ index: 0, loaded: false });
+  const src = sources[state.index];
+  const showImage = src !== undefined && state.loaded;
 
   return (
     <span
@@ -74,18 +98,17 @@ export function SponsorLogo({
       )}
     >
       {initials(scholarship.sponsor || scholarship.name)}
-      {src !== null && status !== "failed" ? (
+      {src ? (
         <img
+          key={src}
           alt=""
           className={cn(
             "absolute inset-0 size-full object-cover transition-opacity duration-200 motion-reduce:transition-none",
             showImage ? "opacity-100" : "opacity-0",
           )}
           decoding="async"
-          onError={() => setState({ src, status: "failed" })}
-          onLoad={(event) =>
-            setState({ src, status: event.currentTarget.naturalWidth < MIN_ICON_PX ? "failed" : "ok" })
-          }
+          onError={() => setState({ index: state.index + 1, loaded: false })}
+          onLoad={() => setState({ index: state.index, loaded: true })}
           referrerPolicy="no-referrer"
           src={src}
         />

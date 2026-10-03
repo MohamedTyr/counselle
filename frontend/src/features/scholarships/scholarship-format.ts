@@ -134,9 +134,10 @@ export function deadlineTone(deadline: Deadline): DeadlineTone {
   return days <= DUE_SOON_DAYS ? "soon" : "open";
 }
 
-/** Month bucket for grouping: "October 2026", "Rolling". */
+/** Month bucket, with distinct groups for rolling and unavailable deadlines. */
 export function deadlineGroup(deadline: Deadline): string {
-  if (deadline.kind === "rolling" || !deadline.date) return "Rolling deadline";
+  if (deadline.kind === "rolling") return "Rolling deadline";
+  if (!deadline.date) return "Deadline unavailable";
   return monthYear.format(parseIsoDate(deadline.date));
 }
 
