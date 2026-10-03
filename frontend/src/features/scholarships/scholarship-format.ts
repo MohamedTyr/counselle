@@ -48,16 +48,14 @@ export function awardHeadline(award: Award): string {
   }
 }
 
-/** The line under the headline: "per year · 4 years", "one-time". Empty when the stored fields say nothing true. */
+/** The line under the headline: "per year · 4 years", "one-time". `renewable` is an explicit admin choice, so false means one-time for every award kind. */
 export function awardCadence(award: Award): string {
   if (award.renewable && award.years) {
     return award.kind === "full_ride" || award.kind === "full_tuition"
       ? `${award.years} years`
       : `per year · ${award.years} years`;
   }
-  if (award.renewable) return "renewable";
-  if (award.kind === "full_ride" || award.kind === "full_tuition" || award.kind === "varies") return "";
-  return "one-time";
+  return award.renewable ? "renewable" : "one-time";
 }
 
 /** Total over the award's life, only when it's a simple multiple. */

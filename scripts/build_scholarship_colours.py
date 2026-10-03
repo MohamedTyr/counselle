@@ -49,7 +49,7 @@ async def fetch_logo(
     async with gate:
         try:
             response = await client.get(url)
-        except httpx.HTTPError:
+        except (httpx.HTTPError, httpx.InvalidURL):
             return None, None
     if response.status_code != 200:
         return response.status_code, None

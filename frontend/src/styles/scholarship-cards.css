@@ -220,6 +220,11 @@
     font-size: 22px;
   }
 }
+@container (max-width: 280px) {
+  .scholarship-card-value {
+    font-size: 19px;
+  }
+}
 .scholarship-card-award {
   color: var(--scholarship-card-award-ink);
 }

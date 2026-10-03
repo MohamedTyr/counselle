@@ -320,18 +320,20 @@ export function ScholarshipsRoute() {
           onChange={(q) => update({ ...filters, q })}
           value={filters.q}
         />
-        <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between xl:gap-6">
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-6">
           <ScholarshipFilterBar
             fieldOptions={fieldOptions(items)}
             filters={filters}
             onChange={update}
           />
           {filters.view === "foryou" && !profile.isPending ? (
-            <ProfileMatchBar
-              facts={facts}
-              ignored={filters.ignored}
-              onToggleIgnored={toggleIgnored}
-            />
+            <div className="sm:ms-auto">
+              <ProfileMatchBar
+                facts={facts}
+                ignored={filters.ignored}
+                onToggleIgnored={toggleIgnored}
+              />
+            </div>
           ) : null}
         </div>
       </div>

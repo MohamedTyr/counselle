@@ -168,7 +168,9 @@ it("does not use the due-soon style for a deadline that has not opened", () => {
 it("labels awards only with what is stored", () => {
   const base = { amount: 5000, min: null, max: null, awards_count: null };
   expect(awardCadence({ ...base, kind: "fixed", renewable: true, years: null })).toBe("renewable");
-  expect(awardCadence({ ...base, kind: "varies", renewable: false, years: null })).toBe("");
+  expect(awardCadence({ ...base, kind: "varies", renewable: false, years: null })).toBe("one-time");
+  expect(awardCadence({ ...base, kind: "full_ride", renewable: false, years: null })).toBe("one-time");
+  expect(awardCadence({ ...base, kind: "full_ride", renewable: true, years: 4 })).toBe("4 years");
   expect(awardCadence({ ...base, kind: "fixed", renewable: false, years: null })).toBe("one-time");
 });
 
