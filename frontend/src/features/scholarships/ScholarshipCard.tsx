@@ -1,11 +1,12 @@
 import { Bookmark, FileText, Landmark, Users } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 
 import type { ScholarshipView } from "@/api/scholarships/types";
 import { cn } from "@/lib/utils";
 import type { Fit } from "./eligibility";
 import { SponsorLogo } from "./SponsorLogo";
+import { sponsorColour } from "./sponsor-colours";
 import {
   awardCadence,
   awardHeadline,
@@ -122,11 +123,20 @@ export function ScholarshipCard({
   const essays = requirements.essays.length;
   const recommendations = requirements.recommendations;
   const deadline = deadlineFigure(scholarship.deadline);
+  const colour = sponsorColour(scholarship);
   return (
     <li
       className="scholarship-card"
       data-scholarship-id={scholarship.id}
       data-selected={isSelected || undefined}
+      style={
+        colour
+          ? ({
+              "--scholarship-sponsor-colour": colour.fill,
+              "--scholarship-sponsor-colour-ink": colour.ink,
+            } as CSSProperties)
+          : undefined
+      }
     >
       <div className="flex items-center justify-between gap-3">
         <span className="scholarship-card-logo">

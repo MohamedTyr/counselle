@@ -1,15 +1,15 @@
 /*
- * Scholarship catalog: the Explore school card's anatomy (schools.css).
- * Sponsors carry no colour data the way schools do, so every card is washed
- * in the Scholarships section's own colour, the stroke of its nav icon
- * (assets/app-shell/coins.svg). It measures 5.7:1 on white, so it also inks
- * the award, as a school's colour inks its admit rate.
+ * Scholarship catalog: the Explore school card's anatomy and colour wash
+ * (schools.css). Each card is washed in its sponsor logo's colour, which
+ * ScholarshipCard sets inline as --scholarship-sponsor-colour (the fill) and
+ * --scholarship-sponsor-colour-ink (the same hue darkened to 5.2:1 on white)
+ * from sponsor-colours.json. A logo with no known colour falls back to these
+ * neutrals and tints to plain grey.
  */
 :root {
-  --scholarship-section-colour: #b4366e;
+  --scholarship-card-colour-fallback: var(--ink-faint);
+  --scholarship-card-colour-ink-fallback: var(--scholarship-amount-ink);
   --scholarship-card-surface: var(--surface-raised);
-  --scholarship-card-colour: var(--scholarship-section-colour);
-  --scholarship-card-award-ink: var(--scholarship-section-colour);
   --scholarship-card-logo-surface: var(--surface-raised);
   --scholarship-card-divider: var(--hairline);
   --scholarship-card-pill-surface: var(--surface-raised);
@@ -58,7 +58,10 @@
 }
 
 /* ---- the card ---- */
+/* Derived here, not in :root, because the sponsor colour is set inline per card. */
 .scholarship-card {
+  --scholarship-card-colour: var(--scholarship-sponsor-colour, var(--scholarship-card-colour-fallback));
+  --scholarship-card-award-ink: var(--scholarship-sponsor-colour-ink, var(--scholarship-card-colour-ink-fallback));
   --scholarship-card-ring: color-mix(in oklab, var(--scholarship-card-colour) 22%, transparent);
   position: relative;
   isolation: isolate;

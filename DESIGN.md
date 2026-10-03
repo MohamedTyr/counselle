@@ -1815,10 +1815,13 @@ canvas, without an enclosing panel or trough, and take the Explore school card's
 anatomy so the two catalogs read as one product: the sponsor logo in a raised chip
 with the fit pill and Save pill beside it, the name with an icon meta line (sponsor,
 essays, recommendations), a two-line summary, then two 26px figures split by a
-hairline, the award and the deadline. Sponsors have no colour data, so every card
-is washed in the Scholarships section's own colour, its nav icon's `#B4366E`
-(5.7:1 on white), which also inks the award as a school's colour inks its admit
-rate: the same 10% wash, 18px radius, 22% ring and 3px hover rise. The grid is the Explore grid (`minmax(340px, 1fr)`).
+hairline, the award and the deadline. Each card is washed in its sponsor logo's
+colour, derived offline by `scripts/build_scholarship_colours.py` into
+`sponsor-colours.json` exactly as school colours are, and that hue's 5.2:1 text
+shade inks the award as a school's inks its admit rate: the same 10% wash, 18px
+radius, 22% ring and 3px hover rise. A logo with no dominant colour (the generic
+globe favicon) falls back to neutral grey. Rerun the script when scholarships or
+their logos change. The grid is the Explore grid (`minmax(340px, 1fr)`).
 A missing deadline still says "not available". Saving is a sibling pill (an ink
 pill once saved, like On list) with a 44px target on touch, never nested in the
 details button.
