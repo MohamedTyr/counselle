@@ -5,7 +5,8 @@ import type { ScholarshipView } from "@/api/scholarships/types";
 import { cn } from "@/lib/utils";
 import type { Fit } from "./eligibility";
 import { SponsorLogo } from "./SponsorLogo";
-import { sponsorColour } from "./sponsor-colours";
+import { isKnownLogoless, sponsorColour } from "./sponsor-colours";
+import { sponsorMark } from "./sponsor-mark";
 import {
   awardCadence,
   awardHeadline,
@@ -82,6 +83,26 @@ function FitPill({ fit }: { fit: Fit }) {
   );
 }
 
+/**
+ * The card is washed in its logo's colour, which also inks the award. A
+ * sponsor with no logo shows its icon mark instead, so the card takes the
+ * mark's colour for the wash only: not every mark ink clears 4.5:1 as text.
+ */
+function cardColour(scholarship: ScholarshipView): CSSProperties | undefined {
+  const colour = sponsorColour(scholarship);
+  if (colour) {
+    return {
+      "--scholarship-sponsor-colour": colour.fill,
+      "--scholarship-sponsor-colour-ink": colour.ink,
+    } as CSSProperties;
+  }
+  if (isKnownLogoless(scholarship)) {
+    const mark = sponsorMark(scholarship.sponsor || scholarship.name);
+    return { "--scholarship-sponsor-colour": mark.ink } as CSSProperties;
+  }
+  return undefined;
+}
+
 export function ScholarshipCard({
   scholarship,
   fit,
@@ -98,20 +119,12 @@ export function ScholarshipCard({
   onToggleSave: () => void;
 }) {
   const deadline = deadlineFigure(scholarship.deadline);
-  const colour = sponsorColour(scholarship);
   return (
     <li
       className="scholarship-card"
       data-scholarship-id={scholarship.id}
       data-selected={isSelected || undefined}
-      style={
-        colour
-          ? ({
-              "--scholarship-sponsor-colour": colour.fill,
-              "--scholarship-sponsor-colour-ink": colour.ink,
-            } as CSSProperties)
-          : undefined
-      }
+      style={cardColour(scholarship)}
     >
       <div className="flex items-center justify-between gap-3">
         <span className="scholarship-card-logo">

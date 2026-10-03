@@ -64,7 +64,7 @@ describe("SponsorLogo", () => {
       fireEvent.error(image);
     }
     expect(container.querySelector("img")).toBeNull();
-    expect(container).toHaveTextContent("SF");
+    expect(container.querySelector("svg")).not.toBeNull();
   });
 
   it("stops once a fallback loads successfully", () => {

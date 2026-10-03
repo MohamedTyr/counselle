@@ -1819,8 +1819,12 @@ description, essays and eligibility are one click away in the detail sheet. Each
 colour, derived offline by `scripts/build_scholarship_colours.py` into
 `sponsor-colours.json` exactly as school colours are, and that hue's 5.2:1 text
 shade inks the award as a school's inks its admit rate: the same 10% wash, 18px
-radius, 22% ring and 3px hover rise. A logo with no dominant colour (the generic
-globe favicon) falls back to neutral grey. Rerun the script when scholarships or
+radius, 22% ring and 3px hover rise. A sponsor with no logo shows an icon mark
+instead (`sponsor-mark.ts`): one of eight scholarship icons on one of the nav's
+tile/stroke colour pairs, picked from the sponsor's name so one sponsor always
+gets the same mark and neighbours differ; its card is washed in the mark's colour
+(the award stays in ink, since not every stroke clears 4.5:1). A real logo with
+no dominant colour falls back to neutral grey. Rerun the script when scholarships or
 their logos change. The grid is the Explore grid (`minmax(340px, 1fr)`).
 A missing deadline still says "not available". Saving is a sibling pill (an ink
 pill once saved, like On list) with a 44px target on touch, never nested in the

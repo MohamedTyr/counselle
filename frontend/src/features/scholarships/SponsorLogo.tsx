@@ -1,13 +1,15 @@
 import { useState } from "react";
+import type { CSSProperties } from "react";
 
 import type { ScholarshipView } from "@/api/scholarships/types";
 import { hasServiceFavicon } from "@/features/scholarships/sponsor-colours";
+import { sponsorMark } from "@/features/scholarships/sponsor-mark";
 import { cn } from "@/lib/utils";
 
 /*
  * Try the admin-set logo, then cached and direct favicons for the sponsor
- * and application sites. Any successfully loaded size is usable; initials
- * remain only when every available source fails. The cached favicon is
+ * and application sites. Any successfully loaded size is usable; the
+ * sponsor's icon mark (sponsor-mark.ts) remains only when every source fails. The cached favicon is
  * skipped for a site the service has none for, because its stand-in globe
  * loads like a real logo and would never fall through.
  */
@@ -32,20 +34,6 @@ function faviconsFor(url: string): string[] {
   } catch {
     return [];
   }
-}
-
-function initials(name: string): string {
-  const words = name
-    .split(/\s+/)
-    .map((word) => word.replace(/[^A-Za-z0-9]/g, ""))
-    .filter((word) => word && !/^(the|of|and|for)$/i.test(word));
-  return words.length
-    ? words
-        .slice(0, 2)
-        .map((word) => word[0])
-        .join("")
-        .toUpperCase()
-    : "?";
 }
 
 function logoSources(
@@ -87,20 +75,27 @@ function SponsorMark({
   const [state, setState] = useState({ index: 0, loaded: false });
   const src = sources[state.index];
   const showImage = src !== undefined && state.loaded;
+  const mark = sponsorMark(scholarship.sponsor || scholarship.name);
 
   return (
     <span
       aria-hidden="true"
       className={cn(
-        "relative inline-flex shrink-0 items-center justify-center overflow-hidden font-semibold tracking-tight transition-colors duration-200 after:pointer-events-none after:absolute after:inset-0 after:rounded-[inherit] after:shadow-[inset_0_0_0_1px_var(--image-outline)]",
+        "relative inline-flex shrink-0 items-center justify-center overflow-hidden transition-colors duration-200 after:pointer-events-none after:absolute after:inset-0 after:rounded-[inherit] after:shadow-[inset_0_0_0_1px_var(--image-outline)]",
         showImage
           ? "bg-[var(--surface-raised)] text-transparent"
-          : "bg-[var(--label-surface)] text-[var(--label-ink)]",
+          : "bg-[var(--sponsor-mark-tile)] text-[var(--sponsor-mark-ink)]",
         SIZE_CLASS[size],
         className,
       )}
+      style={
+        {
+          "--sponsor-mark-tile": mark.tile,
+          "--sponsor-mark-ink": mark.ink,
+        } as CSSProperties
+      }
     >
-      {initials(scholarship.sponsor || scholarship.name)}
+      <mark.Icon className="size-[55%]" strokeWidth={1.75} />
       {src ? (
         <img
           key={src}

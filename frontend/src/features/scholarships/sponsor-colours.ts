@@ -48,3 +48,14 @@ export function sponsorColour(
     lookup(hostname(scholarship.apply_url))
   );
 }
+
+/** No admin logo and no favicon on any site the card would ask the service for. */
+export function isKnownLogoless(
+  scholarship: Pick<ScholarshipView, "logo_url" | "source_url" | "apply_url">,
+): boolean {
+  if (scholarship.logo_url.trim()) return false;
+  const hosts = [scholarship.source_url, scholarship.apply_url]
+    .map(hostname)
+    .filter((host): host is string => host !== null);
+  return hosts.length === 0 || hosts.every((host) => !hasServiceFavicon(host));
+}
