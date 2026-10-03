@@ -1,6 +1,6 @@
 import { Check, CircleHelp, X } from "lucide-react";
 
-import type { CriterionStatus, Fit } from "@/features/scholarships/eligibility";
+import type { CriterionStatus } from "@/features/scholarships/eligibility";
 import { cn } from "@/lib/utils";
 
 /*
@@ -32,31 +32,6 @@ export function StatusDot({ status, className }: { status: CriterionStatus; clas
       )}
     >
       <Icon className="size-3" strokeWidth={2.5} />
-    </span>
-  );
-}
-
-function fitStatus(fit: Fit): CriterionStatus {
-  return fit.kind === "fits" ? "met" : "unmet";
-}
-
-/**
- * The compact mark under a row's name. Only a definite answer earns one: the
- * open questions are the detail panel's job, not the list's.
- */
-export function FitMark({ fit }: { fit: Fit }) {
-  if (fit.kind === "check") return null;
-  const text = fit.kind === "fits" ? "Fits your profile" : fit.reason;
-  return (
-    <span
-      className={cn(
-        "flex min-w-0 items-center gap-1",
-        fit.kind === "fits" ? "font-medium text-[var(--scholarship-fit-met)]" : "text-[var(--ink-muted)]",
-      )}
-      title={text}
-    >
-      <StatusDot className="size-3.5 [&_svg]:size-2" status={fitStatus(fit)} />
-      <span className="truncate">{text}</span>
     </span>
   );
 }

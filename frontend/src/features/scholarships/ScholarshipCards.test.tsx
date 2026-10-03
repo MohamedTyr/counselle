@@ -123,8 +123,8 @@ it("reports missing and closed deadlines accurately", () => {
       />
     </ul>,
   );
-  expect(screen.getByText("Not available")).toBeInTheDocument();
-  expect(screen.queryByText("Applications ongoing")).not.toBeInTheDocument();
+  expect(screen.getByText("not available")).toBeInTheDocument();
+  expect(screen.queryByText("apply any time")).not.toBeInTheDocument();
   rerender(
     <ul>
       <ScholarshipCard
@@ -138,7 +138,7 @@ it("reports missing and closed deadlines accurately", () => {
       />
     </ul>,
   );
-  expect(screen.getByText("Closed this cycle")).toBeInTheDocument();
+  expect(screen.getByText("closed this cycle")).toBeInTheDocument();
 });
 
 it("has no automated card accessibility violations", async () => {

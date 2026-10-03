@@ -1811,12 +1811,17 @@ ink pill.
 Never both at once. Never a card inside a card.
 
 **Scholarship catalog:** independent award cards sit directly on the quiet Beams
-canvas, without an enclosing panel or trough. The owner selected this layout from
-the scholarship variations. The grid has two columns when its container is at
-least 42rem wide, otherwise one. A card uses the existing raised fill, 12px radius
-and edge; no decorative shadow or hover lift. Sponsor, title, short description,
-award/deadline and requirements are separate reading levels. Saving is a sibling
-button with a 40px target (44px on touch), never nested in the details button.
+canvas, without an enclosing panel or trough, and take the Explore school card's
+anatomy so the two catalogs read as one product: the sponsor logo in a raised chip
+with the fit pill and Save pill beside it, the name with an icon meta line (sponsor,
+essays, recommendations), a two-line summary, then two 26px figures split by a
+hairline, the award and the deadline. Sponsors have no colour data, so every card
+is washed in the Scholarships section's own colour, its nav icon's `#B4366E`
+(5.7:1 on white), which also inks the award as a school's colour inks its admit
+rate: the same 10% wash, 18px radius, 22% ring and 3px hover rise. The grid is the Explore grid (`minmax(340px, 1fr)`).
+A missing deadline still says "not available". Saving is a sibling pill (an ink
+pill once saved, like On list) with a 44px target on touch, never nested in the
+details button.
 Opening details uses the existing Sheet at every viewport; it does not reserve a
 permanent column or automatically select the first award. Card navigation moves
 focus; Enter/Space opens details. Keyboard focus and reduced-motion rules apply

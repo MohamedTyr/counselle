@@ -1,8 +1,10 @@
-import { Bookmark, Check, ChevronRight, FileText, Users } from "lucide-react";
+import { Bookmark, FileText, Landmark, Users } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
+import type { ReactNode } from "react";
 
 import type { ScholarshipView } from "@/api/scholarships/types";
+import { cn } from "@/lib/utils";
 import type { Fit } from "./eligibility";
-import { FitMark } from "./FitMark";
 import { SponsorLogo } from "./SponsorLogo";
 import {
   awardCadence,
@@ -14,61 +16,90 @@ import {
   relativeDays,
 } from "./scholarship-format";
 
-function CardDeadline({ scholarship }: { scholarship: ScholarshipView }) {
-  const { deadline } = scholarship;
-  const closed = deadlineTone(deadline) === "closed";
-  const rolling = deadline.kind === "rolling";
-  const label = rolling
-    ? "Rolling deadline"
-    : closed
-      ? "Deadline passed"
-      : "Apply by";
-  const date = rolling
-    ? "Any time"
-    : deadline.date
-      ? formatShortDate(deadline.date)
-      : "Not available";
-  const note = rolling
-    ? "Applications ongoing"
-    : !deadline.date
-      ? "Check with sponsor"
-      : closed
-        ? "Closed this cycle"
-        : isNotYetOpen(deadline) && deadline.opens_on
-          ? `Opens ${formatShortDate(deadline.opens_on)}`
-          : relativeDays(daysUntil(deadline.date));
+/*
+ * One scholarship, drawn on the Explore school card's anatomy so the two
+ * catalogs read as one product: logo chip and actions on top, the name and
+ * an icon meta line, then two figures split by a hairline. The figures are
+ * the two a student decides on first, how much and by when. A missing date
+ * still takes its slot and says "not available"; a blank would read as open.
+ */
+
+const ABSENT = "not available";
+
+function Figure({
+  value,
+  label,
+  valueClassName,
+  labelClassName,
+}: {
+  value: string | null;
+  label: string;
+  valueClassName?: string;
+  labelClassName?: string;
+}) {
   return (
-    <div
-      className="scholarship-card-deadline"
-      data-soon={deadlineTone(deadline) === "soon" || undefined}
-    >
-      <span>{label}</span>
-      <strong>{date}</strong>
-      <small>{note}</small>
+    <div className="min-w-0">
+      {value === null ? (
+        <span className="scholarship-card-absent">{ABSENT}</span>
+      ) : (
+        <span className={cn("scholarship-card-value", valueClassName)}>{value}</span>
+      )}
+      <span className={cn("scholarship-card-label", labelClassName)}>
+        {label}
+      </span>
     </div>
   );
 }
 
-function CardRequirements({ scholarship }: { scholarship: ScholarshipView }) {
-  const essays = scholarship.requirements.essays.length;
-  const recommendations = scholarship.requirements.recommendations;
+function deadlineFigure(deadline: ScholarshipView["deadline"]) {
+  if (deadline.kind === "rolling") {
+    return { value: "Rolling", label: "apply any time" };
+  }
+  if (!deadline.date) return { value: null, label: "deadline" };
+  const value = formatShortDate(deadline.date);
+  if (deadlineTone(deadline) === "closed") {
+    return { value, label: "closed this cycle" };
+  }
+  if (isNotYetOpen(deadline) && deadline.opens_on) {
+    return { value, label: `opens ${formatShortDate(deadline.opens_on)}` };
+  }
+  return { value, label: `due ${relativeDays(daysUntil(deadline.date))}` };
+}
+
+/** One fact on the meta line: an icon names the kind, so no separators. */
+function MetaItem({
+  icon: Icon,
+  children,
+  className,
+}: {
+  icon: LucideIcon;
+  children: ReactNode;
+  className?: string;
+}) {
   return (
-    <div className="scholarship-card-requirements">
-      <span>
-        {essays ? (
-          <FileText aria-hidden="true" />
-        ) : (
-          <Check aria-hidden="true" />
-        )}
-        {essays ? `${essays} ${essays === 1 ? "essay" : "essays"}` : "No essay"}
-      </span>
-      <span>
-        <Users aria-hidden="true" />
-        {recommendations
-          ? `${recommendations} ${recommendations === 1 ? "recommendation" : "recommendations"}`
-          : "No recommendations"}
-      </span>
-    </div>
+    <span className={cn("flex min-w-0 items-center gap-1", className)}>
+      <Icon aria-hidden="true" />
+      <span className="truncate">{children}</span>
+    </span>
+  );
+}
+
+function plural(count: number, one: string, many: string) {
+  return `${count} ${count === 1 ? one : many}`;
+}
+
+function FitPill({ fit }: { fit: Fit }) {
+  if (fit.kind === "check") return null;
+  const fits = fit.kind === "fits";
+  return (
+    <span
+      className="scholarship-card-pill"
+      data-fit={fits ? "met" : "unmet"}
+      title={fits ? "Fits your profile" : fit.reason}
+    >
+      <span aria-hidden="true" className="scholarship-card-pill-dot" />
+      {fits ? "Fits you" : "Not a fit"}
+    </span>
   );
 }
 
@@ -87,56 +118,86 @@ export function ScholarshipCard({
   onSelect: (opener: HTMLButtonElement) => void;
   onToggleSave: () => void;
 }) {
+  const { requirements } = scholarship;
+  const essays = requirements.essays.length;
+  const recommendations = requirements.recommendations;
+  const deadline = deadlineFigure(scholarship.deadline);
   return (
     <li
       className="scholarship-card"
       data-scholarship-id={scholarship.id}
       data-selected={isSelected || undefined}
     >
-      <div className="scholarship-card-sponsor">
-        <SponsorLogo scholarship={scholarship} size="lg" />
-        <span>{scholarship.sponsor}</span>
-      </div>
-      <h3 className="scholarship-card-title">
-        <button
-          type="button"
-          data-scholarship-open
-          aria-haspopup="dialog"
-          onClick={(event) => onSelect(event.currentTarget)}
-        >
-          {scholarship.name}
-          <ChevronRight aria-hidden="true" size={17} strokeWidth={1.5} />
-        </button>
-      </h3>
-      <button
-        type="button"
-        className="scholarship-card-save"
-        aria-label={`Save ${scholarship.name}`}
-        aria-pressed={isSaved}
-        onClick={onToggleSave}
-        title={isSaved ? "Remove from saved" : "Save scholarship"}
-      >
-        <Bookmark
-          aria-hidden="true"
-          size={17}
-          strokeWidth={1.5}
-          fill={isSaved ? "currentColor" : "none"}
-        />
-      </button>
-      {scholarship.summary ? (
-        <p className="scholarship-card-summary">{scholarship.summary}</p>
-      ) : null}
-      <div className="scholarship-card-figures">
-        <div className="scholarship-card-award">
-          <span>Scholarship award</span>
-          <strong>{awardHeadline(scholarship.award)}</strong>
-          <small>{awardCadence(scholarship.award)}</small>
+      <div className="flex items-center justify-between gap-3">
+        <span className="scholarship-card-logo">
+          <SponsorLogo
+            className="size-10 rounded-lg"
+            scholarship={scholarship}
+            size="lg"
+          />
+        </span>
+        <div className="flex items-center gap-1.5">
+          {fit ? <FitPill fit={fit} /> : null}
+          <button
+            type="button"
+            className="scholarship-card-save"
+            aria-label={`Save ${scholarship.name}`}
+            aria-pressed={isSaved}
+            onClick={onToggleSave}
+          >
+            <Bookmark
+              aria-hidden="true"
+              fill={isSaved ? "currentColor" : "none"}
+            />
+            {isSaved ? "Saved" : "Save"}
+          </button>
         </div>
-        <CardDeadline scholarship={scholarship} />
       </div>
-      <div className="scholarship-card-footer">
-        <CardRequirements scholarship={scholarship} />
-        {fit ? <FitMark fit={fit} /> : null}
+
+      <div className="min-w-0">
+        <h3 className="scholarship-card-title">
+          <button
+            type="button"
+            data-scholarship-open
+            aria-haspopup="dialog"
+            onClick={(event) => onSelect(event.currentTarget)}
+          >
+            {scholarship.name}
+          </button>
+        </h3>
+        <p className="scholarship-card-meta">
+          <MetaItem icon={Landmark}>{scholarship.sponsor}</MetaItem>
+          <MetaItem className="shrink-0" icon={FileText}>
+            {essays ? plural(essays, "essay", "essays") : "No essay"}
+          </MetaItem>
+          {recommendations ? (
+            <MetaItem className="shrink-0" icon={Users}>
+              {plural(recommendations, "rec", "recs")}
+            </MetaItem>
+          ) : null}
+        </p>
+        {scholarship.summary ? (
+          <p className="scholarship-card-summary">{scholarship.summary}</p>
+        ) : null}
+      </div>
+
+      <div className="scholarship-card-figures">
+        <Figure
+          label={awardCadence(scholarship.award)}
+          value={awardHeadline(scholarship.award)}
+          valueClassName="scholarship-card-award"
+        />
+        <div className="scholarship-card-figure-split">
+          <Figure
+            label={deadline.label}
+            labelClassName={
+              deadlineTone(scholarship.deadline) === "soon"
+                ? "scholarship-card-label-soon"
+                : undefined
+            }
+            value={deadline.value}
+          />
+        </div>
       </div>
     </li>
   );
