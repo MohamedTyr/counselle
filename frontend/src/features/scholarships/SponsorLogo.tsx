@@ -9,9 +9,9 @@ import { cn } from "@/lib/utils";
 /*
  * Try the admin-set logo, then cached and direct favicons for the sponsor
  * and application sites. Any successfully loaded size is usable; the
- * sponsor's icon mark (sponsor-mark.ts) remains only when every source fails. The cached favicon is
- * skipped for a site the service has none for, because its stand-in globe
- * loads like a real logo and would never fall through.
+ * sponsor's icon mark (sponsor-mark.ts) remains only when every source fails.
+ * The cached favicon is skipped for a site the service has none for, because
+ * its stand-in globe loads like a real logo and would never fall through.
  */
 
 const FAVICON_PX = 128;

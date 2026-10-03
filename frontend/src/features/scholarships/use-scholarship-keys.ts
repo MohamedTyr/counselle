@@ -25,9 +25,9 @@ export function useScholarshipKeys({
     ];
     const index = buttons.findIndex((button) => card.contains(button));
     let next: HTMLButtonElement | undefined;
-    if (["j", "arrowdown", "arrowright"].includes(key))
+    if (["j", "arrowright"].includes(key))
       next = buttons[Math.min(index + 1, buttons.length - 1)];
-    else if (["k", "arrowup", "arrowleft"].includes(key))
+    else if (["k", "arrowleft"].includes(key))
       next = buttons[Math.max(index - 1, 0)];
     else if (key === "home") next = buttons[0];
     else if (key === "end") next = buttons.at(-1);

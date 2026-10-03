@@ -178,10 +178,10 @@ export function ProfileMatchBar({
         const off = ignored.includes(kind);
         return (
           <button
-            aria-label={off ? `Match on ${chip.label} again` : `Stop matching on ${chip.label}`}
+            aria-label={`Match on ${chip.label}`}
             aria-pressed={!off}
             className={cn(
-              "group inline-flex h-7 cursor-pointer items-center gap-1 rounded-full border pr-1.5 pl-2.5 text-xs font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]",
+              "group relative inline-flex h-7 cursor-pointer items-center gap-1 rounded-full border pr-1.5 pl-2.5 text-xs font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] pointer-coarse:after:absolute pointer-coarse:after:-inset-2",
               off
                 ? "border-dashed border-[var(--edge-strong)] text-[var(--ink-muted)] line-through decoration-[var(--ink-faint)] hover:text-[var(--ink-secondary)]"
                 : "border-[var(--brand-subtle-border)] bg-[var(--brand-subtle)] text-[var(--brand-subtle-ink)] hover:border-[var(--accent-solid)]",
@@ -201,7 +201,7 @@ export function ProfileMatchBar({
       })}
       <Popover onOpenChange={setOpen} open={open}>
         <PopoverTrigger
-          className="inline-flex h-7 cursor-pointer items-center gap-1 rounded-full px-2 text-xs font-medium text-[var(--ink-secondary)] underline decoration-[var(--edge-strong)] underline-offset-2 outline-none hover:text-[var(--ink)] focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+          className="relative inline-flex h-7 cursor-pointer items-center gap-1 rounded-full px-0 text-xs pointer-coarse:after:absolute pointer-coarse:after:-inset-2 font-medium text-[var(--ink-secondary)] underline decoration-[var(--edge-strong)] underline-offset-2 outline-none hover:text-[var(--ink)] focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
         >
           {missing.length ? `Add your ${missing.slice(0, 2).join(" and ")}${missing.length > 2 ? "…" : ""}` : "Edit"}
         </PopoverTrigger>

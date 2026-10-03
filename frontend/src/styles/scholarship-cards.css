@@ -65,6 +65,7 @@
   --scholarship-card-ring: color-mix(in oklab, var(--scholarship-card-colour) 22%, transparent);
   position: relative;
   isolation: isolate;
+  container-type: inline-size;
   min-width: 0;
   height: 100%;
   display: flex;
@@ -213,6 +214,11 @@
   font-weight: 600;
   letter-spacing: -0.03em;
   font-variant-numeric: tabular-nums;
+}
+@container (max-width: 300px) {
+  .scholarship-card-value {
+    font-size: 22px;
+  }
 }
 .scholarship-card-award {
   color: var(--scholarship-card-award-ink);

@@ -47,7 +47,7 @@ function Figure({
         <span className={cn("scholarship-card-value", valueClassName)}>{value}</span>
       )}
       <span className={cn("scholarship-card-label", labelClassName)}>
-        {label}
+        {label || "\u00a0"}
       </span>
     </div>
   );
@@ -55,17 +55,21 @@ function Figure({
 
 function deadlineFigure(deadline: ScholarshipView["deadline"]) {
   if (deadline.kind === "rolling") {
-    return { value: "Rolling", label: "apply any time" };
+    return { value: "Rolling", label: "apply any time", soon: false };
   }
-  if (!deadline.date) return { value: null, label: "deadline" };
+  if (!deadline.date) return { value: null, label: "deadline", soon: false };
   const value = formatShortDate(deadline.date);
   if (deadlineTone(deadline) === "closed") {
-    return { value, label: "closed this cycle" };
+    return { value, label: "closed this cycle", soon: false };
   }
   if (isNotYetOpen(deadline) && deadline.opens_on) {
-    return { value, label: `opens ${formatShortDate(deadline.opens_on)}` };
+    return { value, label: `opens ${formatShortDate(deadline.opens_on)}`, soon: false };
   }
-  return { value, label: `due ${relativeDays(daysUntil(deadline.date))}` };
+  return {
+    value,
+    label: `due ${relativeDays(daysUntil(deadline.date))}`,
+    soon: deadlineTone(deadline) === "soon",
+  };
 }
 
 function FitPill({ fit }: { fit: Fit }) {
@@ -147,7 +151,7 @@ export function ScholarshipCard({
               aria-hidden="true"
               fill={isSaved ? "currentColor" : "none"}
             />
-            {isSaved ? "Saved" : "Save"}
+            Save
           </button>
         </div>
       </div>
@@ -163,7 +167,7 @@ export function ScholarshipCard({
             {scholarship.name}
           </button>
         </h3>
-        <p className="scholarship-card-sponsor">{scholarship.sponsor}</p>
+        <p className="scholarship-card-sponsor" title={scholarship.sponsor}>{scholarship.sponsor}</p>
       </div>
 
       <div className="scholarship-card-figures">
@@ -176,9 +180,7 @@ export function ScholarshipCard({
           <Figure
             label={deadline.label}
             labelClassName={
-              deadlineTone(scholarship.deadline) === "soon"
-                ? "scholarship-card-label-soon"
-                : undefined
+              deadline.soon ? "scholarship-card-label-soon" : undefined
             }
             value={deadline.value}
           />

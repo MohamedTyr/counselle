@@ -320,7 +320,7 @@ export function ScholarshipsRoute() {
           onChange={(q) => update({ ...filters, q })}
           value={filters.q}
         />
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between lg:gap-6">
+        <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between xl:gap-6">
           <ScholarshipFilterBar
             fieldOptions={fieldOptions(items)}
             filters={filters}

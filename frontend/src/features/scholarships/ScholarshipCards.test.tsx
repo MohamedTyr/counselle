@@ -11,7 +11,7 @@ import { axe } from "jest-axe";
 import { jsonResponse, renderApp } from "@/test/render-app";
 import { scholarshipFetch, scholarshipRecord } from "@/test/scholarship-fixtures";
 import { ScholarshipCard } from "./ScholarshipCard";
-import { deadlineGroup } from "./scholarship-format";
+import { awardCadence, deadlineGroup } from "./scholarship-format";
 
 const FIRST = scholarshipRecord({
   name: "Future Leaders Award",
@@ -139,6 +139,37 @@ it("reports missing and closed deadlines accurately", () => {
     </ul>,
   );
   expect(screen.getByText("closed this cycle")).toBeInTheDocument();
+});
+
+function isoInDays(days: number): string {
+  const date = new Date();
+  date.setDate(date.getDate() + days);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+it("does not use the due-soon style for a deadline that has not opened", () => {
+  const scholarship = {
+    ...FIRST,
+    deadline: { kind: "fixed" as const, date: isoInDays(10), opens_on: isoInDays(5), recurs_annually: false },
+  };
+  render(
+    <ul>
+      <ScholarshipCard
+        scholarship={scholarship}
+        isSaved={false}
+        onSelect={vi.fn()}
+        onToggleSave={vi.fn()}
+      />
+    </ul>,
+  );
+  expect(screen.getByText(/^opens /)).not.toHaveClass("scholarship-card-label-soon");
+});
+
+it("labels awards only with what is stored", () => {
+  const base = { amount: 5000, min: null, max: null, awards_count: null };
+  expect(awardCadence({ ...base, kind: "fixed", renewable: true, years: null })).toBe("renewable");
+  expect(awardCadence({ ...base, kind: "varies", renewable: false, years: null })).toBe("");
+  expect(awardCadence({ ...base, kind: "fixed", renewable: false, years: null })).toBe("one-time");
 });
 
 it("has no automated card accessibility violations", async () => {

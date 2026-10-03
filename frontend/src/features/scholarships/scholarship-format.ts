@@ -48,15 +48,15 @@ export function awardHeadline(award: Award): string {
   }
 }
 
-/** The line under the headline: "per year · 4 years", "one-time". */
+/** The line under the headline: "per year · 4 years", "one-time". Empty when the stored fields say nothing true. */
 export function awardCadence(award: Award): string {
   if (award.renewable && award.years) {
     return award.kind === "full_ride" || award.kind === "full_tuition"
       ? `${award.years} years`
       : `per year · ${award.years} years`;
   }
-  if (award.kind === "full_ride") return "cost of attendance";
-  if (award.kind === "full_tuition") return "tuition";
+  if (award.renewable) return "renewable";
+  if (award.kind === "full_ride" || award.kind === "full_tuition" || award.kind === "varies") return "";
   return "one-time";
 }
 

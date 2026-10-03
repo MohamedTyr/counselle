@@ -17,7 +17,7 @@ left out, and its card falls back to neutral grey.
 It also lists the hostnames the favicon service has no icon for. The service
 answers those with a 404 that still carries a generic globe image, which a
 browser loads as if it were the sponsor's logo; the card skips the service
-for them and tries the site's own favicon, then initials.
+for them and tries the site's own favicon, then the sponsor's icon mark.
 
 Run by hand when scholarships are added or their logos change:
 
@@ -71,7 +71,12 @@ def logo_keys(row: asyncpg.Record) -> list[str]:
     logo = row["logo_url"].strip()
     if logo:
         return [logo]
-    hosts = (urlparse(url).hostname for url in (row["source_url"], row["apply_url"]))
+    hosts: list[str | None] = []
+    for url in (row["source_url"], row["apply_url"]):
+        try:
+            hosts.append(urlparse(url).hostname)
+        except ValueError:
+            continue
     return [host for host in hosts if host]
 
 
