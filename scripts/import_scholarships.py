@@ -5,7 +5,9 @@
 
 The file is a JSON array of ``{"row", "outcome", "skip_reason", "notes", "record"}``
 entries (the research format in ``plans/scholarship-seed/``); entries with
-``outcome == "skip"`` are ignored. Each record is created through
+``outcome == "skip"`` are ignored. It may instead be an array of flat
+``counselle.scholarships`` rows, as an export of the table gives; their ids,
+statuses and timestamps are ignored. Each record is created through
 ``app.scholarships.service`` as the first superuser, so it passes the same
 validation and gets the same revision row as one entered in the admin editor.
 A record that passes every publish check is published; any other is left a
@@ -33,6 +35,7 @@ import asyncpg
 
 from app.scholarships import service
 from app.scholarships.models import ScholarshipCreateIn, ScholarshipUpdateIn, StatusChangeIn
+from app.scholarships.rows import draft_from_row
 from config.settings import get_settings
 from counselle_db.db import create_pool
 from domain.scholarships.publish import publish_problems
@@ -48,9 +51,11 @@ SELECT id FROM counselle.users WHERE is_superuser ORDER BY created_at NULLS LAST
 def load_drafts(path: Path) -> list[ScholarshipDraft]:
     entries = json.loads(path.read_text())
     return [
-        ScholarshipDraft.model_validate(entry["record"])
+        draft_from_row(entry)
+        if "outcome" not in entry
+        else ScholarshipDraft.model_validate(entry["record"])
         for entry in entries
-        if entry["outcome"] == "record"
+        if entry.get("outcome", "record") == "record"
     ]
 
 
