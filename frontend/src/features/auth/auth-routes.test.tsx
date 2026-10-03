@@ -242,7 +242,9 @@ describe("auth routes", () => {
     );
     await user.click(await screen.findByRole("menuitem", { name: /Log out/ }));
 
-    await waitFor(() => expect(window.location.pathname).toBe("/app/tasks/today"));
+    await waitFor(() =>
+      expect(window.location.pathname).toBe("/app/tasks/today"),
+    );
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "Could not log out. Please try again.",
     );
@@ -283,8 +285,6 @@ describe("auth routes", () => {
     await user.type(await screen.findByLabelText("Password"), "password123");
     await user.click(screen.getByRole("button", { name: "Log in" }));
 
-    await waitFor(() =>
-      expect(router.state.location.pathname).toBe("/app/ai"),
-    );
+    await waitFor(() => expect(router.state.location.pathname).toBe("/app/ai"));
   });
 });

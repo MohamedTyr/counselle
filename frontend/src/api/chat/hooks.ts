@@ -1,4 +1,5 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { usePrivateMutation } from "@/app/private-mutations";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { chatTransport, normalizeChatTitle } from "@/api/chat/transport";
 import type {
@@ -44,7 +45,7 @@ export function useChatSession(sessionId: string) {
 export function useRenameChatSession() {
   const queryClient = useQueryClient();
 
-  return useMutation({
+  return usePrivateMutation({
     mutationFn: ({ sessionId, title }: { sessionId: string; title: string }) =>
       chatTransport.renameSession(sessionId, title),
     onSuccess: (_data, { sessionId, title }) => {
@@ -76,7 +77,7 @@ export function useRenameChatSession() {
 export function useDeleteChatSession() {
   const queryClient = useQueryClient();
 
-  return useMutation({
+  return usePrivateMutation({
     mutationFn: (sessionId: string) => chatTransport.deleteSession(sessionId),
     onSuccess: (_data, sessionId) => {
       queryClient.setQueriesData<ChatSessionList>(
@@ -121,7 +122,7 @@ function updateSessionFeedback(
 export function useMessageFeedback() {
   const queryClient = useQueryClient();
 
-  return useMutation({
+  return usePrivateMutation({
     mutationFn: (input: SetMessageFeedbackInput) =>
       chatTransport.setMessageFeedback(input),
     onSuccess: (_data, input) => {

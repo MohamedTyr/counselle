@@ -21,6 +21,7 @@ that detection, not by this field.
 
 from __future__ import annotations
 
+from contextlib import aclosing
 from typing import Any, Literal
 from uuid import UUID
 
@@ -30,7 +31,8 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from sse_starlette import EventSourceResponse
 
-from api.auth import current_active_user
+from api.auth import current_active_user, current_verified_user
+from api.auth_sessions import stream_with_session
 from api.deps import EnvelopeError, owned_session, require_json
 from api.ratelimit import message_rate_limit
 from api.sse import SSE_HEADERS, encode_sse
@@ -283,11 +285,12 @@ def _sse_response(
     settings = request.app.state.settings
 
     async def _encoded() -> Any:
-        async for event, seq in stream:
-            yield encode_sse(event, seq)
+        async with aclosing(stream):
+            async for event, seq in stream:
+                yield encode_sse(event, seq)
 
     return EventSourceResponse(
-        _encoded(),
+        stream_with_session(request, _encoded()),
         ping=settings.sse_keepalive_s,
         headers=SSE_HEADERS,
     )
@@ -346,7 +349,7 @@ async def post_message(
     session_id: UUID,
     body: MessageBody,
     request: Request,
-    user: UserDB = Depends(current_active_user),
+    user: UserDB = Depends(current_verified_user),
     row: dict[str, Any] = Depends(owned_session),
 ) -> EventSourceResponse:
     """Start one counselor turn and stream it as SSE.
@@ -612,7 +615,7 @@ async def steer_session(
     session_id: UUID,
     body: SteerBody,
     request: Request,
-    _user: UserDB = Depends(current_active_user),
+    _user: UserDB = Depends(current_verified_user),
     _row: dict[str, Any] = Depends(owned_session),
 ) -> JSONResponse:
     """Queue a user steering message for the active assistant run.

@@ -1,4 +1,5 @@
-import { useMutation, useQuery, type QueryClient } from "@tanstack/react-query";
+import { usePrivateMutation } from "@/app/private-mutations";
+import { useQuery, type QueryClient } from "@tanstack/react-query";
 
 import {
   archiveEssay,
@@ -73,12 +74,13 @@ export function useEssay(essayId: string | null) {
 }
 
 export function useCreateEssay() {
-  return useMutation({
+  return usePrivateMutation({
     mutationFn: createEssay,
     onMutate: async (input, context): Promise<TempSnapshot<EssaySummary[]>> => {
       await context.client.cancelQueries({
         queryKey: workspaceKeys.essays.list(),
       });
+      context.assertCurrent();
       const previous = context.client.getQueryData<EssaySummary[]>(
         workspaceKeys.essays.list(),
       );
@@ -118,16 +120,18 @@ export function useCreateEssay() {
 }
 
 export function useUpdateEssay() {
-  return useMutation({
+  return usePrivateMutation({
     mutationFn: ({ id, patch }: { id: string; patch: EssayPatch }) =>
       updateEssay(id, patch),
     onMutate: async ({ id, patch }, context): Promise<EssayUpdateSnapshot> => {
       await context.client.cancelQueries({
         queryKey: workspaceKeys.essays.list(),
       });
+      context.assertCurrent();
       await context.client.cancelQueries({
         queryKey: workspaceKeys.essays.detail(id),
       });
+      context.assertCurrent();
       const previous = context.client.getQueryData<EssaySummary[]>(
         workspaceKeys.essays.list(),
       );
@@ -187,15 +191,17 @@ export function useUpdateEssay() {
 }
 
 export function useArchiveEssay() {
-  return useMutation({
+  return usePrivateMutation({
     mutationFn: archiveEssay,
     onMutate: async (id, context): Promise<EssayListSnapshot> => {
       await context.client.cancelQueries({
         queryKey: workspaceKeys.essays.list(),
       });
+      context.assertCurrent();
       await context.client.cancelQueries({
         queryKey: workspaceKeys.essays.detail(id),
       });
+      context.assertCurrent();
       const previous = context.client.getQueryData<EssaySummary[]>(
         workspaceKeys.essays.list(),
       );
@@ -249,7 +255,7 @@ export function useArchiveEssay() {
 }
 
 export function useRestoreEssay() {
-  return useMutation({
+  return usePrivateMutation({
     mutationFn: restoreEssay,
     onSuccess: (essay, _id, _snapshot, context) => {
       context.client.setQueryData<EssaySummary[]>(
@@ -273,7 +279,7 @@ export function useRestoreEssay() {
 }
 
 export function useDuplicateEssay() {
-  return useMutation({
+  return usePrivateMutation({
     mutationFn: duplicateEssay,
     onSuccess: (essay, _id, _snapshot, context) => {
       context.client.setQueryData<EssaySummary[]>(

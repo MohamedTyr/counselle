@@ -22,6 +22,8 @@ function workspaceErrorMessage(error: unknown) {
     return "The workspace update failed. Please try again.";
   }
   switch (error.kind) {
+    case "account_changed":
+      return error.message;
     case "unauthorized":
       return "Your session expired. Sign in again to keep editing.";
     case "conflict":
@@ -48,7 +50,12 @@ export function handleMutationError(
   if (isTransportError(error) && error.kind === "unauthorized") {
     void context.client.invalidateQueries({ queryKey: authQueryKey });
   }
-  toast.error(workspaceErrorMessage(error));
+  toast.error(
+    workspaceErrorMessage(error),
+    isTransportError(error) && error.kind === "account_changed"
+      ? { id: "account-changed" }
+      : undefined,
+  );
 }
 
 export function tempApplication(

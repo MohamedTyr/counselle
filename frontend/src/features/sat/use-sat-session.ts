@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 
+import { capturePrivateMutationOwnership } from "@/app/private-mutations";
 import { getQuestion, getSession, getSessionByQuestion, putBookmark, deleteBookmark, submitAttempt } from "@/api/sat/client";
 import { isTransportError } from "@/api/http/errors";
 import { toastSatError } from "@/api/sat/errors";
@@ -90,6 +91,7 @@ function sourceKeyOf(source: SatSessionSource): string {
 
 export function useSatSession(source: SatSessionSource): UseSatSessionApi {
   const queryClient = useQueryClient();
+  const [ownership] = useState(() => capturePrivateMutationOwnership(queryClient));
   const [session, setSession] = useState<SatSessionState>(() =>
     createInitialSatSessionState([]),
   );
@@ -118,11 +120,11 @@ export function useSatSession(source: SatSessionSource): UseSatSessionApi {
           source.kind === "filter"
             ? await getSession(source.filter, signal)
             : await getSessionByQuestion(source.questionId, signal);
-        if (cancelled) return;
+        if (cancelled || !ownership.isCurrent()) return;
         setSession(createInitialSatSessionState(rows));
         setStatus("ready");
       } catch (error) {
-        if (cancelled) return;
+        if (cancelled || !ownership.isCurrent()) return;
         // Our own cleanup abort (StrictMode's first dev mount always
         // aborts) is not an error — only a genuine failure or the
         // timeout's own abort sets the error state.
@@ -176,24 +178,24 @@ export function useSatSession(source: SatSessionSource): UseSatSessionApi {
 
   const answer = useCallback(
     (value: string) => {
-      if (!current) return;
+      if (!current || !ownership.isCurrent()) return;
       if (selectReveal(session, current.id)) return; // locked after submit (Q18)
       dispatch({ type: "answer_changed", questionId: current.id, answer: value });
     },
-    [current, dispatch, session],
+    [current, dispatch, session, ownership],
   );
 
   const toggleEliminate = useCallback(
     (label: string) => {
-      if (!current) return;
+      if (!current || !ownership.isCurrent()) return;
       dispatch({ type: "eliminate_toggled", questionId: current.id, label });
     },
-    [current, dispatch],
+    [current, dispatch, ownership],
   );
 
   const submit = useCallback(
     async (elapsedSeconds: number) => {
-      if (!current) return;
+      if (!current || !ownership.isCurrent()) return;
       if (selectIsInFlight(session, current.id)) return; // per-question guard (plan §5.3)
       const answerValue = selectAnswer(session, current.id);
       if (answerValue === undefined || answerValue === "") return;
@@ -216,6 +218,7 @@ export function useSatSession(source: SatSessionSource): UseSatSessionApi {
           time_spent_seconds: Math.max(1, Math.round(elapsedSeconds)),
           local_date: toLocalDateKey(new Date()),
         });
+        if (!ownership.isCurrent()) return;
         dispatch({ type: "submit_succeeded", questionId, result });
         // The submit response already carries the attempts list including this
         // one, so the verdict shows its time without waiting for a refetch.
@@ -223,15 +226,16 @@ export function useSatSession(source: SatSessionSource): UseSatSessionApi {
         void queryClient.invalidateQueries({ queryKey: [...satKeys.all, "counts"] });
         void queryClient.invalidateQueries({ queryKey: [...satKeys.all, "stats"] });
       } catch (error) {
+        if (!ownership.isCurrent()) return;
         dispatch({ type: "submit_failed", questionId });
         toastSatError(error, { client: queryClient });
       }
     },
-    [current, dispatch, queryClient, session],
+    [current, dispatch, queryClient, session, ownership],
   );
 
   const toggleBookmark = useCallback(async () => {
-    if (!current) return;
+    if (!current || !ownership.isCurrent()) return;
     const questionId = current.id;
     const next = !current.bookmarked;
     dispatch({ type: "bookmark_patched", questionId, bookmarked: next });
@@ -241,12 +245,14 @@ export function useSatSession(source: SatSessionSource): UseSatSessionApi {
       } else {
         await deleteBookmark(questionId);
       }
+      if (!ownership.isCurrent()) return;
       void queryClient.invalidateQueries({ queryKey: [...satKeys.all, "counts"] });
     } catch (error) {
+      if (!ownership.isCurrent()) return;
       dispatch({ type: "bookmark_patched", questionId, bookmarked: !next }); // rollback (plan §5.3)
       toastSatError(error, { client: queryClient });
     }
-  }, [current, dispatch, queryClient]);
+  }, [current, dispatch, queryClient, ownership]);
 
   const getAnswer = useCallback((id: string) => selectAnswer(session, id), [session]);
   const getEliminations = useCallback(

@@ -17,7 +17,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, File, Form, Request, Response, UploadFile
 from pydantic import ValidationError
 
-from api.auth import current_active_user
+from api.auth import current_active_user, current_verified_user
 from api.auth_security import auth_origin_protect
 from api.deps import EnvelopeError, content_disposition
 from api.ratelimit import workspace_write_rate_limit
@@ -57,7 +57,7 @@ async def create_document_route(
     file: UploadFile = File(...),
     title: str = Form(...),
     doc_type: DocumentType = Form(_DEFAULT_DOC_TYPE),
-    user: UserDB = Depends(current_active_user),
+    user: UserDB = Depends(current_verified_user),
 ) -> object:
     app_pool, _, event_bus = runtime_parts(request)
     content = await file.read(DOCUMENT_MAX_BYTES + 1)

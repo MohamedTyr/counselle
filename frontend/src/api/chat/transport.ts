@@ -1,3 +1,4 @@
+import { accountBoundFetch } from "@/api/http/account-binding";
 import { BASE } from "@/api/http/constants";
 import { errorFromResponse, TransportError } from "@/api/http/errors";
 import { jsonRequestInit, requestJson } from "@/api/http/client";
@@ -110,7 +111,7 @@ function withBase(path: string) {
 
 async function streamFetch(path: string, init: RequestInit = {}) {
   try {
-    return await fetch(withBase(path), {
+    return await accountBoundFetch(withBase(path), {
       ...init,
       credentials: "same-origin",
     });

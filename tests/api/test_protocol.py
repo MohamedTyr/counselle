@@ -44,7 +44,7 @@ from tests.api.conftest import (
     delete_session,
 )
 
-pytestmark = pytest.mark.live_db
+pytestmark = [pytest.mark.live_db, pytest.mark.usefixtures("protocol_stream_auth")]
 
 # ---------------------------------------------------------------------------
 # SSE wire parser (the naive parser the spec requires)

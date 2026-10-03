@@ -5,9 +5,16 @@ import {
   type QueryClient,
   type UseQueryResult,
 } from "@tanstack/react-query";
-import { useLayoutEffect, useRef, type PropsWithChildren } from "react";
+import {
+  useLayoutEffect,
+  useRef,
+  useState,
+  type PropsWithChildren,
+} from "react";
 
 import {
+  authErrorMessage,
+  isAuthError,
   fetchMe,
   login,
   logout,
@@ -21,29 +28,53 @@ import {
   type OnboardingCommand,
   type OnboardingProgress,
 } from "@/api/http/onboarding";
-import { workspaceKeys } from "@/api/workspace/keys";
+
+import { toast } from "sonner";
+import { bindHttpAccount } from "@/api/http/account-binding";
+import { ACCOUNT_CHANGED_MESSAGE } from "@/api/http/errors";
+import {
+  advancePrivateMutationGeneration,
+  usePrivateMutation,
+} from "@/app/private-mutations";
 
 export const authQueryKey = ["me"] as const;
 export const onboardingQueryKey = ["onboarding"] as const;
 
-/**
- * Saved Profile, workspace, and onboarding data belongs to one authenticated
- * owner. Abort all active private reads before removing their cache entries
- * so an old response cannot repopulate a later session. Explore is not in
- * this set: it is the school catalog, identical for every reader.
+/** Catalog facts and public config are identical for every account. All other
+ * query domains are private by default, including future features and admin data.
+ * Cancel the identity read too: a late /me response must not undo sign-out.
  */
 export async function discardPrivateQueryData(
   queryClient: QueryClient,
+  cancelIdentity = true,
 ): Promise<void> {
-  const privateQueryRoots = [workspaceKeys.all, onboardingQueryKey] as const;
-  await Promise.all(
-    privateQueryRoots.map((queryKey) =>
-      queryClient.cancelQueries({ queryKey }),
-    ),
-  );
-  privateQueryRoots.forEach((queryKey) => {
-    queryClient.removeQueries({ queryKey });
+  advancePrivateMutationGeneration(queryClient);
+  const isShared = (key: readonly unknown[]) =>
+    key[0] === "school-facts" ||
+    (key[0] === "schools" && ["explore", "majors"].includes(String(key[1]))) ||
+    (key[0] === "config" && key[1] === "public");
+  const cancelled = queryClient.cancelQueries({
+    predicate: (query) =>
+      !isShared(query.queryKey) &&
+      (cancelIdentity || query.queryKey[0] !== "me"),
   });
+  // Removal is synchronous so an owner notification cannot render stale caches.
+  queryClient.removeQueries({
+    predicate: (query) =>
+      query.queryKey[0] !== "me" && !isShared(query.queryKey),
+  });
+  await cancelled;
+}
+
+/** Keep this notice outside the account subtree, which remounts on a new owner. */
+export function handleAccountChanged(
+  error: unknown,
+  queryClient: QueryClient,
+): boolean {
+  if (!isAuthError(error) || error.code !== "ACCOUNT_CHANGED") return false;
+  toast.error(authErrorMessage(error), { id: "account-changed" });
+  void queryClient.invalidateQueries({ queryKey: authQueryKey });
+  return true;
 }
 
 export class AccountCreatedLoginError extends Error {
@@ -75,32 +106,50 @@ export function useAuthUser(): MeData | null {
   return useMe().data ?? null;
 }
 
-/**
- * Clears private data before the browser paints an auth-owner transition,
- * preventing unscoped workspace keys from flashing A's data in B's session.
+/** Clear caches during the identity notification, before descendants read the
+ * next owner's data. Protected routes separately remount their local state.
  */
 export function AuthSessionCacheBoundary({ children }: PropsWithChildren) {
   const queryClient = useQueryClient();
-  const me = useMe();
-  const ownerId = me.isSuccess ? (me.data?.id ?? null) : undefined;
-  const previousOwnerId = useRef<string | null | undefined>(undefined);
+  useMe();
+  const [boundClient, setBoundClient] = useState<QueryClient | null>(null);
+  const previousOwnerId = useRef(
+    queryClient.getQueryData<MeData | null>(authQueryKey)?.id ??
+      (queryClient.getQueryData(authQueryKey) === null ? null : undefined),
+  );
 
   useLayoutEffect(() => {
-    if (ownerId === undefined) {
-      return undefined;
-    }
+    const release = bindHttpAccount(
+      () => queryClient.getQueryData<MeData | null>(authQueryKey)?.id,
+      () => {
+        toast.error(ACCOUNT_CHANGED_MESSAGE, { id: "account-changed" });
+        void queryClient.invalidateQueries({ queryKey: authQueryKey });
+      },
+    );
+    const unsubscribe = queryClient.getQueryCache().subscribe((event) => {
+      if (
+        event.type !== "updated" ||
+        event.query.queryKey[0] !== "me" ||
+        event.query.state.status !== "success"
+      )
+        return;
+      const ownerId = (event.query.state.data as MeData | null)?.id ?? null;
+      const previous = previousOwnerId.current;
+      previousOwnerId.current = ownerId;
+      if (previous !== undefined && previous !== ownerId) {
+        void discardPrivateQueryData(queryClient, false);
+      }
+    });
+    // Private children mount only after their transport owner is registered.
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- One mount gate ensures child requests cannot precede the external transport binding.
+    setBoundClient(queryClient);
+    return () => {
+      unsubscribe();
+      release();
+    };
+  }, [queryClient]);
 
-    const previous = previousOwnerId.current;
-    previousOwnerId.current = ownerId;
-    if (previous === undefined || previous === ownerId) {
-      return undefined;
-    }
-
-    void discardPrivateQueryData(queryClient);
-    return undefined;
-  }, [ownerId, queryClient]);
-
-  return children;
+  return boundClient === queryClient ? children : null;
 }
 
 export function useLogin() {
@@ -134,12 +183,13 @@ export function useRegisterAndLogin() {
 
 export function useLogout() {
   const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: logout,
-    onMutate: () => ({
-      ownerId:
-        queryClient.getQueryData<MeData | null>(authQueryKey)?.id ?? null,
-    }),
+  const displayedOwner = useAuthUser()?.id ?? null;
+  const mutation = useMutation({
+    mutationFn: (ownerId: string | null) => logout(ownerId ?? undefined),
+    onMutate: (ownerId: string | null) => ({ ownerId }),
+    onError: (error) => {
+      handleAccountChanged(error, queryClient);
+    },
     onSuccess: async (_data, _variables, context) => {
       const currentOwnerId =
         queryClient.getQueryData<MeData | null>(authQueryKey)?.id ?? null;
@@ -148,9 +198,24 @@ export function useLogout() {
         return;
       }
       await discardPrivateQueryData(queryClient);
+      const ownerAfterDiscard = queryClient.getQueryData<MeData | null>(
+        authQueryKey,
+      )?.id;
+      if (ownerAfterDiscard && ownerAfterDiscard !== context.ownerId) return;
       queryClient.setQueryData(authQueryKey, null);
     },
   });
+  return {
+    ...mutation,
+    mutate: (
+      _variables?: void,
+      options?: Parameters<typeof mutation.mutate>[1],
+    ) => mutation.mutate(displayedOwner, options),
+    mutateAsync: (
+      _variables?: void,
+      options?: Parameters<typeof mutation.mutateAsync>[1],
+    ) => mutation.mutateAsync(displayedOwner, options),
+  };
 }
 
 /** Updates the onboarding-specific cache and the nested `settings.onboarding`
@@ -158,7 +223,7 @@ export function useLogout() {
  * optimistic update: the server owns `current_step`/timestamps. */
 export function useUpdateOnboardingProgress() {
   const queryClient = useQueryClient();
-  return useMutation({
+  return usePrivateMutation({
     mutationFn: (command: OnboardingCommand) => patchOnboarding(command),
     onSuccess: (progress: OnboardingProgress) => {
       queryClient.setQueryData(onboardingQueryKey, progress);

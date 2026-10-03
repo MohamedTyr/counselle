@@ -36,18 +36,21 @@ from app.workspace.models import (
     WorkspaceNotFoundError,
     WorkspaceValidationError,
 )
+from config.settings import get_settings
 from tests.api.conftest import TEST_USER_ID, _test_user
+
+pytestmark = pytest.mark.usefixtures("protocol_stream_auth")
 
 _UNKNOWN_UUID = "00000000-0000-4000-8000-000000000001"
 
 
 def _app(*, authed: bool = True, workspace_writes_per_minute: int = 240) -> FastAPI:
     app = FastAPI()
-    settings = SimpleNamespace(
-        cors_origins=["*"],
-        sse_keepalive_s=15,
-        workspace_writes_per_minute=workspace_writes_per_minute,
-    )
+    settings = get_settings().model_copy(update={
+        "cors_origins": ["*"],
+        "sse_keepalive_s": 15,
+        "workspace_writes_per_minute": workspace_writes_per_minute,
+    })
     install_middleware(app, settings)
     app.include_router(applications.router, prefix="/v1")
     app.include_router(tasks.router, prefix="/v1")

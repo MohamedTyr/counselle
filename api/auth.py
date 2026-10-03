@@ -1,22 +1,4 @@
-"""fastapi-users wiring: the user manager, the cookie-JWT backend, routers (B3).
-
-ADR 0021. The auth-critical pieces:
-
-- :class:`UserManager` — ``name`` on register, console-email forgot/verify, and
-  two overrides the spike pinned: ``authenticate`` (the null-hash guard, so an
-  OAuth-only user attempting password login fails cleanly with timing parity)
-  and ``oauth_callback`` (force ``hashed_password = NULL`` for a freshly created
-  OAuth user, since stock fastapi-users generates a random hash — we keep
-  ``has_password`` honest).
-- the cookie-JWT backend (``httpOnly``, ``Secure`` Settings-gated, ``SameSite=Lax``,
-  TTL locked to 30 days, no refresh; logout = cookie deletion).
-- routers mounted under ``/v1/auth`` by ``api/main.py``.
-
-``/v1/auth`` (the fastapi-users users router) vs ``/v1/me`` (``api/routes/me.py``)
-split: the users router serves credential changes (email/password — story 49);
-``/v1/me`` serves the profile/settings read+write and account deletion. They are
-deliberately separate surfaces.
-"""
+"""FastAPI Users manager, revocable cookie sessions, and auth dependencies."""
 
 from __future__ import annotations
 
@@ -24,20 +6,22 @@ import uuid
 from collections.abc import AsyncGenerator
 from typing import Any
 
+import jwt
 import structlog
-from fastapi import Depends, Request
-from fastapi_users import BaseUserManager, FastAPIUsers, schemas
+from fastapi import Depends, HTTPException, Request
+from fastapi_users import BaseUserManager, FastAPIUsers, exceptions, schemas
 from fastapi_users.authentication import (
     AuthenticationBackend,
     CookieTransport,
-    JWTStrategy,
 )
-from fastapi_users.authentication.transport.cookie import CookieTransport as _CookieTransport
 from fastapi_users.exceptions import InvalidPasswordException, UserNotExists
-from httpx_oauth.clients.google import GoogleOAuth2
-from starlette.responses import RedirectResponse, Response
+from fastapi_users.jwt import decode_jwt, generate_jwt
 
 from adapters.email import build_email_sender
+from api.auth_expected_user import require_expected_user
+from api.auth_lifecycle import reset_password as atomic_reset_password
+from api.auth_lifecycle import send_account_email
+from api.auth_sessions import get_session_strategy
 from api.users_db import AsyncpgUserDatabase, UserDB
 from config.settings import Settings, get_settings
 
@@ -57,10 +41,6 @@ class UserCreate(schemas.BaseUserCreate):
     name: str | None = None
 
 
-class UserUpdate(schemas.BaseUserUpdate):
-    name: str | None = None
-
-
 # ---------------------------------------------------------------------------
 # User manager
 # ---------------------------------------------------------------------------
@@ -71,6 +51,8 @@ class UserUpdate(schemas.BaseUserUpdate):
 # (spike-verified); the variance objection is suppressed at each generic use.
 class UserManager(BaseUserManager[UserDB, uuid.UUID]):  # type: ignore[type-var]
     """The fastapi-users manager over the asyncpg adapter."""
+
+    user_db: AsyncpgUserDatabase
 
     def __init__(self, user_db: AsyncpgUserDatabase, settings: Settings) -> None:
         super().__init__(user_db)
@@ -92,25 +74,99 @@ class UserManager(BaseUserManager[UserDB, uuid.UUID]):  # type: ignore[type-var]
     async def validate_password(self, password: str, user: Any) -> None:
         min_len = self._settings.password_min_length
         if len(password) < min_len:
-            raise InvalidPasswordException(
-                f"Password must be at least {min_len} characters."
-            )
+            raise InvalidPasswordException(f"Password must be at least {min_len} characters.")
 
     async def on_after_register(self, user: UserDB, request: Request | None = None) -> None:
         logger.info("user_registered", user_id=str(user.id))
+        if not user.is_verified:
+            await self.request_verify(user, request)
 
     async def on_after_forgot_password(
         self, user: UserDB, token: str, request: Request | None = None
     ) -> None:
-        await self._email.send(
-            to=user.email, subject="Reset your Counselle password", token=token
+        await send_account_email(
+            self,
+            to=user.email,
+            subject="Reset your Acceptra password",
+            purpose="reset_password",
+            path="/reset-password",
+            token=token,
         )
 
     async def on_after_request_verify(
         self, user: UserDB, token: str, request: Request | None = None
     ) -> None:
-        await self._email.send(
-            to=user.email, subject="Verify your Counselle email", token=token
+        await send_account_email(
+            self,
+            to=user.email,
+            subject="Verify your Acceptra email",
+            purpose="verify_email",
+            path="/verify-email",
+            token=token,
+        )
+
+    async def forgot_password(self, user: UserDB, request: Request | None = None) -> None:
+        if not user.is_active:
+            raise exceptions.UserInactive()
+        if user.hashed_password is None:
+            await send_account_email(
+                self,
+                to=user.email,
+                subject="Sign in to Acceptra",
+                purpose="google_signin_help",
+                path="/login",
+            )
+            return
+        token = generate_jwt(
+            {
+                "sub": str(user.id),
+                "email": user.email,
+                "password_fgpt": self.password_helper.hash(user.hashed_password),
+                "credential_revision": user.credential_revision,
+                "aud": self.reset_password_token_audience,
+            },
+            self.reset_password_token_secret,
+            self.reset_password_token_lifetime_seconds,
+        )
+        await self.on_after_forgot_password(user, token, request)
+
+    async def verify(self, token: str, request: Request | None = None) -> UserDB:
+        try:
+            data = decode_jwt(
+                token, self.verification_token_secret, [self.verification_token_audience]
+            )
+            user = await self.get(self.parse_id(data["sub"]))
+            if user.email != data["email"] or not user.is_active:
+                raise exceptions.InvalidVerifyToken()
+        except (
+            jwt.PyJWTError,
+            KeyError,
+            TypeError,
+            exceptions.InvalidID,
+            exceptions.UserNotExists,
+        ) as exc:
+            raise exceptions.InvalidVerifyToken() from exc
+        if user.is_verified:
+            raise exceptions.UserAlreadyVerified()
+        verified = await self.user_db.verify_email(user)
+        if verified is None:
+            raise exceptions.InvalidVerifyToken()
+        await self.on_after_verify(verified, request)
+        return verified
+
+    async def reset_password(
+        self, token: str, password: str, request: Request | None = None
+    ) -> UserDB:
+        user = await atomic_reset_password(self, token, password)
+        await self.on_after_reset_password(user, request)
+        return user
+
+    async def on_after_reset_password(self, user: UserDB, request: Request | None = None) -> None:
+        await send_account_email(
+            self,
+            to=user.email,
+            subject="Your Acceptra password changed",
+            purpose="password_changed",
         )
 
     async def authenticate(self, credentials: Any) -> UserDB | None:
@@ -136,7 +192,7 @@ class UserManager(BaseUserManager[UserDB, uuid.UUID]):  # type: ignore[type-var]
         if not verified:
             return None
         if updated_hash is not None:
-            await self.user_db.update(user, {"hashed_password": updated_hash})
+            return await self.user_db.upgrade_password_hash(user, updated_hash)
         return user
 
     async def oauth_callback(self, *args: Any, **kwargs: Any) -> UserDB:
@@ -155,7 +211,7 @@ class UserManager(BaseUserManager[UserDB, uuid.UUID]):  # type: ignore[type-var]
         user = await super().oauth_callback(*args, **kwargs)
         if not pre_existing and user.hashed_password is not None:
             try:
-                await self.user_db.update(user, {"hashed_password": None})  # nosec B105
+                user = await self.user_db.update(user, {"hashed_password": None})  # nosec B105
             except Exception:
                 # Compensate: the row was just created with a random hash; if we
                 # can't null it, delete it so the OAuth flow fails clean instead
@@ -164,12 +220,9 @@ class UserManager(BaseUserManager[UserDB, uuid.UUID]):  # type: ignore[type-var]
                 logger.exception("oauth null-hash update failed — removing the just-created user")
                 await self.user_db.delete(user)
                 raise
-            user.hashed_password = None
         return user
 
-    async def _user_exists(
-        self, oauth_name: str, account_id: str, account_email: str
-    ) -> bool:
+    async def _user_exists(self, oauth_name: str, account_id: str, account_email: str) -> bool:
         """True if a user already exists for this OAuth account or its email."""
         try:
             await self.get_by_oauth_account(oauth_name, account_id)
@@ -194,9 +247,10 @@ def get_user_db(request: Request) -> AsyncpgUserDatabase:
 
 
 async def get_user_manager(
+    request: Request,
     user_db: AsyncpgUserDatabase = Depends(get_user_db),
 ) -> AsyncGenerator[UserManager, None]:
-    yield UserManager(user_db, get_settings())
+    yield UserManager(user_db, request.app.state.settings)
 
 
 def _build_backend(
@@ -210,71 +264,38 @@ def _build_backend(
         cookie_samesite="lax",
     )
 
-    def get_strategy() -> JWTStrategy[UserDB, uuid.UUID]:  # type: ignore[type-var]
-        return JWTStrategy(
-            secret=settings.jwt_secret, lifetime_seconds=settings.jwt_lifetime_seconds
-        )
-
-    return AuthenticationBackend(  # type: ignore[type-var]
-        name="cookie", transport=transport, get_strategy=get_strategy
-    )
-
-
-class _OAuthRedirectCookieTransport(_CookieTransport):
-    """Cookie transport whose login response 302-redirects to the SPA (spike 3).
-
-    Used only by the OAuth backend: the Google callback sets the auth cookie AND
-    sends the browser back to the app root, instead of returning a bare 204.
-    """
-
-    def __init__(self, redirect_url: str, **kwargs: Any) -> None:
-        super().__init__(**kwargs)
-        self._redirect_url = redirect_url
-
-    async def get_login_response(self, token: str) -> Response:
-        response = RedirectResponse(self._redirect_url, status_code=302)
-        return self._set_login_cookie(response, token)
-
-
-def _build_oauth_backend(
-    settings: Settings,
-) -> AuthenticationBackend[UserDB, uuid.UUID]:  # type: ignore[type-var]
-    transport = _OAuthRedirectCookieTransport(
-        redirect_url=settings.oauth_redirect_url,
-        cookie_name=settings.cookie_name,
-        cookie_max_age=settings.jwt_lifetime_seconds,
-        cookie_httponly=True,
-        cookie_secure=settings.cookie_secure,
-        cookie_samesite="lax",
-    )
-
-    def get_strategy() -> JWTStrategy[UserDB, uuid.UUID]:  # type: ignore[type-var]
-        return JWTStrategy(
-            secret=settings.jwt_secret, lifetime_seconds=settings.jwt_lifetime_seconds
-        )
-
-    return AuthenticationBackend(  # type: ignore[type-var]
-        name="oauth-cookie", transport=transport, get_strategy=get_strategy
+    return AuthenticationBackend(
+        name="cookie", transport=transport, get_strategy=get_session_strategy
     )
 
 
 _settings = get_settings()
 auth_backend = _build_backend(_settings)
-oauth_backend = _build_oauth_backend(_settings)
 
 fastapi_users = FastAPIUsers[UserDB, uuid.UUID](  # type: ignore[type-var]
     get_user_manager, [auth_backend]
 )
 
-current_active_user = fastapi_users.current_user(active=True)
-current_superuser = fastapi_users.current_user(active=True, superuser=True)
+_authenticated_active_user = fastapi_users.current_user(active=True)
+_authenticated_superuser = fastapi_users.current_user(active=True, superuser=True)
 
 
-def google_oauth_client() -> GoogleOAuth2 | None:
-    """The Google OAuth client when both credentials are configured, else None."""
-    if not _settings.google_oauth_configured:
-        return None
-    return GoogleOAuth2(
-        _settings.google_oauth_client_id,  # type: ignore[arg-type]  # guarded by google_oauth_configured
-        _settings.google_oauth_client_secret,  # type: ignore[arg-type]
-    )
+async def current_active_user(
+    request: Request, user: UserDB = Depends(_authenticated_active_user)
+) -> UserDB:
+    require_expected_user(request, user)
+    return user
+
+
+async def current_superuser(
+    request: Request, user: UserDB = Depends(_authenticated_superuser)
+) -> UserDB:
+    require_expected_user(request, user)
+    return user
+
+
+async def current_verified_user(user: UserDB = Depends(current_active_user)) -> UserDB:
+    """AI calls require a verified mailbox, including resumed/retried turns."""
+    if not user.is_verified:
+        raise HTTPException(status_code=403, detail="EMAIL_NOT_VERIFIED")
+    return user

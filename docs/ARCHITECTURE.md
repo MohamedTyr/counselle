@@ -241,7 +241,7 @@ counselle/
 
 **Versioning:** `v` on every event, `/v1` on every route, and a version field inside the render/clarify specs. Additive changes don't bump; breaking changes do. Clients ignore unknown event types (forward compatibility).
 
-**Auth posture:** The request context carries an **optional principal** so identity integrates without route or orchestration changes. Cookie-JWT auth (fastapi-users) + Google OAuth is implemented (§28): every `/v1/sessions` and `/v1/me` route requires a logged-in user (foreign sessions 404), with per-IP auth rate limiting. `/v1/health` stays open.
+**Auth posture:** The request context carries an **optional principal** so identity integrates without route or orchestration changes. Opaque cookie sessions (fastapi-users) + Google OAuth are implemented (§28): every `/v1/sessions` and `/v1/me` route requires a logged-in user (foreign sessions 404), with per-IP auth rate limiting. `/v1/health` stays open.
 
 ---
 
@@ -848,18 +848,78 @@ Five design questions resolved here as architecture (ADR 0022 carries the decisi
 
 ## 28. Identity & auth
 
-(ADR 0021.) ADR 0016's "optional principal" and ADR 0019's "nullable `user_id`" become concrete here. Scope is exactly the PRD's decision 6: email + password, Google OAuth, password reset — no email-verification ceremony, no 2FA, no profile wizard.
+[ADR 0045](adr/0045-auth-launch-lifecycle.md) supersedes ADR 0021's JWT-session,
+automatic Google-linking and no-verification decisions. The auth-launch changes
+are implemented and approved for merge. Real Google login and delivered verification/reset
+flows were exercised locally; full journey and production acceptance remain pending.
 
-- **Library: `fastapi-users`** (+ `httpx-oauth` for Google). Battle-tested registration/login/logout/forgot-password/reset-password routers, password hashing, and OAuth association — never hand-roll auth (house principle 2). Mounted under `/v1/auth/*`.
-- **Token transport: JWT in an httpOnly, `Secure`, `SameSite=Lax` cookie.** The deciding constraint is SSE: `EventSource` cannot set an `Authorization` header, but cookies ride along free on same-origin requests — and the SPA *is* same-origin (§33). One transport for REST and streams, zero token-juggling in the client.
-- **CSRF posture:** `SameSite=Lax` + the API is JSON-only (no form-encoded state changes, content-type enforced). That combination is the standard mitigation; no CSRF-token machinery. Revisit only if the app is ever embedded cross-origin.
-- **Google OAuth:** fastapi-users' OAuth router with `GoogleOAuth2`; accounts link by email (a Google sign-in with an existing email attaches to that user). Signup collects name + email only (PRD story 4).
-- **Reset emails:** a thin `adapters/email.py` seam. The **`console`** provider is implemented — it prints the reset link to the logs (`email_provider` is `Literal["console"]` in Settings today). `smtp`/`resend` arms are stubbed for a later phase.
-- **Schema delta** (own migration chain, `counselle.*` only — ADR 0019): `counselle.users` (fastapi-users base columns: `id uuid`, `email` unique, `hashed_password` nullable for OAuth-only accounts, `is_active`; plus `name`, `created_at`, `settings jsonb` for theme + default source-config preset) and `counselle.oauth_accounts`. `sessions.user_id` gets its FK and a NOT NULL constraint *for new rows* (enforced in code; old dev rows are deleted, not migrated — they're disposable).
-- **The principal:** the auth dependency populates the existing request-context principal (`api/context.py` already parses-but-ignores it — the seam is sitting there) — exactly as Part I, §6 promised, **no route-shape or orchestration changes**.
-- **Ownership is one dependency, not per-route code:** a single FastAPI dependency — `owned_session(session_id, principal)` — resolves principal → session row → ownership and raises uniformly; a foreign or unknown session returns **404, not 403** (don't leak existence). Every `/v1/sessions/*` route takes it as a parameter, so the authz rule has one home and one test suite — a route can't half-forget it, and a route-inventory test (§34) catches forgetting it entirely.
-- **Data controls (PRD story 49):** `DELETE /v1/me/chats` (all sessions + checkpoints) and `DELETE /v1/me` (account + cascade). Confirm-gated in the client.
-- **Settings storage:** the thin user settings (theme, default source-config preset) live in `users.settings jsonb` — no separate table for three fields (KISS). Name/email/password/Google live on the user row and the fastapi-users flows.
+- **Session transport:** the same HttpOnly, Secure-in-production, SameSite=Lax
+  cookie carries an opaque token. FastAPI Users' database strategy uses
+  `api/auth_sessions.py` and stores only a SHA-256 digest in
+  `counselle.auth_sessions`. The 30-day lifetime retains the existing
+  `jwt_lifetime_seconds` setting name. Old JWT cookies stop authenticating.
+- **Revocation:** logout deletes one session; logout-all and credential changes
+  revoke all sessions. Password replacement and email confirmation commit with
+  revocation. Chat send/reattach and workspace streams recheck access every five
+  seconds, even while idle. Revocation closes the subscription without cancelling
+  detached work; account deletion has its own cancellation/cleanup path.
+- **User lifecycle:** FastAPI Users still owns password hashing and the public
+  registration/login/reset/verification route shapes. `api/auth_lifecycle.py`,
+  `api/routes/auth_account.py` and `api/routes/auth_reauthenticate.py` add atomic
+  reset, staged email and recent-auth behavior. Generic `/v1/auth/me` credential
+  mutation/deletion routes are unmounted. `/v1/me` remains the profile/settings
+  and account-deletion surface. Migration `0023_auth_credential_revision` adds a
+  monotonically increasing credential revision to users. Password replacement
+  and confirmed email changes advance it; reset tokens and in-flight session
+  issuance check it. Changing email A → B → A cannot revive an old reset link.
+- **Verification and recent authentication:** unverified users can log in and
+  manage their account, but model-execution entrypoints require verified email.
+  Sensitive actions require proof within `auth_recent_seconds` (ten minutes).
+  Password confirmation, Google's verified recent `auth_time`, or a one-use
+  verified-email link bound to the current browser session supplies that proof.
+  Google-only recovery sends sign-in guidance; adding a password is explicit.
+- **Google:** `api/auth_google*.py` validates Google OIDC identity and uses `sub`
+  for ownership. Email matches never automatically connect accounts. Linking
+  requires a verified existing account and recent authentication; verification
+  is rechecked inside the association transaction. Google-hosted email
+  can establish verification; third-party Google addresses still verify through
+  Acceptra. Provider tokens are not retained. All three OAuth modes use distinct
+  purpose-bound state; association and reauthentication also bind the session.
+- **Email:** `adapters/email.py` supports Resend plus development console output;
+  templates live in `config/assets/email/`. Links use `auth_public_url`. Public
+  recovery acknowledgements remain generic; delivery errors are logged without
+  secrets and do not reverse committed account changes.
+- **Browser contract:** `/v1/config/public.auth` advertises enabled entry points
+  and password policy; `/v1/me` adds `is_verified`, `pending_email` and
+  `reauthentication_required`. Frontend routes cover `/login`, `/register`,
+  `/forgot-password`, `/reset-password`, `/verify-email`, `/confirm-email`,
+  `/reauthenticate`, `/auth/callback` and `/account`. OAuth preserves a validated
+  local destination in `next`. The shared HTTP transport includes the displayed
+  user's ID in `X-Expected-User-Id` on private reads and writes, preserving any
+  explicitly captured ID. `GET /me` identity discovery and public auth/config
+  requests omit the implicit header. The central `current_active_user` and
+  `current_superuser` dependencies reject a different cookie owner with
+  `409 ACCOUNT_CHANGED` before route work. Older API clients may omit the header;
+  it does not replace authentication or resource ownership checks. Workspace
+  EventSource connections use `expected_user_id` in the URL because native
+  EventSource cannot set the header; reconnects retain that initiating owner.
+- **Browser account isolation:** owner changes synchronously discard private
+  query data and remount protected route state; only public catalog/config
+  queries survive. Cache clearing advances a mutation generation. Private
+  mutations capture both owner and generation so late responses, rollbacks and
+  callbacks cannot repopulate another account's cache, even after A → B → A.
+  The same checks cover queued workspace updates, essay autosave/keepalive
+  callbacks and SAT callbacks.
+- **Request protection:** auth mutations retain origin validation and per-IP
+  rate limits; email delivery adds five sends per mailbox per 15 minutes (both
+  limits are process-local). Login is the named form-encoded exception to
+  JSON-only writes.
+  Existing `owned_session` checks continue returning 404 for unknown/foreign
+  chats. All auth data uses `COUNSELLE_DB_APP_DSN`, never the facts-store pools.
+
+Deployment settings, callback URLs and remaining live checks are in
+[DEPLOY.md](DEPLOY.md). See ADR 0045 for trust boundaries and the active plan for
+acceptance details.
 
 ---
 

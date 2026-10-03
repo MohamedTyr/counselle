@@ -1,3 +1,5 @@
+import { accountBoundEventUrl } from "@/api/http/account-binding";
+
 export type WorkspaceEventSource = Pick<
   EventSource,
   "addEventListener" | "close" | "removeEventListener"
@@ -12,5 +14,5 @@ export type WorkspaceEventSourceFactory = (
 export function createWorkspaceEventSource(
   url = "/v1/workspace/events",
 ): WorkspaceEventSource {
-  return new EventSource(url, { withCredentials: true });
+  return new EventSource(accountBoundEventUrl(url), { withCredentials: true });
 }

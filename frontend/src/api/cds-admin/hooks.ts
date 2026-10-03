@@ -1,9 +1,5 @@
-import {
-  useMutation,
-  useQuery,
-  useQueryClient,
-  type Query,
-} from "@tanstack/react-query";
+import { usePrivateMutation } from "@/app/private-mutations";
+import { useQuery, useQueryClient, type Query } from "@tanstack/react-query";
 
 import { getCoverage, searchSchools } from "@/api/cds-admin/coverage";
 import {
@@ -92,7 +88,7 @@ export function useUploadBatch(batchId: string | undefined) {
 }
 
 export function useCreateUpload() {
-  return useMutation({
+  return usePrivateMutation({
     mutationFn: createUpload,
     // [F-01] Row-scoped: the failure already renders inline in the row via
     // `markEntryFailed` (DESIGN.md law 3). Silence the toast but keep the
@@ -110,7 +106,7 @@ export function useCreateUpload() {
 }
 
 export function usePatchUploadRow() {
-  return useMutation({
+  return usePrivateMutation({
     mutationFn: (input: { fileId: string; body: UploadPatchBody }) =>
       patchUploadRow(input),
     onError: (error, _input, _snapshot, context) => {
@@ -126,7 +122,7 @@ export function usePatchUploadRow() {
 }
 
 export function useDeleteUploadRow() {
-  return useMutation({
+  return usePrivateMutation({
     mutationFn: (input: { fileId: string; batchId: string }) =>
       deleteUploadRow(input.fileId),
     onError: (error, _input, _snapshot, context) => {
@@ -148,13 +144,16 @@ export function useDeleteUploadRow() {
  * both live on the `QueryClient`, independent of any one component. */
 export function useProcessBatch() {
   const queryClient = useQueryClient();
-  return useMutation({
+  return usePrivateMutation({
     mutationFn: (batchId: string) => processBatch(batchId),
     onError: (error, _batchId, _snapshot, context) => {
       handleCdsError(error, context);
     },
     onSuccess: (data, batchId) => {
-      queryClient.setQueryData(cdsAdminKeys.batch.queueFailures(batchId), data.skipped);
+      queryClient.setQueryData(
+        cdsAdminKeys.batch.queueFailures(batchId),
+        data.skipped,
+      );
     },
     onSettled: (_data, _error, batchId, _snapshot, context) => {
       void context.client.invalidateQueries({
@@ -187,7 +186,8 @@ function jobsHaveNonTerminal(
  * `batchId: ""` or `ids: []` query never fires (mirrors the route's own
  * 422 on "batch_id or ids is required"). */
 export function useJobs(query: JobsQuery) {
-  const enabled = "batchId" in query ? Boolean(query.batchId) : query.ids.length > 0;
+  const enabled =
+    "batchId" in query ? Boolean(query.batchId) : query.ids.length > 0;
   return useQuery({
     queryKey:
       "batchId" in query
@@ -208,7 +208,9 @@ function reviewIsExtracting(
   query: Query<DocumentReviewOut, unknown, DocumentReviewOut>,
 ): number | false {
   const status = query.state.data?.extraction?.status;
-  return status && isNonTerminalExtractionStatus(status) ? REVIEW_POLL_MS : false;
+  return status && isNonTerminalExtractionStatus(status)
+    ? REVIEW_POLL_MS
+    : false;
 }
 
 export function useDocumentReview(documentId: number) {
@@ -226,7 +228,7 @@ export function useDocumentReview(documentId: number) {
  * invalidation: a pending edit doesn't change the document's `CdsStatus`. */
 export function usePatchMetrics() {
   const queryClient = useQueryClient();
-  return useMutation({
+  return usePrivateMutation({
     mutationFn: (input: { documentId: number; body: MetricEditsBody }) =>
       patchMetrics(input),
     onError: (error, _input, _snapshot, context) => {
@@ -263,7 +265,7 @@ export function usePatchMetrics() {
  * the thrown `TransportError` via `.kind`/`.status`/`.message` for the
  * screen to branch on beyond the toast. */
 export function useApproveDocument() {
-  return useMutation({
+  return usePrivateMutation({
     mutationFn: (input: { documentId: number; body: ApproveBody }) =>
       approveDocument(input),
     onError: (error, _input, _snapshot, context) => {
@@ -284,7 +286,7 @@ export function useApproveDocument() {
 }
 
 export function useRejectDocument() {
-  return useMutation({
+  return usePrivateMutation({
     mutationFn: (input: { documentId: number; body: RejectBody }) =>
       rejectDocument(input),
     onError: (error, _input, _snapshot, context) => {
@@ -302,7 +304,7 @@ export function useRejectDocument() {
 }
 
 export function useRerunExtraction() {
-  return useMutation({
+  return usePrivateMutation({
     mutationFn: (input: { documentId: number; body: RerunBody }) =>
       rerunExtraction(input),
     onError: (error, _input, _snapshot, context) => {

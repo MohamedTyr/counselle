@@ -55,6 +55,33 @@ workspace, feedback, and checkpointer); it has zero grants on `cds_library` and 
 never be used to bridge to it. Never substitute one DSN for another, or import
 facts-store adapter code to bridge them.
 
+### Application authentication state
+
+Migration `0022_auth_launch` adds `counselle.auth_sessions` and
+`counselle.auth_action_tokens` through the application DSN. Login sessions store
+only a token digest, user ID, creation/expiry and recent-authentication time;
+they are separate from conversation rows in `counselle.sessions`. Action tokens
+store a digest, purpose, target email and expiry; email reauthentication also
+binds the initiating login session. Both tables cascade on user deletion.
+Credential updates and session revocation share a transaction. These are
+application tables and add no facts-store grants. See
+[ADR 0045](adr/0045-auth-launch-lifecycle.md) for the lifecycle and trust rules.
+
+Migration `0023_auth_credential_revision` adds the internal, nonnegative bigint
+`counselle.users.credential_revision`, initially zero. Password replacement and
+confirmed email changes increment it atomically with session revocation. Reset
+tokens and session issuance compare the revision they observed, preventing an
+old reset link or in-flight login from becoming valid again after email A → B → A.
+Both `0022_auth_launch` and `0023_auth_credential_revision` are applied locally;
+production migration remains pending.
+
+Before private reads or writes reach these stores, the shared authentication
+dependencies check an optional `X-Expected-User-Id` against the cookie owner.
+The browser supplies its displayed account; a mismatch returns
+`409 ACCOUNT_CHANGED`. Workspace EventSource uses `expected_user_id` in its URL
+for the same check. This adds no database column or grant and does not replace
+per-resource ownership checks; see the browser contract in Architecture §28.
+
 ### The Explore card's admit-rate band
 
 Explore's card category is a code-owned planning band, not an individual admission

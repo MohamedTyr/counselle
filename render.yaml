@@ -20,7 +20,27 @@ services:
       - key: COUNSELLE_AUTH_SELF_SIGNUP_ENABLED
         value: "true"
       - key: COUNSELLE_PASSWORD_RESET_ENABLED
-        value: "false"
+        value: "true"
+      # Exact HTTPS app origin; do not use a localhost development URL.
+      - key: COUNSELLE_AUTH_PUBLIC_URL
+        sync: false
+      - key: COUNSELLE_EMAIL_PROVIDER
+        value: resend
+      - key: COUNSELLE_EMAIL_FROM
+        value: "Acceptra <accounts@mail.acceptra.ai>"
+      - key: COUNSELLE_EMAIL_REPLY_TO
+        value: support@acceptra.ai
+      - key: COUNSELLE_SUPPORT_EMAIL
+        value: support@acceptra.ai
+      - key: COUNSELLE_RESEND_API_KEY
+        sync: false
+      - key: COUNSELLE_OAUTH_STATE_SECRET
+        generateValue: true
+      # Optional Google login: configure both fields together.
+      - key: COUNSELLE_GOOGLE_OAUTH_CLIENT_ID
+        sync: false
+      - key: COUNSELLE_GOOGLE_OAUTH_CLIENT_SECRET
+        sync: false
       - key: COUNSELLE_CHECKPOINTER
         value: postgres
       - key: COUNSELLE_SERVE_SPA
@@ -29,6 +49,14 @@ services:
         value: /app/frontend/dist
       - key: COUNSELLE_API_HOST
         value: 0.0.0.0
+      # Operator-supplied platform proxy IPs/CIDRs; never wildcard trust.
+      - key: COUNSELLE_TRUSTED_PROXY_CIDR
+        sync: false
+      # Required at boot even with the workers off. Use your real contact URL.
+      - key: COUNSELLE_FACTS_CRAWL_USER_AGENT
+        sync: false
+      - key: COUNSELLE_SAT_FETCH_USER_AGENT
+        sync: false
       - key: COUNSELLE_DB_POOL_MIN
         value: "1"
       - key: COUNSELLE_DB_POOL_MAX
@@ -47,8 +75,7 @@ services:
       # the cds_library reader seed on a freshly created database.
       - key: COUNSELLE_DB_ADMIN_DSN
         sync: false
-      # The CDS admin write path's DSN (cds_library_app role, ADR 0036). Optional:
-      # leave unset to run without the CDS admin surface and in-process worker.
+      # Required by the facts-store crosswalk sync at boot (cds_library_app role).
       - key: COUNSELLE_DB_PIPELINE_DSN
         sync: false
       # Every live model call goes to Fireworks (ADR 0043); boot fails without it

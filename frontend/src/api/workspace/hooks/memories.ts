@@ -1,4 +1,5 @@
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { usePrivateMutation } from "@/app/private-mutations";
+import { useQuery } from "@tanstack/react-query";
 
 import { handleMutationError } from "@/api/workspace/hook-utils";
 import { archiveMemory, listMemories } from "@/api/workspace/memories";
@@ -12,7 +13,7 @@ export function useMemories() {
 }
 
 export function useArchiveMemory() {
-  return useMutation({
+  return usePrivateMutation({
     mutationFn: archiveMemory,
     onError: (error, _id, _snapshot, context) => {
       handleMutationError(error, context);

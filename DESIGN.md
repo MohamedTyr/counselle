@@ -642,19 +642,22 @@ justified-by-content literal as the four above, not a fourth vocabulary tier.
 ```
 main.tsx → App → AppProviders (QueryClient, TooltipProvider, Toaster)
   RouterProvider
+    Public auth flows    → recovery, verification, email confirmation, OAuth callback
     GuestOnly            → /login, /register
     RequireAuth
-      OnboardingGate
-        WorkspaceShell    ← /app
-          SidebarProvider  (--sidebar-width from useResizableSidebar)
-            div.relative.flex.h-dvh.w-full
-              AppSidebar            → <Sidebar collapsible="icon">
-              SidebarResizer        (desktop only)
-              SidebarInset          → <main>, flex column, overflow-hidden
-                header.h-14.md:hidden   ← mobile-only top bar
-                WorkspaceOutlet
-                  motion.div.absolute.inset-0   ← route transition
-                    <route element>
+      /account           ← available before verification and onboarding
+      RequireVerified
+        OnboardingGate
+          WorkspaceShell    ← /app
+            SidebarProvider  (--sidebar-width from useResizableSidebar)
+              div.relative.flex.h-dvh.w-full
+                AppSidebar            → <Sidebar collapsible="icon">
+                SidebarResizer        (desktop only)
+                SidebarInset          → <main>, flex column, overflow-hidden
+                  header.h-14.md:hidden   ← mobile-only top bar
+                  WorkspaceOutlet
+                    motion.div.absolute.inset-0   ← route transition
+                      <route element>
 ```
 
 `h-dvh` pins the shell to the dynamic viewport. **The shell never scrolls.** Every page
@@ -806,7 +809,12 @@ under it, so the tools stay attached to the thing they edit.
 | Path | Renders | Gate |
 |---|---|---|
 | `/login`, `/register` | auth routes | `GuestOnly` |
-| `/app` → `/app/ai` | redirect | auth + onboarding |
+| `/forgot-password`, `/reset-password` | request a reset; choose a new password | public |
+| `/verify-email`, `/confirm-email` | verify signup email; confirm a pending address change | public |
+| `/reauthenticate` | confirm the emailed identity challenge | public page; confirmation requires the initiating signed-in session |
+| `/auth/callback` | complete Google login/linking/reauthentication and preserve the local destination | public |
+| `/account` | profile, sign-in methods, email/password changes, sign-out and deletion | auth; before verification and onboarding |
+| `/app` → `/app/ai` | redirect | auth + verified email + onboarding |
 | `/app/ai` | composer landing | ” |
 | `/app/ai/:sessionId` | chat | ” |
 | `/app/tasks` | task board / table | ” |
@@ -816,9 +824,18 @@ under it, so the tools stay attached to the thing they edit.
 | `/app/profile` | profile | ” |
 | `/app/calendar` | calendar — month, week, schedule views with task, due, school, and all-schools deadline items | “ |
 | `/app/sat` | SAT practice dashboard (inside the shell) | “ |
-| `/app/sat/practice/:questionId?` | SAT practice screen — **full-viewport, outside the shell**: no sidebar, no `PageContainer`, but framed by `SatPracticeFrame` (the shell's `BeamsBackground`, quiet, behind raised sheets). The optional id segment supports a deep link into one question; the launched filter otherwise lives in the URL's query string, not the path | auth + onboarding (a sibling of `/app`, not a `WorkspaceShell` child) |
-| `/onboarding` | wizard (outside the shell) | auth |
+| `/app/sat/practice/:questionId?` | SAT practice screen — **full-viewport, outside the shell**: no sidebar, no `PageContainer`, but framed by `SatPracticeFrame` (the shell's `BeamsBackground`, quiet, behind raised sheets). The optional id segment supports a deep link into one question; the launched filter otherwise lives in the URL's query string, not the path | auth + verified email + onboarding (a sibling of `/app`, not a `WorkspaceShell` child) |
+| `/onboarding` | wizard (outside the shell) | auth + verified email |
 | `/dev/*` | galleries | dev builds only |
+
+Auth pages share the Acceptra `AuthLayout` and existing form controls. Public
+recovery/verification routes sit outside `GuestOnly` so an email link still works
+when a student is already signed in. `/account` stays reachable before
+verification so a mistyped address can be corrected. Expired or used links offer
+a new request; identity confirmation explains its same-browser requirement.
+Sensitive actions require confirmation in the account surface, and account
+deletion has a separate explicit confirmation. Return destinations use `next`
+and must remain local paths.
 
 ### 9.5 Route transitions
 

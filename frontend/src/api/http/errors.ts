@@ -1,4 +1,8 @@
+export const ACCOUNT_CHANGED_MESSAGE =
+  "Your signed-in account changed in another tab. Review the account details before trying again.";
+
 export type TransportErrorKind =
+  | "account_changed"
   | "unauthorized"
   | "conflict"
   | "rate_limited"
@@ -50,9 +54,18 @@ function parseRetryAfter(header: string | null): number | undefined {
  * shape on `/auth/*`, a network layer with no body, or anything
  * unparseable), so every existing per-status default below still applies
  * unchanged when there's nothing more specific to say. */
-async function envelopeMessage(response: Response): Promise<string | undefined> {
+async function envelopeMessage(
+  response: Response,
+): Promise<string | undefined> {
   try {
     const body: unknown = await response.json();
+    if (
+      body &&
+      typeof body === "object" &&
+      "detail" in body &&
+      body.detail === "ACCOUNT_CHANGED"
+    )
+      return ACCOUNT_CHANGED_MESSAGE;
     const message = (body as { error?: { message?: unknown } } | null)?.error
       ?.message;
     return typeof message === "string" && message.trim() ? message : undefined;
@@ -67,13 +80,17 @@ export async function errorFromResponse(
   const status = response.status;
   const detail = await envelopeMessage(response);
   if (status === 401) {
-    return new TransportError("unauthorized", detail ?? "You are not signed in.", {
-      status,
-    });
+    return new TransportError(
+      "unauthorized",
+      detail ?? "You are not signed in.",
+      {
+        status,
+      },
+    );
   }
   if (status === 409) {
     return new TransportError(
-      "conflict",
+      detail === ACCOUNT_CHANGED_MESSAGE ? "account_changed" : "conflict",
       detail ?? "A request is already in progress.",
       { status },
     );
@@ -89,11 +106,19 @@ export async function errorFromResponse(
     );
   }
   if (status === 422) {
-    return new TransportError("invalid_edit", detail ?? "That request is invalid.", {
-      status,
-    });
+    return new TransportError(
+      "invalid_edit",
+      detail ?? "That request is invalid.",
+      {
+        status,
+      },
+    );
   }
-  return new TransportError("server", detail ?? `The server returned ${status}.`, {
-    status,
-  });
+  return new TransportError(
+    "server",
+    detail ?? `The server returned ${status}.`,
+    {
+      status,
+    },
+  );
 }

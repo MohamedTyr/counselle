@@ -11,7 +11,13 @@ const posthog = vi.hoisted(() => ({
 vi.mock("posthog-js", () => ({ default: posthog }));
 
 function onHost(hostname: string) {
-  vi.stubGlobal("location", { ...window.location, hostname, search: "" });
+  vi.stubGlobal("location", {
+    ...window.location,
+    hostname,
+    pathname: "/",
+    search: "",
+    hash: "",
+  });
 }
 
 async function loadAnalytics() {
@@ -93,4 +99,55 @@ it("reports a failed signup with its status", async () => {
       status: 503,
     }),
   );
+});
+
+it.each([
+  "/login",
+  "/register",
+  "/forgot-password",
+  "/reset-password",
+  "/verify-email",
+  "/confirm-email",
+  "/reauthenticate",
+  "/auth/callback",
+  "/account",
+  "/app/ai",
+])(
+  "never starts when the landing fallback is served at %s",
+  async (pathname) => {
+    onHost("acceptra.ai");
+    vi.stubGlobal("location", { ...location, pathname });
+    await loadAnalytics();
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(posthog.init).not.toHaveBeenCalled();
+  },
+);
+
+it.each([
+  "?token=secret",
+  "?code=oauth-secret",
+  "?access_token=secret",
+  "?TOKEN=secret",
+])(
+  "never records authentication parameters at the landing root: %s",
+  async (search) => {
+    onHost("acceptra.ai");
+    vi.stubGlobal("location", { ...location, search });
+    await loadAnalytics();
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(posthog.init).not.toHaveBeenCalled();
+  },
+);
+
+it("rechecks the URL after the deferred SDK download", async () => {
+  onHost("acceptra.ai");
+  const analytics = await import("./analytics");
+  analytics.initAnalytics();
+  vi.stubGlobal("location", {
+    ...location,
+    pathname: "/reset-password",
+    search: "?token=secret",
+  });
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  expect(posthog.init).not.toHaveBeenCalled();
 });

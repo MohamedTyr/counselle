@@ -1,4 +1,5 @@
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { usePrivateMutation } from "@/app/private-mutations";
+import { useQuery } from "@tanstack/react-query";
 
 import { handleMutationError } from "@/api/workspace/hook-utils";
 import { workspaceKeys } from "@/api/workspace/keys";
@@ -17,7 +18,7 @@ export function useProfile() {
  * server (decimals, exclude_none). Invalidate-on-success is the honest
  * behavior here — see AGENTS.md lazy-but-clean guidance. */
 export function useUpdateProfile() {
-  return useMutation({
+  return usePrivateMutation({
     mutationFn: (patch: ProfilePatch) => updateProfile(patch),
     onError: (error, _patch, _snapshot, context) => {
       handleMutationError(error, context);

@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
+import { useAuthUser } from "@/app/auth";
+import { useComposerDraft } from "./useComposerDraft";
 import { useMessageFeedback } from "@/api/chat/hooks";
 import { useChatConfig } from "@/api/chat/config";
 import {
@@ -109,7 +111,11 @@ export function AiChatPage({
   );
   const consumeInitialTurn = onInitialTurnConsumed ?? onInitialPromptConsumed;
   const initialResponseMode = effectiveInitialTurn?.responseMode;
-  const [composerValue, setComposerValue] = useState("");
+  const authUser = useAuthUser();
+  const [composerValue, setComposerValue] = useComposerDraft(
+    authUser?.id,
+    sessionId,
+  );
   const [selectedModeSkill, setSelectedModeSkill] = useState<string | null>(
     null,
   );
@@ -311,6 +317,7 @@ export function AiChatPage({
       normalizedSelectedResponseMode,
       selectedMode?.skillName,
       selectedTaskSkills,
+      setComposerValue,
       submitMessage,
     ],
   );

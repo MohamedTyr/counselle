@@ -1,0 +1,33 @@
+verify_email:
+  title: Verify your email
+  body: Confirm this email address to start using Acceptra.
+  action: Verify email
+  note: If you did not create an Acceptra account, you can ignore this email.
+reset_password:
+  title: Reset your password
+  body: Use this link to choose a new password for your Acceptra account.
+  action: Reset password
+  note: If you did not request this, you can ignore this email. Your password has not changed.
+google_signin_help:
+  title: Sign in with Google
+  body: Your Acceptra account uses Google to sign in. Choose Continue with Google on the sign-in page.
+  action: Open Acceptra
+  note: If you did not request sign-in help, you can ignore this email.
+email_change:
+  title: Confirm your new email
+  body: Confirm this address to use it for your Acceptra account.
+  action: Confirm email
+  note: If you did not request this change, you can ignore this email. Your account email has not changed.
+password_changed:
+  title: Your password was updated
+  body: A password was added or changed for your Acceptra account.
+  note: If you did not make this change, contact support immediately.
+email_changed:
+  title: Your account email was changed
+  body: The email address on your Acceptra account has been changed.
+  note: If you did not make this change, contact support immediately.
+reauthenticate:
+  title: Confirm it's you
+  body: Confirm that it is you before changing your Acceptra account settings. Open this link in the browser where you requested the change.
+  action: Confirm it's me
+  note: If you did not request this, ignore this email and contact support.

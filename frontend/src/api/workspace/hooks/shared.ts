@@ -1,5 +1,6 @@
+import { usePrivateMutation } from "@/app/private-mutations";
 import { useRef } from "react";
-import { useMutation, type QueryClient } from "@tanstack/react-query";
+import type { QueryClient } from "@tanstack/react-query";
 
 import { workspaceKeys } from "@/api/workspace/keys";
 import {
@@ -19,6 +20,7 @@ type UpdateSnapshot<T> = Snapshot<T> & { mutationId: number };
 type MutationStatus = "pending" | "success" | "error";
 type QueuedUpdate<TPatch, TItem> = {
   patch: TPatch;
+  assertCurrent: () => void;
   reject: (error: unknown) => void;
   resolve: (item: TItem) => void;
 };
@@ -54,10 +56,11 @@ export function useCreateInList<TItem extends { id: string }, TInput>(
   makeTemp: (input: TInput, current: TItem[] | undefined) => TItem,
   alsoInvalidate: readonly (readonly unknown[])[] = [],
 ) {
-  return useMutation({
+  return usePrivateMutation({
     mutationFn: createFn,
     onMutate: async (input, context): Promise<TempSnapshot<TItem[]>> => {
       await context.client.cancelQueries({ queryKey });
+      context.assertCurrent();
       const previous = context.client.getQueryData<TItem[]>(queryKey);
       const optimistic = makeTemp(input, previous);
       context.client.setQueryData<TItem[]>(queryKey, (current) =>
@@ -88,7 +91,11 @@ export function useUpdateInList<
   TPatch,
 >(
   queryKey: readonly unknown[],
-  updateFn: (id: string, patch: TPatch) => Promise<TItem>,
+  updateFn: (
+    id: string,
+    patch: TPatch,
+    assertCurrent: () => void,
+  ) => Promise<TItem>,
 ) {
   const latestByIdRef = useRef(
     new Map<string, { mutationId: number; status: MutationStatus }>(),
@@ -112,14 +119,15 @@ export function useUpdateInList<
     );
   }
 
-  return useMutation({
-    mutationFn: ({ id, patch }: { id: string; patch: TPatch }) =>
-      updateFn(id, patch),
+  return usePrivateMutation({
+    mutationFn: ({ id, patch }: { id: string; patch: TPatch }, context) =>
+      updateFn(id, patch, context.assertCurrent),
     onMutate: async (
       { id, patch },
       context,
     ): Promise<UpdateSnapshot<TItem[]>> => {
       await context.client.cancelQueries({ queryKey });
+      context.assertCurrent();
       const previous = context.client.getQueryData<TItem[]>(queryKey);
       const mutationId = nextMutationIdRef.current + 1;
       nextMutationIdRef.current = mutationId;
@@ -188,6 +196,12 @@ export function useQueuedUpdateInList<
     }
 
     queuedByIdRef.current.delete(id);
+    try {
+      queued.assertCurrent();
+    } catch (error) {
+      queued.reject(error);
+      return;
+    }
     const request = updateFn(id, queued.patch);
     const active = request.then(queued.resolve, queued.reject).finally(() => {
       activeByIdRef.current.delete(id);
@@ -199,7 +213,7 @@ export function useQueuedUpdateInList<
     );
   }
 
-  function enqueue(id: string, patch: TPatch) {
+  function enqueue(id: string, patch: TPatch, assertCurrent: () => void) {
     if (!activeByIdRef.current.has(id)) {
       const request = updateFn(id, patch);
       const active = request.finally(() => {
@@ -218,6 +232,20 @@ export function useQueuedUpdateInList<
 
     const existing = queuedByIdRef.current.get(id);
     if (existing) {
+      try {
+        existing.assertCurrent();
+      } catch (error) {
+        queuedByIdRef.current.delete(id);
+        existing.reject(error);
+        return new Promise<TItem>((resolve, reject) => {
+          queuedByIdRef.current.set(id, {
+            patch,
+            assertCurrent,
+            reject,
+            resolve,
+          });
+        });
+      }
       existing.patch = { ...existing.patch, ...patch };
       return new Promise<TItem>((resolve, reject) => {
         const previousResolve = existing.resolve;
@@ -234,7 +262,7 @@ export function useQueuedUpdateInList<
     }
 
     return new Promise<TItem>((resolve, reject) => {
-      queuedByIdRef.current.set(id, { patch, reject, resolve });
+      queuedByIdRef.current.set(id, { patch, assertCurrent, reject, resolve });
     });
   }
 
@@ -246,10 +274,11 @@ export function useArchiveFromList<TItem extends { id: string }>(
   archiveFn: (id: string) => Promise<unknown>,
   alsoInvalidate: readonly (readonly unknown[])[] = [],
 ) {
-  return useMutation({
+  return usePrivateMutation({
     mutationFn: archiveFn,
     onMutate: async (id, context): Promise<Snapshot<TItem[]>> => {
       await context.client.cancelQueries({ queryKey });
+      context.assertCurrent();
       const previous = context.client.getQueryData<TItem[]>(queryKey);
       context.client.setQueryData<TItem[]>(queryKey, (current) =>
         removeById(current, id),
@@ -278,7 +307,7 @@ export function useRestoreToList<TItem extends { id: string }>(
     item: TItem,
   ) => TItem[] = insertAtStart,
 ) {
-  return useMutation({
+  return usePrivateMutation({
     mutationFn: restoreFn,
     onSuccess: (item, _id, _snapshot, context) => {
       context.client.setQueryData<TItem[]>(queryKey, (current) =>
@@ -301,10 +330,11 @@ export function useReorderList<TItem extends { id: string }>(
   queryKey: readonly unknown[],
   reorderFn: (ids: string[]) => Promise<TItem[]>,
 ) {
-  return useMutation({
+  return usePrivateMutation({
     mutationFn: reorderFn,
     onMutate: async (ids, context): Promise<Snapshot<TItem[]>> => {
       await context.client.cancelQueries({ queryKey });
+      context.assertCurrent();
       const previous = context.client.getQueryData<TItem[]>(queryKey);
       const order = new Map(ids.map((id, index) => [id, index]));
       context.client.setQueryData<TItem[]>(queryKey, (current) =>

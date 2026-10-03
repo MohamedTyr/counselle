@@ -61,3 +61,94 @@ def test_setup_logging_is_idempotent_without_force(
     structlog.get_logger().info("still filtered")
 
     assert capsys.readouterr().err == ""
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/v1/auth/google/callback?code=provider-code&state=signed-state&next=%2Fapp",
+        "/reset-password?token=password-reset-secret&next=%2Faccount",
+        "/verify-email?token=email-verification-secret",
+        "/reauthenticate?token=account-control-secret",
+    ],
+)
+def test_native_uvicorn_access_logs_redact_auth_secrets_and_keep_request_details(path):
+    import io
+    import logging
+
+    from uvicorn.logging import AccessFormatter
+
+    setup_logging("INFO", force=True)
+    output = io.StringIO()
+    handler = logging.StreamHandler(output)
+    handler.setFormatter(AccessFormatter('%(client_addr)s "%(request_line)s" %(status_code)s'))
+    access_logger = logging.getLogger("uvicorn.access")
+    previous = (access_logger.handlers, access_logger.level, access_logger.propagate)
+    access_logger.handlers = [handler]
+    access_logger.setLevel(logging.INFO)
+    access_logger.propagate = False
+    try:
+        access_logger.info('%s - "%s %s HTTP/%s" %d', "127.0.0.1:1000", "GET", path, "1.1", 302)
+    finally:
+        access_logger.handlers, access_logger.level, access_logger.propagate = previous
+    rendered = output.getvalue()
+    assert path.split("?")[0] in rendered
+    assert "GET" in rendered and "302" in rendered
+    assert "[REDACTED]" in rendered
+    for secret in (
+        "provider-code",
+        "signed-state",
+        "password-reset-secret",
+        "email-verification-secret",
+        "account-control-secret",
+    ):
+        assert secret not in rendered
+    if "next=" in path:
+        assert "next=" in rendered
+
+
+def test_access_log_redaction_handles_duplicate_and_encoded_keys_without_mutating_record():
+    import logging
+
+    from config.logging import _AuthQueryFilter
+
+    target = "/auth?%74oken=first&TOKEN=second&%73tate=third&page=2&token=&flag"
+    original = logging.LogRecord(
+        "uvicorn.access",
+        logging.INFO,
+        "server",
+        1,
+        '%s - "%s %s HTTP/%s" %d',
+        ("client", "GET", target, "1.1", 200),
+        None,
+    )
+    safe = _AuthQueryFilter().filter(original)
+    assert isinstance(safe, logging.LogRecord)
+    assert (
+        safe.args[2]
+        == "/auth?%74oken=[REDACTED]&TOKEN=[REDACTED]&%73tate=[REDACTED]"
+        "&page=2&token=[REDACTED]&flag"
+    )
+    assert original.args[2] == target
+
+
+def test_access_logs_without_auth_secrets_remain_unchanged_and_filter_is_installed_once():
+    import logging
+
+    from config.logging import _AuthQueryFilter
+
+    setup_logging("INFO", force=True)
+    setup_logging("INFO", force=True)
+    filters = logging.getLogger("uvicorn.access").filters
+    assert sum(isinstance(item, _AuthQueryFilter) for item in filters) == 1
+    original = logging.LogRecord(
+        "uvicorn.access",
+        logging.INFO,
+        "server",
+        1,
+        '%s - "%s %s HTTP/%s" %d',
+        ("client", "GET", "/v1/schools?page=2", "1.1", 200),
+        None,
+    )
+    assert _AuthQueryFilter().filter(original) is True
+    assert original.args[2] == "/v1/schools?page=2"
