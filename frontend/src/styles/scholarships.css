@@ -8,7 +8,6 @@
 :root {
   --scholarship-row-hover: var(--surface-hover);
   --scholarship-row-selected: var(--surface-selected);
-  --scholarship-row-selected-edge: var(--edge-strong);
   --scholarship-amount-ink: var(--ink);
   --scholarship-fit-met: var(--success-fg);
   --scholarship-fit-met-surface: var(--success-surface);

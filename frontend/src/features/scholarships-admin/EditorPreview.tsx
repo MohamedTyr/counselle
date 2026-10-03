@@ -3,7 +3,7 @@ import { useState } from "react";
 
 import type { ScholarshipView } from "@/api/scholarships/types";
 import { SegmentedControl } from "@/components/ui/segmented-control";
-import { evaluateCriteria, summarizeFit } from "@/features/scholarships/eligibility";
+import { evaluateCriteria } from "@/features/scholarships/eligibility";
 import { StatusDot } from "@/features/scholarships/FitMark";
 import { ScholarshipDetail } from "@/features/scholarships/ScholarshipDetail";
 import {
@@ -75,7 +75,6 @@ export function EditorPreview({ record }: { record: ScholarshipView }) {
       ) : null}
       <ScholarshipDetail
         criteria={evaluateCriteria(record, facts)}
-        fit={summarizeFit(record, facts)}
         linkProfile={false}
         scholarship={record}
       />

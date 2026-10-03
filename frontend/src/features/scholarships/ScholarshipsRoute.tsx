@@ -22,7 +22,7 @@ import { ErrorCard } from "@/components/ui/error-card";
 import { Sheet, SheetPopup, SheetTitle } from "@/components/ui/sheet";
 import { Tabs, TabsList, TabsTab } from "@/components/ui/tabs";
 import { PageContainer } from "@/components/workspace/PageContainer";
-import { evaluateCriteria, readProfileFacts, summarizeFit } from "@/features/scholarships/eligibility";
+import { evaluateCriteria, readProfileFacts } from "@/features/scholarships/eligibility";
 import { ProfileMatchBar } from "@/features/scholarships/ProfileMatchBar";
 import { ScholarshipDetail, type DetailActions } from "@/features/scholarships/ScholarshipDetail";
 import { FilteredEmpty, NothingPublishedEmpty, SavedEmpty } from "@/features/scholarships/ScholarshipEmpty";
@@ -187,7 +187,6 @@ export function ScholarshipsRoute() {
       actions={actions}
       className="scholarship-detail-enter"
       criteria={evaluateCriteria(selected, facts)}
-      fit={summarizeFit(selected, facts)}
       key={selected.id}
       scholarship={selected}
     />
@@ -292,7 +291,6 @@ export function ScholarshipsRoute() {
                 actions={actions}
                 className="rounded-none border-0 shadow-none"
                 criteria={evaluateCriteria(selected, facts)}
-                fit={summarizeFit(selected, facts)}
                 scholarship={selected}
               />
             ) : null}

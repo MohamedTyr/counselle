@@ -17,6 +17,26 @@ import {
 import { SponsorLogo } from "@/features/scholarships/SponsorLogo";
 import { cn } from "@/lib/utils";
 
+/** One line for narrow rows: the date, or how soon when it's close. */
+function CompactDeadline({ scholarship }: { scholarship: ScholarshipPublic }) {
+  const { deadline } = scholarship;
+  const tone = deadlineTone(deadline);
+  let text = "Rolling";
+  if (tone === "closed") text = "Closed";
+  else if (tone === "soon" && deadline.date) text = `Due ${relativeDays(daysUntil(deadline.date))}`;
+  else if (deadline.date && tone !== "rolling") text = formatShortDate(deadline.date);
+  return (
+    <div
+      className={cn(
+        "text-xs tabular-nums",
+        tone === "soon" ? "font-medium text-[var(--scholarship-soon-ink)]" : "text-[var(--ink-muted)]",
+      )}
+    >
+      {text}
+    </div>
+  );
+}
+
 function DeadlineCell({ scholarship }: { scholarship: ScholarshipPublic }) {
   const { deadline } = scholarship;
   const tone = deadlineTone(deadline);
@@ -80,61 +100,60 @@ export function ScholarshipRow({
       <button
         aria-current={isSelected ? "true" : undefined}
         className={cn(
-          "group relative grid w-full cursor-pointer grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1 rounded-[10px] px-3 py-3 text-left outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] sm:grid-cols-[6.75rem_minmax(0,1fr)_5.5rem_9rem] xl:gap-x-3",
-          isSelected
-            ? "bg-[var(--scholarship-row-selected)] shadow-[inset_0_0_0_1px_var(--scholarship-row-selected-edge)]"
-            : "hover:bg-[var(--scholarship-row-hover)]",
+          "group relative grid w-full cursor-pointer grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-3 rounded-[10px] px-3 py-3 text-left outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] sm:grid-cols-[auto_minmax(0,1fr)_7rem_5.5rem] sm:gap-x-4",
+          isSelected ? "bg-[var(--scholarship-row-selected)]" : "hover:bg-[var(--scholarship-row-hover)]",
         )}
         data-scholarship-id={scholarship.id}
         onClick={onSelect}
         type="button"
       >
-        <div className="col-start-1 row-start-2 flex min-w-0 items-baseline gap-1.5 sm:row-start-1 sm:block">
-          <div className="truncate text-[1.0625rem] leading-6 font-semibold tracking-[-0.01em] tabular-nums text-[var(--scholarship-amount-ink)]">
-            {awardHeadline(scholarship.award)}
-          </div>
-          <div className="truncate text-xs text-[var(--ink-muted)]">
-            {awardCadence(scholarship.award)}
-          </div>
-        </div>
+        <SponsorLogo scholarship={scholarship} />
 
-        <div className="col-start-1 row-start-1 flex min-w-0 items-center gap-3 sm:col-start-2">
-          <SponsorLogo scholarship={scholarship} />
-          <div className="min-w-0">
-            <div className="flex min-w-0 items-center gap-1.5">
-              <span
-                className={cn(
-                  "truncate text-sm font-medium",
-                  muted ? "text-[var(--ink-secondary)]" : "text-[var(--ink)]",
-                )}
-              >
-                {scholarship.name}
-              </span>
-              {isSaved ? (
-                <Star
-                  aria-label="Saved"
-                  className="size-3.5 shrink-0 fill-[var(--ink)] text-[var(--ink)]"
-                />
-              ) : null}
-            </div>
-            <div className="flex min-w-0 items-center gap-1.5 text-xs text-[var(--ink-muted)]">
-              <span className="truncate">{scholarship.sponsor}</span>
-              {hasEssay(scholarship.requirements) ? null : (
-                <>
-                  <span aria-hidden="true">·</span>
-                  <span className="shrink-0">No essay</span>
-                </>
+        <div className="min-w-0">
+          <div className="flex min-w-0 items-center gap-1.5">
+            <span
+              className={cn(
+                "truncate text-sm font-medium",
+                muted ? "text-[var(--ink-secondary)]" : "text-[var(--ink)]",
               )}
-            </div>
+            >
+              {scholarship.name}
+            </span>
+            {isSaved ? (
+              <Star aria-label="Saved" className="size-3.5 shrink-0 fill-[var(--ink)] text-[var(--ink)]" />
+            ) : null}
+            {hasEssay(scholarship.requirements) ? null : (
+              <span className="inline-flex h-5 shrink-0 items-center rounded-full bg-[var(--surface-inset)] px-2 text-[0.6875rem] font-medium whitespace-nowrap text-[var(--ink-secondary)]">
+                No essay
+              </span>
+            )}
+          </div>
+          <div className="flex min-w-0 items-center gap-1.5 text-xs text-[var(--ink-muted)]">
+            <span className="truncate">{scholarship.sponsor}</span>
+            {fit.kind === "check" ? null : (
+              <>
+                <span aria-hidden="true">·</span>
+                <FitMark fit={fit} />
+              </>
+            )}
           </div>
         </div>
 
-        <div className="col-start-2 row-span-2 row-start-1 self-start sm:col-start-3 sm:row-span-1 sm:self-center">
-          <DeadlineCell scholarship={scholarship} />
-        </div>
-
-        <div className="col-span-2 col-start-1 row-start-3 min-w-0 sm:col-span-1 sm:col-start-4 sm:row-start-1">
-          <FitMark fit={fit} />
+        <div className="flex flex-col items-end gap-1 sm:contents">
+          <div className="min-w-0 text-right">
+            <div className="truncate text-[0.9375rem] leading-6 font-semibold tracking-[-0.01em] tabular-nums text-[var(--scholarship-amount-ink)]">
+              {awardHeadline(scholarship.award)}
+            </div>
+            <div className="hidden truncate text-xs text-[var(--ink-muted)] sm:block">
+              {awardCadence(scholarship.award)}
+            </div>
+          </div>
+          <div className="hidden sm:block">
+            <DeadlineCell scholarship={scholarship} />
+          </div>
+          <div className="sm:hidden">
+            <CompactDeadline scholarship={scholarship} />
+          </div>
         </div>
       </button>
     </li>

@@ -11,7 +11,7 @@ import { Link } from "react-router";
 
 import type { ScholarshipView } from "@/api/scholarships/types";
 import { Button } from "@/components/ui/button";
-import type { CriterionResult, Fit } from "@/features/scholarships/eligibility";
+import type { CriterionResult } from "@/features/scholarships/eligibility";
 import { StatusDot } from "@/features/scholarships/FitMark";
 import { SponsorLogo } from "@/features/scholarships/SponsorLogo";
 import {
@@ -53,9 +53,9 @@ function DeadlineLine({ scholarship }: { scholarship: ScholarshipView }) {
   if (deadline.kind === "fixed" && !deadline.date) {
     text = "Deadline not set";
   } else if (tone === "rolling" || !deadline.date) {
-    text = "Rolling deadline — apply anytime";
+    text = "Rolling deadline";
   } else if (tone === "closed") {
-    text = `Closed ${formatLongDate(deadline.date)}${deadline.recurs_annually ? " · usually reopens each year" : ""}`;
+    text = `Closed ${formatLongDate(deadline.date)}${deadline.recurs_annually ? " · reopens yearly" : ""}`;
   } else {
     text = `Due ${formatLongDate(deadline.date)} · ${relativeDays(daysUntil(deadline.date))}`;
   }
@@ -80,20 +80,12 @@ function DeadlineLine({ scholarship }: { scholarship: ScholarshipView }) {
   );
 }
 
-function fitHeadline(fit: Fit): string {
-  if (fit.kind === "fits") return "Your profile meets every rule here";
-  if (fit.kind === "ineligible") return "Your profile doesn't fit this one";
-  return fit.count === 1 ? "1 thing to check before you apply" : `${fit.count} things to check before you apply`;
-}
-
-function Criteria({ criteria, fit, linkProfile }: { criteria: CriterionResult[]; fit: Fit; linkProfile: boolean }) {
+function Criteria({ criteria, linkProfile }: { criteria: CriterionResult[]; linkProfile: boolean }) {
   if (criteria.length === 0) {
-    return <p className="text-sm text-[var(--ink-secondary)]">No eligibility rules listed. Check the sponsor's site for who can apply.</p>;
+    return <p className="text-sm text-[var(--ink-secondary)]">No rules listed. Check the sponsor's site.</p>;
   }
   return (
-    <>
-      <p className="text-sm text-[var(--ink-secondary)]">{fitHeadline(fit)}</p>
-      <ul className="flex flex-col gap-2.5">
+    <ul className="flex flex-col gap-2.5">
         {criteria.map((criterion) => (
           <li className="flex gap-2.5" key={criterion.key}>
             <StatusDot className="mt-px" status={criterion.status} />
@@ -104,8 +96,9 @@ function Criteria({ criteria, fit, linkProfile }: { criteria: CriterionResult[];
                 </span>
                 {criterion.label}
               </div>
-              <div className="text-xs text-[var(--ink-muted)]">
-                {criterion.profileField && linkProfile ? (
+              {criterion.status === "met" ? null : (
+                <div className="text-xs text-[var(--ink-muted)]">
+                  {criterion.profileField && linkProfile ? (
                   <Link
                     className="underline decoration-[var(--edge-strong)] underline-offset-2 hover:text-[var(--ink-secondary)]"
                     to="/app/profile"
@@ -115,12 +108,12 @@ function Criteria({ criteria, fit, linkProfile }: { criteria: CriterionResult[];
                 ) : (
                   criterion.detail
                 )}
-              </div>
+                </div>
+              )}
             </div>
           </li>
         ))}
-      </ul>
-    </>
+    </ul>
   );
 }
 
@@ -135,7 +128,7 @@ function Submissions({ scholarship }: { scholarship: ScholarshipView }) {
   ].filter(Boolean) as string[];
 
   if (requirements.essays.length === 0 && extras.length === 0) {
-    return <p className="text-sm text-[var(--ink-secondary)]">No essay. Just the sponsor's application form.</p>;
+    return <p className="text-sm text-[var(--ink-secondary)]">Application form only</p>;
   }
   return (
     <ul className="flex flex-col gap-2.5 text-sm">
@@ -144,7 +137,7 @@ function Submissions({ scholarship }: { scholarship: ScholarshipView }) {
           <span className="text-[var(--ink)]">
             Essay{requirements.essays.length > 1 ? ` ${index + 1}` : ""}
             <span className="text-[var(--ink-muted)]">
-              {essay.words ? ` · ${essay.words} words` : " · no word limit given"}
+              {essay.words ? ` · ${essay.words} words` : ""}
             </span>
           </span>
           {essay.prompt ? <span className="text-[var(--ink-secondary)]">{essay.prompt}</span> : null}
@@ -162,12 +155,12 @@ function Submissions({ scholarship }: { scholarship: ScholarshipView }) {
 function Facts({ scholarship }: { scholarship: ScholarshipView }) {
   const { award, basis, fields } = scholarship;
   const rows: [string, string][] = [
-    ["Based on", basis.length === 0 ? "Not merit or need — a drawing or open contest" : basis.map((b) => (b === "merit" ? "Merit" : "Financial need")).join(" and ")],
-    ["Awards each cycle", award.awards_count === null ? "Not published" : award.awards_count.toLocaleString("en-US")],
-    ["Field of study", fields.length === 0 ? "Any field" : fields.join(", ")],
+    ["Based on", basis.length === 0 ? "Drawing or contest" : basis.map((b) => (b === "merit" ? "Merit" : "Financial need")).join(" and ")],
+    ...(award.awards_count === null ? [] : [["Awards", award.awards_count.toLocaleString("en-US")] as [string, string]]),
+    ["Field of study", fields.length === 0 ? "Any" : fields.join(", ")],
   ];
   return (
-    <dl className="grid grid-cols-[8.5rem_minmax(0,1fr)] gap-x-3 gap-y-2 text-sm">
+    <dl className="grid grid-cols-[7rem_minmax(0,1fr)] gap-x-3 gap-y-2 text-sm">
       {rows.map(([term, value]) => (
         <div className="contents" key={term}>
           <dt className="text-[var(--ink-muted)]">{term}</dt>
@@ -178,38 +171,15 @@ function Facts({ scholarship }: { scholarship: ScholarshipView }) {
   );
 }
 
-function Freshness({ scholarship }: { scholarship: ScholarshipView }) {
+/** Only an out-of-date record says anything here. */
+function StaleNotice({ scholarship }: { scholarship: ScholarshipView }) {
+  if (!isStale(scholarship)) return null;
   const days = daysSince(scholarship.last_checked_on);
-  const stale = isStale(scholarship);
   return (
-    <footer className="flex flex-col gap-2 border-t border-[var(--hairline)] px-5 py-4 text-xs text-[var(--ink-muted)]">
-      {stale ? (
-        <p className="flex gap-2 rounded-lg bg-[var(--warning-surface)] px-3 py-2 text-[var(--warning-fg)]">
-          <TriangleAlert aria-hidden="true" className="mt-px size-3.5 shrink-0" />
-          <span>
-            {days === null ? "Never checked against the source." : `Last checked ${days} days ago.`} Confirm the
-            amount and deadline on the sponsor's site before you apply.
-          </span>
-        </p>
-      ) : null}
+    <footer className="flex items-start gap-2 rounded-b-[11px] border-t border-[var(--hairline)] bg-[var(--warning-surface)] px-5 py-3.5 text-xs text-[var(--warning-fg)]">
+      <TriangleAlert aria-hidden="true" className="mt-px size-3.5 shrink-0" />
       <p>
-        {scholarship.last_checked_on === null
-          ? "Never checked against the source."
-          : `Checked against the sponsor's site on ${formatLongDate(scholarship.last_checked_on)}.`}
-        {scholarship.source_url ? (
-          <>
-            {" "}
-            <a
-              className="inline-flex items-center gap-0.5 underline decoration-[var(--edge-strong)] underline-offset-2 hover:text-[var(--ink-secondary)]"
-              href={scholarship.source_url}
-              rel="noreferrer"
-              target="_blank"
-            >
-              View source
-              <ArrowUpRight aria-hidden="true" className="size-3" />
-            </a>
-          </>
-        ) : null}
+        {days === null ? "Never checked" : `Last checked ${days} days ago`} — confirm with the sponsor
       </p>
     </footer>
   );
@@ -270,20 +240,22 @@ function ActionRow({ scholarship, actions }: { scholarship: ScholarshipView; act
 export function ScholarshipDetail({
   scholarship,
   criteria,
-  fit,
   actions,
   linkProfile = true,
   className,
 }: {
   scholarship: ScholarshipView;
   criteria: CriterionResult[];
-  fit: Fit;
   /** Omitted in the admin preview, where the buttons would do nothing. */
   actions?: DetailActions;
   linkProfile?: boolean;
   className?: string;
 }) {
   const total = awardTotal(scholarship.award);
+  const cadence = awardCadence(scholarship.award);
+  const awardNote = [cadence === "one-time" ? null : cadence, total].filter(Boolean).join(" · ");
+  const sponsor = scholarship.sponsor.trim();
+  const showSponsor = !sponsor || !scholarship.name.toLowerCase().includes(sponsor.toLowerCase());
   return (
     <article
       aria-label={scholarship.name || "Untitled scholarship"}
@@ -296,7 +268,9 @@ export function ScholarshipDetail({
         <div className="flex items-center gap-3">
           <SponsorLogo scholarship={scholarship} size="lg" />
           <div className="flex min-w-0 flex-col gap-0.5">
-            <p className="truncate text-xs text-[var(--ink-muted)]">{scholarship.sponsor || "Sponsor not set"}</p>
+            {showSponsor ? (
+              <p className="truncate text-xs text-[var(--ink-muted)]">{sponsor || "Sponsor not set"}</p>
+            ) : null}
             <h2 className="text-lg leading-snug font-semibold tracking-[-0.01em] text-balance text-[var(--ink)]">
               {scholarship.name || "Untitled scholarship"}
             </h2>
@@ -306,10 +280,7 @@ export function ScholarshipDetail({
           <span className="text-[1.75rem] leading-none font-semibold tracking-[-0.02em] tabular-nums text-[var(--scholarship-amount-ink)]">
             {awardHeadline(scholarship.award)}
           </span>
-          <span className="text-sm text-[var(--ink-muted)]">
-            {awardCadence(scholarship.award)}
-            {total ? ` · ${total}` : ""}
-          </span>
+          {awardNote ? <span className="text-sm text-[var(--ink-muted)]">{awardNote}</span> : null}
         </div>
         <DeadlineLine scholarship={scholarship} />
         {actions ? <ActionRow actions={actions} scholarship={scholarship} /> : null}
@@ -318,7 +289,7 @@ export function ScholarshipDetail({
         ) : null}
       </header>
       <Section title="Who can apply">
-        <Criteria criteria={criteria} fit={fit} linkProfile={linkProfile} />
+        <Criteria criteria={criteria} linkProfile={linkProfile} />
       </Section>
       <Section title="What you'll submit">
         <Submissions scholarship={scholarship} />
@@ -326,7 +297,7 @@ export function ScholarshipDetail({
       <Section title="About the award">
         <Facts scholarship={scholarship} />
       </Section>
-      <Freshness scholarship={scholarship} />
+      <StaleNotice scholarship={scholarship} />
     </article>
   );
 }

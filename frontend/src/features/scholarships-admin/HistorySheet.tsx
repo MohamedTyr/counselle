@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { ErrorCard } from "@/components/ui/error-card";
 import { Sheet, SheetHeader, SheetPopup, SheetTitle } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
-import { evaluateCriteria, summarizeFit } from "@/features/scholarships/eligibility";
+import { evaluateCriteria } from "@/features/scholarships/eligibility";
 import { ScholarshipDetail } from "@/features/scholarships/ScholarshipDetail";
 import { EMPTY_FACTS, previewRecord } from "@/features/scholarships-admin/editor-draft";
 
@@ -81,7 +81,6 @@ function RevisionPreview({ revision, record }: { revision: RevisionOut; record: 
   return (
     <ScholarshipDetail
       criteria={evaluateCriteria(view, EMPTY_FACTS)}
-      fit={summarizeFit(view, EMPTY_FACTS)}
       linkProfile={false}
       scholarship={view}
     />

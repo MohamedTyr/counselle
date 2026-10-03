@@ -34,7 +34,7 @@ import {
 import { ErrorCard } from "@/components/ui/error-card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PageContainer } from "@/components/workspace/PageContainer";
-import { evaluateCriteria, summarizeFit } from "@/features/scholarships/eligibility";
+import { evaluateCriteria } from "@/features/scholarships/eligibility";
 import { ScholarshipDetail } from "@/features/scholarships/ScholarshipDetail";
 import {
   EMPTY_FACTS,
@@ -403,7 +403,6 @@ function Editor({ record, others, onReload }: EditorProps) {
         <div className="mx-auto w-full max-w-[var(--scholarship-detail-width)] pb-10">
           <ScholarshipDetail
             criteria={evaluateCriteria(view, EMPTY_FACTS)}
-            fit={summarizeFit(view, EMPTY_FACTS)}
             linkProfile={false}
             scholarship={view}
           />

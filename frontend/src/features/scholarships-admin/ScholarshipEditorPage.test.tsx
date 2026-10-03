@@ -258,7 +258,7 @@ describe("ScholarshipEditorPage", () => {
     renderApp(PATH, { fetchHandler: server.handler });
 
     expect(await screen.findByText("Never checked")).toBeInTheDocument();
-    expect(screen.getAllByText(/Never checked against the source/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Never checked — confirm with the sponsor/).length).toBeGreaterThan(0);
     expect(checkRow("fresh")).toHaveAttribute("data-ok", "false");
   });
 

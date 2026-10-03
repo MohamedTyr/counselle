@@ -134,13 +134,14 @@ export function ScholarshipListSkeleton() {
     <div className="flex flex-col gap-1 rounded-xl border border-[var(--edge)] bg-[var(--surface-raised)] p-3 shadow-[var(--elevation-1)]">
       <Skeleton className="mb-2 h-3 w-28" />
       {Array.from({ length: 7 }, (_, index) => (
-        <div className="grid grid-cols-[7.5rem_minmax(0,1fr)_6rem] items-center gap-4 py-2.5" key={index}>
-          <Skeleton className="h-5 w-20" />
+        <div className="grid grid-cols-[auto_minmax(0,1fr)_7rem_5.5rem] items-center gap-4 py-2.5" key={index}>
+          <Skeleton className="size-9 rounded-lg" />
           <div className="flex flex-col gap-1.5">
             <Skeleton className="h-3.5 w-3/5" />
             <Skeleton className="h-3 w-2/5" />
           </div>
-          <Skeleton className="ml-auto h-3.5 w-14" />
+          <Skeleton className="ml-auto h-4 w-16" />
+          <Skeleton className="ml-auto h-3.5 w-12" />
         </div>
       ))}
     </div>

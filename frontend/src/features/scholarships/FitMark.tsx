@@ -37,31 +37,26 @@ export function StatusDot({ status, className }: { status: CriterionStatus; clas
 }
 
 function fitStatus(fit: Fit): CriterionStatus {
-  if (fit.kind === "fits") return "met";
-  return fit.kind === "ineligible" ? "unmet" : "unknown";
+  return fit.kind === "fits" ? "met" : "unmet";
 }
 
-function fitText(fit: Fit): string {
-  if (fit.kind === "fits") return "Fits your profile";
-  if (fit.kind === "ineligible") return fit.reason;
-  return fit.count === 1 ? "1 thing to check" : `${fit.count} things to check`;
-}
-
-/** The compact mark at the end of a list row. */
+/**
+ * The compact mark under a row's name. Only a definite answer earns one: the
+ * open questions are the detail panel's job, not the list's.
+ */
 export function FitMark({ fit }: { fit: Fit }) {
-  const text = fitText(fit);
+  if (fit.kind === "check") return null;
+  const text = fit.kind === "fits" ? "Fits your profile" : fit.reason;
   return (
     <span
       className={cn(
-        "flex min-w-0 items-center gap-1.5 text-xs",
-        fit.kind === "fits" && "font-medium text-[var(--scholarship-fit-met)]",
-        fit.kind === "check" && "text-[var(--ink-secondary)]",
-        fit.kind === "ineligible" && "text-[var(--ink-muted)]",
+        "flex min-w-0 items-center gap-1",
+        fit.kind === "fits" ? "font-medium text-[var(--scholarship-fit-met)]" : "text-[var(--ink-muted)]",
       )}
       title={text}
     >
-      <StatusDot className="size-4 [&_svg]:size-2.5" status={fitStatus(fit)} />
-      <span className="line-clamp-2">{text}</span>
+      <StatusDot className="size-3.5 [&_svg]:size-2" status={fitStatus(fit)} />
+      <span className="truncate">{text}</span>
     </span>
   );
 }
